@@ -105,6 +105,11 @@ EXEMPTIONS = {
     "docs/blogs/continuous_dlm_2026h1_survey.html":
         "hand-authored long-form HTML, intentionally outside the audited /render-html "
         "pipeline (README states this); not a render_html.py product.",
+    "docs/blogs/cosmos3_mot_guide.html":
+        "hand-authored ELF-format popsci guide to the NVIDIA Cosmos 3 technical report; "
+        "cross-model reviewed (5 rounds, Codex GPT-5.5 xhigh) but intentionally outside the "
+        "audited /render-html pipeline (different template family). Figures © NVIDIA, used "
+        "with attribution.",
 }
 
 META_RE = re.compile(
