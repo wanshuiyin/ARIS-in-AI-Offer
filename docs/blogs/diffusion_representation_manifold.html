@@ -1,0 +1,1550 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>扩散模型 × 表征学习 × 流形学习 · Ruofeng Yang 杨若峰</title>
+<style>
+:root{
+  --bg:#fbfaf6; --bg-card:#ffffff;
+  --ink:#1f2024; --ink-mute:#5e5f63;
+  --line:#e2dfd5; --accent:#7e3a3a; --accent-soft:#f1e5d8;
+  --good:#3e7a4a; --warn:#9a6a1a; --bad:#a93c3c; --info:#2d5f7e;
+  --code-bg:#f6f3ec;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink);
+  font-family:"Source Serif Pro","Songti SC","SimSun",Georgia,serif;
+  font-size:16px;line-height:1.65;margin:0;padding:0}
+.wrap{max-width:1080px;margin:0 auto;padding:48px 56px 96px}
+.eyebrow{color:var(--ink-mute);font-size:.94rem;font-weight:400;
+  font-family:inherit;letter-spacing:normal;text-transform:none;
+  margin:0 0 .4em;line-height:1.55}
+.eyebrow a{color:var(--accent);font-weight:600}
+h1{font-size:2.4rem;line-height:1.15;margin:.2em 0 .35em;letter-spacing:-.01em}
+h2{font-size:1.55rem;border-bottom:1px solid var(--line);
+  padding-bottom:.3em;margin:2.2em 0 .8em;letter-spacing:-.005em}
+h3{font-size:1.18rem;margin:1.5em 0 .5em;color:#2a2b2f}
+h4{font-size:1.02rem;margin:1.2em 0 .4em;color:#3a3b3f;font-weight:600}
+p{margin:.6em 0}
+a{color:var(--accent);text-decoration:none;border-bottom:1px dotted var(--accent)}
+a.sec-link{border-bottom:none;font-weight:500}
+a.sec-link:hover{border-bottom:1px solid var(--accent)}
+hr{border:none;border-top:1px solid var(--line);margin:3em 0}
+.byline{color:var(--ink-mute);font-size:.92rem;margin:0 0 1.5em}
+.byline code{background:transparent;padding:0;color:var(--accent)}
+
+.tldr{background:var(--accent-soft);border-left:4px solid var(--accent);
+  padding:18px 24px;margin:1.8em 0;border-radius:0 6px 6px 0}
+.tldr h3{margin-top:0;color:var(--accent)}
+
+.callout{border-radius:6px;padding:14px 20px;margin:1.2em 0;
+  border-left:4px solid;background:#fff}
+.callout-good{border-color:var(--good);background:#f1f7f2}
+.callout-warn{border-color:var(--warn);background:#fbf5e9}
+.callout-bad{border-color:var(--bad);background:#faf0ee}
+.callout-info{border-color:var(--info);background:#eef4f8}
+
+figure{margin:1.4em 0;text-align:center}
+figure img{max-width:100%;height:auto;border:1px solid var(--line);
+  border-radius:6px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+figcaption{color:var(--ink-mute);font-size:.86rem;margin-top:.5em;font-style:italic}
+
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.92rem}
+th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;vertical-align:top}
+th{background:#f1ede2;font-weight:600}
+tbody tr:nth-child(odd){background:#fafaf3}
+.shapes td:first-child,.shapes th:first-child{
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.86rem}
+
+pre{background:var(--code-bg);border:1px solid var(--line);border-radius:6px;
+  padding:14px 18px;overflow-x:auto;font-size:.84rem;line-height:1.5;
+  font-family:ui-monospace,Menlo,Consolas,monospace;margin:1em 0}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+  background:var(--code-bg);padding:1px 5px;border-radius:3px}
+pre code{background:none;padding:0;border-radius:0}
+
+.kbd{font-family:ui-monospace,Menlo,Consolas,monospace;background:#eee;
+  padding:1px 6px;border-radius:3px;border:1px solid #ccc;font-size:.85em}
+.tag{display:inline-block;background:var(--accent-soft);color:var(--accent);
+  font-size:.74rem;padding:2px 8px;border-radius:10px;
+  letter-spacing:.05em;font-family:"Inter",sans-serif;font-weight:600}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media (max-width:880px){.grid2{grid-template-columns:1fr}}
+
+.punch{font-size:1.35rem;line-height:1.4;background:#1f2024;color:#fbfaf6;
+  padding:30px 36px;border-radius:8px;margin:2em 0;font-weight:500}
+.punch em{color:#f6b864;font-style:normal;font-weight:700}
+
+.qa{border-left:3px solid var(--info);background:#f0f4f7;
+  padding:12px 18px;margin:.8em 0;border-radius:0 4px 4px 0}
+.qa h4{margin-top:.2em;color:var(--info)}
+
+ul,ol{padding-left:1.5em}
+li{margin:.25em 0}
+sup{font-size:.7em}
+
+/* ============ Interactive layer ============ */
+
+/* 1. Auto-wrapped code reveal cards */
+details.code-card{
+  border:1px solid var(--line); border-radius:6px;
+  background:var(--code-bg); margin:1em 0; overflow:hidden;
+}
+details.code-card > summary{
+  cursor:pointer; padding:8px 14px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;
+  font-size:.86rem; color:var(--accent);
+  list-style:none; user-select:none;
+}
+details.code-card > summary::-webkit-details-marker{display:none}
+details.code-card > summary:hover{background:rgba(126,58,58,.06)}
+details.code-card > pre{margin:0;border:none;border-top:1px solid var(--line);border-radius:0}
+details.code-card[open] > summary{border-bottom:1px solid var(--line)}
+
+/* 1b. Pseudo-algorithm blocks — never folded, accent left border + top label */
+pre[data-kind="algorithm"]{
+  position:relative; border-left:4px solid var(--accent);
+  background:#faf7f3; padding-top:32px;
+}
+pre[data-kind="algorithm"]::before{
+  content:attr(data-label); position:absolute; top:0; left:0;
+  background:var(--accent); color:#fbfaf6;
+  font-family:"Inter",sans-serif; font-size:.7rem; font-weight:600;
+  letter-spacing:.03em; padding:3px 11px; border-radius:0 0 6px 0;
+}
+/* 1c. Diagram / tensor-shape blocks — never folded, neutral label */
+pre[data-kind="diagram"]{
+  position:relative; border-left:4px solid var(--ink-mute); padding-top:32px;
+}
+pre[data-kind="diagram"]::before{
+  content:attr(data-label); position:absolute; top:0; left:0;
+  background:var(--ink-mute); color:#fbfaf6;
+  font-family:"Inter",sans-serif; font-size:.7rem; font-weight:600;
+  letter-spacing:.03em; padding:3px 11px; border-radius:0 0 6px 0;
+}
+/* second code-toggle button sits below focus-toggle */
+.code-toggle{ top:52px !important; }
+
+/* 2. Mini TOC sidebar */
+.mini-toc{
+  position:fixed; left:14px; top:80px;
+  width:320px; max-height:72vh; overflow-y:auto;
+  font-family:"Inter","Helvetica Neue",sans-serif;
+  font-size:.82rem; padding:12px 16px;
+  background:rgba(251,250,246,.95);
+  border:1px solid var(--line); border-radius:8px;
+  z-index:100; backdrop-filter:blur(6px);
+  box-shadow:0 2px 10px rgba(0,0,0,.05);
+}
+.mini-toc h4{
+  font-size:.72rem; text-transform:uppercase; letter-spacing:.12em;
+  color:var(--ink-mute); margin:0 0 8px;
+}
+.mini-toc a{
+  display:block; color:var(--ink-mute);
+  text-decoration:none; border:none;
+  padding:3px 0; line-height:1.4;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.mini-toc a.h2{font-weight:500; color:var(--ink-mute); margin-top:1px}
+.mini-toc a.h3{padding-left:14px; font-size:.78rem}
+.mini-toc a.active{color:var(--accent); font-weight:600; box-shadow:inset 2px 0 0 var(--accent)}
+.mini-toc a:hover{color:var(--ink); white-space:normal}
+/* accordion: h2 常驻，h3 子节按 h2 分组，仅当前 h2 组展开 */
+.toc-group{max-height:0; overflow:hidden; transition:max-height .2s ease}
+.toc-group.open{max-height:1500px}
+@media (max-width:1400px){.mini-toc{display:none}}
+/* 宽屏左侧 TOC 占位:正文右移让出空间,避免遮住行首(和 tutorial 左栏布局一致) */
+@media (min-width:1401px){body{padding-left:360px}}
+
+/* 8. Cross-hair (row + column hover) for paper-compare */
+@supports selector(:has(*)){
+  table.paper-compare:has(td:hover):not([data-active]) td{opacity:.35;transition:opacity .15s}
+  table.paper-compare:has(td:hover):not([data-active]) tr:hover td{opacity:1}
+  table.paper-compare:has(td:nth-child(2):hover):not([data-active]) td:nth-child(2),
+  table.paper-compare:has(td:nth-child(3):hover):not([data-active]) td:nth-child(3),
+  table.paper-compare:has(td:nth-child(4):hover):not([data-active]) td:nth-child(4),
+  table.paper-compare:has(td:nth-child(5):hover):not([data-active]) td:nth-child(5),
+  table.paper-compare:has(td:nth-child(6):hover):not([data-active]) td:nth-child(6){opacity:1}
+}
+
+/* 9. Focus mode — JS-driven `.in-focus` marker decides bright vs dim */
+body.focus-mode .wrap > *:not(h1){
+  opacity:.30; transition:opacity .3s; pointer-events:none;
+}
+body.focus-mode .wrap > .in-focus{
+  opacity:1; pointer-events:auto;
+}
+.focus-toggle{
+  position:fixed; top:14px; right:14px; z-index:101;
+  background:var(--bg-card); border:1px solid var(--line);
+  border-radius:18px; padding:6px 12px;
+  font-family:"Inter",sans-serif; font-size:.78rem;
+  cursor:pointer; color:var(--ink-mute);
+  box-shadow:0 2px 6px rgba(0,0,0,.05);
+}
+.focus-toggle:hover{color:var(--accent)}
+.focus-toggle.on{background:var(--accent); color:#fbfaf6; border-color:var(--accent)}
+@media print{ .focus-toggle{display:none} body.focus-mode * { opacity:1 !important;} }
+
+/* 10. Figure lightbox */
+figure img{cursor:zoom-in; transition:transform .15s}
+figure img:hover{transform:scale(1.01)}
+#lightbox{
+  position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,.85); display:flex;
+  align-items:center; justify-content:center;
+  padding:40px; cursor:zoom-out;
+}
+#lightbox[hidden]{display:none}
+#lightbox img{
+  max-width:96vw; max-height:92vh;
+  box-shadow:0 8px 40px rgba(0,0,0,.6);
+  border-radius:6px;
+}
+#lightbox figcaption{
+  position:absolute; bottom:14px; left:50%;
+  transform:translateX(-50%); color:#fff;
+  background:rgba(0,0,0,.55); padding:6px 14px;
+  border-radius:14px; font-size:.86rem; max-width:80vw;
+}
+@media print{ #lightbox{display:none !important} }
+
+/* 11. Evidence mode — clickable paper-name spans in §3.6 paragraphs */
+.evidence-trigger{
+  cursor:pointer;
+  background:linear-gradient(transparent 60%, rgba(126,58,58,.18) 60%);
+  padding:0 2px;
+}
+.evidence-trigger:hover{background:linear-gradient(transparent 50%, rgba(126,58,58,.32) 50%)}
+
+/* 3. Floating expand-all button */
+.float-btn{
+  position:fixed; bottom:22px; right:22px;
+  background:var(--accent); color:#fbfaf6;
+  border:none; border-radius:22px;
+  padding:9px 16px; font-size:.83rem;
+  font-family:"Inter",sans-serif; font-weight:600;
+  cursor:pointer; z-index:99;
+  box-shadow:0 3px 12px rgba(0,0,0,.18);
+}
+.float-btn:hover{background:#5e2828}
+
+/* 4. Paper comparison table — column click highlight */
+table.paper-compare th[data-paper]{
+  cursor:pointer; position:relative; user-select:none;
+}
+table.paper-compare th[data-paper]::after{
+  content:" ⓘ"; font-size:.7em; opacity:.4; margin-left:2px;
+}
+table.paper-compare th[data-paper]:hover{background:var(--accent-soft)}
+
+table.paper-compare[data-active="cfm"]      td:nth-child(2),
+table.paper-compare[data-active="cfm"]      th:nth-child(2){background:#fff3bf!important}
+table.paper-compare[data-active="flm"]      td:nth-child(3),
+table.paper-compare[data-active="flm"]      th:nth-child(3){background:#fff3bf!important}
+table.paper-compare[data-active="dfm"]      td:nth-child(4),
+table.paper-compare[data-active="dfm"]      th:nth-child(4){background:#fff3bf!important}
+table.paper-compare[data-active="langflow"] td:nth-child(5),
+table.paper-compare[data-active="langflow"] th:nth-child(5){background:#fff3bf!important}
+table.paper-compare[data-active="elf"]      td:nth-child(6),
+table.paper-compare[data-active="elf"]      th:nth-child(6){background:#fff3bf!important}
+
+/* :has-supported row hover dim (graceful degrade) */
+@supports selector(:has(*)){
+  table.paper-compare:has(td:hover) tr:not(:hover){opacity:.5;transition:opacity .15s}
+}
+
+/* 5. Citation popover */
+#cite-pop{
+  position:fixed; background:#fff;
+  border:1px solid var(--line); border-radius:8px;
+  padding:14px 18px; box-shadow:0 6px 24px rgba(0,0,0,.18);
+  max-width:380px; font-size:.86rem; line-height:1.55;
+  z-index:1000; font-family:"Source Serif Pro","Songti SC",serif;
+}
+#cite-pop[hidden]{display:none}
+#cite-pop b.pop-title{color:var(--accent); display:block; margin-bottom:4px; font-size:1rem}
+#cite-pop .pop-meta{font-size:.78em; color:var(--ink-mute); margin-bottom:8px}
+#cite-pop .close-btn{
+  float:right; cursor:pointer; color:var(--ink-mute);
+  font-size:1.3em; line-height:1; border:none; background:none;
+  margin:-4px -6px 0 0;
+}
+#cite-pop a{color:var(--accent); text-decoration:none; font-size:.86em}
+
+/* 6. data-ref clickable paper names */
+[data-ref]{
+  cursor:pointer;
+  border-bottom:1px dashed rgba(126,58,58,.45);
+  transition:background .15s;
+}
+[data-ref]:hover{background:var(--accent-soft)}
+
+/* 11.5. Section-level collapse (e.g., 4.8 / 4.9 / 4.10 reference tables) */
+details.section-collapse{
+  border:1px solid var(--line); border-radius:6px;
+  background:#fbfaf6; margin:1.5em 0; padding:0;
+}
+details.section-collapse > summary{
+  cursor:pointer; padding:14px 18px;
+  font-size:1.18rem; font-weight:600; color:#2a2b2f;
+  list-style:none; user-select:none;
+  font-family:"Source Serif Pro","Songti SC","SimSun",Georgia,serif;
+}
+details.section-collapse > summary::-webkit-details-marker{display:none}
+details.section-collapse > summary::before{content:"▸ "; color:var(--ink-mute); font-weight:400}
+details.section-collapse[open] > summary::before{content:"▾ "}
+details.section-collapse > summary:hover{background:rgba(126,58,58,.04)}
+details.section-collapse[open] > summary{border-bottom:1px solid var(--line)}
+details.section-collapse > *:not(summary){padding-left:18px;padding-right:18px}
+details.section-collapse > *:last-child:not(summary){padding-bottom:14px}
+@media print{
+  details.section-collapse{border:none;background:none}
+  details.section-collapse > summary{display:block;font-size:1.18rem;cursor:default}
+  details.section-collapse > summary::before{display:none}
+}
+
+/* 12. Q&A collapse cards */
+details.qa-collapse{
+  border-left:3px solid var(--info);
+  background:#f0f4f7;
+  padding:0;
+  margin:.8em 0;
+  border-radius:0 4px 4px 0;
+}
+details.qa-collapse > summary{
+  cursor:pointer; padding:12px 18px;
+  font-weight:600; color:var(--info);
+  list-style:none; user-select:none;
+}
+details.qa-collapse > summary::-webkit-details-marker{display:none}
+details.qa-collapse > summary::before{content:"▸ "; color:var(--ink-mute)}
+details.qa-collapse[open] > summary::before{content:"▾ "}
+details.qa-collapse > summary:hover{background:rgba(45,95,126,.08)}
+details.qa-collapse[open] > summary{border-bottom:1px solid rgba(45,95,126,.18)}
+details.qa-collapse > *:not(summary){padding:0 18px 12px}
+details.qa-collapse > *:first-of-type:not(summary){padding-top:8px}
+
+/* 13. Keyboard nav hint */
+.kbd-hint{
+  position:fixed; bottom:22px; left:22px;
+  background:var(--bg-card); border:1px solid var(--line);
+  border-radius:6px; padding:5px 10px;
+  font-family:"Inter",sans-serif; font-size:.72rem;
+  color:var(--ink-mute); z-index:99;
+  opacity:.8;
+}
+.kbd-hint kbd{
+  background:#eee; border:1px solid #ccc; padding:1px 5px;
+  border-radius:3px; font-family:ui-monospace,Menlo,monospace;
+  font-size:.9em;
+}
+@media print{ .kbd-hint{display:none} }
+
+/* 8b. 开场 hook map：图像扩散 ↔ DLM 两条正交轴 */
+.hook-map{border:1px solid var(--line); border-radius:8px; background:#fcfbf8; padding:16px 20px; margin:.4em 0 1em}
+.hook-axis-label{display:flex; justify-content:space-between; gap:1rem; font-size:.82rem; color:var(--ink-mute); font-weight:600; margin-bottom:12px}
+.hook-flow{display:grid; grid-template-columns:repeat(3,1fr); gap:30px; position:relative}
+.hook-card{position:relative; border:1px solid var(--line); border-radius:8px; padding:12px 14px; background:#fff}
+.hook-card:not(:last-child)::after{content:"→"; position:absolute; right:-22px; top:50%; transform:translateY(-50%); color:var(--accent); font-size:1.35rem; font-weight:700}
+.hook-kicker{font-size:.72rem; color:var(--ink-mute); letter-spacing:.05em; margin-bottom:7px; text-transform:uppercase}
+.hook-pair{display:flex; flex-direction:column; gap:3px; font-weight:600; font-size:.95rem; line-height:1.3}
+.hook-img{color:#3a6ea5}
+.hook-txt{color:var(--accent)}
+.hook-mid{color:var(--ink-mute); font-size:.76rem; font-weight:400}
+.hook-card p{margin:7px 0 0; font-size:.8rem; color:var(--ink-mute); line-height:1.5}
+.hook-base{margin-top:18px; border:1px dashed var(--accent); border-radius:8px; padding:11px 16px; background:var(--accent-soft)}
+.hook-base-title{font-size:.79rem; color:var(--ink-mute); margin-bottom:7px; text-align:center}
+.hook-base-line{display:flex; justify-content:center; align-items:center; gap:14px; font-weight:600; font-size:.92rem; flex-wrap:wrap}
+.hook-caveat{font-size:.8rem; color:var(--ink-mute); line-height:1.55; margin:13px 0 0}
+@media (max-width:720px){
+  .hook-axis-label{flex-direction:column; gap:2px}
+  .hook-flow{grid-template-columns:1fr; gap:26px}
+  .hook-card:not(:last-child)::after{content:"↓"; right:auto; left:50%; top:auto; bottom:-21px; transform:translateX(-50%)}
+  .hook-base-line{flex-direction:column; gap:5px}
+}
+
+/* 7. Print degradation */
+@media print{
+  .mini-toc,.float-btn,#cite-pop{display:none!important}
+  details.code-card{border:none;background:none}
+  details.code-card > summary{display:none}
+  details.code-card > pre{border:1px solid var(--line);border-radius:6px}
+  table.paper-compare[data-active] td,
+  table.paper-compare[data-active] th{background:transparent!important}
+  [data-ref]{border-bottom:none}
+}</style>
+<script>window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["$$","$$"],["\\[","\\]"]]},options:{skipHtmlTags:["script","noscript","style","textarea","pre","code"]}};</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+<div class="wrap">
+<div class="eyebrow">
+由 <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep" target="_blank" rel="noopener">ARIS (Auto Research in Sleep)</a>
++ <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer" target="_blank" rel="noopener">ARIS-in-AI-Offer</a> 工作流生成 · Diffusion × Representation × Manifold · 2026
+</div>
+<h1>扩散模型 × 表征学习 × 流形学习<br>
+<span style="font-weight:400;font-size:1.35rem;color:var(--ink-mute)">有一些因果在五年前就种下 —— 从 SSL objective 到流形结构的一条暗线</span></h1>
+<p style="font-size:.88rem;color:var(--ink-mute);margin:.3em 0 .7em;line-height:1.65">
+diffusion 天然是 SSL → 它学的表征长什么样、何时学坏 → 为何要注入外部 SSL 表征、怎么注入 → 不注入则如何用数据流形结构。<br>
+沿途：Consistency Models · VA-VAE · REPA · RAE · V-JEPA2 · JiT · 以及与 continuous DLM（ELF / DSL）的联系。
+</p>
+<p class="byline">
+<strong>Ruofeng Yang（杨若峰）</strong> · Shanghai Jiao Tong University · 2026 · <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep" target="_blank" rel="noopener"><strong>ARIS</strong>（Auto Research in Sleep）作者</a><br>
+Interest：Diffusion Models (Theory / Image / Video / Post-training) · DLLM · SSL · RL · Auto Research · Long-horizon Agent ·
+本文是<a href="https://wanshuiyin.github.io/" target="_blank" rel="noopener">个人主页</a>同名 blog 的扩写详细版。
+</p>
+<!-- ============================ 引子（导言，不编号） ============================ -->
+
+<p style="font-size:1.05rem;line-height:1.85">2025 年 CV 圈反复出现一个操作：<strong>把 diffusion 的中间层 / 潜空间和某个自监督（SSL）模型对齐</strong>——VA-VAE 把 latent 对齐 DINOv2、REPA 把 DiT hidden 对齐 DINOv2、RAE 干脆在 SSL 潜空间里训 decoder。但这不是凭空冒出的新风口，而是<strong>两条五年暗线在 2025 的必然汇合</strong>：</p>
+
+<pre data-kind="diagram" data-fold="never" data-label="两条暗线，五年后在 2025 汇合">
+暗线 A｜自监督：把"无 label 学表征"做成可复用的工业品 / 世界模型
+   MoCo ──► SimSiam/BYOL ──► MAE ──► DINOv2 ──► V-JEPA2
+   '19       '20             '21      '23         '25
+   对比      stop-grad /      掩码     通用视觉    预测式
+   学习      无需负样本       重建     特征        world model
+                                                     │
+                         frozen 特征 / world model 随手可取
+                                                     │
+                                                     ├───► 2025
+  暗线 B｜生成：扩散模型本身就是一个自监督模型         │      汇合
+   diffusion 训练目标 = 去噪 = 无 label 自监督         │
+        → 它天生就在学表征 ─────────────────────────────┘
+                                                     ▼
+      把"现成的好表征 / world model"接进"天生学表征的生成模型"
+      VA-VAE / REPA / RAE（训练时注入） · V-JEPA2（推理时注入）
+</pre>
+
+<p style="font-size:1.05rem;line-height:1.85">换句话说：当"现成的好表征"（DINOv2 / MAE 的 frozen 特征）和"天生就在学表征的生成模型"（扩散）同时摆上桌，把它们对齐几乎是必然被走通的一步。这条汇合背后，其实藏着一条更完整的因果链。</p>
+
+<div class="callout callout-info">
+<h4>💡 这篇 blog 想讲清楚的一条因果链</h4>
+<p>这篇 blog 不打算逐篇罗列"今年又有谁对齐了谁"，而是想沿着<strong>四条递进的线</strong>，把"diffusion 和表征 / 流形到底是什么关系"讲成一个连贯的故事。后文统一用 §1–§6 编号，四条线对应 §1–§4，§5 把它们接到语言侧的 continuous DLM，§6 收束：</p>
+<ol>
+<li><strong>§1 — 扩散模型 = 天然的 SSL（objective 视角）</strong>：从训练目标出发，说明 denoising 本身就是一个无 label 的自监督任务，diffusion 训练<strong>免费附带</strong>表征学习；并把它和 SSL 的两大流派（contrastive / non-contrastive）、以及 Consistency Models 的结构对应起来。</li>
+<li><strong>§2 — diffusion 自己学出的表征长什么样、何时学坏</strong>：既然是 SSL，它学到的表征就值得被打开看。Qing Qu 组的两篇可解释性工作 [1][2] 给出"什么是好表征、什么时候塌掉"的判据。</li>
+<li><strong>§3 — 与其自己慢慢学，不如外部注入现成 SSL 表征</strong>：VA-VAE [3] / REPA [4] / RAE [5] / V-JEPA2 [6] 分别在 VAE 层、latent 层、inference 层注入表征。</li>
+<li><strong>§4 — 绕开表征，直接用数据自身的流形结构</strong>：一项 VAE-manifold + 浅层 MoE 的工作 [7]、Kaiming 的 x-prediction / JiT [8]、以及 inference-time 的 predict–perturb [9]。</li>
+</ol>
+<p>四条线背后是同一个主题：<strong>让生成模型少做无用功，多用数据本身的结构先验</strong>——无论这个先验是以"表征"还是"流形"的形式出现。我们从最底层的训练目标讲起。</p>
+</div>
+
+
+<!-- ============================ §1 ============================ -->
+
+<h2 id="sec-1">1 · 扩散模型 = 天然的 SSL（Objective Function 视角）</h2>
+
+<p>要理解"diffusion 为什么天生在学表征"，最干净的入口不是去看它的网络架构，而是去看它的<strong>训练目标</strong>。一个模型在学什么，由 loss 决定，不由层数决定。我们先把扩散模型的 objective 写出来，再把它和自监督学习（self-supervised learning, SSL）的 objective 摆在一起对照——你会发现它们其实是同一个家族。</p>
+
+<h3>1.1 扩散训练的本质：预测"被破坏数据的干净版本"</h3>
+
+<p>扩散模型（以及它的连续时间表亲 flow matching / rectified flow）的训练，可以统一描述成一句话：<strong>给定一个被噪声破坏的样本，去预测它干净的样子（或者等价地，预测破坏它的那个噪声 / 速度场）</strong>。注意这里<strong>完全没有用到任何 label</strong>——你需要的只是干净数据 \(x_0\)，噪声是自己加的，"答案"也是 \(x_0\) 自己。这正是自监督的定义：<strong>监督信号来自数据本身</strong>。</p>
+
+<p>具体地，扩散的前向过程把干净数据 \(x_0\) 逐步加噪，得到 \(x_t = \alpha_t\, x_0 + \sigma_t\,\epsilon,\ \epsilon \sim \mathcal{N}(0, I)\)（\(\alpha_t, \sigma_t\) 是 noise schedule 决定的系数，\(t\in[0,1]\) 是噪声强度）。模型 \(s_\theta\) 要学的，是从含噪的 \(x_t\) 中"恢复信息"。根据"恢复什么"的不同，主流有三种等价的参数化（parameterization）：</p>
+
+<div class="grid2">
+<div class="callout callout-info">
+<h4>① ε-prediction / Denoising Score Matching</h4>
+<p>让网络预测<strong>当初加进去的噪声</strong> \(\epsilon\)：</p>
+$$\mathcal{L}_{\epsilon} = \mathbb{E}_{x_0,\,\epsilon,\,t}\Big[\big\| \epsilon_\theta(x_t, t) - \epsilon \big\|^2\Big].$$
+<p>这与经典的 <strong>denoising score matching（DSM）</strong>紧密相关，但要区分两个 score：给定 \(x_0\) 的<strong>条件</strong> score 满足 \(\nabla_{x_t}\log q(x_t\mid x_0) = -\,\epsilon/\sigma_t\)；而训练收敛后 \(\epsilon_\theta(x_t,t)\) 学到的是后验均值 \(\mathbb{E}[\epsilon\mid x_t]\)，对应<strong>边际</strong> score \(\nabla_{x_t}\log p_t(x_t) = -\,\mathbb{E}[\epsilon\mid x_t]/\sigma_t\)（Tweedie 公式）——两者差一个对 \(x_0\) 的后验期望。核心是：<strong>"去噪"和"估计数据分布的对数梯度（score）"紧密相通</strong>——这是 diffusion 与 score-based model / 能量模型之间的桥。</p>
+</div>
+<div class="callout callout-info">
+<h4>② x-prediction</h4>
+<p>让网络直接预测<strong>干净数据</strong> \(x_0\)：</p>
+$$\mathcal{L}_{x} = \mathbb{E}_{x_0,\,\epsilon,\,t}\Big[\big\| x_\theta(x_t, t) - x_0 \big\|^2\Big].$$
+<p>形式上这就是一个<strong>denoising autoencoder</strong>：输入被噪声破坏的 \(x_t\)，输出尽量还原 \(x_0\)。\(x\)-pred 和 \(\epsilon\)-pred 通过 \(x_t = \alpha_t x_0 + \sigma_t \epsilon\) 可以互相换算，但数值行为不同——后面 §4 会讲到，<strong>当数据落在低维流形上时，直接预测低维的 \(x_0\) 比预测高维的 \(\epsilon\) 更稳、更直接</strong>（这正是 JiT [8] 与 ELF 选择 x-pred 的理由）。</p>
+</div>
+</div>
+
+<div class="callout callout-info">
+<h4>③ v-prediction（velocity）</h4>
+<p>第三种是 <strong>v-prediction</strong>（Salimans &amp; Ho）：在 VP / DDPM 参数化下，预测一个把 \(x_0\) 和 \(\epsilon\) 混合起来的"速度"量 \(v_t \triangleq \alpha_t\,\epsilon - \sigma_t\,x_0\)：</p>
+$$\mathcal{L}_{v} = \mathbb{E}_{x_0,\,\epsilon,\,t}\Big[\big\| v_\theta(x_t, t) - v_t \big\|^2\Big].$$
+<p>v-pred 的好处是在不同噪声强度 \(t\) 下信号尺度更均衡（这也是它在 distillation / few-step 采样里流行的原因）。在<strong>同一条 noise schedule</strong> 下，\(\epsilon\)-/\(x\)-/\(v\)-pred 三者都可由 \(x_t = \alpha_t x_0 + \sigma_t\epsilon\) 线性互换、学的是同一个映射，只是投影方向不同。（另一个相关但<strong>不同</strong>的框架是 rectified flow / flow matching：它用线性插值 \(z_t=(1-t)\epsilon+t\,x_0\)、速度场为常量 \(\frac{\mathrm{d}z_t}{\mathrm{d}t}=x_0-\epsilon\)。v-pred 与 rectified-flow velocity 都属"预测 \(x_0\) 与 \(\epsilon\) 的某种线性组合"的思路，但 schedule 与 velocity 定义不同，不要混为一谈——ELF 用的正是 rectified-flow 这一支。）</p>
+</div>
+
+<p>不管选哪种参数化，故事的内核都一样：<strong>制造一个"破坏 → 恢复"的自监督任务，强迫网络从被污染的输入里把信息抽回来</strong>。而"为了从含噪输入恢复干净数据，你必须理解数据的内在结构"——这正是表征学习的全部动机。一个能在各种噪声水平下把猫的图片去噪干净的网络，它的中间层<strong>几乎必然</strong>编码"什么是猫"的语义。<strong>表征与其说是 diffusion 的副产品，不如说是去噪任务能被解决的前提。</strong></p>
+
+<div class="callout callout-good">
+<h4>🎯 takeaway（1.1）</h4>
+<p><strong>denoising 本身就是一个自监督任务。</strong>扩散模型的训练目标——无论写成 DSM / x-pred / v-pred——都只用到数据自身、不用任何 label，与 MAE 的"掩码—重建"、denoising autoencoder 的"加噪—还原"是同一种自监督范式。所以 diffusion 训练<strong>免费附带</strong>了表征学习：你为了把图去干净，顺手就把数据的语义结构学进了中间层。这是 §2「打开 diffusion 中间层当表征用」之所以可能的根本原因。</p>
+</div>
+
+<h3>1.2 SSL 的两大流派：contrastive 与 non-contrastive</h3>
+
+<p>既然 diffusion 是 SSL，就值得把它放回 SSL 这个大家族里定位一下。无监督 / 自监督表征学习这几年大致分成两条主线，它们的差别恰好体现在 objective 上。</p>
+
+<p><strong>(a) Contrastive（对比式）——以 InfoNCE 为代表。</strong>核心思想是"拉近正样本、推开负样本"：对同一张图做两次不同的数据增广得到 \(q\)（query）和 \(k^+\)（正 key），再从其它图采一批负 key \(\{k^-_j\}\)，让模型学到的表征满足"正对相似、负对不相似"。MoCo / SimCLR 用的 InfoNCE loss：</p>
+
+$$\mathcal{L}_{\text{InfoNCE}} = -\,\mathbb{E}\left[\log \frac{\exp\!\big(\langle q,\,k^+\rangle/\tau\big)}{\exp\!\big(\langle q,\,k^+\rangle/\tau\big) + \sum_{j}\exp\!\big(\langle q,\,k^-_j\rangle/\tau\big)}\right],$$
+
+<p>其中 \(\tau\) 是温度系数。InfoNCE 本质是一个"在一堆负样本里把正样本认出来"的分类问题，它需要<strong>大量负样本</strong>才能学到有判别力的表征——MoCo 的关键贡献之一就是用一个 momentum-updated 队列来廉价地维护一个大负样本池。</p>
+
+<p><strong>(b) Non-contrastive（非对比式）——以 SimSiam / BYOL 为代表。</strong>这条线的惊人之处在于：<strong>它根本不用负样本</strong>。BYOL 用一个 online network 和一个 EMA（指数滑动平均）更新的 target network，让 online 去预测 target 对同一张图另一增广视图的表征；SimSiam 更激进地证明，连 EMA 都可以不要，只要一个 <strong>stop-gradient</strong> 就够了。SimSiam 的 objective（对称化前）大致是：</p>
+
+$$\mathcal{L}_{\text{SimSiam}} = -\,\Big\langle\, p\big(f(x_1)\big),\ \operatorname{sg}\!\big[f(x_2)\big]\,\Big\rangle,$$
+
+<p>其中 \(f\) 是共享的 encoder，\(p\) 是一个 predictor MLP（只加在一边），\(x_1, x_2\) 是同图两次增广，\(\operatorname{sg}[\cdot]\) 是 stop-gradient（梯度不回传到那一支）。直觉上，"两边都想互相靠近、又没有负样本"应该会塌缩到平凡解（所有输入映到同一个常向量，loss=0）；SimSiam 揭示了<strong>非对称结构（predictor + stop-gradient）正是阻止这种 collapse 的关键</strong>——它隐式地扮演了一个 EM 式交替优化 / 在线聚类的角色，让一支当"会动的学生"、另一支当"被冻住的目标"。</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/SimSiam.jpg" alt="SimSiam architecture: shared encoder, asymmetric predictor, stop-gradient on one branch">
+<figcaption><strong>SimSiam 的 stop-gradient 双 encoder 结构。</strong>同一张图经两次不同增广得到 \(x_1, x_2\)，送入<strong>共享权重</strong>的 encoder \(f\)；其中一支再接一个 predictor \(p\)，去匹配<strong>另一支经 stop-gradient（图中切断梯度的那条支路）冻住的输出</strong>。没有负样本、没有动量 encoder——靠"predictor + 停梯度"这个<strong>非对称</strong>设计就避免了表征塌缩。记住这张图里的核心模式：<strong>一边是会更新的"学生"，一边是被停梯度当成固定靶子的"目标"，两者结构相同、只差一个 predictor 和一刀 stop-gradient</strong>——下一小节会看到 Consistency Models 沿用了非常相似的骨架。（即使此图未能加载：要带走的只有"shared encoder + 单边 predictor + 一支 stop-gradient = 无负样本的 non-contrastive SSL"这一句。）</figcaption>
+</figure>
+
+<div class="callout callout-info">
+<h4>💡 diffusion 落在 SSL 谱系的哪里？</h4>
+<p>把三者放到一张表上对照，它们共享"监督信号来自数据本身"这个根，但<strong>制造监督的方式</strong>不同：</p>
+<table>
+<thead><tr><th>流派</th><th>代表</th><th>怎么造监督信号</th><th>怎么防塌缩</th></tr></thead>
+<tbody>
+<tr><td>Contrastive</td><td>MoCo / SimCLR (InfoNCE)</td><td>正对增广 vs 大量负样本</td><td>负样本天然撑开表征空间</td></tr>
+<tr><td>Non-contrastive</td><td>SimSiam / BYOL</td><td>同图两视图互相预测</td><td>predictor + stop-gradient（非对称）</td></tr>
+<tr><td>Denoising（含 diffusion）</td><td>MAE / DAE / <strong>Diffusion</strong></td><td>破坏数据 → 恢复干净版本</td><td>重建目标本身有信息量，不会塌到常数</td></tr>
+</tbody>
+</table>
+<p>diffusion 属于第三类<strong>denoising-based SSL</strong>：它和 MAE 是近亲——MAE 用"掩码"破坏、diffusion 用"加噪"破坏，但都靠"恢复被破坏的数据"来逼出表征。下一小节会看到，<strong>Consistency Models 这个变体，把 diffusion 又拉回了第二类（non-contrastive）的结构</strong>，从而在两条线之间架了一座桥。</p>
+</div>
+
+<h3>1.3 Consistency Models：与 BYOL / SimSiam 结构相通的扩散变体</h3>
+
+<p>Consistency Models（CM，及其训练版 Consistency Training, CT）原本是为了<strong>一步 / 少步生成</strong>提出的：标准 diffusion 要沿 PF-ODE（probability-flow ODE）轨迹积分几十上百步才能从噪声走到数据，CM 想训一个函数 \(f_\theta\)，让它把<strong>同一条轨迹上的任意点都直接映射到这条轨迹的终点（干净数据）</strong>。一旦学成，单次前向就能从纯噪声跳到样本。它的训练目标是一个<strong>自一致性（self-consistency）约束</strong>：相邻两个时间点 \(t_{n+1} > t_n\) 上的 \(f_\theta\) 输出应当一致。</p>
+
+<p>关键在于 CT loss 长成这个样子（写成最常见的离散化形式）：</p>
+
+$$\mathcal{L}_{\text{CT}} = \mathbb{E}\Big[\, d\big(\, f_\theta(x_{t_{n+1}},\, t_{n+1}),\ \operatorname{sg}\!\big[\, f_{\theta^-}(x_{t_n},\, t_n)\,\big]\,\big)\,\Big],$$
+
+<p>其中 \(d(\cdot,\cdot)\) 是距离度量（如 \(\ell_2\) 或 LPIPS），\(\theta^-\) 是 \(\theta\) 的 <strong>EMA 副本（target network）</strong>，\(\operatorname{sg}[\cdot]\) 是 stop-gradient。把这个式子和上一节 BYOL / SimSiam 的 objective 并排看——<strong>结构几乎一模一样</strong>：</p>
+
+<pre data-kind="diagram" data-fold="never" data-label="Consistency Training ≈ BYOL / SimSiam：共享 (student, stop-grad target) 骨架">
+        BYOL / SimSiam（表征自监督）                Consistency Training（生成 / 去噪）
+        ─────────────────────────                  ──────────────────────────────
+            x（一张图）                                  x_0（一条 PF-ODE 轨迹上的干净数据）
+           ╱        ╲ 两次增广                          ╱         ╲ 加到两个相邻噪声水平
+        x_1          x_2                            x_{t_{n+1}}   x_{t_n}   (t_{n+1} > t_n)
+          │            │                                │             │
+      f_θ │            │ f_θ (shared / EMA)         f_θ │             │ f_{θ⁻}  (EMA target)
+          ▼            ▼                                ▼             ▼
+       p(·)         [ stop-grad ]                    f_θ 输出      [ stop-grad ]
+       学生支         冻结的目标支                       学生支          冻结的目标支
+          ╲            ╱                                ╲             ╱
+            ── 拉近 ──                                    ── 拉近（自一致性）──
+
+  共同骨架：  「会更新的学生」 ⟷ 「被 stop-gradient 冻住的目标」
+            student = f_θ(更噪的点 x_{t_{n+1}})        (t_{n+1} 噪声更大)
+            target  = sg[ f_{θ⁻}(更干净的点 x_{t_n}) ]   ← EMA + 停梯度, t_n 更接近数据
+</pre>
+
+<p>这个对应不止是表面类比，而是<strong>结构上的高度相似</strong>：BYOL / SimSiam 用 "(online student, EMA/stop-grad target)" 防止表征塌缩并学出语义结构；CT 用同样的 "(student at \(t_{n+1}\), stop-grad EMA target at \(t_n\))" 把整条轨迹钉到同一个终点。两者都<strong>没有负样本</strong>，都靠 stop-gradient 的非对称性稳住训练。从这个视角看，<strong>Consistency Training 可以理解为一种被 PF-ODE 轨迹"组织"起来的 non-contrastive SSL</strong>——只不过它的"两个视图"不是来自随机增广，而是来自<strong>同一条去噪轨迹上的两个噪声水平</strong>。（需说明：CM 的设计初衷是 PF-ODE 轨迹一致性与少步生成，"它也是一种 SSL"是一个解读视角，而非它的定义。）</p>
+
+<div class="callout callout-info">
+<h4>💡 为什么"input image → output image + 轨迹一致性 = 隐式学数据流形"</h4>
+<p>这里要换一个视角：从 JiT [8] 那种"把生成模型当 denoiser"的角度看，CM 的输入是含噪图、输出还是图（image → image），而它强加的约束是——<strong>同一条 PF-ODE 轨迹上的所有点，都要被映射到同一个终点 \(x_0\)</strong>。</p>
+<p>PF-ODE 的终点 \(x_0\) 落在<strong>真实数据流形</strong>上；而轨迹上那些含噪点 \(x_t\) 是从流形"飘出去"的、偏离流形的点。于是 CM 学的那个映射 \(f_\theta\)，可以理解为一个<strong>近似把噪声空间投影回数据流形的算子（approximate projection onto the data manifold）</strong>：</p>
+<p style="text-align:center"><code>f_θ : 偏离流形的含噪点 x_t  ⟼  流形上的干净点 x_0</code></p>
+<p>"自一致性"约束正是在要求这个投影<strong>沿整条轨迹一致</strong>——也就是说，轨迹上不同高度的点必须落到流形上的同一个点。要满足这个约束，网络就<strong>需要学到数据流形的大致形状</strong>：它得知道"哪些方向是离开流形的噪声、应该被压回去，哪些方向是流形内部的语义变化、应该保留"。这就是为什么"image→image + 轨迹一致性"<strong>对应于隐式地学数据流形的投影结构</strong>，也顺带降低了单步 / 少步生成的训练难度——因为投影到流形比"凭空合成一张图"是一个结构更明确、更受约束的任务。这条"利用数据流形"的暗线，会在 §4 被正面展开。</p>
+</div>
+
+<div class="callout callout-good">
+<h4>🎯 takeaway（§1）</h4>
+<ul>
+<li><strong>denoising 本身就是 SSL</strong>：扩散的训练目标（DSM / x-pred / v-pred）只用数据自身、不用 label，与 MAE / DAE 同属 denoising-based 自监督。diffusion 训练<strong>免费附带</strong>表征学习。</li>
+<li><strong>diffusion 在 SSL 谱系里有明确位置</strong>：contrastive（InfoNCE，靠负样本）/ non-contrastive（SimSiam·BYOL，靠 predictor + stop-gradient）/ denoising（MAE·diffusion，靠重建）三足鼎立，diffusion 属第三类，且与 MAE 是近亲。</li>
+<li><strong>Consistency Models 把 diffusion 拉回 non-contrastive 结构</strong>：CT 的 "(student, stop-grad EMA target)" 与 BYOL / SimSiam 结构相通；并且"image→image + 轨迹一致性"可理解为隐式学习近似把噪声空间投影回数据流形。</li>
+<li>这一切都指向 §2 的问题：既然 diffusion 天生在学表征，那它<strong>实际学出来的表征长什么样、什么时候会学坏</strong>？</li>
+</ul>
+</div>
+
+
+<!-- ============================ §2 ============================ -->
+
+<h2 id="sec-2">2 · diffusion 自己的 SSL 表征长什么样，又何时学坏</h2>
+
+<p>§1 我们论证了：denoising 本身是一种自监督任务，所以 diffusion 在学会生成的同时，<em>顺手</em>就把表征学了。这听上去很美好——免费的午餐。但凡是免费的东西，往往都有隐藏的代价。这一节我们要把"diffusion 表征"这件事拆开看清楚：它<strong>藏在哪一层、哪个噪声尺度</strong>；它<strong>为什么有时很好、有时很糟</strong>；以及最关键的——表征的好坏，居然和模型<strong>泛化还是记忆</strong>是同一件事的两面。我们会跟着 Qing Qu 组的两篇可解释性工作 [1][2]，把这个故事讲清楚。</p>
+
+<div class="callout callout-info">
+<strong>本节主线</strong>：先回答"中间层为什么能当表征"（噪声尺度 = 语义粒度的旋钮），再看表征质量沿扩散时间 \(t\) 的<strong>单峰动力学</strong> [1]，最后把镜头拉到表征的<strong>谱结构</strong>——balanced 还是 spiky [2]——并指出这背后真正的变量是<strong>泛化 vs. 记忆</strong>。一句话剧透：好表征不是天生的，它是泛化的副产品；表征学坏，往往就是模型在记答案。
+</div>
+
+<h3>2.1 中间层为什么能当表征：噪声尺度就是语义粒度的旋钮</h3>
+
+<p>回忆 diffusion 的前向过程：从干净数据 \(x_0\) 出发，逐步注入噪声，得到一族被破坏的样本</p>
+
+$$
+x_t = \alpha_t\, x_0 + \sigma_t\, \epsilon, \qquad \epsilon \sim \mathcal{N}(0, I),
+$$
+
+<p>其中信噪比 \(\mathrm{SNR}(t) = \alpha_t^2 / \sigma_t^2\) 随 \(t\) 单调下降：\(t\to 0\) 几乎是干净图像，\(t\to T\) 几乎是纯噪声。网络 \(f_\theta(x_t, t)\)（无论它预测的是 \(\epsilon\)、\(x_0\) 还是 score \(\nabla_{x_t}\log p_t\)）要在<em>每一个噪声尺度上</em>都把被破坏的输入还原回干净流形。这意味着同一个网络被迫在一条连续的"难度谱"上学习去噪。</p>
+
+<p>关键的直觉在于：<strong>在不同噪声尺度下完成去噪所需的信息是不一样的，因此网络在不同 \(t\) 下被迫编码不同粒度的语义。</strong></p>
+
+<pre data-kind="diagram" data-fold="never" data-label="噪声尺度 ↔ 语义粒度（去噪难度谱）">
+  高噪声  t→T  ┃ 输入≈纯噪声，几乎看不见原图
+   (low SNR)   ┃ 要还原，只能靠"这类数据长什么样"的全局先验
+               ┃ → 网络编码：粗语义 / 类别 / 全局布局 / 大色块
+               ┃   (coarse, global, semantic)
+               ┃
+  中等噪声 t≈t* ┃ 既有部分结构残留，又需大量先验补全
+   (mid SNR)    ┃ → 全局语义 + 局部结构都要用上
+               ┃   ★ 经验上这里表征最有用（见 2.2 单峰）
+               ┃
+  低噪声  t→0  ┃ 输入≈干净图，只剩高频细节待补
+   (high SNR)  ┃ → 网络编码：纹理 / 边缘 / 像素级细节
+               ┃   (fine, local, low-level)
+</pre>
+
+<p>这正是为什么 diffusion 的<strong>中间层激活</strong>能直接拿去做下游分类、分割等任务，且效果不错：高噪声分支学到的全局语义，恰好是判别任务想要的东西；而扫一遍不同的 \(t\) 和不同的层，等于得到了一组多粒度、多尺度的特征金字塔。换句话说，diffusion 不是只学了"怎么画"，它在学"怎么画"的过程中，被迫把数据的<em>层次化结构</em>内化进了网络的中间表示里。这也是 2025 年那一大波"把 diffusion 中间层和 SSL 对齐"工作（§3 会展开）的物理基础——既然里面已经有表征，那就有得对齐、有得借用。</p>
+
+<div class="callout callout-info">
+<strong>直觉锚点</strong>：噪声尺度 \(t\) 是一个连续的"放大镜旋钮"。拧到高噪声端，模型只能谈论"这是一只狗"（语义）；拧到低噪声端，模型在谈论"这根毛的走向"（细节）。表征的语义粒度，几乎是被 SNR 唯一地索引出来的。
+</div>
+
+<h3>2.2 表征质量沿扩散时间的单峰动力学，以及它何时塌掉</h3>
+
+<p>既然不同 \(t\) 编码不同粒度，一个自然的问题是：<strong>哪个 \(t\) 的表征最有用？</strong> Qing Qu 组的工作 [1] 通过低维建模来理解 diffusion 的表征动力学，给出了一个干净而漂亮的现象——<strong>表征质量随扩散时间 \(t\) 呈单峰（unimodal）曲线</strong>。</p>
+
+<p>定性地说：如果我们沿着 \(t\) 把中间表征拿去测一个下游可用性指标（例如线性可分性 / 下游探针性能），会得到一条先升后降的钟形曲线——</p>
+
+$$
+\text{(表征质量)}\;\; Q(t) \;\;\text{随 } t \text{ 先升后降，在某个中间尺度 } t^* \text{ 达到峰值。}
+$$
+
+<ul>
+<li><strong>太低噪声（\(t\to 0\)）</strong>：输入几乎就是原图，网络没有被逼着抽象，表征里塞满了低层细节，全局语义反而稀薄——下游可用性不高。</li>
+<li><strong>太高噪声（\(t\to T\)）</strong>：输入几乎是纯噪声，可还原的信息太少，表征退化为对边缘分布的笼统先验，丢掉了样本特异的结构——可用性也不高。</li>
+<li><strong>中间尺度（\(t^*\)）</strong>：恰好"既有残留结构可抓、又被逼着调用全局先验"，全局语义与局部结构在此交汇，表征最有用。这就是单峰的<strong>峰</strong>。</li>
+</ul>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/Representation1.jpg" alt="表征质量随扩散时间的单峰动力学，以及不泛化时单峰结构塌掉">
+<figcaption><strong>图 2-1（来自 [1] 的论点示意）</strong>：表征质量沿扩散时间 \(t\) 的<strong>单峰动力学</strong>。横轴为扩散时间（或等价的噪声尺度 / SNR），纵轴为中间表征的下游可用性。<strong>训练良好、具备泛化能力</strong>的 diffusion 模型呈现清晰的单峰钟形曲线，峰值落在某个中间尺度 \(t^*\)（"既有结构可抓、又需调用全局先验"的交汇点）。而当模型<strong>不具备泛化性、陷入对训练集的记忆</strong>时，这个漂亮的单峰结构会<strong>逐步消失 / 塌掉</strong>——曲线变得平坦或畸形，因为模型不再沿尺度组织"由粗到细"的语义层次，而是退化成在各个尺度上检索记住的训练样本。<em>(即便图加载失败，核心信息：在 [1] 的设定下，单峰清晰 ～ 泛化良好，单峰塌掉 ～ 陷入记忆。)</em></figcaption>
+</figure>
+
+<p>真正深刻的地方在于第二句话：<strong>这个单峰结构是否存在，是模型是否泛化的"指示灯"。</strong> [1] 观察到，当模型不具备泛化性、退化成对训练集的<em>局部记忆</em>时，原本随尺度连续演化的单峰动力学会逐渐瓦解。直觉上不难理解——</p>
+
+<pre data-kind="diagram" data-fold="never" data-label="单峰为何与泛化绑定">
+泛化的模型：
+   学到的是"数据流形"的尺度组织
+   高 t → 抓流形的全局形状（语义）
+   低 t → 抓流形的局部细节（纹理）
+   ⇒ 沿 t 形成连续、由粗到细的语义层次
+   ⇒ 表征质量 Q(t) 单峰，峰在 t*
+
+记忆的模型：
+   学到的是"训练样本的查找表"
+   无论 t 多大，目标都是检索回某个见过的 x0
+   ⇒ 没有"按尺度组织语义"这件事可言
+   ⇒ Q(t) 单峰结构 → 塌掉 / 变平 / 畸形
+</pre>
+
+<p>泛化的模型把噪声尺度当成"放大数据流形的旋钮"，于是表征沿 \(t\) 自然铺开成由粗到细的层次，呈现单峰；记忆的模型则把每个噪声样本都当成"该回到哪张见过的图"的检索问题，尺度不再承载语义组织，单峰也就无从谈起。<strong>于是"有没有单峰"成了一个可观测、可解释的泛化探针</strong>——你不需要知道测试集，只要看表征沿 \(t\) 的动力学是否健康，就能判断模型是在理解数据还是在背答案。</p>
+
+<h3>2.3 表征的谱结构：balanced 还是 spiky，就是泛化还是记忆</h3>
+
+<p>如果说 2.2 是沿"时间轴 \(t\)"看表征，那么 [2] 提供了一个互补的、沿"特征空间方向"看表征的视角。其核心论点是：<strong>diffusion 模型的泛化，伴随着一个 balanced 的表征空间出现；训练不好的模型，其表征是 spiky 的。</strong></p>
+
+<p>这里的"谱"指的是表征所张成的特征空间的方向分布。我们可以借用协方差谱来获得直觉：把模型在数据上诱导的表征收集起来，看它的方向能量是<em>均匀铺开</em>还是<em>挤在少数方向上</em>。</p>
+
+$$
+\Sigma \;=\; \mathbb{E}\big[(h-\bar h)(h-\bar h)^\top\big],
+\qquad \text{特征值谱}\;\; \lambda_1 \ge \lambda_2 \ge \cdots \ge \lambda_d \ge 0 .
+$$
+
+<ul>
+<li><strong>Spiky（尖刺型，训坏 / 记忆）</strong>：少数几个 \(\lambda_i\) 极大、其余迅速衰减到接近 0。能量塌缩到极低维的几个方向上——这正是<em>过拟合 / 记忆</em>的几何签名：模型只沿着"复现训练样本"所需的那几个方向用力，没有去覆盖数据流形的其余结构。这也呼应了表征学习里 contrastive / non-contrastive 方法竭力避免的<strong>维度坍缩（dimensional collapse）</strong>。</li>
+<li><strong>Balanced（均衡型，训好 / 泛化）</strong>：能量在更多方向上较为均匀地铺开，谱"平"。模型充分挖掘了数据分布的多种变化因子，表征覆盖了数据真实流形的多个方向，因而泛化好。</li>
+</ul>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/Representation2.jpg" alt="训坏则 spiky 表征、训好则 balanced 表征">
+<figcaption><strong>图 2-2（来自 [2] 的论点示意）</strong>：表征谱的两种形态。<strong>左 / spiky</strong>：训练不充分或陷入记忆的模型，其表征能量集中在极少数方向上（谱尖刺、长尾迅速塌到 0），几何上表现为只覆盖数据流形的少数方向，是过拟合 / 记忆的签名。<strong>右 / balanced</strong>：训练良好、具备泛化能力的模型，表征能量在更多方向上均衡铺开（谱平），充分覆盖数据流形的多个变化方向，因而"充分挖掘了数据分布的特征"、泛化好。核心论点：<strong>balanced 表征空间与泛化同时出现（generalization arises with a balanced representation space）</strong>。<em>(raw 链接；即便裂图，信息即：spiky=记忆/过拟合，balanced=泛化。)</em></figcaption>
+</figure>
+
+<h3>2.4 把两条线缝起来：表征好坏、泛化、学到流形三者高度相关</h3>
+
+<p>到这里，[1] 的"单峰动力学"和 [2] 的"balanced 谱"其实在讲同一件事，只是从两个不同的切面观察：</p>
+
+<pre data-kind="diagram" data-fold="never" data-label="一张图看懂：两个可解释指标指向同一个本质">
+                          ┌──────────────────────────┐
+   沿时间轴 t 看 ───────▶ │  单峰动力学存在 [1]        │
+   (扩散尺度方向)          │  Q(t) 先升后降，峰在 t*     │
+                          └────────────┬─────────────┘
+                                       │  同一件事
+                          ┌────────────┴─────────────┐
+   沿特征方向看 ─────────▶ │  balanced 表征谱 [2]       │
+   (协方差谱方向)          │  能量在多方向均衡铺开       │
+                          └────────────┬─────────────┘
+                                       ▼
+                  ┌─────────────────────────────────────┐
+                  │  本质：模型学到了数据的【真实流形】   │
+                  │        而不是【记忆个别训练样本】     │
+                  │   ⇒  泛化 (generalization)            │
+                  └─────────────────────────────────────┘
+
+   反面：单峰塌掉  ∧  谱 spiky  ⇒  记忆 / 过拟合  ⇒  不泛化
+</pre>
+
+<p>两个现象共同的底层变量，就是 manifold hypothesis 意义下的那句话——<strong>泛化 = 学到了数据的真实低维流形，记忆 = 只记住了流形上散落的几个样本点</strong>。学到流形的模型，会把噪声尺度组织成由粗到细的语义层次（→ 单峰），并在特征空间里沿流形的多个方向均衡铺开能量（→ balanced 谱）；只记住样本的模型，既无尺度层次（单峰塌掉），也只用得到指向那几个记忆点的少数方向（spiky 谱）。两个看似无关的可解释性现象，原来是同一枚硬币的正反面。</p>
+
+<div class="callout callout-good">
+<strong>2.4 takeaway</strong>
+<ul>
+<li><strong>表征不是免费午餐</strong>：§1 说"denoising 顺手就学了表征"是对的，但<em>表征的质量</em>完全依赖训练是否健康、模型是否泛化。训坏 / 记忆时，表征会真的"学坏"。</li>
+<li><strong>表征质量可作泛化的可解释探针</strong>：在这些工作的设定下，表征沿 \(t\) 是否单峰 [1]、谱是否 balanced [2]，是判断模型在"理解数据"还是"背答案"的可靠相关信号（不必只依赖测试集）。这把抽象的"泛化"部分地变成了可观测的几何量。</li>
+<li><strong>核心张力是流形 vs. 记忆</strong>：好表征、泛化、学到真实流形而非记忆样本，三者紧密相关。这条主线既是本节的落点，也为后两节埋下伏笔——既然好表征如此依赖泛化、又这么难自发拿稳，那么<strong>（§3）干脆从外部注入现成的 SSL 好表征</strong>，或者<strong>（§4）绕开表征、直接利用数据流形结构</strong>，就成了两条顺理成章的出路。</li>
+</ul>
+</div>
+
+
+<!-- ============================ §3 ============================ -->
+
+<h2 id="sec-3">3 · 借外部 SSL 表征：三层注入与"站在巨人肩上"</h2>
+
+<p>§2 留下一个尴尬的现实：扩散模型确实<strong>自带</strong>表征学习，但这份表征是否"长得好"，强依赖于训练是否充分、是否真的泛化到了数据流形上。换句话说，"自发学好表征"这件事，<strong>难把握、不稳定、还贵</strong>——你得把整个生成模型训到接近收敛、训到泛化，才能顺带收获一套 balanced 的中间层表征。这就引出一个很自然的反问：</p>
+
+<div class="callout callout-info">
+<strong>核心动机。</strong>既然 SSL 社区（MoCo / SimSiam / MAE / DINOv2）已经花了五年、烧了无数算力，专门把"学好表征"这一件事做到了极致，那生成模型为什么还要从零自己摸索？<strong>不如直接把现成的、冻结的（frozen）SSL 表征借过来用。</strong>这不是偷懒，而是一种分工：让 SSL 负责"理解世界的语义结构"，让 diffusion 负责"在这个结构上做生成"。
+</div>
+
+<p>这个"借表征"的思路在 2025 年集中爆发，并且形成了一条<strong>从底层到推理、贯穿整个生成 pipeline 的注入谱</strong>。我们可以按"注入发生在哪一层"把它们排成三档：</p>
+
+<pre data-kind="diagram" data-fold="never" data-label="SSL 表征的三层注入谱">
+                    frozen SSL encoder (MAE / DINOv2 / V-JEPA2)
+                              │  借来的"语义坐标系"
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+  (a) VAE 层              (b) latent / 中间层       (c) inference 层
+  VA-VAE [3]             REPA [4] / RAE [5]        V-JEPA2 [6]
+  ─────────              ──────────────────        ──────────────
+  对齐 VAE latent         REPA: DiT 中间层加        生成时把样本拉向
+  与 SSL 特征             alignment loss 拉向 SSL    SSL 流形 = "物理裁判"
+  → latent 富语义         RAE: 干脆在 SSL 潜空间      → 真实感 / 物理合理性
+  → 解重建-生成两难        上训 decoder + DiT
+        │                     │                     │
+   训练前 / 底层          训练中 / 表征层          训练后 / 推理时
+        └─────────────────────┴─────────────────────┘
+              共同点：被借的 encoder 始终 frozen，
+              生成模型只学"如何对齐 / 如何在这个空间里生成"
+</pre>
+
+<p>注意这三档不是互斥的竞品，而是同一思想在不同位置的落点。下面逐一拆开机制。</p>
+
+<h3 id="sec-3-1">3.1 VAE 层注入：VA-VAE 让 latent 既能重建、又有语义</h3>
+
+<p>现代主流是 <strong>latent diffusion</strong>：先用一个 VAE 把图像压到低维 latent \(z\)，再在 \(z\) 空间上跑 diffusion。问题出在这个 VAE 的训练目标上。VAE 通常只优化"重建"——它只在乎 \(z\) 能不能把图像还原回去：</p>
+
+$$\mathcal{L}_{\text{VAE}} \;=\; \underbrace{\big\|\, x - \mathrm{Dec}(z)\,\big\|^2}_{\text{重建}} \;+\; \beta\,\underbrace{\mathrm{KL}\big(q(z\mid x)\,\|\,p(z)\big)}_{\text{正则}},\qquad z = \mathrm{Enc}(x).$$
+
+<p>这里有一个被反复观察到的<strong>优化两难（optimization dilemma）</strong>：要重建得好，latent 维度往往要开得很大、信息要塞得很满；但维度一大、信息一密，这个 latent 空间就变得"语义上很难看"——相邻语义的点在 latent 里乱成一团，<strong>重建质量上去了，但下游 diffusion 反而更难学、更难训出好生成</strong>。直白说就是：<em>VAE 重建好，不代表它的 latent 有语义。</em></p>
+
+<p>VA-VAE [3] 的解法非常对症：在原本只管重建的 VAE 上，额外加一项 <strong>vision-foundation alignment loss</strong>，把 VAE 的 latent \(z\) 往 frozen 的 SSL 特征（MAE / DINOv2）上对齐：</p>
+
+$$\mathcal{L}_{\text{VA-VAE}} \;=\; \mathcal{L}_{\text{VAE}} \;+\; \lambda\,\underbrace{\mathcal{L}_{\text{align}}\Big(\,\mathrm{proj}(z),\;\; f_{\text{SSL}}^{\text{frozen}}(x)\,\Big)}_{\text{对齐到冻结 SSL 语义}},$$
+
+<p>其中 \(f_{\text{SSL}}^{\text{frozen}}\) 是冻结不动的 DINOv2/MAE，\(\mathrm{proj}\) 是一个轻量投影头，\(\mathcal{L}_{\text{align}}\) 通常是逐元素 + 余弦相似度的混合。这一项相当于给 VAE 的 latent <strong>装上一套来自 SSL 的"语义坐标系"</strong>：latent 既要能重建（满足 \(\mathcal{L}_{\text{VAE}}\)），又被强迫在结构上和"已经学好语义的 DINOv2"保持一致。结果就是 latent 同时具备<em>高保真重建</em>与<em>良好语义结构</em>，下游 diffusion 在这个空间里训得更快、生成更好——优化两难被打破。</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/VAVAE.jpg" alt="VA-VAE 对齐 VAE latent 与 frozen MAE/DINOv2">
+<figcaption>VA-VAE [3]：在 latent diffusion 的 VAE 训练中，除了常规的重建 + KL 目标外，额外加一项把 VAE latent 投影后对齐到 <strong>冻结的</strong> MAE / DINOv2 特征的 alignment loss。核心是把 SSL 已经学好的语义结构"注入"到 VAE 的潜空间里，让 latent 既重建得好、又语义对齐，从而缓解"重建好但 latent 难生成"的优化两难。</figcaption>
+</figure>
+
+<h3 id="sec-3-2">3.2 latent / 中间层注入：REPA 加速训练，RAE 直接借空间</h3>
+
+<p>第二档把注入点从 VAE 挪到 <strong>diffusion 主干（DiT）自己</strong>。这里有两个代表，强度截然不同：一个是"温和地拉一把"（REPA），一个是"干脆全盘借用"（RAE）。</p>
+
+<h4>REPA：在 DiT 中间层加一条 alignment loss</h4>
+
+<p>REPA [4]（Saining Xie 组，标题就叫 <em>"Diffusion Transformers is Easier Than You Think"</em>）的观察是：DiT 在训练过程中其实<strong>正在缓慢地、自己重新发明一套和 DINOv2 类似的表征</strong>——但它学得很慢，因为它得一边学生成、一边顺带把表征摸索出来（这正是 §1/§2 说的"diffusion 自带 SSL，但表征要靠训练慢慢长出来"）。既然如此，<strong>为什么不直接把答案告诉它？</strong></p>
+
+<p>REPA 的做法极简：取 DiT 某个中间层的 hidden state \(h_\ell(x_t)\)，过一个小 MLP \(h_\phi\)，强迫它对齐到 frozen DINOv2 在干净图像 \(x\) 上的特征 \(f_{\text{SSL}}(x)\)。总目标就是在原本的 diffusion loss 上加一项：</p>
+
+$$\mathcal{L} \;=\; \underbrace{\mathcal{L}_{\text{diffusion}}}_{\text{denoising / 生成}} \;+\; \lambda\,\underbrace{\mathbb{E}\Big[\, -\,\mathrm{sim}\big(\,h_\phi(h_\ell(x_t)),\; f_{\text{SSL}}(x)\,\big)\,\Big]}_{\text{REPA：中间层拉向冻结 SSL}},$$
+
+<p>其中 \(\mathrm{sim}\) 一般是余弦相似度，\(x_t\) 是加噪输入、\(x\) 是干净图像。注意这一项<strong>只在训练时存在</strong>：它像一根"语义脚手架"，把 DiT 的中间层快速拽到一个好表征上，省去了模型自己慢慢摸索的过程。代价几乎为零（一个小 MLP + 一个 frozen encoder 的前向），但 DiT 的训练收敛<strong>大幅加速</strong>——这正是标题想说的"比你想的简单"。</p>
+
+<div class="callout callout-good">
+<strong>直觉。</strong>§2 说"好表征不是免费的，要靠泛化训练慢慢长出来"。REPA 的洞见是：<em>那段慢慢长的过程，可以用一根来自 frozen SSL 的脚手架直接跳过。</em>你不必让 DiT 重新发明 DINOv2，只要在中间层告诉它"应该长成这样"。
+</div>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/REPA.jpg" alt="REPA 在 DiT 中间层对齐 diffusion 表征与 SSL">
+<figcaption>REPA [4]：在 DiT 训练中，取某个中间层的 hidden state，经一个小投影 MLP 后，用 alignment loss 拉向 <strong>冻结的</strong> DINOv2 特征。这条 loss 只在训练期存在，相当于给 DiT 的中间层装上一根"语义脚手架"，让它不必从头慢慢学表征，从而显著加速训练收敛。</figcaption>
+</figure>
+
+<h4>RAE：把 SSL 潜空间直接当作生成空间（Diffusion Transformers with Representation Autoencoders）</h4>
+
+<p>RAE [5] 把"借"做到了极致。REPA 还保留了 DiT 自己的空间、只是把中间层往 SSL 拉；RAE 则<strong>连空间都不要自己的了</strong>——它直接把 frozen SSL encoder（DINOv2 这类）的输出潜空间，<strong>当成 diffusion 要生成的目标空间</strong>。整个 pipeline 变成：</p>
+
+<pre data-kind="diagram" data-fold="never" data-label="RAE 的极简结构">
+  图像 x ──► [ frozen SSL encoder ] ──► 语义潜表征 z = f_SSL(x)
+                  (完全不训)                    │
+                                                ▼
+                              [ diffusion / DiT 在 z 空间建模分布 ]
+                                                │  (这部分仍需训练)
+                                                ▼  生成出 ẑ
+                                   [ decoder ] ──► 图像 x̂
+                              (与 encoder 配成 representation
+                               autoencoder, 需训练)
+</pre>
+
+<p>也就是说：encoder 是借来的、<strong>冻结</strong>的；需要训练的有两部分——(a) 一个把潜表征解码回像素的 <strong>decoder</strong>（与 frozen encoder 一起构成 "representation autoencoder"），和 (b) 在这个 representation 潜空间上<strong>建模分布的 diffusion / DiT 本身</strong>。关键在于：因为这个潜空间<em>本来就是 SSL 精心学好的、语义高度结构化</em>的，diffusion 在上面建模异常省力、收敛更快——省掉的是"从头学语义"这件事，而<strong>不是</strong>"不用训 diffusion"。</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/RAE.jpg" alt="RAE 在 SSL 表征潜空间上训练轻量 decoder">
+<figcaption>RAE [5]（Diffusion Transformers with Representation Autoencoders）：采用<strong>冻结 SSL encoder</strong> 的输出作为 diffusion 的潜空间；需训练的是把潜表征映回像素的 decoder（与 encoder 配成 representation autoencoder）以及在该潜空间建模分布的 DiT。相比 REPA"拉一把"，RAE 是"全盘借用 encoder 给的坐标系"——省掉从头学语义。</figcaption>
+</figure>
+
+<div class="callout callout-info">
+<strong>关键对应（与 continuous DLM 的连接）。</strong>RAE 的结构——<em>frozen encoder 提供潜空间 + 训练 decoder 与在该空间上的 diffusion</em>——和语言侧 continuous DLM 里 ELF 的做法<strong>在结构上高度对应</strong>。ELF「借 frozen T5 contextual embedding」做语言 diffusion，本质就是：把 T5 这套已经学好语义的 encoder <strong>冻结</strong>，在它给出的 contextual embedding 空间里做 diffusion，再配一个共享 decoder 解码回 token。换句话说：
+<br><br>
+$$\underbrace{\text{RAE}}_{\text{图像}}:\;\; \text{frozen DINOv2} \;+\; \text{轻量 decoder} \qquad\Longleftrightarrow\qquad \underbrace{\text{ELF}}_{\text{语言}}:\;\; \text{frozen T5} \;+\; \text{共享 decoder}$$
+<br>
+两者都在说同一句话：<strong>语义 encoder 不用自己学，借现成的、冻结它；生成模型只需要学"如何在这个借来的空间里生成"。</strong>图像扩散的"借 SSL 表征"和语言 DLM 的"借 T5 表征"是<em>同一个 idea 在两个模态上的实例</em>。详见 §5 与 <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/blogs/continuous_dlm_representation_perspective.html" target="_blank" rel="noopener">continuous DLM blog</a> 中关于 ELF frozen encoder + shared decoder 的讨论。
+</div>
+
+<h3 id="sec-3-3">3.3 inference 层注入：用 SSL 流形当生成时的"真实性裁判"</h3>
+
+<p>前两档都在<strong>训练阶段</strong>注入 SSL。第三档更激进：<strong>训练完全不动，只在采样（inference）时</strong>借 SSL 表征来"纠偏"。它的逻辑链是这样的：</p>
+
+<ul>
+<li>SSL 模型（尤其像 V-JEPA 这类 <strong>predictive world model</strong>）是在<strong>海量真实数据</strong>上训出来的，它的表征空间里"什么是真实的、物理上合理的"被刻画得很到位；</li>
+<li>而生成模型采出来的样本，可能在像素上看着还行，但在"物理是否说得通"上经常翻车（视频尤其明显：物体穿模、运动不连贯、违反重力等）；</li>
+<li>那就把生成样本和真实样本<strong>都投影到 SSL 的表征流形上</strong>，用"在这个流形上是否落在真实样本附近"作为一个<strong>guidance 信号</strong>，在采样时把生成样本往真实流形上推。</li>
+</ul>
+
+<p>V-JEPA2 [6] 正是把这套用在视频生成的物理合理性上：它把 V-JEPA2（一个在海量真实视频上训练的 predictive world model）当作一个 <strong>reward / 真实性裁判</strong>——在采样时对多条候选 denoising 轨迹评分，favor 那些在 V-JEPA2 表征空间里更接近"真实视频"的轨迹，从而把生成结果往物理上合理的方向 steer。直觉上，<strong>V-JEPA2 充当了一个"物理 / 真实性裁判"</strong>：它不在乎你像素上画得多漂亮，只看你在它学到的世界模型表征里是否落在"真实视频"该在的位置。这把对齐从训练时挪到了推理时——是一个 <strong>training-free</strong> 的注入方式，可直接套在已有视频生成模型外面。（具体是 inference-time 的 search / steering，而非对某个流形距离做梯度下降；这里不展开其精确算法。）</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/physical1.jpg" alt="V-JEPA2 在表征流形上对齐生成视频与真实视频提升物理合理性">
+<figcaption>V-JEPA2 [6] inference-time 对齐：把生成视频与真实视频都投影到 V-JEPA2（一个在海量真实视频上训练的 predictive world model）的表征流形上，在采样时用 V-JEPA2 表征作为"真实性 / 物理合理性裁判"对候选轨迹评分、把生成结果往物理上合理的方向 steer。整个过程 training-free。</figcaption>
+</figure>
+
+<h3 id="sec-3-4">3.4 小结：表征可借，borrowing &gt; 从头学</h3>
+
+<div class="callout callout-good">
+<strong>Takeaway。</strong>三档注入——VA-VAE 在 <em>VAE 层</em>、REPA/RAE 在 <em>表征 / 中间层</em>、V-JEPA2 在 <em>推理层</em>——本质是同一个判断：<strong>"学好表征"这件难事，没必要让生成模型自己重做一遍，借一个 frozen SSL encoder 就行。</strong>区别只在借得多深：VA-VAE 是"对齐一下"，REPA 是"拉一把脚手架"，RAE 是"连空间都借走、再训 decoder 与 diffusion"，V-JEPA2 是"训练不碰、推理时当裁判"。
+</div>
+
+<p>最值得划重点的是这条趋势的<strong>跨模态普适性</strong>：它不是图像扩散的专利。语言侧的 continuous DLM 正在走同一条路——<strong>ELF「借 frozen T5 contextual embedding」就是这套"借现成 encoder 表征"思想在语言上的极简实例</strong>，其中 ELF 的 <em>frozen encoder + 共享 decoder</em> 与本节 (b) 的 RAE 在结构上高度对应（见 §3.2 的对照框，§5 会展开）。从 DINOv2 到 T5，从图像到语言，结论是一致的：</p>
+
+<div class="callout callout-info">
+<strong>borrowing &gt; learning from scratch</strong>——把语义结构这一最难、最贵的部分<strong>外包</strong>给已经训好的 SSL / 语言 encoder，让生成模型专注在"如何在借来的好空间里生成"。这是 2025 年图像与语言两条扩散主线<strong>共同收敛</strong>的方法论，也是连接本文 §3 与 §5（<a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/blogs/continuous_dlm_representation_perspective.html" target="_blank" rel="noopener">continuous DLM blog</a>）的主桥梁。
+</div>
+
+<p><strong>承上启下。</strong>§3 走的是"<strong>借表征</strong>"这条路——把语义这件事外包出去。但还有一条更朴素、更接近问题物理本质的路：<em>连表征都不学，直接吃数据自身的几何结构</em>。下一节我们就从 manifold hypothesis 出发，看 [7][8][9] 如何把数据的低维流形当作一等公民。</p>
+
+
+<!-- ============================ §4 ============================ -->
+
+<h2 id="sec-4">4 · 绕开表征：直接利用数据流形的几何结构</h2>
+
+<p>前三节一直在「<strong>表征</strong>」这个层面打转：diffusion 自己学的表征长什么样（§2）、怎么把现成 SSL 表征注进来（§3）。但表征终究是一个<em>间接</em>的抓手——我们真正想要的，是让模型「认识」数据本身的结构。一个自然的问题是：<strong>能不能跳过表征这一层，直接把数据的几何结构喂给生成模型？</strong></p>
+
+<p>这条路的底层信念只有一句话——<strong>manifold hypothesis（流形假设）</strong>。它说：那些看起来住在百万维像素空间里的自然图像、视频，其实只散落在一张维度低得多的「流形」\(\mathcal{M}\) 上。如果这是真的，那么我们大半的建模努力（高维去噪、堆容量、对齐表征）可能都在为「环境维度」(ambient dimension) 买单，而真正该锚定的是那张薄薄的低维曲面。本节梳理三项把流形直接当作一等公民的工作：用流形换容量的 <strong>[7]</strong>、用流形换预测目标的 <strong>[8]</strong>、用流形换推理动力学的 <strong>[9]</strong>，最后把它们和语言侧 continuous DLM 的 DSL / ELF 对接起来（§4.6 与 §5）。</p>
+
+<div class="callout callout-info">
+<strong>本节主线：</strong>表征 vs 流形是改进 diffusion 的两条平行路。§3（表征路）问「借谁的特征空间」；§4（流形路）问「数据本身住在哪儿，怎么直接利用它的低维性」。后者更朴素，也更接近生成问题的物理本质。
+</div>
+
+<h3>4.1 流形假设：高维数据的「真自由度」很低</h3>
+
+<p>形式化地说，流形假设断言数据分布 \(p_{\text{data}}\) 的支撑集近似落在一个低维子流形上：</p>
+
+$$ \operatorname{supp}(p_{\text{data}}) \approx \mathcal{M} \subset \mathbb{R}^{D}, \qquad \dim \mathcal{M} = d \ll D. $$
+
+<p>这里 \(D\) 是环境维度（如 \(256\times256\times3 \approx 2\times10^5\) 个像素），而内在维度 \(d\) 可能只有几十到几百。直觉上很好理解：一张自然图像的像素之间高度相关——相邻像素几乎相同、纹理重复、物体有刚性约束——所以「合法图像」在像素空间里只占一个测度几乎为零的薄壳。视频更夸张：连续帧之间被光流和物理一致性死死绑住，时间维度几乎没有引入新的自由度。</p>
+
+<p>这件事对 diffusion 有一个直接而深刻的后果。前向加噪 \(x_t = \alpha_t x_0 + \sigma_t \epsilon\) 把数据从流形 \(\mathcal{M}\) 上「推开」到整个 \(\mathbb{R}^D\)；而 score function \(\nabla_x \log p_t(x)\) 在低噪声时本质上是一个<strong>指向流形的法向投影</strong>——它告诉每个偏离流形的点该往哪个方向缩回 \(\mathcal{M}\)。Qing Qu 组在 [1][2] 里讲的「balanced 表征 ～ 充分覆盖数据流形方向、spiky ～ 塌进少数记忆方向」，也可以理解为在描述模型有没有学到这张流形的<em>切空间结构</em>。§4 的工作只是把这个隐含的几何，提到了台前。</p>
+
+<div class="callout callout-good">
+<strong>直觉锚点：</strong>如果数据只有 \(d\) 维自由度，那么「学会在 \(D\) 维里去噪」就是一种浪费——\(D-d\) 个法向方向上的活，本质上只是「把点压回流形」，是同一件简单的事重复几十万遍。下面三项工作分别从<strong>容量</strong>、<strong>预测目标</strong>、<strong>推理过程</strong>三个角度，去回收这份浪费掉的预算。
+</div>
+
+<h3>4.2 容量视角：流形估计好之后，去噪器可以更简单</h3>
+
+<p>从容量角度看，一个自然的问题是：如果数据已经被映射到一个较好的低维 latent 流形上，后面的 diffusion 去噪器是否还必须很大？作者近期的 Multi-Subspace MoE 工作 [7]（ICLR 2026）可以看作这条思路的一个例子：先用 VAE 把图像压到 latent 空间，再用由多个浅层 expert 组成的 MoE 去建模不同局部子空间。这里的重点不在于"某个架构本身足够强"，而在于它提示了一种取舍——<strong>当流形估计承担了更多结构性工作，去噪网络需要表达的函数可能就简单得多</strong>（按原论点：VAE 把流形估计好时，一个 2 层 MoE 即可生成 ImageNet 级数据）。</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/MOE.jpg" alt="VAE latent manifold + multi-subspace MoE 去噪器">
+<figcaption><strong>图：Multi-Subspace MoE [7] 示意。</strong>VAE 先把图像映射到 latent 流形，MoE 再用不同浅层 expert 处理局部子空间——体现的是"用更好的几何建模来降低后续去噪难度"这一思路。</figcaption>
+</figure>
+
+<h3>4.3 让去噪模型去「去噪」：x-prediction 与 pixel-space 的回归</h3>
+
+<p>第二项 [8] 把流形思想落到了 diffusion 最核心的设计选择——<strong>预测目标</strong>上。这是 Kaiming He 组的 <em>Back to Basics: Let Denoising Generative Models Denoise</em>（JiT）。标题本身就是论点：让去噪模型，老老实实去预测<strong>干净的数据 \(x_0\)</strong>，而不是去预测噪声。</p>
+
+<p>回忆 §1 里 diffusion 训练目标的三种等价参数化。给定 \(x_t = \alpha_t x_0 + \sigma_t \epsilon\)，网络可以选择回归不同的量：</p>
+
+$$
+\underbrace{\mathcal{L}_\epsilon = \mathbb{E}\,\big\| \epsilon_\theta(x_t,t) - \epsilon \big\|^2}_{\text{ε-prediction（预测噪声）}},
+\qquad
+\underbrace{\mathcal{L}_x = \mathbb{E}\,\big\| x_\theta(x_t,t) - x_0 \big\|^2}_{\text{x-prediction（预测干净数据）}}.
+$$
+
+<p>三者在数学上可以互相换算（\(\epsilon = (x_t - \alpha_t x_0)/\sigma_t\)），看似只是重参数化。但在<strong>流形视角</strong>下，它们的「难度」完全不同：</p>
+
+<ul>
+<li><strong>预测 \(\epsilon\)</strong>：目标是各向同性高斯噪声，<em>填满整个 \(D\) 维环境空间</em>，没有任何低维结构可言。网络被迫在全维度上输出一个高方差、无几何约束的向量。</li>
+<li><strong>预测 \(x_0\)</strong>：目标恰好<em>落在低维流形 \(\mathcal{M}\) 上</em>。网络的输出天然被约束到一张薄曲面，回归的「有效自由度」是 \(d\) 而不是 \(D\)。它在做的事情，字面意义上就是「去噪」——把脏的 \(x_t\) 投回干净流形。</li>
+</ul>
+
+<p>正因为 \(x\)-prediction 的目标自带低维流形约束，它比预测高维噪声<strong>更直接、更稳定</strong>。[8] 的一个反直觉之处在于：靠这个朴素选择，diffusion 可以<strong>直接在 pixel space 上 work</strong>，而不必先经过 VAE 压到 latent——长期以来人们以为高分辨率必须 latent diffusion，而「让去噪器真的去去噪」让 pixel-space 重新成为可行选项。这也开启了一系列回归 pixel-space 的后续工作。</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/JiT.jpg" alt="JiT / x-prediction：预测低维干净数据而非高维噪声">
+<figcaption><strong>图：[8] JiT 的 x-prediction 直觉。</strong>上路（传统 ε-prediction）：网络回归各向同性高斯噪声，目标分布填满整个高维环境空间，没有低维结构可借力。下路（JiT 的 x-prediction）：网络直接回归干净数据 \(x_0\)，目标天然落在低维数据流形 \(\mathcal{M}\) 上，回归任务被约束到一张薄曲面、有效自由度从 \(D\) 降到 \(d\)。结论：预测「落在流形上的干净 x」比预测「填满全空间的噪声 ε」更直接，连 pixel-space 也能直接 work。即使图裂记住：<em>let denoising models denoise——预测干净 x，不预测噪声。</em></figcaption>
+</figure>
+
+<div class="callout callout-good">
+<strong>Takeaway（[8]）：</strong>预测目标的「方向」要对齐数据的几何。流形是低维的，那就让网络去预测落在流形上的量（\(x_0\)），而不是填满全空间的量（\(\epsilon\)）。一个免费的参数化选择，换来训练稳定性 + pixel-space 可行性。
+</div>
+
+<h3>4.4 推理时 predict–perturb：training-free 地 localize 到真实流形</h3>
+
+<p>前两项是<strong>训练侧</strong>的流形利用（换架构、换目标），第三项 [9]（<em>Self-Refining Video Sampling</em>）则把流形思想搬到<strong>推理侧</strong>，而且完全 <strong>training-free</strong>——不动一行训练代码，只改采样过程。</p>
+
+<p>它的观察是：一个训练好的（视频）生成模型，其单步输出未必精确落在真实数据流形上，往往偏在流形附近的「壳」里。但模型内部其实<em>大致知道</em>流形在哪——它的去噪映射 \(x_\theta(\cdot)\) 可以近似看作一个指向流形的投影（这呼应 §1.3 关于 Consistency Models 的直觉）。于是可以在推理时反复利用这个投影，做一个「<strong>预测—扰动—再预测</strong>」(predict–perturb) 的迭代：</p>
+
+<pre data-kind="algorithm" data-fold="never" data-label="算法：inference-time predict–perturb（流形 localization，training-free）">
+输入：训练好的去噪器 x_θ，初始样本 x，扰动尺度 σ，迭代步数 R
+for r = 1 … R:
+    x̂ ← x_θ(x, t_r)          # predict：把当前样本投向数据流形 M（去噪 = 法向投影）
+    x  ← x̂ + σ_r · ξ,  ξ~N(0,I)  # perturb：在流形附近注入小扰动，跳出当前局部
+    # （σ_r 随 r 递减：扰动越来越小，逐步收紧到流形上）
+return x                        # 反复 project→perturb 后，x 逐渐 localize 到真实流形 M
+</pre>
+
+<p>每一次 <em>predict</em> 把样本拉回流形（投影分量），每一次 <em>perturb</em> 在流形附近重新探索（切向分量），随着扰动尺度递减，样本会像退火一样<strong>逐渐 localize（收敛、锚定）到真实数据流形上</strong>。直觉上这是一个不动点迭代：真实流形上的点是去噪映射的（近似）不动点，反复 project–perturb 会把样本吸到这些不动点附近，从而提升生成结果的真实感与（对视频而言的）物理合理性。整个过程不需要额外训练，纯粹是对「模型已经隐式编码了流形」这一事实的推理时再利用。</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/PP.jpg" alt="inference-time predict-perturb 逐渐 localize 到真实数据流形">
+<figcaption><strong>图：[9] predict–perturb 的推理时流形 localization。</strong>一个偏离真实流形 \(\mathcal{M}\)（图中曲线）的样本，经过反复「predict（去噪器把它投向流形）→ perturb（注入逐渐减小的扰动重新探索）」的迭代，轨迹像退火一样螺旋收紧，最终 localize 到流形上的高质量样本。关键：去噪器可近似看作指向流形的投影，推理时反复调用它即可逐步逼近流形，<em>无需任何额外训练</em>。即使图裂记住：<em>predict 拉回流形、perturb 跳出局部，迭代收敛到真实数据流形——training-free。</em></figcaption>
+</figure>
+
+<div class="callout callout-info">
+<strong>Takeaway（[9]）：</strong>流形不仅能在训练时用，也能在推理时「免费」用。既然去噪器隐式编码了到流形的投影，反复 predict–perturb 就是一个 training-free 的流形 localization 技巧——尤其适合需要物理合理性的视频生成。
+</div>
+
+<h3>4.5 三条流形利用路线 = 三个不同的旋钮</h3>
+
+<p>把 [7][8][9] 并排看，会发现它们其实在拧三个完全不同、但指向同一信念的旋钮：</p>
+
+<pre data-kind="diagram" data-fold="never" data-label="流形利用的三个层面（训练→推理）">
+                       「数据是低维流形」这一个信念
+                                    │
+        ┌───────────────────────┼───────────────────────┐
+        ▼                          ▼                          ▼
+   [7] 架构 / 容量            [8] 预测目标               [9] 推理动力学
+   VAE 找对流形             x-prediction              predict–perturb
+   → 2 层 MoE 即够          预测落在流形上的 x₀        反复投影+扰动
+   流形估好 → 去噪更简单     而非填满全空间的 ε        逐渐 localize 到流形
+        │                          │                          │
+   省下的是：模型容量        省下的是：回归自由度       省下的是：训练成本
+                                                       （training-free）
+</pre>
+
+<p>三者互不冲突、甚至可以叠加：用 [7] 的 VAE 把流形找对、用 [8] 的 x-prediction 让去噪器对齐流形、再用 [9] 在推理时把样本 localize 回流形。共同的反面教材，是那种「在 \(D\) 维环境空间里无脑去噪、靠堆容量硬扛」的粗暴做法——它对数据的低维性视而不见。</p>
+
+<h3 id="sec-4-dlm">4.6 跨到语言：DSL 的 unit-sphere localization 与 ELF 的 x-prediction</h3>
+
+<p>到这里，细心的读者应该已经嗅到一股熟悉的味道。本节讲的「直接利用数据流形几何」，正在<strong>语言侧的 continuous DLM 上高度对应地复现</strong>——只不过对象从图像/视频换成了文本 token 的连续表示。两个最直接的对应（§5 会展开成完整的跨模态对仗）：</p>
+
+<div class="callout callout-good">
+<strong>对应一：流形几何 ↔ DSL 的 unit-sphere stochastic localization。</strong><br>
+本节 [9] 的精神是「推理时把样本 localize 到数据流形」。在语言连续扩散里，<strong>DSL</strong> 把这件事做成了训练/采样的核心机制：它不在欧氏全空间上加噪，而是<strong>在单位球面 (unit sphere) 这张几何流形上做 stochastic localization</strong>，让几何结构随 SNR 动态涌现。这正是「利用流形 / 几何先验」从图像迁到语言的版本——把「数据住在一张低维曲面上」这个 [7][8][9] 的图像直觉，换成了「语言的连续表示天然适合一个有界球面流形」。<em>（详见 continuous DLM blog 关于 DSL 几何与 stochastic localization 的章节，约 §10。）</em>
+</div>
+
+<div class="callout callout-good">
+<strong>对应二：x-prediction ↔ ELF 的核心目标选择。</strong><br>
+本节 [8] JiT 的论点是「预测落在流形上的干净 \(x_0\) 比预测填满全空间的噪声 \(\epsilon\) 更直接、更稳定」。这恰恰是 <strong>ELF</strong> 在语言连续扩散里做出的同一选择：ELF 采用 <strong>x-prediction</strong>，让模型直接预测干净的（contextual embedding 形式的）目标，而非噪声——并被验证在全维度上更稳定。图像侧「let denoising models denoise」与语言侧「ELF 用 x-pred 预测干净 contextual target」是同一条原理的两次落地。<em>（详见 continuous DLM blog 关于 ELF x-prediction 的章节，约 §4 C.1：x-pred 全 dim 稳定。）</em>
+</div>
+
+<p>把 §3 和 §4 一起看，跨模态的对仗就完整了：§3 的「<strong>借表征</strong>」对应语言侧 ELF「借 frozen T5 contextual embedding」；§4 的「<strong>用流形 / x-pred</strong>」对应语言侧 DSL 的「unit-sphere localization」与 ELF 的「x-prediction」。一句话——<strong>图像扩散这套「利用流形 / 预测干净 x / 推理时 localize」的经验，正在被迁移到语言 continuous DLM 上。</strong>下一节（§5）就把这层联系正面展开；想看这套思想在语言上的完整版，可移步 <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/blogs/continuous_dlm_representation_perspective.html" target="_blank" rel="noopener">continuous DLM blog</a>（§4 / §10）。</p>
+
+<div class="callout callout-info">
+<strong>本节 Takeaway：</strong>表征与流形是改进 diffusion 的两条平行主线。流形路（[7] 找对流形换容量、[8] x-pred 换预测目标、[9] predict–perturb 换推理动力学）的共同信条是「<strong>数据是低维的，就别在高维里做无用功</strong>」。而这条信条不分模态——它在图像/视频上由 [7][8][9] 验证，在语言上由 DSL 的几何 localization 与 ELF 的 x-prediction 接力。流形先验，正在成为生成模型跨模态的通用语言。
+</div>
+
+
+<!-- ============================ §5 ============================ -->
+
+<h2 id="sec-5">5 · 与 continuous DLM 的联系 —— 图像扩散的经验正被搬到语言上</h2>
+
+<p>前面四节（§1–§4）讲的全是<strong>图像 / 视频</strong>扩散：denoising 天然是 SSL（§1）、扩散自己长出的表征长什么样、何时学坏（§2）、为什么干脆外借现成 SSL 表征以及怎么注入（§3）、以及绕开表征、直接吃数据的低维流形结构（§4）。但如果你最近也在看<strong>语言</strong>上的连续扩散语言模型（continuous DLM），会有一种强烈的既视感：图像扩散这几年踩出来的两条路——<strong>「借表征」</strong>和<strong>「用流形」</strong>——正被平移到语言上。这一节就把这两条暗线接起来。</p>
+
+<div class="callout callout-info">
+<h4>💡 一句话主题</h4>
+<p><strong>表征 / 流形这套图像扩散的经验，正在被搬到语言 continuous DLM 上。</strong>图像端「借 frozen SSL 编码器的表征」对应语言端 ELF「借 frozen T5 的 contextual embedding」；图像端「用 x-prediction、用数据流形几何」对应语言端 ELF 的 x-prediction 与 DSL 的 unit-sphere stochastic localization。两边解决的是同一个病：<em>不要让模型把算力浪费在重新学一套数据已经免费给你的几何结构上</em>。</p>
+<p style="margin-top:.5em">语言端这条线的细节，我们在另一篇里展开讲（ELF / Cola-DLM / DSL 的 landscape、训练 pipeline、采样网格、跨家族对比）：<a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/blogs/continuous_dlm_representation_perspective.html" target="_blank" rel="noopener">continuous DLM blog</a>。本节只做「图像 ↔ 语言」的对位翻译。</p>
+</div>
+
+<h3>5.1 「借 SSL 表征」(§3) ↔ ELF「借 frozen T5 表征」</h3>
+
+<p>§3 的核心动机是：扩散模型自己<em>自发</em>学好表征很难、很玄（§2 的单峰动力学 [1] 和 balanced/spiky 谱 [2] 已经说明这个「度」难把握），那不如直接<strong>站在 SSL 巨人的肩上</strong>，把一个在海量数据上预训练好、表征已经成形的 frozen 编码器（MAE / DINOv2）的特征接进来。VA-VAE [3] 在 VAE latent 层对齐、REPA [4] 在 DiT 中间层加 alignment loss、RAE [5] 干脆把 SSL 编码器的潜空间当成扩散空间，训练 decoder 与在该空间上的 diffusion——这是一条从底层到中层的「注入谱」。</p>
+
+<p>ELF（Embedded Language Flows）在<strong>语言</strong>上做的事，本质就是这条谱在文本模态的极简落点。它把去噪过程从离散 token 网格搬到一个<strong>连续</strong>坐标系里，而这个坐标系不是端到端学出来的，是<strong>外借</strong>的——直接用 frozen 的 T5-small encoder 输出的 contextual embedding（512 维）当现成的「语义几何」。tensor 流是这样的：</p>
+
+<pre data-kind="diagram" data-fold="never" data-label="ELF：在 frozen T5 表征空间里做 Flow Matching（图像「借 SSL 表征」的语言版）">
+input_ids:        [B, L]                ← 离散 token（每个 0~32127）
+                       ↓  T5-small frozen encoder（不学！≈ 图像里的 frozen MAE/DINOv2）
+contextual emb:   [B, L, 512]           ← 每个位置一个 512-d 向量 = 借来的「语义坐标系」
+                       ↓  + 噪声  z = t·x + (1−t)·ε
+z_t (noisy):      [B, L, 512]           ← ELF 的 Flow Matching 就在这个连续 tensor 上去噪
+                       ↓  ~32 步 Euler 迭代（学 transport 动力学）
+clean emb:        [B, L, 512]           ← 终点 ≈ 干净的 contextual embedding
+                       ↓  shared decoder head（仅 t=1 这一步：512 → 32128 logits）
+output tokens:    [B, L]                ← per-position argmax
+</pre>
+
+<p>这张图和 §3(b) 的 RAE [5] 在结构上高度对应：<strong>frozen 编码器给坐标系 + 一个共享 decoder 做最后一跳</strong>，中间扩散网络专心在这个借来的空间里学 transport。区别只在模态——RAE 借的是 DINOv2 的视觉潜空间，ELF 借的是 T5 的文本 contextual embedding。两者的 framing 高度一致，可以写成同一句话：</p>
+
+$$
+\underbrace{\text{frozen encoder } E_{\text{SSL/T5}}}_{\text{语义几何 · 不学}}
+\;\circ\;
+\underbrace{\text{diffusion transport } v_\theta}_{\text{动力学 · 只学这个}}
+\;\circ\;
+\underbrace{\text{light / shared decoder } D}_{\text{最后一跳}}.
+$$
+
+<p>把「语义几何」和「transport 动力学」<strong>在架构上分离</strong>，正是 §3 那条「borrowing &gt; 从头学」原则的语言版本：图像端解决的是「重建好但 latent 语义差」的 dilemma（VA-VAE）、「DiT 自发学表征太慢」（REPA「easier than you think」）；语言端 ELF 解决的是过去 continuous DLM 那种「embedding 和 diffusion 互相依赖、鸡生蛋」的早期训练不稳定——把表征学习从 loop 里拿掉，训练算力全押在 transport 上。</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/RAE.jpg" alt="RAE: 在 SSL 编码器潜空间训轻量 decoder">
+<figcaption>RAE [5]（§3b）：冻结一个 SSL 编码器，把它的潜空间直接当扩散空间，训练一个 decoder 把潜变量映回像素、并在该潜空间上训练 DiT。语言端的 ELF 与此结构相通——frozen T5 contextual embedding 当扩散空间，一个 shared decoder 在 t=1 把 clean embedding 映回 token logits。两者都是「借现成编码器的表征 + 中间专心学 transport + 末步解码」。即使此图为视觉模态，对位关系依旧成立：把 DINOv2 换成 T5、把像素换成 token。</figcaption>
+</figure>
+
+<div class="callout callout-good">
+<h4>🔑 takeaway（5.1）</h4>
+<p>ELF =「在语言上借 frozen 表征」的极简实现，是 §3 图像注入谱（VA-VAE / REPA / RAE）跨模态迁移到文本的直接产物。共同公式：<em>frozen encoder（语义几何）+ diffusion（transport）+ light decoder（落点）</em>，三件事架构解耦，模型不再重复学一套数据已经免费提供的语义坐标系。</p>
+</div>
+
+<h3>5.2 「利用流形 / x-prediction」(§4) ↔ ELF 的 x-pred + DSL 的 unit-sphere localization</h3>
+
+<p>§4 讲的是另一条主线：绕开「学表征」，直接利用数据本身的<strong>低维流形</strong>结构。两个最干净的体现是——(i) Kaiming 的 x-prediction（JiT [8]）：既然干净数据落在低维流形上，那就让网络<strong>直接预测低维的干净 x</strong>，而不是预测高维全空间的噪声 \(\varepsilon\) / velocity \(v\)；(ii) 推理时反复 predict-perturb [9] 会逐渐 localize 到真实数据流形。语言端这两点也都有清晰的对位。</p>
+
+<h4>5.2.1 x-prediction：语言端和图像端选了同一个答案</h4>
+
+<p>三种 parameterization 在数学上等价：</p>
+
+$$
+x\text{-pred: } \hat x_\theta(z_t,t)\approx x_0,\qquad
+\varepsilon\text{-pred: } \hat\varepsilon_\theta(z_t,t)\approx \varepsilon,\qquad
+v\text{-pred: } \hat v_\theta(z_t,t)\approx \tfrac{\partial z_t}{\partial t},
+$$
+
+<p>但<strong>训练信号完全不同</strong>。\(x\)-pred 的 target 是<strong>固定</strong>的干净数据点 \(x_0\)（落在低维流形上，不随 \(t\) 漂移）；而 \(\varepsilon\)-pred 的 target 是一个填满高维空间的各向同性 Gaussian（与流形无关）；\(v\)-pred 的 target 则随 schedule 把 \(x_0\) 与 \(\varepsilon\) 混合。无论哪种，模型都被迫去建模高维全空间方向上的分量——维度一高就崩。这正是 §4 里 JiT [8]「让去噪模型老老实实去噪（预测 x）」的论点。</p>
+
+<p>ELF 在语言上做了完全相同的选择：网络<strong>直接输出 clean embedding \(\hat x\)</strong>，velocity 只是事后由 \(v=(\hat x - z_t)/(1-t)\) 换算出来。ELF 论文的消融（App C.1）按原论点给出的结论是：在不同 encoder 维度（512 / 768 / 1024）下，<strong>x-pred 在全维度都稳定</strong>，而 \(\varepsilon\)-pred 全维度崩、\(v\)-pred 维度越高越差。论文给的解释和 §4 一字不差——<em>clean 文本在 embedding 空间里也是一个低维流形，x-pred 预测的就是这个流形上的点，而 \(\varepsilon\)-pred 要建模高维 Gaussian，更难</em>。</p>
+
+<div class="callout callout-info">
+<h4>💡 同一条流形论证，两个模态各说了一遍</h4>
+<p>图像（JiT [8]）：像素 / latent 上的干净图落在低维流形，预测低维 x 比预测高维 ε 直接 → pixel-space 也能 work。<br>
+语言（ELF App C.1）：T5 contextual embedding 上的干净文本落在低维流形，x-pred 全维稳定、ε-pred 全崩。<br>
+两边的因果链相同：<strong>数据有低维流形结构 ⇒ 预测「落在流形上的干净目标」比预测「填满高维空间的噪声」更省力、更稳。</strong>「continuous DLM 的关键不是『连续』，而是『x-prediction』」这句话，本质就是 §4 流形论点的语言版。</p>
+</div>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/JiT.jpg" alt="JiT / x-prediction：在低维流形上预测干净 x">
+<figcaption>JiT [8]（§4）：当数据落在低维流形上时，直接预测干净的低维 \(x_0\)（图中收敛到流形的轨迹）比预测高维噪声 \(\varepsilon\) 更直接、训练更稳，即使在原始 pixel space 也成立。ELF 在语言上复现了这同一选择——x-prediction 在 512/768/1024 维全都稳定，ε-prediction 全维崩——因为 clean 文本在 T5 embedding 空间同样是低维流形。</figcaption>
+</figure>
+
+<h4>5.2.2 DSL：把「利用流形几何」做成 unit-sphere stochastic localization</h4>
+
+<p>§4 的第二个体现是 predict-perturb [9]——推理时反复「预测 - 扰动」会逐渐把样本 localize 到真实数据流形上，是一个 training-free 的流形利用技巧。语言端把这个「localization」思想做成了一个完整框架：<strong>DSL（Discrete Stochastic Localization）</strong>。DSL 把每个离散 token 嵌到一个 <strong>unit-sphere（单位球面）</strong>上，在这个连续球面几何里做 stochastic localization。它和 ELF 在「表征哲学」上的关键区别恰好对应 §3 vs §4 的分野：</p>
+
+<pre data-kind="diagram" data-fold="never" data-label="表征坐标系从哪来：图像三条路 ↔ 语言三条路">
+        图像扩散 (§3 / §4)                    语言 continuous DLM
+        ─────────────────                     ───────────────────
+  借    frozen MAE/DINOv2 表征 (VA-VAE/REPA/RAE)  ⇄  ELF：借 frozen T5 contextual embedding
+  学    端到端学一个 latent (VAE)                 ⇄  Cola-DLM：联合训练一个 text VAE latent
+  涌现  随去噪过程自然组织的几何 (§2 单峰动力学)  ⇄  DSL：unit-sphere 几何随 SNR coarse-to-fine 涌现
+</pre>
+
+<p>DSL 最漂亮的地方在于：它的表征几何<strong>既不是预先外借的（像 ELF），也不是学一个固定 latent（像 Cola），而是随信噪比 SNR 从粗到细动态「长出来」</strong>。同一个 token 在低 SNR 时在球面上弥散（只有最粗的语义判断），SNR 升高后概率质量逐步集中、最终落到球面上的某个锚点（收敛到一个具体词）——这是一种层次化细化（coarse-to-fine refinement）。这恰好呼应了 §2 里 [1] 描述的「表征质量随扩散时间 \(t\) 的单峰动力学」与 §4 [9] 的「逐步 localize 到真实流形」：<strong>几何不是给定的，是沿噪声轴自然组织出来的。</strong></p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/wanshuiyin/wanshuiyin.github.io/master/image/PP.jpg" alt="predict-perturb 逐步 localize 到真实数据流形">
+<figcaption>Predict-perturb / self-refining sampling [9]（§4）：推理时反复「预测干净样本 → 加扰动」，样本逐步 localize 到真实数据流形，是一个 training-free 的流形利用技巧。语言端 DSL 把同一直觉做成框架——在 unit-sphere 几何上做 stochastic localization，token 表征随 SNR coarse-to-fine 从球面弥散收敛到锚点。两者都是「让采样轨迹被真实流形/几何牵引、逐步定位」。</figcaption>
+</figure>
+
+<div class="callout callout-good">
+<h4>🔑 takeaway（5.2）</h4>
+<p>§4 的「直接用低维流形」在语言上裂成两半：<strong>x-prediction</strong>（ELF）= 预测落在流形上的干净目标而非高维噪声，与 JiT [8] 是类似论证；<strong>unit-sphere stochastic localization</strong>（DSL）= 在球面几何上做 localization、几何随 SNR 涌现，与 predict-perturb [9] 是类似直觉。语言端不是另起炉灶，而是把图像扩散验证过的流形经验迁移过来。详见 <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/blogs/continuous_dlm_representation_perspective.html" target="_blank" rel="noopener">continuous DLM blog</a>。</p>
+</div>
+
+
+<!-- ============================ §6 ============================ -->
+
+<h2 id="sec-6">6 · Summary —— 四条线，一个共同主题</h2>
+
+<p>从头回顾，这篇 blog 其实是一条逻辑递进的链子，每一节回答上一节逼出来的问题：</p>
+
+<pre data-kind="diagram" data-fold="never" data-label="四条线的递进逻辑 + 跨模态迁移">
+§1  SSL objective    denoising 本身就是自监督任务 → diffusion 训练免费附带表征
+      │  «那它自己学出来的表征长什么样？»
+      ▼
+§2  自发表征          中间层可作下游表征；但「学好」靠泛化——
+                     单峰动力学 [1] / balanced vs spiky 谱 [2]；不泛化则塌成记忆
+      │  «自发学好这么玄，能不能不自己学？»
+      ▼
+§3  注入表征          借 frozen SSL 编码器：VA-VAE [3] / REPA [4] / RAE [5] / V-JEPA2 guidance [6]
+      │  «连表征都不学，直接吃数据的几何行不行？»
+      ▼
+§4  利用流形          manifold hypothesis：x-prediction (JiT [8]) / manifold-aware 架构 [7] / inference localize [9]
+      │
+      ▼
+§5  跨模态迁移         §3 → ELF「借 frozen T5 表征」；§4 → ELF x-pred + DSL unit-sphere localization
+                     ── 同一套经验从图像搬到语言 continuous DLM ──
+</pre>
+
+<p>把这四条线（<strong>SSL objective → 自发表征 → 注入表征 → 利用流形</strong>）放在一起看，会浮出一个共同主题：</p>
+
+<div class="callout callout-good">
+<h4>🔑 共同主题</h4>
+<p><strong>让模型少做无用功，多用数据结构先验。</strong></p>
+<p style="margin-top:.5em">五年前 MoCo / SimSiam / MAE / DINOv2 这条 SSL 暗线证明了「数据自己就能教出好表征」；今年的生成模型则把这件事推到极致——<strong>凡是数据已经免费提供的结构（语义几何、低维流形、噪声轴上的层次），就不要再花训练算力去重学一遍</strong>。借表征（§3 / §5.1）是把「数据有什么语义」这个问题外包给 frozen 编码器；用流形（§4 / §5.2）是把「数据有什么几何」这个先验直接写进 parameterization（x-pred）和状态空间（unit-sphere）。两条路都是同一种「省」——把算力从「重学结构」省下来，全押在「学动力学 / transport」上。</p>
+</div>
+
+<p>但正如原 blog 所说，<strong>今年这套东西虽然开始脱离粗暴方式、利用数据特性，结构构造还很 rough</strong>，有大量 work 空间。两个方向尤其值得继续：</p>
+
+<ul>
+<li><strong>更原则化的流形 / 表征构造。</strong>现在「借哪个编码器、对齐到哪一层、流形怎么参数化（球面？低维 latent？随 SNR 涌现？）」大多还是工程经验和 ablation 试出来的（ELF App C.1 选 x-pred、DSL 选 unit-sphere）。§2 的可解释性工作 [1][2] 暗示「表征质量 / balanced 谱」本身就是一个可量化的泛化指标——如果能把它变成<em>训练时可优化的目标或可设计的几何先验</em>，而不是事后诊断，注入与利用就能从「试」走向「设计」。</li>
+<li><strong>跨模态迁移。</strong>§5 已经显示图像端的经验（借表征 / x-pred / 流形 localization）大体平移到了语言（ELF / DSL）。反过来，语言端的 frozen-encoder 解耦（把语义几何彻底踢出训练 loop）、DSL 的「同一网络支持一整族 per-token SNR path、几何随 SNR 涌现」这类干净 framing，也可能反哺图像 / 视频扩散。<em>「表征 / 流形」很可能是一个模态无关（modality-agnostic）的设计语言</em>——这正是把这两篇 blog（图像端本文 + 语言端 <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/blogs/continuous_dlm_representation_perspective.html" target="_blank" rel="noopener">continuous DLM blog</a>）放在一起读的意义。</li>
+</ul>
+
+<div class="callout callout-info">
+<h4>💡 一句话收尾</h4>
+<p>过去我们让扩散模型在高维空间里大海捞针；现在我们开始告诉它：<strong>「数据的语义在这（借表征），数据的几何长这样（用流形），你只管学怎么走（transport）。」</strong> 五年前 MoCo 种下的那颗「数据自己能教模型」的因，正在 2025 的生成模型上结成果——而它结果的方式，在图像和语言上惊人地一致。</p>
+</div>
+
+
+<!-- ============================ References ============================ -->
+
+<h2 id="sec-refs">References</h2>
+
+<ol class="refs">
+<li id="ref-1">[1] <strong>Understanding Representation Dynamics of Diffusion Models via Low-Dimensional Modeling.</strong> Qing Qu 组。扩散模型表征质量随扩散时间呈单峰动力学；缺乏泛化（陷入训练集记忆）时，这一单峰的优秀表征结构会逐步消失。（本文按原论点引用，不附加论文未给出的定理 / 数字。） · <a href="https://arxiv.org/abs/2502.05743" target="_blank" rel="noopener">arXiv 2502.05743</a></li>
+<li id="ref-2">[2] <strong>Generalization of Diffusion Models Arises with a Balanced Representation Space.</strong> Qing Qu 组。训练不足时表征谱呈 spiky（集中于少数方向）；训练良好的模型表征谱 balanced，充分覆盖数据分布特征、泛化更好。（按原论点引用。） · <a href="https://arxiv.org/abs/2512.20963" target="_blank" rel="noopener">arXiv 2512.20963</a></li>
+<li id="ref-3">[3] <strong>VA-VAE — Reconstruction vs. Generation: Taming Optimization Dilemma in Latent Diffusion Models.</strong> 把 latent diffusion 的 VAE latent 与 frozen SSL 特征（MAE / DINOv2）对齐，平衡重建与生成、让 latent 富含语义。 · <a href="https://arxiv.org/abs/2501.01423" target="_blank" rel="noopener">arXiv 2501.01423</a></li>
+<li id="ref-4">[4] <strong>REPA — Representation Alignment for Generation: Training Diffusion Transformers Is Easier Than You Think.</strong> Saining Xie 组。在 DiT 中间层加 alignment loss，把 hidden 表征拉向 DINOv2 特征，显著加速 DiT 训练。 · <a href="https://arxiv.org/abs/2410.06940" target="_blank" rel="noopener">arXiv 2410.06940</a></li>
+<li id="ref-5">[5] <strong>RAE — Diffusion Transformers with Representation Autoencoders.</strong> 用冻结的预训练 SSL 表征 encoder 配一个训练的 decoder 构成 representation autoencoder，并在该 representation latent 上训练 diffusion / DiT。（原 blog 此条标题曾与 [4] 重复，此处按正式题名修正。） · <a href="https://arxiv.org/abs/2510.11690" target="_blank" rel="noopener">arXiv 2510.11690</a></li>
+<li id="ref-6">[6] <strong>Inference-time Physics Alignment of Video Generative Models with Latent World Models (V-JEPA2).</strong> 把生成视频与真实视频在 V-JEPA2 的表征流形上对齐，作为推理时的「真实性 / 物理合理性」裁判，提升物理合理性。 · <a href="https://arxiv.org/abs/2601.10553" target="_blank" rel="noopener">arXiv 2601.10553</a></li>
+<li id="ref-7">[7] <strong>Multi-Subspace Multi-Modal Modeling for Diffusion Models: Estimation, Convergence and Mixture of Experts.</strong> Ruofeng Yang 等（ICLR 2026）。论点：若 VAE manifold 估计得好，所需模型容量大降——一个 2 层神经网络的 Mixture-of-Experts 架构即可生成 ImageNet 级数据。（按原论点引用，不附加论文未给出的定理 / 数字。） · <a href="https://arxiv.org/abs/2601.01475" target="_blank" rel="noopener">arXiv 2601.01475</a></li>
+<li id="ref-8">[8] <strong>JiT — Back to Basics: Let Denoising Generative Models Denoise.</strong> Kaiming He 组。当数据落在低维流形上时，直接预测低维干净 \(x\)（x-prediction）比预测高维噪声更直接，即使在原始 pixel space 也能 work。 · <a href="https://arxiv.org/abs/2511.13720" target="_blank" rel="noopener">arXiv 2511.13720</a></li>
+<li id="ref-9">[9] <strong>Self-Refining Video Sampling.</strong> 推理时反复「predict-perturb」，样本逐步 localize 到真实数据流形——一个 training-free 的流形利用技巧。 · <a href="https://arxiv.org/abs/2601.18577" target="_blank" rel="noopener">arXiv 2601.18577</a></li>
+</ol>
+
+<p style="margin-top:.8em"><strong>SSL / 基础论文（引子与 §1 提到）</strong></p>
+<ul>
+<li>MoCo — Momentum Contrast (He et al. 2019) · <a href="https://arxiv.org/abs/1911.05722" target="_blank" rel="noopener">arXiv 1911.05722</a></li>
+<li>SimSiam — Exploring Simple Siamese Representation Learning (Chen &amp; He 2020) · <a href="https://arxiv.org/abs/2011.10566" target="_blank" rel="noopener">arXiv 2011.10566</a></li>
+<li>BYOL — Bootstrap Your Own Latent (Grill et al. 2020) · <a href="https://arxiv.org/abs/2006.07733" target="_blank" rel="noopener">arXiv 2006.07733</a></li>
+<li>MAE — Masked Autoencoders Are Scalable Vision Learners (He et al. 2021) · <a href="https://arxiv.org/abs/2111.06377" target="_blank" rel="noopener">arXiv 2111.06377</a></li>
+<li>DINOv2 — Learning Robust Visual Features without Supervision (Oquab et al. 2023) · <a href="https://arxiv.org/abs/2304.07193" target="_blank" rel="noopener">arXiv 2304.07193</a></li>
+<li>Consistency Models (Song et al. 2023) · <a href="https://arxiv.org/abs/2303.01469" target="_blank" rel="noopener">arXiv 2303.01469</a></li>
+<li>V-JEPA — Revisiting Feature Prediction for Learning Visual Representations from Video (Meta 2024) · <a href="https://arxiv.org/abs/2404.08471" target="_blank" rel="noopener">arXiv 2404.08471</a></li>
+<li>V-JEPA 2 — Self-Supervised Video Models Enable Understanding, Prediction and Planning (Meta 2025) · <a href="https://arxiv.org/abs/2506.09985" target="_blank" rel="noopener">arXiv 2506.09985</a></li>
+</ul>
+
+<p style="color:var(--ink-mute);font-size:.9rem">相关的语言端 continuous DLM 工作（ELF: Embedded Language Flows、DSL: Discrete Stochastic Localization、Cola-DLM）在配套的 <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/blogs/continuous_dlm_representation_perspective.html" target="_blank" rel="noopener">continuous DLM blog</a> 中详细展开，其论点已在 §5 中按原作者表述引用。</p>
+
+</div>
+
+<div id="cite-pop" hidden></div>
+<script>
+(function(){
+  const PAPER_INFO = {
+    cfm: { title:"Categorical Flow Maps",
+           authors:"Roos, Davis, Eijkelboom et al.",
+           inst:"UvA · Oxford", arxiv:"2602.12233", date:"Feb 2026",
+           key:"Categorical FM with self-distillation; simplex-endpoint predictor π_{s,t}. LM1B 1-step Gen-PPL 274.87." },
+    flm: { title:"Flow Map Language Models (FLM / FMLM)",
+           authors:"Lee, Yoo, Agarwal, Shah, Huang, Raghunathan, Hong, Boffi, Kim",
+           inst:"KAIST · CMU", arxiv:"2602.16813", date:"Feb 2026",
+           key:"Continuous flow on one-hot token embeddings; FMLM distills to 1-step. FLM 1024-step OWT 62.23; FMLM 1-step LM1B 119.34." },
+    dfm: { title:"Discrete Flow Maps",
+           authors:"Potaptchik, Yim, Saravanan, Holderrieth, Vanden-Eijnden, Albergo",
+           inst:"Harvard · Oxford · MIT · NYU", arxiv:"2604.09784", date:"Apr 2026",
+           key:"Mean-denoiser parameterization on probability simplex; PSD/ESD CE/KL consistency. LM1B 1-step ESD 68.11." },
+    langflow: { title:"LangFlow: Continuous Diffusion Rivals Discrete in Language Modeling",
+           authors:"Chen, Liang, Sui, Guo, Cheng, You, Liu",
+           inst:"UIUC", arxiv:"2604.11748", date:"Apr 2026",
+           key:"Learned embedding + Bregman-CE FM + ODE-NLL upper bound + learnable Gumbel scheduler. OWT NLL-PPL 24.6 / Gen-PPL 36.5." },
+    elf: { title:"ELF: Embedded Language Flows",
+           authors:"Hu, Qiu, Lu, Zhao, Li, Kim, Andreas, He",
+           inst:"MIT", arxiv:"2605.10938", date:"May 2026",
+           key:"Frozen T5-small contextual embedding + Flow Matching + shared decoder at t=1. OWT 32-step SDE Gen-PPL 24.08 ± 0.16." },
+    cola: { title:"Cola DLM: Continuous Latent Diffusion Language Model",
+           authors:"ByteDance Seed team",
+           inst:"ByteDance Seed", arxiv:"2605.06548", date:"May 2026",
+           key:"Text VAE + block-causal DiT + flow matching prior. ~2B params; reasoning-task focused (LAMBADA 50.80 / MMLU 19.30 @ 2000 EFLOPs)." }
+  };
+
+  document.addEventListener("DOMContentLoaded", function(){
+
+    // ---- 1. Auto-wrap implementation code into <details class="code-card"> ----
+    //   data-fold="never"  → never fold (pseudo-algorithms, diagrams)
+    //   data-fold="always" → always fold regardless of length
+    //   data-fold="auto"/unset → fold when > 18 lines (real-code default)
+    document.querySelectorAll("pre > code").forEach(function(code){
+      var pre = code.closest("pre");
+      if(!pre || pre.closest("details")) return;
+      var foldMode = pre.getAttribute("data-fold") || "auto";
+      if(foldMode === "never") return;
+      var txt = code.textContent.replace(/\n+$/, "");
+      var lines = txt.split("\n").length;
+      if(foldMode === "auto" && lines <= 18) return;
+      // derive an informative summary label
+      var label = pre.getAttribute("data-label");
+      if(!label){
+        var head = txt.split("\n").filter(function(l){return l.trim();})[0] || "";
+        var m;
+        if((m = head.match(/^\s*#\s*(.+)/)))           label = m[1].trim();
+        else if((m = head.match(/^\s*class\s+(\w+)/)))  label = "class " + m[1];
+        else if((m = head.match(/^\s*def\s+(\w+)/)))    label = "def " + m[1];
+        else label = "代码";
+      }
+      if(label.length > 38) label = label.slice(0, 36) + "…";
+      var det = document.createElement("details");
+      det.className = "code-card";
+      var sum = document.createElement("summary");
+      function setSumText(){ sum.textContent = (det.open ? "▾ 收起 " : "▸ 展开 ") + label + " · " + lines + " 行"; }
+      setSumText();
+      det.addEventListener("toggle", setSumText);
+      pre.parentNode.insertBefore(det, pre);
+      det.appendChild(sum);
+      det.appendChild(pre);
+    });
+
+    // ---- 2. Mini TOC (accordion: h2 always visible, current h2's h3 auto-expand) ----
+    var toc = document.createElement("nav");
+    toc.className = "mini-toc";
+    toc.innerHTML = "<h4>目录 · TOC</h4>";
+    var heads = Array.prototype.slice.call(document.querySelectorAll("h2, h3"));
+    var headToLink = {}, h2ToGroup = {}, headToH2 = {};
+    var curH2 = null, lastOpenH2 = null;
+    heads.forEach(function(h, i){
+      if(!h.id) h.id = "sec-" + i;
+      var a = document.createElement("a");
+      a.href = "#" + h.id;
+      a.textContent = h.textContent.replace(/\s*（.*/, "");  // 只去全角括号尾注;半角 (a)/(denoiser)/(§3) 是标题内容,保留
+      a.className = h.tagName.toLowerCase();
+      headToLink[h.id] = a;
+      if(h.tagName === "H2"){
+        toc.appendChild(a);                       // h2 常驻
+        var g = document.createElement("div");
+        g.className = "toc-group";
+        toc.appendChild(g);
+        h2ToGroup[h.id] = g;
+        curH2 = h.id;
+        headToH2[h.id] = h.id;
+      } else {
+        if(curH2 && h2ToGroup[curH2]) h2ToGroup[curH2].appendChild(a);  // h3 归入当前 h2 组
+        else toc.appendChild(a);                  // h3 在任何 h2 之前（TL;DR）→ 顶层常驻
+        headToH2[h.id] = curH2;
+      }
+    });
+    document.body.appendChild(toc);
+
+    function openGroup(h2id){
+      if(lastOpenH2 === h2id) return;             // 只在当前 h2 改变时切组，避免滚动时抖动
+      Object.keys(h2ToGroup).forEach(function(k){
+        h2ToGroup[k].classList.toggle("open", k === h2id);
+      });
+      lastOpenH2 = h2id;
+    }
+    function setActiveHead(headId){
+      Object.keys(headToLink).forEach(function(id){
+        headToLink[id].classList.toggle("active", id === headId);
+      });
+      var owner = headToH2[headId];
+      if(owner) openGroup(owner);                 // 展开当前所在 h2 的子节组
+      var link = headToLink[headId];
+      if(link) link.scrollIntoView({block:"nearest"});  // active 项始终保持在 TOC 可视区
+    }
+    if("IntersectionObserver" in window){
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(en){
+          if(en.isIntersecting) setActiveHead(en.target.id);
+        });
+      }, { rootMargin: "-20% 0px -70% 0px" });
+      heads.forEach(function(h){ io.observe(h); });
+    }
+
+    // ---- 2b. Auto-link §N / §N.M references in body text ----
+    (function(){
+      var wrap = document.querySelector(".wrap");
+      if(!wrap) return;
+      var secMap = {};                                  // 章节号 → 锚点 id（用 mini-TOC 已设好的 id）
+      wrap.querySelectorAll("h2, h3").forEach(function(h){
+        if(!h.id) return;
+        var m = h.textContent.match(/^\s*(\d+(?:\.\d+)*)/);
+        if(m && !secMap[m[1]]) secMap[m[1]] = h.id;
+      });
+      var walker = document.createTreeWalker(wrap, NodeFilter.SHOW_TEXT, {
+        acceptNode: function(node){
+          if(!node.nodeValue || node.nodeValue.indexOf("§") < 0) return NodeFilter.FILTER_REJECT;
+          if(node.parentNode && node.parentNode.closest("a, code, pre, h1, h2, h3, h4, .mini-toc")) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var targets = [];
+      while(walker.nextNode()) targets.push(walker.currentNode);
+      targets.forEach(function(node){
+        var text = node.nodeValue, re = /§(\d+(?:\.\d+)*)/g, last = 0, m, frag = null;
+        while((m = re.exec(text))){
+          var id = secMap[m[1]] || secMap[m[1].split(".")[0]];   // 精确号优先，退到大节号
+          if(!id) continue;                                       // 没对应章节 → 保留原文本
+          if(!frag) frag = document.createDocumentFragment();
+          if(m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+          var a = document.createElement("a");
+          a.href = "#" + id; a.className = "sec-link"; a.textContent = m[0];
+          frag.appendChild(a);
+          last = m.index + m[0].length;
+        }
+        if(frag){
+          if(last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+          node.parentNode.replaceChild(frag, node);
+        }
+      });
+    })();
+
+    // ---- 3. Expand/collapse-all floating button ----
+    var btn = document.createElement("button");
+    btn.className = "float-btn";
+    btn.textContent = "📂 展开全部代码";
+    var allOpen = false;
+    btn.addEventListener("click", function(){
+      allOpen = !allOpen;
+      document.querySelectorAll("details.code-card").forEach(function(d){ d.open = allOpen; });
+      btn.textContent = allOpen ? "📁 收起全部代码" : "📂 展开全部代码";
+    });
+    document.body.appendChild(btn);
+
+    // ---- 4. Paper popover ----
+    var pop = document.getElementById("cite-pop");
+    function showPop(paperKey, target){
+      var info = PAPER_INFO[paperKey];
+      if(!info || !pop) return;
+      pop.innerHTML = ''
+        + '<button class="close-btn" type="button" aria-label="close">×</button>'
+        + '<b class="pop-title">' + info.title + '</b>'
+        + '<div class="pop-meta">' + info.authors + ' · ' + info.inst + ' · ' + info.date + '</div>'
+        + '<div>' + info.key + '</div>'
+        + '<div style="margin-top:8px"><a href="https://arxiv.org/abs/' + info.arxiv + '" target="_blank" rel="noopener">arXiv ' + info.arxiv + '</a></div>';
+      var r = target.getBoundingClientRect();
+      var pw = 380, ph = 220;
+      pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8)) + "px";
+      pop.style.top  = Math.max(8, Math.min(r.bottom + 6, window.innerHeight - ph - 8)) + "px";
+      pop.hidden = false;
+      var closeBtn = pop.querySelector(".close-btn");
+      if(closeBtn) closeBtn.addEventListener("click", function(){ pop.hidden = true; });
+    }
+
+    // ---- 5. Paper-compare table: click header → column highlight + popover ----
+    document.querySelectorAll("table.paper-compare").forEach(function(table){
+      table.addEventListener("click", function(e){
+        var th = e.target.closest("th[data-paper]");
+        if(!th) return;
+        var paper = th.dataset.paper;
+        var wasActive = table.dataset.active === paper;
+        if(wasActive){
+          delete table.dataset.active;
+          pop.hidden = true;
+        } else {
+          table.dataset.active = paper;
+          showPop(paper, th);
+        }
+      });
+    });
+
+    // ---- 6. data-ref spans → popover ----
+    document.querySelectorAll("[data-ref]").forEach(function(el){
+      el.addEventListener("click", function(e){
+        e.preventDefault();
+        showPop(el.dataset.ref, el);
+      });
+    });
+
+    document.addEventListener("click", function(e){
+      if(!pop || pop.hidden) return;
+      if(e.target.closest("#cite-pop") || e.target.closest("[data-ref]") || e.target.closest("th[data-paper]")) return;
+      pop.hidden = true;
+    });
+
+    document.addEventListener("keydown", function(e){
+      if(e.key === "Escape" && pop && !pop.hidden) pop.hidden = true;
+    });
+
+    // ---- 7. Focus mode toggle (top-right button) — subsection (h3) granularity ----
+    var focusBtn = document.createElement("button");
+    focusBtn.className = "focus-toggle";
+    focusBtn.textContent = "🎯 Focus 模式";
+    focusBtn.addEventListener("click", function(){
+      document.body.classList.toggle("focus-mode");
+      var on = document.body.classList.contains("focus-mode");
+      focusBtn.classList.toggle("on", on);
+      if(on){
+        updateFocusRange();
+        focusBtn.textContent = "🎯 Focus ON (§x.y)";
+      } else {
+        document.querySelectorAll(".wrap > .in-focus").forEach(function(el){el.classList.remove("in-focus");});
+        focusBtn.textContent = "🎯 Focus 模式";
+      }
+    });
+    document.body.appendChild(focusBtn);
+
+    // ---- 7b. Global toggle: expand / collapse all implementation code-cards (algorithms stay open) ----
+    var codeBtn = document.createElement("button");
+    codeBtn.className = "focus-toggle code-toggle";
+    codeBtn.textContent = "📂 展开实现代码";
+    var allCodeOpen = false;
+    codeBtn.addEventListener("click", function(){
+      allCodeOpen = !allCodeOpen;
+      document.querySelectorAll("details.code-card").forEach(function(d){ d.open = allCodeOpen; });
+      codeBtn.textContent = allCodeOpen ? "📁 收起实现代码" : "📂 展开实现代码";
+      codeBtn.classList.toggle("on", allCodeOpen);
+    });
+    document.body.appendChild(codeBtn);
+
+    // Determine active header (h2 or h3) and mark all elements between it and the next h2/h3 with .in-focus
+    function updateFocusRange(){
+      var kids = Array.prototype.slice.call(document.querySelectorAll(".wrap > *"));
+      var headerIdxs = [];
+      kids.forEach(function(el, i){
+        if(el.tagName === "H2" || el.tagName === "H3") headerIdxs.push(i);
+      });
+      if(!headerIdxs.length) return;
+
+      // Pick header whose top is closest to but not past viewport's 40% line; fallback = nearest visible
+      var bestHeaderIdx = -1, bestTop = -Infinity;
+      headerIdxs.forEach(function(idx){
+        var r = kids[idx].getBoundingClientRect();
+        if(r.top < window.innerHeight * 0.4 && r.top > bestTop){
+          bestTop = r.top; bestHeaderIdx = idx;
+        }
+      });
+      if(bestHeaderIdx < 0){
+        // No header above the line — use the first header visible below
+        for(var i=0; i<headerIdxs.length; i++){
+          var r2 = kids[headerIdxs[i]].getBoundingClientRect();
+          if(r2.top >= 0){ bestHeaderIdx = headerIdxs[i]; break; }
+        }
+        if(bestHeaderIdx < 0) bestHeaderIdx = headerIdxs[0];
+      }
+
+      // Find next header after the active one — that's the boundary
+      var nextHeaderIdx = kids.length;
+      for(var j=0; j<headerIdxs.length; j++){
+        if(headerIdxs[j] > bestHeaderIdx){ nextHeaderIdx = headerIdxs[j]; break; }
+      }
+
+      // Mark in-focus = intro（第一个 header 之前的门面：eyebrow/标题/byline/导览/引子图）始终亮 + 当前 section [bestHeaderIdx, nextHeaderIdx)
+      var introEnd = headerIdxs[0];
+      kids.forEach(function(el, i){
+        el.classList.toggle("in-focus", i < introEnd || (i >= bestHeaderIdx && i < nextHeaderIdx));
+      });
+    }
+    window.addEventListener("scroll", function(){
+      if(document.body.classList.contains("focus-mode")) updateFocusRange();
+    }, {passive:true});
+
+    // ---- 8. Figure lightbox ----
+    var lb = document.createElement("div");
+    lb.id = "lightbox"; lb.hidden = true;
+    document.body.appendChild(lb);
+    document.querySelectorAll("figure img").forEach(function(img){
+      img.addEventListener("click", function(){
+        lb.innerHTML = '<img src="' + img.src + '" alt=""/>';
+        var fig = img.closest("figure");
+        var cap = fig && fig.querySelector("figcaption");
+        if(cap){
+          var c = document.createElement("figcaption");
+          c.innerHTML = cap.innerHTML;
+          lb.appendChild(c);
+        }
+        lb.hidden = false;
+      });
+    });
+    lb.addEventListener("click", function(){ lb.hidden = true; });
+    document.addEventListener("keydown", function(e){
+      if(e.key === "Escape" && !lb.hidden) lb.hidden = true;
+    });
+
+    // ---- 9. Evidence mode: click paper-name in §3.6 → scroll to §3.2 + highlight column ----
+    document.querySelectorAll(".evidence-trigger").forEach(function(el){
+      el.addEventListener("click", function(){
+        var paper = el.dataset.paper;
+        if(!paper) return;
+        var table = document.querySelector("table.paper-compare");
+        if(!table) return;
+        table.dataset.active = paper;
+        table.scrollIntoView({behavior:"smooth", block:"start"});
+        setTimeout(function(){
+          var th = table.querySelector('th[data-paper="' + paper + '"]');
+          if(th) showPop(paper, th);
+        }, 600);
+      });
+    });
+
+    // ---- 10. Auto-collapse Q&A div.qa → <details class="qa-collapse"> ----
+    document.querySelectorAll("div.qa").forEach(function(qa){
+      var h4 = qa.querySelector("h4");
+      if(!h4) return;
+      var det = document.createElement("details");
+      det.className = "qa-collapse";
+      var sum = document.createElement("summary");
+      sum.innerHTML = h4.innerHTML;
+      qa.removeChild(h4);
+      while(qa.firstChild) det.appendChild(qa.firstChild);
+      det.insertBefore(sum, det.firstChild);
+      qa.parentNode.replaceChild(det, qa);
+    });
+
+    // ---- 11. Keyboard nav: ↑/↓ to switch H2 sections ----
+    document.addEventListener("keydown", function(e){
+      var tag = e.target.tagName;
+      if(tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) return;
+      if(e.metaKey || e.ctrlKey || e.altKey) return;  // don't intercept cmd+↓
+      if(e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      var h2s = Array.prototype.slice.call(document.querySelectorAll(".wrap > h2"));
+      if(!h2s.length) return;
+      var threshold = 60;  // px from top
+      var current = 0;
+      for(var i = 0; i < h2s.length; i++){
+        if(h2s[i].getBoundingClientRect().top <= threshold) current = i;
+        else break;
+      }
+      var next = e.key === "ArrowDown" ? current + 1 : current - 1;
+      if(next >= 0 && next < h2s.length){
+        e.preventDefault();
+        h2s[next].scrollIntoView({behavior:"smooth", block:"start"});
+      }
+    });
+
+    // Keyboard hint badge (auto-hide after 6s)
+    var hint = document.createElement("div");
+    hint.className = "kbd-hint";
+    hint.innerHTML = '<kbd>↑</kbd>/<kbd>↓</kbd> 切 section · <kbd>Esc</kbd> 关弹窗';
+    document.body.appendChild(hint);
+    setTimeout(function(){ hint.style.transition = "opacity .8s"; hint.style.opacity = "0"; }, 6000);
+    setTimeout(function(){ hint.remove(); }, 7000);
+
+    // ---- 12. Print: auto-expand all code cards + force focus off ----
+    var stashed = [];
+    window.addEventListener("beforeprint", function(){
+      stashed = Array.prototype.slice.call(document.querySelectorAll("details.code-card:not([open])"));
+      stashed.forEach(function(d){ d.open = true; });
+    });
+    window.addEventListener("afterprint", function(){
+      stashed.forEach(function(d){ d.open = false; });
+    });
+  });
+})();
+</script>
+</body>
+</html>

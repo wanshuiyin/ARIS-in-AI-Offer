@@ -102,9 +102,14 @@ SHIPPABLE_TOKENS = {"PASS", "WARN"}
 # tutorial still fails). Keep this list short, explicit, and reasoned; the report
 # prints every exemption so it is never a silent bypass.
 EXEMPTIONS = {
-    "docs/blogs/continuous_dlm_2026h1_survey.html":
-        "hand-authored long-form HTML, intentionally outside the audited /render-html "
-        "pipeline (README states this); not a render_html.py product.",
+    "docs/blogs/continuous_dlm_representation_perspective.html":
+        "hand-authored long-form survey blog (Continuous DLM, representation perspective; "
+        "v2 of the original survey) — outside the audited /render-html pipeline; fully "
+        "self-contained.",
+    "docs/blogs/diffusion_representation_manifold.html":
+        "hand-authored blog (diffusion x representation x manifold) — outside the audited "
+        "/render-html pipeline. Figures are hot-linked from the author's homepage repo; "
+        "third-party paper figures (c) their original authors, used with attribution.",
     "docs/blogs/cosmos3_mot_guide.html":
         "hand-authored ELF-format popsci guide to the NVIDIA Cosmos 3 technical report; "
         "cross-model reviewed (5 rounds, Codex GPT-5.5 xhigh) but intentionally outside the "
