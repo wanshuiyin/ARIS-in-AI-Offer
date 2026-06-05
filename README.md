@@ -294,6 +294,14 @@ Full contribution guide: [**CONTRIBUTING.md**](CONTRIBUTING.md) ([English](CONTR
   <img src="assets/wechat_group.jpg" alt="WeChat Group QR Code (shared with ARIS main repo)" width="300">
 </p>
 
+### 🔭 Community Showcase
+
+Community-built projects derived from this collection (MIT license — attribution-preserving reuse welcome):
+
+- **[大模型秋招教程 (ARIS-in-AI-Offer & Hello-Agents)](https://qizishi.github.io/Autumn-Recruitment-Tutorials-for-LLM/)** by [@QiZishi](https://github.com/QiZishi) — an online reading index that merges all 23 Chinese tutorials here with [Datawhale Hello-Agents](https://github.com/datawhalechina/hello-agents)' LLM interview Q&A, organized as clickable tutorial cards ([repo](https://github.com/QiZishi/Autumn-Recruitment-Tutorials-for-LLM) · from [#3](https://github.com/wanshuiyin/ARIS-in-AI-Offer/issues/3)).
+
+Built something on top of these tutorials? Open an issue and we'll list it here.
+
 ---
 
 ## 🌟 What is ARIS — A Quick Pitch

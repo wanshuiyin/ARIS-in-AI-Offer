@@ -293,6 +293,14 @@ aris-homepage render --persona theory-minimal
   <img src="assets/wechat_group.jpg" alt="WeChat 群二维码（与 ARIS 主仓共享）" width="300">
 </p>
 
+### 🔭 社区衍生
+
+社区基于这套教程做的二次创作（本仓库 MIT license，欢迎保留署名的转载与整合）：
+
+- **[大模型秋招教程 (ARIS-in-AI-Offer & Hello-Agents)](https://qizishi.github.io/Autumn-Recruitment-Tutorials-for-LLM/)** by [@QiZishi](https://github.com/QiZishi) —— 把这里的 23 篇中文教程与 [Datawhale Hello-Agents](https://github.com/datawhalechina/hello-agents) 的大模型面试问答整合成可跳转的教程卡片索引站，方便在线随时阅读（[仓库](https://github.com/QiZishi/Autumn-Recruitment-Tutorials-for-LLM) · 来自 [#3](https://github.com/wanshuiyin/ARIS-in-AI-Offer/issues/3)）。
+
+基于这套教程做了新东西？开个 issue，我们把它列在这里。
+
 ---
 
 ## 🌟 ARIS 是什么 — 顺便安利一下
