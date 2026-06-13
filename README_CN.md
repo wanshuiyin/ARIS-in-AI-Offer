@@ -197,6 +197,19 @@
 
 **Live demo**：[wanshuiyin.github.io](https://wanshuiyin.github.io/) —— 这就是用这个 skill 跑 CV + 维护者之前 manual 主页（作 editorial reference）生成的。预览 strip 在 README 顶部。
 
+### 快速开始
+
+```bash
+aris-homepage init --from-cv ./cv.pdf --out ./site
+cd ./site
+# 调用方 agent 读 .aris-homepage/EXTRACTION_HANDOFF.md，填 extraction.json
+aris-homepage finalize
+$EDITOR profile.yml             # 调整编辑选择
+aris-homepage render --persona theory-minimal
+```
+
+输出：`index.html` + `audit-report.md`。HTML 扔 GitHub Pages、S3、学校 `~user/public_html/`、邮箱附件都行——零 build server。**最小运行时只要 Python + 调用方 LLM agent**；Codex MCP 可选（增强 adversarial 跨模型 review），Gemini 可选（多模态视觉 critique）。
+
 ### 工作流程
 
 ```
@@ -270,19 +283,6 @@
 - **完整 schema**：[`skills/homepage-generator/PROFILE_SCHEMA.md`](skills/homepage-generator/PROFILE_SCHEMA.md)
 - **实现**：[`tools/aris_homepage.py`](tools/aris_homepage.py)（纯 stdlib Python，只需 `pip install pyyaml`）
 - **模板**：[`tools/templates/homepage-theory-minimal.html`](tools/templates/homepage-theory-minimal.html)
-
-### 快速开始
-
-```bash
-aris-homepage init --from-cv ./cv.pdf --out ./site
-cd ./site
-# 调用方 agent 读 .aris-homepage/EXTRACTION_HANDOFF.md，填 extraction.json
-aris-homepage finalize
-$EDITOR profile.yml             # 调整编辑选择
-aris-homepage render --persona theory-minimal
-```
-
-输出：`index.html` + `audit-report.md`。HTML 扔 GitHub Pages、S3、学校 `~user/public_html/`、邮箱附件都行——零 build server。**最小运行时只要 Python + 调用方 LLM agent**；Codex MCP 可选（增强 adversarial 跨模型 review），Gemini 可选（多模态视觉 critique）。
 
 ---
 
