@@ -13,6 +13,7 @@
 | `flow_matching.py` | Rectified Flow on 2D toy data (two moons) + Euler sampling + 轨迹可视化 | [flow_matching_tutorial.md](../flow_matching_tutorial.md) | ~30s |
 | `mmdit_block.py` | 双流 MMDiT block（joint attention + AdaLN-Zero + per-stream FFN） | [image_generation_systems_tutorial.md](../image_generation_systems_tutorial.md) | <5s |
 | `toy_mmdit_t2i_pipeline.py` | End-to-end skeleton（toy text encoder + VAE + MMDiT + Euler scheduler + true CFG） | [image_generation_systems_tutorial.md](../image_generation_systems_tutorial.md) | <10s |
+| `lora.py` | `LoRALinear`（B=0 起点 · α/r 与 rsLoRA 缩放 · merge/unmerge）+ `DoRALinear`（幅度-方向分解）+ 6 个 assert | [lora_peft_tutorial.md](../lora_peft_tutorial.md) | <5s |
 
 ## 运行
 
@@ -23,6 +24,7 @@ python axial_attention.py
 python flow_matching.py          # 需要 matplotlib（可选，没装会跳过画图）
 python mmdit_block.py
 python toy_mmdit_t2i_pipeline.py # 依赖 mmdit_block.py 在同目录
+python lora.py
 ```
 
 每个脚本都自带 sanity check：shape 验证 + 数值合理性检查 + 必要时跟 PyTorch

@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoRA / PEFT 面试 Cheat Sheet</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/lora_peft_tutorial.md">
+<meta name="aris:source-sha256" content="1dfbcbf080ce7dc510091e8bf121607c962e8fc2aa946ba066b2cfb89ce41be4">
+<meta name="aris:generated-at" content="2026-06-13 12:52 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-直觉为什么需要-peft">§1 直觉：为什么需要 PEFT</a>
+</li>
+<li><a href="#2-lora-核心公式与推导">§2 LoRA 核心公式与推导</a>
+<ul>
+<li><a href="#21-主公式与形状">2.1　主公式与形状</a></li>
+<li><a href="#22-为什么-b0a-随机初始化必考">2.2　为什么 $B=0$、$A$ 随机初始化（必考）</a></li>
+<li><a href="#23-缩放因子-alphar-与-rslora">2.3　缩放因子 $\alpha/r$ 与 rsLoRA</a></li>
+<li><a href="#24-合并与零推理延迟lora-的杀手锏">2.4　合并与零推理延迟（LoRA 的杀手锏）</a></li>
+<li><a href="#25-适配哪些矩阵--怎么选-r">2.5　适配哪些矩阵 / 怎么选 $r$</a></li>
+</ul>
+</li>
+<li><a href="#3-从零实现-loralinear">§3 从零实现 LoRALinear</a>
+</li>
+<li><a href="#4-显存账lora-到底省在哪">§4 显存账：LoRA 到底省在哪</a>
+</li>
+<li><a href="#5-qlora4-bit-基座--lora">§5 QLoRA：4-bit 基座 + LoRA</a>
+<ul>
+<li><a href="#51-nf44-bit-normalfloat信息论最优">5.1　NF4：4-bit NormalFloat（信息论最优）</a></li>
+<li><a href="#52-双重量化double-quantization">5.2　双重量化（Double Quantization）</a></li>
+<li><a href="#53-paged-optimizer">5.3　Paged Optimizer</a></li>
+<li><a href="#54-前向--反向怎么走">5.4　前向 / 反向怎么走</a></li>
+<li><a href="#55-qlora-的合并坑">5.5　QLoRA 的合并坑</a></li>
+</ul>
+</li>
+<li><a href="#6-dora幅度-方向分解">§6 DoRA：幅度-方向分解</a>
+</li>
+<li><a href="#7-lora-家族变体一览">§7 LoRA 家族变体一览</a>
+</li>
+<li><a href="#8-与其他-peft-范式对比">§8 与其他 PEFT 范式对比</a>
+</li>
+<li><a href="#9-工程实践与常见-bug">§9 工程实践与常见 bug</a>
+</li>
+<li><a href="#10-复杂度与资源">§10 复杂度与资源</a>
+</li>
+<li><a href="#11-25-高频面试题">§11 25 高频面试题</a>
+<ul>
+<li><a href="#l1必会题任何用过微调的岗位都会问">L1必会题（任何用过微调的岗位都会问）</a></li>
+<li><a href="#l2进阶题research--工程深入岗">L2进阶题（research / 工程深入岗）</a></li>
+<li><a href="#l3高级题顶级-lab--深水区">L3高级题（顶级 lab / 深水区）</a></li>
+</ul>
+</li>
+<li><a href="#a-附录sanity-check">§A 附录：sanity check</a>
+</li>
+<li><a href="#runnable-code">📜 Runnable Code</a>
+</li>
+<li><a href="#参考文献">📚 参考文献</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Interview Prep · LoRA / PEFT 参数高效微调</div>
+  <h1>LoRA / PEFT 面试 Cheat Sheet</h1>
+  <p class="subtitle">LoRA / QLoRA / DoRA / rsLoRA / PiSSA / AdaLoRA / (IA)³ + 公式推导 + From-Scratch PyTorch + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/lora_peft_tutorial.md</code></span>
+    <span><strong>SHA256:</strong> <code>1dfbcbf080ce</code></span>
+    <span><strong>Rendered:</strong> 2026-06-13 12:52 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">8 句话搞定 LoRA / PEFT</div><p>一页拿下面试核心要点（详见后文 §2–§10 推导）。</p></div>
+<ol><li><strong>核心公式</strong>：冻结预训练权重 $W_0$，只学一个低秩增量 $\Delta W = BA$，前向 $h = W_0 x + \frac{\alpha}{r} BA\,x$。其中 $B \in \mathbb{R}^{d\times r}$、$A \in \mathbb{R}^{r\times k}$、$r \ll \min(d,k)$。</li><li><strong>为什么低秩有效</strong>：预训练模型有很低的"内在维度"（intrinsic dimension，Aghajanyan 2020）——低维子空间里优化即可逼近满参；Hu 2021 据此<strong>假设</strong>微调的权重更新 $\Delta W$ 近似低秩，用 $r=4\sim64$ 的低秩矩阵就能逼近（经验假设 + 实证，非严格定理）。</li><li><strong>初始化</strong>：$A$ 随机（Kaiming）、$B = 0$，使得<strong>训练起点 $\Delta W = 0$</strong>（不扰动预训练），但梯度不为零、能学起来。两个都置零会永远学不动。</li><li><strong>缩放 $\alpha/r$</strong>：解耦 $r$ 与学习率，换 $r$ 不用重调 lr。rsLoRA 指出高秩时应改用 $\alpha/\sqrt{r}$ 防梯度坍缩。</li><li><strong>零推理延迟</strong>：训练后可把 $\frac{\alpha}{r}BA$ <strong>合并</strong>进 $W_0$ 得 $W' = W_0 + \frac{\alpha}{r}BA$，推理与原模型完全同构、无额外延迟（这是 LoRA 相对 Adapter / Prefix 的关键优势）。</li><li><strong>省的是什么显存</strong>：主要省<strong>优化器状态 + 梯度</strong>（Adam 下满参微调要 16 bytes/param，LoRA 只对 ~0.1% 的可训练参数付这笔钱）；<strong>激活显存不自动省</strong>（仍要反传过冻结基座），需配合 gradient checkpointing。</li><li><strong>QLoRA</strong>：基座用 <strong>NF4</strong>（4-bit NormalFloat，对正态权重信息论最优）量化 + <strong>双重量化</strong> + <strong>paged optimizer</strong>，LoRA adapter 走 bf16，单卡 48GB 即可微调 65B。</li><li><strong>家族</strong>：DoRA（幅度-方向分解）、rsLoRA（$\sqrt{r}$ 缩放）、PiSSA（主成分初始化）、AdaLoRA（自适应秩预算）、(IA)³（缩放向量）、LoRA+（A/B 不同 lr）—— 都在补 LoRA 的某一块短板。</li></ol>
+<h2 id="1-直觉为什么需要-peft">§1 直觉：为什么需要 PEFT</h2>
+<p><strong>满参微调（full fine-tuning）的痛点是显存，不是算力。</strong> 用 Adam 微调一个 $\Psi$ 参数的模型，混合精度下每个参数要存：bf16 权重 2 B + bf16 梯度 2 B + fp32 master 权重 4 B + Adam 一阶动量 $m$ 4 B + 二阶动量 $v$ 4 B = <strong>16 B/param</strong>。7B 模型光这部分就 112 GB，单张 80GB 卡放不下——还没算激活。</p>
+<p>PEFT（Parameter-Efficient Fine-Tuning）的核心思想：<strong>冻结绝大多数预训练参数，只训练极小一部分新增或挑选出的参数</strong>，把可训练量从 100% 压到 0.01%~1%。这样：</p>
+<ul><li>优化器状态 / 梯度只对那一小撮可训练参数付费 → 显存暴降；</li><li>一个基座 + 多个轻量 adapter（每个几十 MB）即可服务多任务，热插拔；</li><li>小数据上更不容易过拟合、灾难性遗忘更轻。</li></ul>
+<p><strong>低秩假设（low-rank hypothesis）是 LoRA 的理论支点。</strong> Aghajanyan et al. (2020, arXiv 2012.13255) 实证发现：预训练语言模型有很低的"内在维度"（intrinsic dimension）——在一个远小于全参数量的随机子空间里优化就能达到满参微调 90% 的效果。Hu et al. (2021) 顺着这个直觉提出：既然微调"走得不远"，那权重的<strong>更新量</strong> $\Delta W$ 本身应当是低秩的，于是用两个瘦矩阵的乘积 $BA$ 去参数化它。</p>
+<div class="callout callout-info"><div class="callout-title">一句话心智模型</div><p>满参微调是"重写整本书"，LoRA 是"在书页边上贴低秩的便利贴 $\Delta W = BA$"；推理时把便利贴的内容誊抄回正文（merge），读者（推理引擎）完全感觉不到便利贴存在过。</p></div>
+<h2 id="2-lora-核心公式与推导">§2 LoRA 核心公式与推导</h2>
+<h3 id="21-主公式与形状">2.1　主公式与形状</h3>
+<p>对一个被适配的线性层，原权重 $W_0 \in \mathbb{R}^{d \times k}$（冻结），LoRA 学一个低秩增量：</p>
+<p>$$\boxed{\;h = W_0 x + \Delta W x = W_0 x + \frac{\alpha}{r} B A\, x\;}$$</p>
+<p>形状：</p>
+<ul><li>$A \in \mathbb{R}^{r \times k}$（down-projection，把输入压到 $r$ 维）</li><li>$B \in \mathbb{R}^{d \times r}$（up-projection，从 $r$ 维升回 $d$ 维）</li><li>$\Delta W = BA \in \mathbb{R}^{d \times k}$，秩 $\le r$</li><li>$r \ll \min(d, k)$，典型 $r \in \{4, 8, 16, 32, 64\}$</li><li>$\alpha$ 是缩放超参，$\frac{\alpha}{r}$ 是缩放因子（见 §2.3）</li></ul>
+<p>可训练参数量从 $d \times k$ 降到 $r(d + k)$。例如 $d=k=4096$、$r=8$：从 16.8M 降到 65.5K，<strong>压缩 256 倍</strong>。</p>
+<h3 id="22-为什么-b0a-随机初始化必考">2.2　为什么 $B=0$、$A$ 随机初始化（必考）</h3>
+<p>LoRA 官方初始化：$A$ 用 Kaiming uniform 随机初始化，$B$ 初始化为<strong>全零</strong>。这样：</p>
+<p>$$\Delta W_{t=0} = B_0 A_0 = 0 \cdot A_0 = 0 \;\Rightarrow\; h_{t=0} = W_0 x$$</p>
+<p>即<strong>训练起点完全等于预训练模型</strong>，不引入任何扰动。这点很关键：如果起点就偏离预训练，等于丢掉了预训练知识、还可能炸 loss。</p>
+<p>那为什么不<strong>两个都置零</strong>？因为会永远学不动。看第一步梯度（设损失 $L$，输出方向梯度 $g = \partial L / \partial h$）：</p>
+<p>$$\frac{\partial L}{\partial B} = \frac{\alpha}{r}\, g\, (A x)^\top, \qquad \frac{\partial L}{\partial A} = \frac{\alpha}{r}\, B^\top g\, x^\top$$</p>
+<ul><li>$A$ 非零 → $Ax \neq 0$ → $\partial L/\partial B \neq 0$：<strong>第一步 $B$ 能动</strong>；</li><li>$B = 0$ → $\partial L/\partial A = 0$：第一步 $A$ 不动，但只要 $B$ 动起来变非零，下一步 $A$ 就有梯度了。</li></ul>
+<p>如果 $A=B=0$，则两个梯度恒为零，$\Delta W$ 永远是 0。<strong>所以必须"一零一非零"：$A$ 非零保证可学性，$B=0$ 保证干净起点。</strong>（对称地，$A=0$、$B$ 随机也可以，PEFT 库里两种约定都见过；关键是恰好一个为零。）</p>
+<div class="callout callout-warn"><div class="callout-title">常见误解</div><p>"$B=0$ 所以 LoRA 第一步什么都没学到" 是错的。第一步 $B$ 确实在更新（梯度非零），只是 $\Delta W$ 在 $t=0$ 那一刻数值为 0。是"输出增量为零"而非"梯度为零"。</p></div>
+<h3 id="23-缩放因子-alphar-与-rslora">2.3　缩放因子 $\alpha/r$ 与 rsLoRA</h3>
+<p>LoRA 把增量缩放为 $\frac{\alpha}{r} BA$。Hu et al. 的说法是："把 $\alpha$ 当作类似学习率的东西来调，固定为最先试的那个 $r$ 值，之后换 $r$ 时不用重调 lr。" 直觉：$\frac{\alpha}{r}$ 让不同 $r$ 下 $\Delta W$ 的量级大致可比，从而<strong>解耦秩与学习率</strong>。</p>
+<p>但 Kalajdzievski (2023, rsLoRA, arXiv 2312.03732) 指出 $\frac{\alpha}{r}$ 在<strong>大 $r$ 时会过度缩小</strong>梯度，导致高秩 LoRA 学习坍缩、效果不升反平。其分析：要让前向/反向激活的量级在 $r$ 增大时保持稳定（rank-stabilized），缩放因子应当是 $\frac{\alpha}{\sqrt{r}}$：</p>
+<p>$$\gamma_r^{\text{LoRA}} = \frac{\alpha}{r} \quad\text{vs}\quad \gamma_r^{\text{rsLoRA}} = \frac{\alpha}{\sqrt{r}}$$</p>
+<p>直觉来自方差：$BA$ 的每个输出元素是 $r$ 项之和，若各项独立同方差，则其标准差 $\propto \sqrt{r}$。除以 $\sqrt{r}$ 才能把量级拉回常数；除以 $r$ 则过度压制，$r$ 越大压得越狠。所以<strong>低秩（$r\le 32$）用 $\alpha/r$ 通常无碍，想吃高秩红利时换 rsLoRA 的 $\alpha/\sqrt{r}$</strong>。</p>
+<h3 id="24-合并与零推理延迟lora-的杀手锏">2.4　合并与零推理延迟（LoRA 的杀手锏）</h3>
+<p>训练完成后，$\Delta W$ 可以<strong>一次性合并</strong>进基座权重：</p>
+<p>$$W' = W_0 + \frac{\alpha}{r} BA$$</p>
+<p>之后推理只用 $W'$，前向 $h = W' x$ 和原始线性层<strong>完全同构</strong>——没有额外矩阵乘、没有额外延迟、没有额外显存。这是 LoRA 相对 Adapter（插入串行子模块）和 Prefix-Tuning（占用序列长度 / KV）的根本优势：<strong>它们都会增加推理开销，LoRA 合并后为零。</strong></p>
+<p>需要切回基座或换 adapter 时，<strong>反合并（unmerge）</strong>即可：$W_0 = W' - \frac{\alpha}{r}BA$。多任务服务时一种常见做法是<strong>不合并</strong>、在线加 $\frac{\alpha}{r}B(Ax)$，这样一个基座可同时挂多个 adapter 动态路由（代价是恢复了一点点推理开销）。</p>
+<div class="callout callout-warn"><div class="callout-title">QLoRA 不能直接合并</div><p>基座是 NF4 量化的，把 bf16 的 $\Delta W$ 加进 4-bit 权重要先反量化 → 合并 → （可选）再量化，过程有精度损失。实践里通常<strong>反量化基座到 fp16 再合并</strong>保存，而不是合并回 4-bit。详见 §5.5。</p></div>
+<h3 id="25-适配哪些矩阵--怎么选-r">2.5　适配哪些矩阵 / 怎么选 $r$</h3>
+<p>原始论文在 Transformer 的注意力投影上做 LoRA，消融发现：<strong>同样参数预算下，适配 $W_q, W_v$ 比只配 $W_q$ 好；把预算摊到更多矩阵（$q,k,v,o$）通常优于堆在少数矩阵上的高秩</strong>。后续实践（如 QLoRA）进一步建议<strong>把 LoRA 加到所有线性层</strong>（含 FFN 的 gate/up/down），往往比只配注意力更稳。</p>
+<ul><li>$r$ 选择：简单任务 / 小数据 $r=4\sim8$；难任务 / 大数据 $r=16\sim64$。$r$ 过大不仅省不了多少、还可能过拟合或踩到 $\alpha/r$ 的坍缩（见 rsLoRA）。</li><li>$\alpha$ 经验：常设 $\alpha = 2r$（即缩放 $\approx 2$）或 $\alpha = r$（缩放 $=1$），按验证集调。</li><li>target_modules：注意力 <code>q_proj,k_proj,v_proj,o_proj</code> + FFN <code>gate_proj,up_proj,down_proj</code> 是 LLaMA 系常用全配方。</li></ul>
+<h2 id="3-从零实现-loralinear">§3 从零实现 LoRALinear</h2>
+<p>下面是一个可跑的 <code>LoRALinear</code>：包一个冻结的 <code>nn.Linear</code>，加上 $A,B$ 与缩放，支持 merge / unmerge。</p>
+<pre><code class="language-python">import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class LoRALinear(nn.Module):
+    &quot;&quot;&quot;冻结的 base linear + 低秩旁路 BA。forward: W0 x + (alpha/r) B A x。&quot;&quot;&quot;
+
+    def __init__(self, base: nn.Linear, r: int = 8, alpha: int = 16,
+                 dropout: float = 0.0, rslora: bool = False):
+        super().__init__()
+        assert r &gt; 0
+        self.base = base
+        for p in self.base.parameters():       # 冻结基座
+            p.requires_grad_(False)
+
+        in_f, out_f = base.in_features, base.out_features
+        self.r, self.alpha = r, alpha
+        # 缩放：标准 alpha/r；rsLoRA 用 alpha/sqrt(r)
+        self.scaling = alpha / (math.sqrt(r) if rslora else r)
+
+        # A: [r, in]  Kaiming 随机；B: [out, r] 置零 -&gt; 起点 ΔW = 0
+        self.lora_A = nn.Parameter(torch.empty(r, in_f))
+        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+
+        self.lora_dropout = nn.Dropout(dropout) if dropout &gt; 0 else nn.Identity()
+        self.merged = False
+
+    def forward(self, x):
+        out = self.base(x)                      # 冻结主路 W0 x (+bias)
+        if not self.merged:
+            lora = self.lora_dropout(x) @ self.lora_A.t() @ self.lora_B.t()
+            out = out + self.scaling * lora      # 加旁路
+        return out
+
+    @torch.no_grad()
+    def merge(self):
+        &quot;&quot;&quot;把 scaling·BA（标准 alpha/r 或 rsLoRA alpha/sqrt(r)）加进 base.weight，推理零延迟。&quot;&quot;&quot;
+        if self.merged:
+            return
+        dW = self.scaling * (self.lora_B @ self.lora_A)   # [out, in]
+        self.base.weight.add_(dW.to(self.base.weight.dtype))
+        self.merged = True
+
+    @torch.no_grad()
+    def unmerge(self):
+        if not self.merged:
+            return
+        dW = self.scaling * (self.lora_B @ self.lora_A)
+        self.base.weight.sub_(dW.to(self.base.weight.dtype))
+        self.merged = False
+
+
+def inject_lora(model: nn.Module, target_names=(&quot;q_proj&quot;, &quot;v_proj&quot;),
+                r=8, alpha=16, dropout=0.0):
+    &quot;&quot;&quot;把 model 中名字命中 target_names 的 nn.Linear 替换成 LoRALinear。&quot;&quot;&quot;
+    for name, module in list(model.named_modules()):
+        for child_name, child in list(module.named_children()):
+            if isinstance(child, nn.Linear) and child_name in target_names:
+                setattr(module, child_name,
+                        LoRALinear(child, r=r, alpha=alpha, dropout=dropout))
+    return model</code></pre>
+<p>要点：</p>
+<ul><li>注意 <code>x @ A.t() @ B.t()</code>：$x$ 形状 $[\dots, k]$，$A^\top$ 是 $[k, r]$，$B^\top$ 是 $[r, d]$，输出 $[\dots, d]$，与 base 输出对齐。</li><li><code>merge()</code> 用 <code>@torch.no_grad()</code> + <code>add_</code> 原地改 <code>base.weight</code>，合并后 <code>forward</code> 跳过旁路。</li><li>dropout 只作用在<strong>进入旁路的输入</strong>上，不动主路（这是 LoRA 的标准做法）。</li></ul>
+<div class="callout callout-info"><div class="callout-title">dropout 放在旁路输入</div><p>LoRA dropout 作用于 $x$ 进入 $A$ 之前，相当于对低秩适配做正则；主路 $W_0 x$ 不加 dropout（基座是冻结的、不需要正则）。</p></div>
+<h2 id="4-显存账lora-到底省在哪">§4 显存账：LoRA 到底省在哪</h2>
+<p>把一个 $\Psi$ 参数模型用 Adam 微调，按字节拆解（混合精度训练，per param）：</p>
+<table><thead><tr><th>组件</th><th>满参微调</th><th>LoRA（基座 bf16）</th></tr></thead><tbody><tr><td>基座权重（bf16）</td><td>$2\Psi$</td><td>$2\Psi$（冻结，仍需常驻）</td></tr><tr><td>基座梯度</td><td>$2\Psi$</td><td>$0$</td></tr><tr><td>基座 fp32 master</td><td>$4\Psi$</td><td>$0$</td></tr><tr><td>基座 Adam $m,v$（fp32）</td><td>$8\Psi$</td><td>$0$</td></tr><tr><td>LoRA 参数 + 梯度 + 优化器</td><td>—</td><td>$16 \cdot \Psi_{\text{lora}}$</td></tr><tr><td><strong>可训练相关合计</strong></td><td>$\approx 16\Psi$</td><td>$\approx 2\Psi + 16\Psi_{\text{lora}}$</td></tr></tbody></table>
+<p>其中 $\Psi_{\text{lora}} \ll \Psi$（典型 0.1%~1%）。所以 LoRA 把"满参微调 16 bytes/param 的大头"几乎全砍掉，只剩基座那份 $2\Psi$ 常驻 + 一丢丢 LoRA 开销。</p>
+<p><strong>但有一个必须主动澄清的点：激活显存（activation memory）LoRA 不自动省。</strong> 因为旁路 $BA$ 挂在冻结层上，反向传播仍要穿过整个网络计算 $\partial L / \partial x$，中间激活照存。LoRA 省的是<strong>优化器状态 + 梯度 + master 权重</strong>，不是激活。要省激活得另上 <strong>gradient checkpointing</strong>（用算力换激活显存）。</p>
+<p>可训练参数量（适配 $M$ 个线性层，第 $i$ 层 $d_i \times k_i$）：</p>
+<p>$$\Psi_{\text{lora}} = \sum_{i=1}^{M} r_i (d_i + k_i)$$</p>
+<p><strong>具体例子</strong>：LLaMA-7B，适配 $q,k,v,o$（各 $4096\times4096$），$r=8$，32 层：</p>
+<p>$$\Psi_{\text{lora}} = 32 \times 4 \times 8 \times (4096+4096) = 8.39\text{M} \approx 0.12\% \text{ of } 7\text{B}$$</p>
+<p>显存对比（7B，单卡，忽略激活）：</p>
+<ul><li>满参 Adam：$7\text{e}9 \times 16 \approx 112$ GB（单卡放不下）</li><li>LoRA（bf16 基座）：$7\text{e}9 \times 2 + 8.4\text{e}6 \times 16 \approx 14$ GB + 0.13 GB ≈ <strong>14 GB</strong></li><li>QLoRA（NF4 基座）：$7\text{e}9 \times 0.5\,\text{B/param} + \text{overhead} \approx 3.5$ GB + LoRA ≈ <strong>&lt;5 GB</strong>（见 §5；NF4 = 4 bit/param = 0.5 <strong>byte</strong>/param）</li></ul>
+<h2 id="5-qlora4-bit-基座--lora">§5 QLoRA：4-bit 基座 + LoRA</h2>
+<p>QLoRA（Dettmers et al., 2023, arXiv 2305.14314, NeurIPS 2023）让单张 48GB 卡微调 65B 模型，核心是三件套：<strong>NF4 量化</strong> + <strong>双重量化</strong> + <strong>paged optimizer</strong>，再叠加"基座 4-bit 冻结、LoRA 走 bf16"的配方。</p>
+<h3 id="51-nf44-bit-normalfloat信息论最优">5.1　NF4：4-bit NormalFloat（信息论最优）</h3>
+<p>观察：神经网络权重近似服从零均值正态分布 $\mathcal{N}(0,\sigma^2)$。普通 4-bit 整数量化（INT4，等间距 bin）在正态分布上是浪费的——尾部 bin 几乎没有值落入。<strong>NF4 的思路是让每个量化 bin 落入相等数量的权重（等概率质量），在"权重服从零均值正态 + quantile 量化"的假设下，这是对该固定分布信息论最优的（quantile quantization）。</strong></p>
+<p>构造（简化）：取标准正态 $\mathcal{N}(0,1)$ 的 $2^4=16$ 个分位点作为量化级别，使相邻级别之间的概率质量相等；并做<strong>非对称</strong>处理使 0 能被精确表示（zero-preserving，对剪枝 / padding 友好）。量化时按 block（QLoRA 用 block size 64）算 absmax 把权重归一化到 $[-1,1]$，再查最近的 NF4 级别：</p>
+<p>$$w \;\xrightarrow{\text{normalize by absmax}}\; \hat{w} \in [-1,1] \;\xrightarrow{\text{nearest NF4 level}}\; q \in \{n_0,\dots,n_{15}\}$$</p>
+<p>反量化：$w \approx c \cdot n_q$，其中 $c$ 是该 block 的 absmax 缩放常数。</p>
+<div class="callout callout-info"><div class="callout-title">NF4 vs INT4 vs FP4</div><p>INT4 等间距，对正态分布尾部浪费 bin；FP4 用浮点指数分配非均匀级别但未必匹配权重分布；NF4 直接按正态分位点放级别，对"权重本就近正态"这件事做了最优匹配。论文实测 NF4 显著优于 INT4/FP4。</p></div>
+<h3 id="52-双重量化double-quantization">5.2　双重量化（Double Quantization）</h3>
+<p>NF4 每个 block（64 个权重）要存一个 fp32 的 absmax 缩放常数 $c$，摊到每个参数是 $32/64 = 0.5$ bit/param 的额外开销。<strong>双重量化把这些缩放常数自己再量化一次</strong>：把 $c$（fp32）按 block size 256 用 8-bit 量化，第二层缩放常数用 fp32：</p>
+<p>$$\text{开销}: \underbrace{0.5\,\text{bit/param}}_{\text{单次}} \;\to\; \underbrace{\frac{8}{64} + \frac{32}{64\times256}}_{\text{双重}} \approx 0.127\,\text{bit/param}$$</p>
+<p>平均每参数省约 <strong>0.37 bit</strong>——对 65B 模型就是约 3 GB，足以决定能不能塞进一张卡。</p>
+<h3 id="53-paged-optimizer">5.3　Paged Optimizer</h3>
+<p>长序列 / 大 batch 时，优化器状态可能出现瞬时显存尖峰导致 OOM。QLoRA 用 NVIDIA <strong>unified memory</strong> 给优化器状态做<strong>分页</strong>：显存吃紧时把优化器状态分页换出到 CPU 内存，需要时再换回，像操作系统的内存分页一样，避免 OOM 崩溃。</p>
+<h3 id="54-前向--反向怎么走">5.4　前向 / 反向怎么走</h3>
+<p>关键：<strong>基座以 NF4 存储，但计算时按 block 反量化到 bf16 再做矩阵乘</strong>；梯度只流向 bf16 的 LoRA 参数，NF4 基座始终冻结、不存梯度。所以 QLoRA 训练显存 ≈ NF4 基座（4 bit/param = 0.5 byte/param，外加双重量化后约 0.127 bit/param 的量化常数）+ bf16 LoRA 的优化器 + 激活。</p>
+<pre><code class="language-python"># QLoRA 前向的概念骨架（非完整 kernel，仅示意数据流）
+def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
+    # 1) 基座：NF4 -&gt; bf16 反量化，再做主路 matmul（基座无梯度）
+    W = dequantize_nf4(nf4_weight, absmax).to(x.dtype)   # [out, in] bf16
+    base_out = x @ W.t()
+    # 2) 旁路：LoRA 在 bf16 上，可训练
+    lora_out = (x @ lora_A.t() @ lora_B.t()) * scaling
+    return base_out + lora_out</code></pre>
+<h3 id="55-qlora-的合并坑">5.5　QLoRA 的合并坑</h3>
+<p>如 §2.4 所述，NF4 基座不能无损合并 bf16 的 $\Delta W$。标准做法：<strong>反量化基座 → 合并 LoRA → 以 fp16/bf16 保存</strong>（得到一个全精度合并模型），或者干脆推理时保持"NF4 基座 + 不合并的 LoRA 旁路"。直接把 $\Delta W$ 量化回 NF4 再加会引入明显误差。</p>
+<div class="callout callout-warn"><div class="callout-title">QLoRA ≠ 推理省显存</div><p>QLoRA 解决的是<strong>微调时</strong>把大模型塞进单卡。推理阶段如果反量化合并成 fp16，显存又回到全精度；要推理也省显存得用专门的 4-bit 推理路径（如 bitsandbytes / GPTQ / AWQ，见 quantization 篇）。</p></div>
+<h2 id="6-dora幅度-方向分解">§6 DoRA：幅度-方向分解</h2>
+<p>DoRA（Weight-Decomposed Low-Rank Adaptation，Liu et al., 2024, arXiv 2402.09353, ICML 2024）观察到：满参微调和 LoRA 在"权重的<strong>幅度（magnitude）</strong>与<strong>方向（direction）</strong>如何协同变化"上有系统性差异，LoRA 的表达模式受限。DoRA 把预训练权重显式分解为幅度和方向两部分，分别学习。</p>
+<p>把权重按<strong>列</strong>分解（$\lVert\cdot\rVert_c$ 表示逐列 2-范数）：</p>
+<p>$$W_0 = m \cdot \frac{V}{\lVert V \rVert_c}, \qquad m = \lVert W_0 \rVert_c \in \mathbb{R}^{1\times k}, \quad V = W_0$$</p>
+<p>其中 $m$ 是每列的幅度（行向量），$V/\lVert V\rVert_c$ 是单位方向。DoRA 让 <strong>$m$ 可训练</strong>，并用 <strong>LoRA 更新方向</strong>：</p>
+<p>$$\boxed{\;W' = m \cdot \frac{V + \Delta V}{\lVert V + \Delta V \rVert_c}, \qquad \Delta V = BA\;}$$</p>
+<p>直觉：LoRA 把幅度和方向耦合在一个 $\Delta W$ 里一起调；DoRA 把幅度抽出来单独给一个标量序列 $m$，让低秩旁路专注学方向。实证上 DoRA 的"幅度-方向更新模式"更接近满参微调，常在同等参数量下小幅超过 LoRA，尤其在低秩（$r$ 小）时增益明显。代价：列归一化带来一点额外计算和实现复杂度；合并时需把 $m$ 和归一化一起折算回 $W'$（合并后仍是单一矩阵、推理零延迟）。</p>
+<pre><code class="language-python">class DoRALinear(nn.Module):
+    def __init__(self, base: nn.Linear, r=8, alpha=16):
+        super().__init__()
+        self.base = base
+        for p in self.base.parameters():
+            p.requires_grad_(False)
+        in_f, out_f = base.in_features, base.out_features
+        self.scaling = alpha / r
+        self.lora_A = nn.Parameter(torch.empty(r, in_f))
+        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+        # m 初始化为每列范数；W 形状 [out, in]，逐列范数 = 每个 in 列沿 out 维(dim=0)求 norm
+        self.m = nn.Parameter(self.base.weight.norm(dim=0, keepdim=True))  # [1, in]
+
+    def forward(self, x):
+        dW = self.scaling * (self.lora_B @ self.lora_A)       # [out, in]
+        V = self.base.weight + dW
+        Vnorm = V.norm(dim=0, keepdim=True) + 1e-8            # [1, in] 逐列范数
+        W_eff = self.m * V / Vnorm                            # 方向 × 幅度
+        return F.linear(x, W_eff, self.base.bias)</code></pre>
+<div class="callout callout-info"><div class="callout-title">面试点：DoRA 改了什么</div><p>LoRA 只学 $\Delta W=BA$；DoRA = 可训练幅度 $m$ + 用 LoRA 学方向。它解释了"LoRA 为何在某些任务弱于满参"——因为 LoRA 的幅度/方向更新被绑死，DoRA 解绑了。</p></div>
+<h2 id="7-lora-家族变体一览">§7 LoRA 家族变体一览</h2>
+<table><thead><tr><th>变体</th><th>一句话</th><th>改了 LoRA 的什么</th><th>论文</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>低秩旁路 $BA$</td><td>基线</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>rsLoRA</strong></td><td>缩放改 $\alpha/\sqrt{r}$</td><td>高秩梯度稳定</td><td>Kalajdzievski 2023, 2312.03732</td></tr><tr><td><strong>DoRA</strong></td><td>幅度-方向分解</td><td>解绑幅度与方向</td><td>Liu 2024, 2402.09353</td></tr><tr><td><strong>PiSSA</strong></td><td>用 $W_0$ 主成分初始化 $A,B$</td><td>初始化（更快收敛）</td><td>Meng 2024, 2404.02948</td></tr><tr><td><strong>LoRA-GA</strong></td><td>让首步梯度逼近满参</td><td>初始化（梯度对齐）</td><td>Wang 2024, 2407.05000</td></tr><tr><td><strong>AdaLoRA</strong></td><td>SVD 形式 + 按重要性剪秩</td><td>自适应分配秩预算</td><td>Zhang 2023, 2303.10512</td></tr><tr><td><strong>LoRA+</strong></td><td>$A,B$ 用不同学习率</td><td>优化（$B$ 更大 lr）</td><td>Hayou 2024, 2402.12354</td></tr><tr><td><strong>(IA)³</strong></td><td>学缩放向量乘激活</td><td>非低秩、参数更省</td><td>Liu 2022, 2205.05638</td></tr></tbody></table>
+<p>几个值得展开的：</p>
+<ul><li><strong>PiSSA</strong>：不再随机初始化，而是对 $W_0$ 做 SVD，用<strong>主奇异值/向量</strong>初始化 $A,B$（适配"最重要"的子空间），残差 $W_0 - BA$ 冻结。因为一开始就对准主成分，收敛更快、效果常更好。</li><li><strong>AdaLoRA</strong>：把 $\Delta W$ 参数化成 SVD 形式 $P\Lambda Q$，训练中按奇异值重要性<strong>动态剪枝</strong>，把有限的秩预算分给更需要的层（不同层 $r$ 不同），而非均匀分配。</li><li><strong>(IA)³</strong>：不走低秩矩阵，而是学三个<strong>缩放向量</strong> $l_k, l_v, l_{ff}$，逐元素乘到 key、value、FFN 隐藏激活上：$k \to l_k \odot k$。参数量比 LoRA 还小一个量级，T-Few 用它做少样本超过 in-context learning。</li></ul>
+<h2 id="8-与其他-peft-范式对比">§8 与其他 PEFT 范式对比</h2>
+<p>PEFT 大致分四类：<strong>加性低秩（LoRA 系）</strong>、<strong>加性模块（Adapter）</strong>、<strong>软提示（Prompt/Prefix）</strong>、<strong>选择性（BitFit）</strong>。</p>
+<table><thead><tr><th>方法</th><th>训练什么</th><th>插在哪</th><th>推理额外开销</th><th>典型可训练比例</th><th>论文</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>低秩 $BA$</td><td>并联到线性层</td><td><strong>零</strong>（可合并）</td><td>0.1%~1%</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>Adapter</strong></td><td>瓶颈 MLP</td><td>串联在子层后</td><td>有（串行子模块）</td><td>0.5%~5%</td><td>Houlsby 2019, 1902.00751</td></tr><tr><td><strong>Prefix-Tuning</strong></td><td>每层前缀 K/V</td><td>注意力 K/V 前缀</td><td>有（占 KV / 序列）</td><td>&lt;0.1%~1%</td><td>Li-Liang 2021, 2101.00190</td></tr><tr><td><strong>Prompt Tuning</strong></td><td>输入软提示</td><td>仅 embedding 层</td><td>有（占序列长度）</td><td>极小</td><td>Lester 2021, 2104.08691</td></tr><tr><td><strong>P-Tuning v2</strong></td><td>每层软提示</td><td>各层前缀</td><td>有</td><td>0.1%~3%</td><td>Liu 2021, 2110.07602</td></tr><tr><td><strong>BitFit</strong></td><td>仅 bias</td><td>各层 bias 项</td><td>零（原地）</td><td>~0.08%</td><td>Ben-Zaken 2021, 2106.10199</td></tr><tr><td><strong>(IA)³</strong></td><td>缩放向量</td><td>K/V/FFN 激活</td><td>有（可部分合并）</td><td>&lt;0.05%</td><td>Liu 2022, 2205.05638</td></tr></tbody></table>
+<p>核心对比维度（面试爱问）：</p>
+<ul><li><strong>推理延迟</strong>：LoRA（合并后）和 BitFit 是真正零开销；(IA)³ 的缩放向量在<strong>固定单 adapter</strong> 时也常可折叠进相邻线性层权重（动态多 adapter 才有在线缩放开销）。Adapter 串行非线性子模块、Prompt/Prefix 占用序列或 KV，都有不可消除的额外推理成本。</li><li><strong>占用上下文</strong>：Prompt/Prefix 系会吃掉一部分可用序列长度（soft tokens 占位）；LoRA / Adapter / BitFit 不占。</li><li><strong>表达力 vs 参数</strong>：Prompt Tuning 参数最省但小模型上效果弱（Lester 指出"规模够大才追平满参"）；LoRA 在参数/效果上折中最好，成为事实标准。</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Adapter 为什么有推理延迟而 LoRA 没有</div><p>Adapter 是<strong>串联</strong>新模块（down→非线性→up），推理时必须额外跑这几层，且打断了原算子融合；LoRA 是<strong>并联</strong>线性旁路，数学上能合并进原权重（线性 + 线性 = 线性），合并后消失。非线性的 Adapter 无法这样吸收。</p></div>
+<h2 id="9-工程实践与常见-bug">§9 工程实践与常见 bug</h2>
+<ul><li><strong>LoRA 学习率要比满参高</strong>：LoRA 参数少、且只调一个低秩子空间，经验上 lr 取 $1\text{e-}4 \sim 3\text{e-}4$（比满参的 $1\text{e-}5\sim2\text{e-}5$ 高一个量级）。LoRA+ 进一步指出 $B$ 应比 $A$ 用更大 lr。</li><li><strong>target_modules 选择</strong>：只配 <code>q,v</code> 省但弱；配全部线性层（含 FFN）通常最稳。配错模块名（不同模型命名不同，如 <code>c_attn</code> vs <code>q_proj</code>）会导致"LoRA 没挂上去、loss 不降"。</li><li><strong>$\alpha/r$ 设置</strong>：常见 $\alpha=2r$。换 $r$ 后若忘了 $\alpha$ 随动，等于改了有效学习率。高秩想避免坍缩用 rsLoRA。</li><li><strong>QLoRA 合并坑</strong>（§5.5）：别把 LoRA 合并回 4-bit 基座，反量化到 fp16 再合并。</li><li><strong>多 adapter 服务</strong>：不合并、在线加旁路可热插拔多个 adapter；要极致推理速度就为每个任务合并出独立权重。</li><li><strong>dtype 一致性</strong>：旁路 $A,B$ 与反量化后的基座要在同一精度做加法，混 dtype 会报错或精度异常。</li><li><strong>保存的是 adapter 不是整模型</strong>：<code>save</code> 只存 $A,B$（几十 MB），分发轻量；加载时挂回同一基座。版本要对齐基座，否则 $W_0$ 不一致、$\Delta W$ 无意义。</li><li><strong>梯度检查点配合</strong>：LoRA 不省激活，长序列训练务必开 gradient checkpointing，否则激活显存照样 OOM。</li></ul>
+<div class="callout callout-bad"><div class="callout-title">经典翻车</div><p>"LoRA 把显存降下来了，所以 batch 可以开很大" —— 错。激活显存没省，开大 batch 仍可能 OOM。LoRA 省的是优化器/梯度那部分，不是激活那部分。</p></div>
+<h2 id="10-复杂度与资源">§10 复杂度与资源</h2>
+<table><thead><tr><th>维度</th><th>满参微调</th><th>LoRA</th><th>QLoRA</th></tr></thead><tbody><tr><td>可训练参数</td><td>$\Psi$</td><td>$\sum_i r_i(d_i+k_i)$（~0.1%~1%）</td><td>同 LoRA</td></tr><tr><td>基座存储</td><td>bf16 $2\Psi$ B</td><td>bf16 $2\Psi$ B</td><td>NF4 4 bit/param $= 0.5\Psi$ B</td></tr><tr><td>优化器+梯度显存</td><td>$\approx 14\Psi$ B</td><td>$\approx 14\Psi_{\text{lora}}$ B</td><td>同 LoRA</td></tr><tr><td>激活显存</td><td>高</td><td><strong>同满参</strong>（需 checkpointing）</td><td>同满参</td></tr><tr><td>训练前向计算</td><td>$W_0 x$</td><td>$W_0 x + \frac{\alpha}{r}B(Ax)$（多两次小 matmul）</td><td>+ 反量化开销</td></tr><tr><td>推理延迟（合并后）</td><td>基线</td><td><strong>零额外</strong></td><td>反量化或合并到 fp16</td></tr><tr><td>单卡可训最大模型（80GB·vanilla Adam 量级）</td><td>~3B（7B 满参需 ZeRO / offload / 8-bit optimizer）</td><td>~13B~33B</td><td>~65B</td></tr></tbody></table>
+<p>旁路前向开销：每个适配层多 $2 \cdot 2 L r d$ FLOPs（$Ax$ 与 $B(\cdot)$ 两次小 matmul），因 $r \ll d$，相对主路 $2Ld^2$ 可忽略。合并后旁路彻底消失。</p>
+<div class="callout callout-warn"><div class="callout-title">&quot;单卡最大模型&quot;只是经验量级</div><p>真实上限强依赖序列长度、batch、gradient checkpointing、优化器选择（8-bit / offload）、target_modules 与是否 ZeRO 切分，上表仅为 vanilla Adam 假设下的粗略数量级，不是硬上限。</p></div>
+<h2 id="11-25-高频面试题">§11 25 高频面试题</h2>
+<p>下列题目按难度分三档，点开看答案要点 + 易踩坑。</p>
+<h3 id="l1必会题任何用过微调的岗位都会问">L1必会题（任何用过微调的岗位都会问）</h3>
+<details>
+
+<summary>Q1. LoRA 的核心公式是什么？</summary>
+<ul><li>冻结 $W_0$，学低秩增量 $\Delta W = BA$</li><li>前向 $h = W_0 x + \frac{\alpha}{r} BA\,x$</li><li>$B\in\mathbb{R}^{d\times r}$、$A\in\mathbb{R}^{r\times k}$、$r\ll\min(d,k)$</li></ul>
+<p>只说"加了个小矩阵"，说不清 $\Delta W$ 是两个瘦矩阵的积、秩 $\le r$。</p>
+</details>
+<details>
+
+<summary>Q2. 为什么 $B$ 初始化为 0、$A$ 随机？</summary>
+<ul><li>让起点 $\Delta W = B A = 0$，不扰动预训练</li><li>但 $A$ 非零保证梯度不全为零，能学起来</li><li>两个都置零 → 梯度恒为零 → 永远学不动</li></ul>
+<p>以为"$B=0$ 第一步没梯度所以学不了"——错，第一步 $B$ 有梯度（$\partial L/\partial B \propto (Ax)^\top \ne 0$），只是 $\Delta W$ 在 $t=0$ 数值为 0。</p>
+</details>
+<details>
+
+<summary>Q3. LoRA 相比满参微调省了什么显存？没省什么？</summary>
+<ul><li>省：基座的优化器状态（Adam 的 $m,v$，8 B）+ 梯度（2 B）+ fp32 master（4 B）≈ <strong>14 B/param</strong>（满参总足迹 ~16 B/param，含 2 B 可训练权重）；基座 bf16 权重 2 B/param 仍常驻</li><li>没省：<strong>激活显存</strong>（仍要反传过冻结基座）、基座权重本身（仍常驻）</li><li>省激活要另开 gradient checkpointing</li></ul>
+<p>说"LoRA 全面省显存所以能开大 batch"——激活没省，大 batch 仍会 OOM。</p>
+</details>
+<details>
+
+<summary>Q4. 缩放因子 $\alpha/r$ 是干嘛的？</summary>
+<ul><li>解耦秩 $r$ 与学习率，换 $r$ 不用重调 lr</li><li>让不同 $r$ 下 $\Delta W$ 量级可比</li><li>常设 $\alpha=2r$ 或 $\alpha=r$</li></ul>
+<p>不知道 $\alpha$ 是超参，或以为 $\alpha$ 必须等于 $r$。</p>
+</details>
+<details>
+
+<summary>Q5. LoRA 为什么推理没有额外延迟？</summary>
+<ul><li>训练后可合并：$W' = W_0 + \frac{\alpha}{r}BA$</li><li>推理只用 $W'$，与原线性层完全同构</li><li>线性旁路能被吸收进原权重（线性+线性=线性）</li></ul>
+<p>说"LoRA 推理时也要多算 $BA$"——那是没合并的情况；合并后为零。</p>
+</details>
+<details>
+
+<summary>Q6. 可训练参数量怎么算？给个例子。</summary>
+<ul><li>单层 $d\times k$：$r(d+k)$</li><li>全模型：$\sum_i r_i(d_i+k_i)$</li><li>例：7B 配 $q,k,v,o$（$4096^2$）、$r=8$、32 层 ≈ 8.4M ≈ 0.12%</li></ul>
+<p>把可训练量算成 $r\cdot d\cdot k$（那是 $\Delta W$ 的元素数，不是 LoRA 参数数）。</p>
+</details>
+<details>
+
+<summary>Q7. LoRA 一般加在 Transformer 的哪些层？</summary>
+<ul><li>原论文：注意力 $W_q, W_v$（同预算下优于只配 $W_q$）</li><li>实践（QLoRA 起）：加到所有线性层（含 FFN gate/up/down）更稳</li><li>target_modules 命名随模型而异，配错名会"挂不上"</li></ul>
+<p>只会说"加在 attention 上"，不知道现代实践常配全部线性层。</p>
+</details>
+<details>
+
+<summary>Q8. LoRA 的 $r$ 怎么选？越大越好吗？</summary>
+<ul><li>简单任务 $r=4\sim8$，难任务 $r=16\sim64$</li><li>不是越大越好：过大易过拟合、省得少、还可能踩 $\alpha/r$ 高秩坍缩</li><li>高秩想要红利用 rsLoRA（$\alpha/\sqrt r$）</li></ul>
+<p>说"$r$ 越大效果越好"，忽略过拟合与缩放坍缩。</p>
+</details>
+<details>
+
+<summary>Q9. LoRA 的学习率相比满参该大还是小？</summary>
+<ul><li>通常<strong>大一个量级</strong>（$1\text{e-}4\sim3\text{e-}4$ vs 满参 $1\text{e-}5\sim2\text{e-}5$）</li><li>因为只调低秩子空间、参数少</li><li>LoRA+ 进一步主张 $B$ 比 $A$ 用更大 lr</li></ul>
+<p>直接套满参的小 lr，导致 LoRA 学得太慢。</p>
+</details>
+<details>
+
+<summary>Q10. 保存 LoRA 微调结果存的是什么？</summary>
+<ul><li>只存 adapter（$A,B$），几十 MB</li><li>加载时挂回同一基座</li><li>基座版本必须对齐，否则 $W_0$ 不符、$\Delta W$ 失效</li></ul>
+<p>以为存的是整个微调后大模型。</p>
+</details>
+<h3 id="l2进阶题research--工程深入岗">L2进阶题（research / 工程深入岗）</h3>
+<details>
+
+<summary>Q11. 为什么相信"权重更新是低秩的"？理论依据？</summary>
+<ul><li>Aghajanyan 2020（arXiv 2012.13255）：预训练模型有很低的内在维度，低维子空间优化即可逼近满参</li><li>Hu 2021 顺此假设：$\Delta W$ 低秩，用 $BA$ 参数化</li><li>是<strong>经验假设 + 实证</strong>，不是严格定理</li></ul>
+<p>把"低秩有效"当成已证明的定理，或答不出 intrinsic dimension 的来源。</p>
+</details>
+<details>
+
+<summary>Q12. 推导 LoRA 第一步对 $A$、$B$ 的梯度，解释初始化。</summary>
+<ul><li>设 $g=\partial L/\partial h$。$\partial L/\partial B = \frac{\alpha}{r} g (Ax)^\top$，$\partial L/\partial A = \frac{\alpha}{r} B^\top g\, x^\top$</li><li>$t=0$：$B=0$ → $\partial L/\partial A=0$（$A$ 不动）；$A\ne0$ → $\partial L/\partial B\ne0$（$B$ 动）</li><li>一旦 $B$ 变非零，下一步 $A$ 也有梯度</li></ul>
+<p>把两个梯度都算成非零，或说"$B=0$ 所以两个都为零"。</p>
+</details>
+<details>
+
+<summary>Q13. rsLoRA 解决什么问题？缩放为什么是 $\alpha/\sqrt r$？</summary>
+<ul><li>问题：$\alpha/r$ 在高秩时过度缩小梯度，学习坍缩</li><li>$BA$ 输出是 $r$ 项之和，标准差 $\propto\sqrt r$；除 $\sqrt r$ 才把量级拉回常数</li><li>除以 $r$ 过度压制，$r$ 越大压得越狠</li></ul>
+<p>只记住"rsLoRA 用 $\sqrt r$"，讲不出方差/量级稳定的原因。</p>
+</details>
+<details>
+
+<summary>Q14. NF4 是什么？为什么比 INT4 适合量化权重？</summary>
+<ul><li>NF4 = 4-bit NormalFloat，按标准正态分位点放 16 个量化级别，使各 bin 等概率质量</li><li>权重近似 $\mathcal{N}(0,\sigma^2)$，<strong>正态假设下</strong>等概率 bin 对该固定分布是信息论最优（quantile 量化）</li><li>INT4 等间距，对正态尾部浪费 bin；NF4 还做 zero-preserving</li></ul>
+<p>说 NF4 是普通 4-bit 整数，或答不出"等概率质量 / quantile"这个关键。</p>
+</details>
+<details>
+
+<summary>Q15. QLoRA 的双重量化省了多少？怎么做的？</summary>
+<ul><li>每 block(64) 的 fp32 absmax 常数本身再量化</li><li>单次开销 $32/64=0.5$ bit/param → 双重 $\approx0.127$ bit/param</li><li>平均每参省约 0.37 bit（65B 约省 3GB）</li></ul>
+<p>不知道"被二次量化的是缩放常数 absmax"，或把它和 NF4 本身搞混。</p>
+</details>
+<details>
+
+<summary>Q16. QLoRA 训练时基座是 4-bit，梯度怎么流？</summary>
+<ul><li>基座 NF4 存储，计算时按 block 反量化到 bf16 再 matmul</li><li>梯度只流向 bf16 的 LoRA 参数，NF4 基座冻结无梯度</li><li>所以省的是基座的优化器/梯度，激活仍在</li></ul>
+<p>以为在 4-bit 上直接算梯度，或以为基座也在更新。</p>
+</details>
+<details>
+
+<summary>Q17. DoRA 相比 LoRA 改了什么？为什么可能更好？</summary>
+<ul><li>把 $W_0$ 分解为幅度 $m=\lVert W_0\rVert_c$（逐列）与方向 $V/\lVert V\rVert_c$</li><li>$m$ 可训练，LoRA 只负责更新方向：$W'=m\cdot\frac{V+\Delta V}{\lVert V+\Delta V\rVert_c}$</li><li>解绑幅度与方向，更新模式更接近满参，低秩时增益明显</li></ul>
+<p>只说"DoRA 加了个 magnitude"，讲不清是逐列归一 + 方向用 LoRA 学。</p>
+</details>
+<details>
+
+<summary>Q18. Adapter 为什么有推理延迟，LoRA 合并后没有？</summary>
+<ul><li>Adapter 串联非线性瓶颈模块，推理必须额外跑且打断算子融合</li><li>LoRA 并联线性旁路，线性+线性=线性，可吸收进原权重</li><li>非线性模块无法这样合并</li></ul>
+<p>把两者都说成"加了小模块所以都有延迟"，没抓住线性可合并这点。</p>
+</details>
+<details>
+
+<summary>Q19. Prompt/Prefix Tuning 和 LoRA 的本质区别？</summary>
+<ul><li>Prompt/Prefix：在输入或各层注入可训练 soft tokens / 前缀 K/V，<strong>占用序列长度或 KV</strong>，有推理开销</li><li>LoRA：改权重的低秩旁路，<strong>不占序列</strong>，合并后零开销</li><li>Prompt Tuning 在小模型上偏弱（Lester：规模够大才追平满参）</li></ul>
+<p>把 LoRA 也归成"加 token"，或不知道 prompt 系占序列长度。</p>
+</details>
+<details>
+
+<summary>Q20. PiSSA / LoRA-GA 这类"换初始化"的方法在改什么？</summary>
+<ul><li>PiSSA：用 $W_0$ 的主奇异向量初始化 $A,B$（对准主成分），残差冻结，收敛更快</li><li>LoRA-GA：让 LoRA 首步梯度方向逼近满参梯度（梯度对齐初始化）</li><li>共同点：不改结构，只改<strong>初始化</strong>以加速收敛 / 提质</li></ul>
+<p>把它们当成新结构，或说不出"改初始化"这个共性。</p>
+</details>
+<h3 id="l3高级题顶级-lab--深水区">L3高级题（顶级 lab / 深水区）</h3>
+<details>
+
+<summary>Q21. 为什么 LoRA 不自动省激活显存？要省怎么办？</summary>
+<ul><li>旁路挂在冻结层上，反向仍要穿过整个网络求 $\partial L/\partial x$，中间激活照存</li><li>LoRA 省的是优化器状态 + 梯度 + master 权重，与激活无关</li><li>省激活要 gradient checkpointing（重算换显存），或序列并行等</li></ul>
+<p>笼统说"LoRA 省显存"，被追问"省哪部分"答不上来。</p>
+</details>
+<details>
+
+<summary>Q22. AdaLoRA 的"自适应秩"怎么实现的？</summary>
+<ul><li>把 $\Delta W$ 参数化为 SVD 形式 $P\Lambda Q$</li><li>训练中按奇异值重要性对 $\Lambda$ 剪枝，给不同层分配不同有效秩</li><li>把有限秩预算动态投到更需要的层，而非均匀分配</li></ul>
+<p>以为 AdaLoRA 是"自动选一个全局 $r$"，没说到 SVD 参数化 + 按层剪秩。</p>
+</details>
+<details>
+
+<summary>Q23. 多任务部署时，一个基座挂多个 LoRA 有哪两种策略？各自代价？</summary>
+<ul><li>合并法：为每个任务合并出独立全权重，推理零延迟，但每任务一份完整权重、不能动态切换</li><li>旁路法：基座不动、在线加各自 $\frac{\alpha}{r}B(Ax)$，可热插拔 / batch 内混合不同 adapter，代价是恢复了一点推理开销</li><li>工业界（如多租户 LoRA serving）多用旁路法 + 批处理优化</li></ul>
+<p>只知道合并，不知道"不合并以支持动态多 adapter"。</p>
+</details>
+<details>
+
+<summary>Q24. (IA)³ 和 LoRA 的本质区别？为什么 (IA)³ 参数更省？</summary>
+<ul><li>LoRA：加低秩矩阵 $BA$，参数 $r(d+k)$</li><li>(IA)³：学三个<strong>缩放向量</strong> $l_k,l_v,l_{ff}$ 逐元素乘到 K/V/FFN 激活，参数仅 $O(d)$</li><li>(IA)³ 是"逐元素重标定激活"而非"加一个矩阵增量"，所以省一个量级；T-Few 用它少样本超过 ICL</li></ul>
+<p>把 (IA)³ 也当成低秩矩阵，没抓住"缩放向量 × 激活"。</p>
+</details>
+<details>
+
+<summary>Q25. LoRA 微调能学到"新知识"吗？低秩是不是表达瓶颈？</summary>
+<ul><li>低秩旁路擅长<strong>风格 / 格式 / 任务适配 / 对齐</strong>这类"调整已有能力"的场景</li><li>注入大量<strong>全新事实知识</strong>时低秩可能受限，需更大 $r$、配更多层，或继续预训练 / 全参</li><li>这也是 DoRA / 高秩 / PiSSA 等想突破表达力的动机；秩是容量旋钮，不是免费午餐</li></ul>
+<p>绝对化地说"LoRA 和满参等价"或"LoRA 学不了任何新东西"——都过头，取决于 $r$、适配层数与任务类型。</p>
+</details>
+<h2 id="a-附录sanity-check">§A 附录：sanity check</h2>
+<p><code>LoRALinear</code> 的关键不变量（可写一段脚本验证）：</p>
+<ul><li><strong>起点等价</strong>：注入 LoRA 后、训练前，模型输出应与基座逐元素相等（因 $B=0 \Rightarrow \Delta W=0$）。</li><li><strong>合并一致性</strong>：<code>merge()</code> 前后对同一输入的输出应数值一致（fp32 / eval / dropout=0 下误差 ~1e-6 级，纯浮点累加导致；bf16 或 train-mode dropout 下误差更大，不应承诺该数值）。</li><li><strong>可训练量</strong>：只有 <code>lora_A</code>、<code>lora_B</code>（以及 DoRA 的 <code>m</code>）<code>requires_grad=True</code>，基座全 <code>False</code>。</li><li><strong>参数计数</strong>：适配 $q,v$、$r=8$、$d=4096$、$L$ 层时，可训练参数 $= L \times 2 \times 8 \times (4096+4096)$。</li></ul>
+<p>下面是 <a href="code/lora.py"><code>code/lora.py</code></a>（$\text{IN}=32, \text{OUT}=48, r=8, \alpha=16$）在 <strong>PyTorch 2.10 / CPU</strong> 上的<strong>真实运行</strong>输出（每行带 <code>assert</code>，全过才打印汇总）：</p>
+<pre><code>[a] B=0 init: |out_lora - out_base| = 0.00e+00  OK
+[b] after 1 step: ||dW|| = 4.768e-02, output changed  OK
+[c] merge: |out_merged - out_unmerged| = 3.58e-07; weight += dW = True; unmerge restores base = True  OK
+[d] trainable params = 640 (expect r*(in+out) = 640); base frozen = True  OK
+[e] scaling: standard alpha/r = 2.0000, rsLoRA alpha/sqrt(r) = 5.6569  OK
+[f] DoRA: m.requires_grad = True, base frozen, identity start |Δ| = 2.38e-07  OK
+
+all LoRA / DoRA sanity checks passed ✓</code></pre>
+<p>其中 $640 = r(\text{IN}+\text{OUT}) = 8\times(32+48)$ 验证了 §4 的可训练参数公式；merge 前后 $3.58\text{e-}7$ 的纯浮点误差验证了零延迟合并的数值等价；DoRA 恒等起点 $\lvert\Delta\rvert=2.38\text{e-}7$ 验证了 $B=0$ 时 $W'=W_0$。</p>
+<hr />
+<h2 id="runnable-code">📜 Runnable Code</h2>
+<p>本 tutorial 的 LoRA / DoRA 核心实现在 <a href="code/lora.py"><code>docs/tutorials/code/lora.py</code></a> 有最小可跑版本：</p>
+<ul><li><a href="code/lora.py"><code>lora.py</code></a> — <code>LoRALinear</code>（$B=0$ 恒等起点 · $\alpha/r$ 与 rsLoRA $\alpha/\sqrt{r}$ 缩放 · merge/unmerge）+ <code>DoRALinear</code>（幅度-方向分解），含 6 个 <code>assert</code> sanity check（起点等价 / 一步后 $\Delta W \ne 0$ / merge 一致且可逆 / 参数量 $= r(\text{in}+\text{out})$ / rsLoRA 缩放 / DoRA 冻结基座）。</li></ul>
+<p>纯 PyTorch，CPU 几秒跑完、无需 GPU：<code>python docs/tutorials/code/lora.py</code>。上方 §A 的输出即该脚本的真实运行结果。</p>
+<hr />
+<h2 id="参考文献">📚 参考文献</h2>
+<ul><li><strong>LoRA</strong> — Hu et al., <em>LoRA: Low-Rank Adaptation of Large Language Models</em>, arXiv 2106.09685 (2021), ICLR 2022.</li><li><strong>Intrinsic Dimension</strong> — Aghajanyan et al., <em>Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning</em>, arXiv 2012.13255 (2020).</li><li><strong>QLoRA</strong> — Dettmers et al., <em>QLoRA: Efficient Finetuning of Quantized LLMs</em>, arXiv 2305.14314 (2023), NeurIPS 2023.</li><li><strong>DoRA</strong> — Liu et al., <em>DoRA: Weight-Decomposed Low-Rank Adaptation</em>, arXiv 2402.09353 (2024), ICML 2024.</li><li><strong>rsLoRA</strong> — Kalajdzievski, <em>A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA</em>, arXiv 2312.03732 (2023).</li><li><strong>PiSSA</strong> — Meng et al., <em>PiSSA: Principal Singular Values and Singular Vectors Adaptation</em>, arXiv 2404.02948 (2024), NeurIPS 2024.</li><li><strong>LoRA-GA</strong> — Wang et al., <em>LoRA-GA: Low-Rank Adaptation with Gradient Approximation</em>, arXiv 2407.05000 (2024).</li><li><strong>AdaLoRA</strong> — Zhang et al., <em>Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning</em>, arXiv 2303.10512 (2023), ICLR 2023.</li><li><strong>LoRA+</strong> — Hayou et al., <em>LoRA+: Efficient Low Rank Adaptation of Large Models</em>, arXiv 2402.12354 (2024).</li><li><strong>(IA)³ / T-Few</strong> — Liu et al., <em>Few-Shot Parameter-Efficient Fine-Tuning Is Better and Cheaper than In-Context Learning</em>, arXiv 2205.05638 (2022).</li><li><strong>Adapter</strong> — Houlsby et al., <em>Parameter-Efficient Transfer Learning for NLP</em>, arXiv 1902.00751 (2019), ICML 2019.</li><li><strong>Prefix-Tuning</strong> — Li &amp; Liang, <em>Prefix-Tuning: Optimizing Continuous Prompts for Generation</em>, arXiv 2101.00190 (2021), ACL 2021.</li><li><strong>Prompt Tuning</strong> — Lester et al., <em>The Power of Scale for Parameter-Efficient Prompt Tuning</em>, arXiv 2104.08691 (2021), EMNLP 2021.</li><li><strong>P-Tuning v2</strong> — Liu et al., <em>P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks</em>, arXiv 2110.07602 (2021).</li><li><strong>BitFit</strong> — Ben-Zaken et al., <em>BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models</em>, arXiv 2106.10199 (2021), ACL 2022.</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/lora_peft_tutorial.md</code> ·
+  SHA256 <code>1dfbcbf080ce</code> ·
+  generated at 2026-06-13 12:52 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

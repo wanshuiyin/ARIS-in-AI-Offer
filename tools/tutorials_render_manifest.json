@@ -1,4 +1,9 @@
 {
+  "docs/index.html": {
+    "md": "docs/about.md",
+    "title": "About",
+    "lang": "zh-CN"
+  },
   "docs/tutorials/3d_generation_tutorial.html": {
     "md": "docs/tutorials/3d_generation_tutorial.md",
     "title": "3D Generation 面试 Cheat Sheet",
@@ -161,6 +166,18 @@
     "title": "Long Context Rope Yarn Mla Tutorial En",
     "lang": "en"
   },
+  "docs/tutorials/lora_peft_tutorial.html": {
+    "md": "docs/tutorials/lora_peft_tutorial.md",
+    "title": "LoRA / PEFT 面试 Cheat Sheet",
+    "eyebrow": "Interview Prep · LoRA / PEFT 参数高效微调",
+    "subtitle": "LoRA / QLoRA / DoRA / rsLoRA / PiSSA / AdaLoRA / (IA)³ + 公式推导 + From-Scratch PyTorch + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "lang": "zh-CN"
+  },
+  "docs/tutorials/lora_peft_tutorial_en.html": {
+    "md": "docs/tutorials/lora_peft_tutorial_en.md",
+    "title": "Lora Peft Tutorial En",
+    "lang": "en"
+  },
   "docs/tutorials/moe_tutorial.html": {
     "md": "docs/tutorials/moe_tutorial.md",
     "title": "MoE (Mixture-of-Experts) 面试 Cheat Sheet",
@@ -268,10 +285,5 @@
     "md": "docs/tutorials/vlm_multimodal_tutorial_en.md",
     "title": "Vlm Multimodal Tutorial En",
     "lang": "en"
-  },
-  "docs/index.html": {
-    "md": "docs/about.md",
-    "title": "About",
-    "lang": "zh-CN"
   }
 }

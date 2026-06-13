@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lora Peft Tutorial En</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/lora_peft_tutorial_en.md">
+<meta name="aris:source-sha256" content="24273d1ee0404b786aac57110192ce280e3f3a446fd404458ba73dcb6db10647">
+<meta name="aris:generated-at" content="2026-06-13 13:22 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-intuition-why-we-need-peft">§1 Intuition: why we need PEFT</a>
+</li>
+<li><a href="#2-lora-core-formula-and-derivation">§2 LoRA core formula and derivation</a>
+<ul>
+<li><a href="#21-main-formula-and-shapes">2.1　Main formula and shapes</a></li>
+<li><a href="#22-why-b0-and-a-random-init-must-know">2.2　Why $B=0$ and $A$ random init (must-know)</a></li>
+<li><a href="#23-scaling-factor-alphar-and-rslora">2.3　Scaling factor $\alpha/r$ and rsLoRA</a></li>
+<li><a href="#24-merging-and-zero-inference-latency-loras-killer-feature">2.4　Merging and zero inference latency (LoRA&#x27;s killer feature)</a></li>
+<li><a href="#25-which-matrices-to-adapt--how-to-choose-r">2.5　Which matrices to adapt / how to choose $r$</a></li>
+</ul>
+</li>
+<li><a href="#3-implementing-loralinear-from-scratch">§3 Implementing LoRALinear from scratch</a>
+</li>
+<li><a href="#4-the-memory-account-where-exactly-does-lora-save">§4 The memory account: where exactly does LoRA save</a>
+</li>
+<li><a href="#5-qlora-4-bit-base--lora">§5 QLoRA: 4-bit base + LoRA</a>
+<ul>
+<li><a href="#51-nf4-4-bit-normalfloat-information-theoretically-optimal">5.1　NF4: 4-bit NormalFloat (information-theoretically optimal)</a></li>
+<li><a href="#52-double-quantization">5.2　Double Quantization</a></li>
+<li><a href="#53-paged-optimizer">5.3　Paged Optimizer</a></li>
+<li><a href="#54-how-forward--backward-flow">5.4　How forward / backward flow</a></li>
+<li><a href="#55-the-qlora-merge-pitfall">5.5　The QLoRA merge pitfall</a></li>
+</ul>
+</li>
+<li><a href="#6-dora-magnitudedirection-decomposition">§6 DoRA: magnitude–direction decomposition</a>
+</li>
+<li><a href="#7-the-lora-family-at-a-glance">§7 The LoRA family at a glance</a>
+</li>
+<li><a href="#8-comparison-with-other-peft-paradigms">§8 Comparison with other PEFT paradigms</a>
+</li>
+<li><a href="#9-engineering-practice-and-common-bugs">§9 Engineering practice and common bugs</a>
+</li>
+<li><a href="#10-complexity-and-resources">§10 Complexity and resources</a>
+</li>
+<li><a href="#11-25-high-frequency-interview-questions">§11 25 high-frequency interview questions</a>
+<ul>
+<li><a href="#l1-must-know-any-role-that-has-done-fine-tuning">L1 must-know (any role that has done fine-tuning)</a></li>
+<li><a href="#l2-advanced-research--deep-engineering-roles">L2 advanced (research / deep-engineering roles)</a></li>
+<li><a href="#l3-top-lab-questions-deep-end">L3 top-lab questions (deep end)</a></li>
+</ul>
+</li>
+<li><a href="#a-appendix-sanity-check">§A Appendix: sanity check</a>
+</li>
+<li><a href="#runnable-code">📜 Runnable Code</a>
+</li>
+<li><a href="#references">📚 References</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  
+  <h1>Lora Peft Tutorial En</h1>
+  
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/lora_peft_tutorial_en.md</code></span>
+    <span><strong>SHA256:</strong> <code>24273d1ee040</code></span>
+    <span><strong>Rendered:</strong> 2026-06-13 13:22 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">8 sentences to nail LoRA / PEFT</div><p>one page covering the interview essentials (see §2–§10 for derivations).</p></div>
+<ol><li><strong>Core formula</strong>: freeze the pretrained weight $W_0$, learn only a low-rank increment $\Delta W = BA$, forward $h = W_0 x + \frac{\alpha}{r} BA\,x$, where $B \in \mathbb{R}^{d\times r}$, $A \in \mathbb{R}^{r\times k}$, $r \ll \min(d,k)$.</li><li><strong>Why low rank works</strong>: pretrained models have a very low "intrinsic dimension" (Aghajanyan 2020) — optimizing in a low-dimensional subspace already approximates full fine-tuning; Hu 2021 hypothesizes accordingly that the weight update $\Delta W$ is approximately low-rank, so a low-rank matrix with $r=4\sim64$ can approximate it (empirical hypothesis + evidence, not a strict theorem).</li><li><strong>Initialization</strong>: $A$ random (Kaiming), $B = 0$, so the <strong>training starting point has $\Delta W = 0$</strong> (it does not perturb the pretrained model), yet gradients are nonzero so it can still learn. Zeroing both means it never learns.</li><li><strong>Scaling $\alpha/r$</strong>: decouples $r$ from the learning rate, so changing $r$ needs no lr re-tuning. rsLoRA shows that at high rank you should switch to $\alpha/\sqrt{r}$ to prevent gradient collapse.</li><li><strong>Zero inference latency</strong>: after training you can <strong>merge</strong> $\frac{\alpha}{r}BA$ into $W_0$ to get $W' = W_0 + \frac{\alpha}{r}BA$; inference is then structurally identical to the original model with no extra latency (the key advantage of LoRA over Adapter / Prefix).</li><li><strong>What memory it saves</strong>: mainly the <strong>optimizer states + gradients</strong> (full fine-tuning costs 16 bytes/param under Adam; LoRA pays that only for the ~0.1% trainable params); <strong>activation memory is NOT saved automatically</strong> (you still backprop through the frozen base) — that needs gradient checkpointing.</li><li><strong>QLoRA</strong>: quantize the base with <strong>NF4</strong> (4-bit NormalFloat, information-theoretically optimal for normal weights) + <strong>double quantization</strong> + <strong>paged optimizer</strong>, keep LoRA adapters in bf16, and a single 48GB GPU can fine-tune a 65B model.</li><li><strong>The family</strong>: DoRA (magnitude–direction decomposition), rsLoRA ($\sqrt{r}$ scaling), PiSSA (principal-component init), AdaLoRA (adaptive rank budget), (IA)³ (scaling vectors), LoRA+ (different lr for A and B) — each patches one weakness of LoRA.</li></ol>
+<h2 id="1-intuition-why-we-need-peft">§1 Intuition: why we need PEFT</h2>
+<p><strong>The pain point of full fine-tuning is memory, not compute.</strong> Fine-tuning a $\Psi$-parameter model with Adam in mixed precision costs, per parameter: bf16 weight 2 B + bf16 gradient 2 B + fp32 master weight 4 B + Adam first moment $m$ 4 B + Adam second moment $v$ 4 B = <strong>16 B/param</strong>. For a 7B model that part alone is 112 GB — too big for a single 80GB GPU, and that excludes activations.</p>
+<p>The core idea of PEFT (Parameter-Efficient Fine-Tuning): <strong>freeze the vast majority of pretrained parameters and train only a tiny set of new or selected parameters</strong>, compressing the trainable fraction from 100% down to 0.01%–1%. This means:</p>
+<ul><li>optimizer states / gradients are paid only for that tiny trainable set → memory drops sharply;</li><li>one base + many lightweight adapters (tens of MB each) can serve many tasks, hot-swappable;</li><li>on small data it overfits less and suffers milder catastrophic forgetting.</li></ul>
+<p><strong>The low-rank hypothesis is LoRA's theoretical anchor.</strong> Aghajanyan et al. (2020, arXiv 2012.13255) showed empirically that pretrained language models have a very low "intrinsic dimension" — optimizing in a random subspace far smaller than the full parameter count reaches 90% of full fine-tuning's quality. Hu et al. (2021) followed this intuition: since fine-tuning "doesn't travel far," the weight <strong>update</strong> $\Delta W$ should itself be low-rank, so they parameterize it as a product of two thin matrices $BA$.</p>
+<div class="callout callout-info"><div class="callout-title">One-sentence mental model</div><p>Full fine-tuning is "rewriting the whole book"; LoRA is "sticking low-rank sticky notes $\Delta W = BA$ in the margins." At inference you copy the sticky-note content back into the main text (merge), and the reader (the inference engine) never knows the notes existed.</p></div>
+<h2 id="2-lora-core-formula-and-derivation">§2 LoRA core formula and derivation</h2>
+<h3 id="21-main-formula-and-shapes">2.1　Main formula and shapes</h3>
+<p>For an adapted linear layer with frozen original weight $W_0 \in \mathbb{R}^{d \times k}$, LoRA learns a low-rank increment:</p>
+<p>$$\boxed{\;h = W_0 x + \Delta W x = W_0 x + \frac{\alpha}{r} B A\, x\;}$$</p>
+<p>Shapes:</p>
+<ul><li>$A \in \mathbb{R}^{r \times k}$ (down-projection, compress input to $r$ dims)</li><li>$B \in \mathbb{R}^{d \times r}$ (up-projection, lift from $r$ dims back to $d$)</li><li>$\Delta W = BA \in \mathbb{R}^{d \times k}$, rank $\le r$</li><li>$r \ll \min(d, k)$, typically $r \in \{4, 8, 16, 32, 64\}$</li><li>$\alpha$ is a scaling hyperparameter, $\frac{\alpha}{r}$ is the scaling factor (see §2.3)</li></ul>
+<p>The trainable parameter count drops from $d \times k$ to $r(d + k)$. E.g. $d=k=4096$, $r=8$: from 16.8M down to 65.5K, a <strong>256× compression</strong>.</p>
+<h3 id="22-why-b0-and-a-random-init-must-know">2.2　Why $B=0$ and $A$ random init (must-know)</h3>
+<p>The official LoRA initialization: $A$ is initialized with Kaiming uniform, $B$ is initialized to <strong>all zeros</strong>. Thus:</p>
+<p>$$\Delta W_{t=0} = B_0 A_0 = 0 \cdot A_0 = 0 \;\Rightarrow\; h_{t=0} = W_0 x$$</p>
+<p>i.e. <strong>the starting point equals the pretrained model exactly</strong>, introducing no perturbation. This matters: if the start already deviates from pretraining, you throw away pretrained knowledge and may blow up the loss.</p>
+<p>So why not <strong>zero both</strong>? Because it would never learn. Look at the first-step gradients (loss $L$, output-direction gradient $g = \partial L / \partial h$):</p>
+<p>$$\frac{\partial L}{\partial B} = \frac{\alpha}{r}\, g\, (A x)^\top, \qquad \frac{\partial L}{\partial A} = \frac{\alpha}{r}\, B^\top g\, x^\top$$</p>
+<ul><li>$A$ nonzero → $Ax \neq 0$ → $\partial L/\partial B \neq 0$: <strong>$B$ can move on step one</strong>;</li><li>$B = 0$ → $\partial L/\partial A = 0$: $A$ doesn't move on step one, but once $B$ becomes nonzero, $A$ gets gradient on the next step.</li></ul>
+<p>If $A=B=0$, both gradients are identically zero and $\Delta W$ stays 0 forever. <strong>So it must be "one zero, one nonzero": $A$ nonzero guarantees learnability, $B=0$ guarantees a clean start.</strong> (Symmetrically, $A=0$ with $B$ random also works; both conventions appear in PEFT libraries — the key is exactly one being zero.)</p>
+<div class="callout callout-warn"><div class="callout-title">Common misconception</div><p>"$B=0$ so LoRA learns nothing on step one" is wrong. On step one $B$ is indeed updating (nonzero gradient); it is just that $\Delta W$ is numerically 0 at $t=0$. It is "output increment is zero," not "gradient is zero."</p></div>
+<h3 id="23-scaling-factor-alphar-and-rslora">2.3　Scaling factor $\alpha/r$ and rsLoRA</h3>
+<p>LoRA scales the increment by $\frac{\alpha}{r} BA$. Hu et al. put it: "treat $\alpha$ like a learning rate, fix it to the first $r$ you try, and don't re-tune lr when you change $r$." Intuition: $\frac{\alpha}{r}$ keeps $\Delta W$'s magnitude roughly comparable across different $r$, thereby <strong>decoupling rank from learning rate</strong>.</p>
+<p>But Kalajdzievski (2023, rsLoRA, arXiv 2312.03732) pointed out that $\frac{\alpha}{r}$ <strong>over-shrinks at large $r$</strong>, causing high-rank LoRA to collapse — quality plateaus instead of improving. The analysis: to keep forward/backward activation magnitudes stable as $r$ grows (rank-stabilized), the scaling factor should be $\frac{\alpha}{\sqrt{r}}$:</p>
+<p>$$\gamma_r^{\text{LoRA}} = \frac{\alpha}{r} \quad\text{vs}\quad \gamma_r^{\text{rsLoRA}} = \frac{\alpha}{\sqrt{r}}$$</p>
+<p>The intuition is variance: each output element of $BA$ is a sum of $r$ terms; if the terms are i.i.d. with equal variance, the standard deviation $\propto \sqrt{r}$. Dividing by $\sqrt{r}$ pulls the magnitude back to a constant; dividing by $r$ over-suppresses, and the larger $r$ the harder the suppression. So <strong>low rank ($r\le 32$) with $\alpha/r$ is usually fine; when you want the high-rank payoff, switch to rsLoRA's $\alpha/\sqrt{r}$</strong>.</p>
+<h3 id="24-merging-and-zero-inference-latency-loras-killer-feature">2.4　Merging and zero inference latency (LoRA's killer feature)</h3>
+<p>After training, $\Delta W$ can be <strong>merged once</strong> into the base weight:</p>
+<p>$$W' = W_0 + \frac{\alpha}{r} BA$$</p>
+<p>Inference then uses only $W'$, and the forward $h = W' x$ is <strong>structurally identical</strong> to the original linear layer — no extra matmul, no extra latency, no extra memory. This is LoRA's fundamental advantage over Adapter (inserts serial submodules) and Prefix-Tuning (occupies sequence length / KV): <strong>both add inference overhead, LoRA after merging adds zero.</strong></p>
+<p>When you need to revert to base or switch adapters, just <strong>unmerge</strong>: $W_0 = W' - \frac{\alpha}{r}BA$. For multi-task serving, a common approach is to <strong>not merge</strong> and add $\frac{\alpha}{r}B(Ax)$ online, so one base can host multiple dynamically-routed adapters (at the cost of restoring a little inference overhead).</p>
+<div class="callout callout-warn"><div class="callout-title">QLoRA cannot merge directly</div><p>the base is NF4-quantized; adding the bf16 $\Delta W$ into 4-bit weights requires dequantize → merge → (optionally) re-quantize, which loses precision. In practice one usually <strong>dequantizes the base to fp16 and then merges</strong> rather than merging back into 4-bit. See §5.5.</p></div>
+<h3 id="25-which-matrices-to-adapt--how-to-choose-r">2.5　Which matrices to adapt / how to choose $r$</h3>
+<p>The original paper applied LoRA to the attention projections and found by ablation: <strong>at equal parameter budget, adapting $W_q, W_v$ beats only $W_q$; spreading the budget across more matrices ($q,k,v,o$) usually beats piling high rank onto a few matrices.</strong> Later practice (e.g. QLoRA) further recommends <strong>adding LoRA to all linear layers</strong> (including the FFN gate/up/down), which is often more stable than attention-only.</p>
+<ul><li>$r$ choice: simple tasks / small data $r=4\sim8$; hard tasks / large data $r=16\sim64$. Too large $r$ not only saves little but may overfit or hit the $\alpha/r$ collapse (see rsLoRA).</li><li>$\alpha$ heuristic: commonly $\alpha = 2r$ (scaling $\approx 2$) or $\alpha = r$ (scaling $=1$), tuned on validation.</li><li>target_modules: attention <code>q_proj,k_proj,v_proj,o_proj</code> + FFN <code>gate_proj,up_proj,down_proj</code> is the common all-in recipe for LLaMA-style models.</li></ul>
+<h2 id="3-implementing-loralinear-from-scratch">§3 Implementing LoRALinear from scratch</h2>
+<p>Below is a runnable <code>LoRALinear</code>: it wraps a frozen <code>nn.Linear</code>, adds $A,B$ with scaling, and supports merge / unmerge.</p>
+<pre><code class="language-python">import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class LoRALinear(nn.Module):
+    &quot;&quot;&quot;Frozen base linear + low-rank bypass BA. forward: W0 x + (alpha/r) B A x.&quot;&quot;&quot;
+
+    def __init__(self, base: nn.Linear, r: int = 8, alpha: int = 16,
+                 dropout: float = 0.0, rslora: bool = False):
+        super().__init__()
+        assert r &gt; 0
+        self.base = base
+        for p in self.base.parameters():       # freeze the base
+            p.requires_grad_(False)
+
+        in_f, out_f = base.in_features, base.out_features
+        self.r, self.alpha = r, alpha
+        # scaling: standard alpha/r; rsLoRA uses alpha/sqrt(r)
+        self.scaling = alpha / (math.sqrt(r) if rslora else r)
+
+        # A: [r, in] Kaiming random; B: [out, r] zero -&gt; start with ΔW = 0
+        self.lora_A = nn.Parameter(torch.empty(r, in_f))
+        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+
+        self.lora_dropout = nn.Dropout(dropout) if dropout &gt; 0 else nn.Identity()
+        self.merged = False
+
+    def forward(self, x):
+        out = self.base(x)                      # frozen main path W0 x (+bias)
+        if not self.merged:
+            lora = self.lora_dropout(x) @ self.lora_A.t() @ self.lora_B.t()
+            out = out + self.scaling * lora      # add the bypass
+        return out
+
+    @torch.no_grad()
+    def merge(self):
+        &quot;&quot;&quot;Add scaling*BA (standard alpha/r or rsLoRA alpha/sqrt(r)) into base.weight; zero inference latency.&quot;&quot;&quot;
+        if self.merged:
+            return
+        dW = self.scaling * (self.lora_B @ self.lora_A)   # [out, in]
+        self.base.weight.add_(dW.to(self.base.weight.dtype))
+        self.merged = True
+
+    @torch.no_grad()
+    def unmerge(self):
+        if not self.merged:
+            return
+        dW = self.scaling * (self.lora_B @ self.lora_A)
+        self.base.weight.sub_(dW.to(self.base.weight.dtype))
+        self.merged = False
+
+
+def inject_lora(model: nn.Module, target_names=(&quot;q_proj&quot;, &quot;v_proj&quot;),
+                r=8, alpha=16, dropout=0.0):
+    &quot;&quot;&quot;Replace nn.Linear modules in `model` whose name matches target_names with LoRALinear.&quot;&quot;&quot;
+    for name, module in list(model.named_modules()):
+        for child_name, child in list(module.named_children()):
+            if isinstance(child, nn.Linear) and child_name in target_names:
+                setattr(module, child_name,
+                        LoRALinear(child, r=r, alpha=alpha, dropout=dropout))
+    return model</code></pre>
+<p>Key points:</p>
+<ul><li>Note <code>x @ A.t() @ B.t()</code>: $x$ has shape $[\dots, k]$, $A^\top$ is $[k, r]$, $B^\top$ is $[r, d]$, output $[\dots, d]$, aligned with the base output.</li><li><code>merge()</code> uses <code>@torch.no_grad()</code> + <code>add_</code> to modify <code>base.weight</code> in place; after merging, <code>forward</code> skips the bypass.</li><li>dropout acts only on the <strong>input entering the bypass</strong>, not the main path (the standard LoRA practice).</li></ul>
+<div class="callout callout-info"><div class="callout-title">dropout on the bypass input</div><p>LoRA dropout acts on $x$ before it enters $A$, acting as regularization on the low-rank adaptation; the main path $W_0 x$ has no dropout (the base is frozen and needs no regularization).</p></div>
+<h2 id="4-the-memory-account-where-exactly-does-lora-save">§4 The memory account: where exactly does LoRA save</h2>
+<p>Fine-tuning a $\Psi$-parameter model with Adam, broken down by bytes (mixed-precision training, per param):</p>
+<table><thead><tr><th>Component</th><th>Full fine-tuning</th><th>LoRA (bf16 base)</th></tr></thead><tbody><tr><td>Base weight (bf16)</td><td>$2\Psi$</td><td>$2\Psi$ (frozen, still resident)</td></tr><tr><td>Base gradient</td><td>$2\Psi$</td><td>$0$</td></tr><tr><td>Base fp32 master</td><td>$4\Psi$</td><td>$0$</td></tr><tr><td>Base Adam $m,v$ (fp32)</td><td>$8\Psi$</td><td>$0$</td></tr><tr><td>LoRA params + grad + optimizer</td><td>—</td><td>$16 \cdot \Psi_{\text{lora}}$</td></tr><tr><td><strong>Trainable-related total</strong></td><td>$\approx 16\Psi$</td><td>$\approx 2\Psi + 16\Psi_{\text{lora}}$</td></tr></tbody></table>
+<p>where $\Psi_{\text{lora}} \ll \Psi$ (typically 0.1%–1%). So LoRA cuts almost all of full fine-tuning's "16 bytes/param" big chunk, leaving only the $2\Psi$ resident base + a tiny bit of LoRA overhead.</p>
+<p><strong>But one thing must be stated explicitly: LoRA does NOT save activation memory automatically.</strong> Because the bypass $BA$ hangs on a frozen layer, backprop still flows through the whole network to compute $\partial L / \partial x$, so intermediate activations are still stored. LoRA saves <strong>optimizer states + gradients + master weights</strong>, not activations. To save activations you additionally need <strong>gradient checkpointing</strong> (trading compute for activation memory).</p>
+<p>Trainable parameter count (adapting $M$ linear layers, layer $i$ is $d_i \times k_i$):</p>
+<p>$$\Psi_{\text{lora}} = \sum_{i=1}^{M} r_i (d_i + k_i)$$</p>
+<p><strong>Concrete example</strong>: LLaMA-7B, adapting $q,k,v,o$ (each $4096\times4096$), $r=8$, 32 layers:</p>
+<p>$$\Psi_{\text{lora}} = 32 \times 4 \times 8 \times (4096+4096) = 8.39\text{M} \approx 0.12\% \text{ of } 7\text{B}$$</p>
+<p>Memory comparison (7B, single GPU, ignoring activations):</p>
+<ul><li>Full FT Adam: $7\text{e}9 \times 16 \approx 112$ GB (won't fit a single GPU)</li><li>LoRA (bf16 base): $7\text{e}9 \times 2 + 8.4\text{e}6 \times 16 \approx 14$ GB + 0.13 GB ≈ <strong>14 GB</strong></li><li>QLoRA (NF4 base): $7\text{e}9 \times 0.5\,\text{B/param} + \text{overhead} \approx 3.5$ GB + LoRA ≈ <strong>&lt;5 GB</strong> (see §5; NF4 = 4 bit/param = 0.5 <strong>byte</strong>/param)</li></ul>
+<h2 id="5-qlora-4-bit-base--lora">§5 QLoRA: 4-bit base + LoRA</h2>
+<p>QLoRA (Dettmers et al., 2023, arXiv 2305.14314, NeurIPS 2023) lets a single 48GB GPU fine-tune a 65B model. The core is three pieces: <strong>NF4 quantization</strong> + <strong>double quantization</strong> + <strong>paged optimizer</strong>, plus the "frozen 4-bit base, bf16 LoRA" recipe.</p>
+<h3 id="51-nf4-4-bit-normalfloat-information-theoretically-optimal">5.1　NF4: 4-bit NormalFloat (information-theoretically optimal)</h3>
+<p>Observation: neural network weights approximately follow a zero-mean normal distribution $\mathcal{N}(0,\sigma^2)$. Plain 4-bit integer quantization (INT4, equally-spaced bins) wastes bins on a normal distribution — tail bins receive almost no values. <strong>NF4's idea is to make each quantization bin receive an equal number of weights (equal probability mass); under the assumption "weights are zero-mean normal + quantile quantization," this is information-theoretically optimal for that fixed distribution.</strong></p>
+<p>Construction (simplified): take $2^4=16$ quantile points of the standard normal $\mathcal{N}(0,1)$ as quantization levels so that adjacent levels carry equal probability mass; make it <strong>asymmetric</strong> so 0 is represented exactly (zero-preserving, friendly to pruning / padding). When quantizing, normalize weights to $[-1,1]$ per block (QLoRA uses block size 64) via the absmax, then look up the nearest NF4 level:</p>
+<p>$$w \;\xrightarrow{\text{normalize by absmax}}\; \hat{w} \in [-1,1] \;\xrightarrow{\text{nearest NF4 level}}\; q \in \{n_0,\dots,n_{15}\}$$</p>
+<p>Dequantization: $w \approx c \cdot n_q$, where $c$ is the block's absmax scaling constant.</p>
+<div class="callout callout-info"><div class="callout-title">NF4 vs INT4 vs FP4</div><p>INT4 is equally spaced and wastes tail bins on normal data; FP4 assigns non-uniform levels via a float exponent but doesn't necessarily match the weight distribution; NF4 places levels directly at normal quantiles, an optimal match to the fact that "weights are nearly normal." The paper measures NF4 clearly beating INT4/FP4.</p></div>
+<h3 id="52-double-quantization">5.2　Double Quantization</h3>
+<p>Each NF4 block (64 weights) stores one fp32 absmax scaling constant $c$, which amortizes to $32/64 = 0.5$ bit/param of extra overhead. <strong>Double quantization quantizes these scaling constants themselves once more</strong>: quantize $c$ (fp32) with block size 256 into 8-bit, with the second-level scaling constant in fp32:</p>
+<p>$$\text{overhead}: \underbrace{0.5\,\text{bit/param}}_{\text{single}} \;\to\; \underbrace{\frac{8}{64} + \frac{32}{64\times256}}_{\text{double}} \approx 0.127\,\text{bit/param}$$</p>
+<p>That saves about <strong>0.37 bit per param</strong> on average — about 3 GB for a 65B model, enough to decide whether it fits on one card.</p>
+<h3 id="53-paged-optimizer">5.3　Paged Optimizer</h3>
+<p>With long sequences / large batches, optimizer states can spike memory and OOM. QLoRA uses NVIDIA <strong>unified memory</strong> to <strong>page</strong> the optimizer states: when memory is tight it pages optimizer states out to CPU memory and back when needed, like OS memory paging, avoiding OOM crashes.</p>
+<h3 id="54-how-forward--backward-flow">5.4　How forward / backward flow</h3>
+<p>Key: <strong>the base is stored as NF4, but dequantized to bf16 per block for the matmul</strong>; gradients flow only to the bf16 LoRA params, the NF4 base stays frozen with no gradient. So QLoRA training memory ≈ NF4 base (4 bit/param = 0.5 byte/param, plus ~0.127 bit/param quantization constants after double quant) + bf16 LoRA optimizer + activations.</p>
+<pre><code class="language-python"># Conceptual skeleton of the QLoRA forward (not a full kernel, just the data flow)
+def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
+    # 1) base: dequantize NF4 -&gt; bf16, then main-path matmul (base has no gradient)
+    W = dequantize_nf4(nf4_weight, absmax).to(x.dtype)   # [out, in] bf16
+    base_out = x @ W.t()
+    # 2) bypass: LoRA in bf16, trainable
+    lora_out = (x @ lora_A.t() @ lora_B.t()) * scaling
+    return base_out + lora_out</code></pre>
+<h3 id="55-the-qlora-merge-pitfall">5.5　The QLoRA merge pitfall</h3>
+<p>As in §2.4, the NF4 base cannot losslessly merge the bf16 $\Delta W$. Standard practice: <strong>dequantize the base → merge LoRA → save as fp16/bf16</strong> (yielding a full-precision merged model), or just keep "NF4 base + unmerged LoRA bypass" at inference. Quantizing $\Delta W$ back to NF4 and adding it introduces noticeable error.</p>
+<div class="callout callout-warn"><div class="callout-title">QLoRA ≠ inference memory saving</div><p>QLoRA solves fitting a large model on one card <strong>during fine-tuning</strong>. At inference, if you dequantize-and-merge to fp16 the memory goes back to full precision; to also save inference memory you need a dedicated 4-bit inference path (bitsandbytes / GPTQ / AWQ, see the quantization sheet).</p></div>
+<h2 id="6-dora-magnitudedirection-decomposition">§6 DoRA: magnitude–direction decomposition</h2>
+<p>DoRA (Weight-Decomposed Low-Rank Adaptation, Liu et al., 2024, arXiv 2402.09353, ICML 2024) observed a systematic difference between full fine-tuning and LoRA in "how the <strong>magnitude</strong> and <strong>direction</strong> of the weights co-evolve," and that LoRA's expressive pattern is limited. DoRA explicitly decomposes the pretrained weight into magnitude and direction, learning them separately.</p>
+<p>Decompose the weight <strong>per column</strong> ($\lVert\cdot\rVert_c$ denotes the column-wise 2-norm):</p>
+<p>$$W_0 = m \cdot \frac{V}{\lVert V \rVert_c}, \qquad m = \lVert W_0 \rVert_c \in \mathbb{R}^{1\times k}, \quad V = W_0$$</p>
+<p>where $m$ is the per-column magnitude (a row vector) and $V/\lVert V\rVert_c$ is the unit direction. DoRA makes <strong>$m$ trainable</strong> and <strong>updates the direction with LoRA</strong>:</p>
+<p>$$\boxed{\;W' = m \cdot \frac{V + \Delta V}{\lVert V + \Delta V \rVert_c}, \qquad \Delta V = BA\;}$$</p>
+<p>Intuition: LoRA couples magnitude and direction inside a single $\Delta W$; DoRA pulls magnitude out into a separate scalar sequence $m$, letting the low-rank bypass focus on learning direction. Empirically DoRA's "magnitude–direction update pattern" is closer to full fine-tuning, often slightly beating LoRA at equal parameter count, especially at low rank (small $r$). The cost: column normalization adds a little compute and implementation complexity; when merging you fold $m$ and the normalization back into $W'$ (still a single matrix after merge, zero inference latency).</p>
+<pre><code class="language-python">class DoRALinear(nn.Module):
+    def __init__(self, base: nn.Linear, r=8, alpha=16):
+        super().__init__()
+        self.base = base
+        for p in self.base.parameters():
+            p.requires_grad_(False)
+        in_f, out_f = base.in_features, base.out_features
+        self.scaling = alpha / r
+        self.lora_A = nn.Parameter(torch.empty(r, in_f))
+        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+        # m init = per-column norm; weight is [out, in], per-column norm = norm over the out dim (dim=0) for each in-column
+        self.m = nn.Parameter(self.base.weight.norm(dim=0, keepdim=True))  # [1, in]
+
+    def forward(self, x):
+        dW = self.scaling * (self.lora_B @ self.lora_A)       # [out, in]
+        V = self.base.weight + dW
+        Vnorm = V.norm(dim=0, keepdim=True) + 1e-8           # [1, in] per-column norm
+        W_eff = self.m * V / Vnorm                            # direction × magnitude
+        return F.linear(x, W_eff, self.base.bias)</code></pre>
+<div class="callout callout-info"><div class="callout-title">Interview point: what DoRA changes</div><p>LoRA only learns $\Delta W=BA$; DoRA = a trainable magnitude $m$ + learning direction with LoRA. It explains "why LoRA underperforms full FT on some tasks" — LoRA's magnitude/direction updates are tied together, and DoRA unties them.</p></div>
+<h2 id="7-the-lora-family-at-a-glance">§7 The LoRA family at a glance</h2>
+<table><thead><tr><th>Variant</th><th>One line</th><th>What it changes vs LoRA</th><th>Paper</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>low-rank bypass $BA$</td><td>baseline</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>rsLoRA</strong></td><td>scaling → $\alpha/\sqrt{r}$</td><td>high-rank gradient stability</td><td>Kalajdzievski 2023, 2312.03732</td></tr><tr><td><strong>DoRA</strong></td><td>magnitude–direction decomp</td><td>unties magnitude and direction</td><td>Liu 2024, 2402.09353</td></tr><tr><td><strong>PiSSA</strong></td><td>init $A,B$ from $W_0$ principal components</td><td>initialization (faster convergence)</td><td>Meng 2024, 2404.02948</td></tr><tr><td><strong>LoRA-GA</strong></td><td>make the first step approximate full FT</td><td>initialization (gradient alignment)</td><td>Wang 2024, 2407.05000</td></tr><tr><td><strong>AdaLoRA</strong></td><td>SVD form + importance-based rank pruning</td><td>adaptive rank-budget allocation</td><td>Zhang 2023, 2303.10512</td></tr><tr><td><strong>LoRA+</strong></td><td>different lr for $A,B$</td><td>optimization (larger lr for $B$)</td><td>Hayou 2024, 2402.12354</td></tr><tr><td><strong>(IA)³</strong></td><td>learn scaling vectors × activations</td><td>non-low-rank, even fewer params</td><td>Liu 2022, 2205.05638</td></tr></tbody></table>
+<p>A few worth expanding:</p>
+<ul><li><strong>PiSSA</strong>: instead of random init, do SVD on $W_0$ and initialize $A,B$ with the <strong>principal singular values/vectors</strong> (adapting the "most important" subspace), freezing the residual $W_0 - BA$. Aligning with principal components from the start gives faster convergence and often better quality.</li><li><strong>AdaLoRA</strong>: parameterize $\Delta W$ in SVD form $P\Lambda Q$, and during training <strong>dynamically prune</strong> by singular-value importance, allocating the limited rank budget to layers that need it more (different $r$ per layer) instead of uniformly.</li><li><strong>(IA)³</strong>: instead of a low-rank matrix, learn three <strong>scaling vectors</strong> $l_k, l_v, l_{ff}$, applied element-wise to the key, value, and FFN hidden activations: $k \to l_k \odot k$. Its parameter count is an order of magnitude smaller than LoRA; T-Few uses it for few-shot beating in-context learning.</li></ul>
+<h2 id="8-comparison-with-other-peft-paradigms">§8 Comparison with other PEFT paradigms</h2>
+<p>PEFT roughly splits into four families: <strong>additive low-rank (the LoRA family)</strong>, <strong>additive module (Adapter)</strong>, <strong>soft prompt (Prompt/Prefix)</strong>, and <strong>selective (BitFit)</strong>.</p>
+<table><thead><tr><th>Method</th><th>What it trains</th><th>Where it inserts</th><th>Extra inference overhead</th><th>Typical trainable fraction</th><th>Paper</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>low-rank $BA$</td><td>parallel to a linear layer</td><td><strong>zero</strong> (mergeable)</td><td>0.1%–1%</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>Adapter</strong></td><td>bottleneck MLP</td><td>serial after a sublayer</td><td>yes (serial submodule)</td><td>0.5%–5%</td><td>Houlsby 2019, 1902.00751</td></tr><tr><td><strong>Prefix-Tuning</strong></td><td>per-layer prefix K/V</td><td>prefix to attention K/V</td><td>yes (uses KV / sequence)</td><td>&lt;0.1%–1%</td><td>Li-Liang 2021, 2101.00190</td></tr><tr><td><strong>Prompt Tuning</strong></td><td>input soft prompt</td><td>embedding layer only</td><td>yes (uses sequence length)</td><td>tiny</td><td>Lester 2021, 2104.08691</td></tr><tr><td><strong>P-Tuning v2</strong></td><td>per-layer soft prompt</td><td>prefix at every layer</td><td>yes</td><td>0.1%–3%</td><td>Liu 2021, 2110.07602</td></tr><tr><td><strong>BitFit</strong></td><td>biases only</td><td>bias terms at each layer</td><td>zero (in place)</td><td>~0.08%</td><td>Ben-Zaken 2021, 2106.10199</td></tr><tr><td><strong>(IA)³</strong></td><td>scaling vectors</td><td>K/V/FFN activations</td><td>yes (partly foldable)</td><td>&lt;0.05%</td><td>Liu 2022, 2205.05638</td></tr></tbody></table>
+<p>Core comparison axes (interview favorites):</p>
+<ul><li><strong>Inference latency</strong>: LoRA (after merge) and BitFit are truly zero-overhead; (IA)³'s scaling vectors can often also be folded into adjacent linear-layer weights in the <strong>fixed single-adapter</strong> case (only dynamic multi-adapter incurs online scaling cost). Adapter's serial nonlinear submodule and Prompt/Prefix's sequence/KV occupancy are unavoidable inference costs.</li><li><strong>Context occupancy</strong>: Prompt/Prefix methods eat into the usable sequence length (soft tokens take slots); LoRA / Adapter / BitFit do not.</li><li><strong>Expressiveness vs params</strong>: Prompt Tuning is the most param-frugal but weak on small models (Lester: it matches full FT only at large scale); LoRA strikes the best param/quality trade-off and became the de facto standard.</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Why Adapter has inference latency but LoRA doesn&#x27;t</div><p>Adapter <strong>serially</strong> inserts a new module (down→nonlinearity→up); inference must run those extra layers and it breaks original operator fusion. LoRA is a <strong>parallel</strong> linear bypass, mathematically mergeable into the original weight (linear + linear = linear), vanishing after merge. A nonlinear Adapter cannot be absorbed this way.</p></div>
+<h2 id="9-engineering-practice-and-common-bugs">§9 Engineering practice and common bugs</h2>
+<ul><li><strong>LoRA learning rate should be higher than full FT</strong>: LoRA has few params and only tunes a low-rank subspace; empirically lr is $1\text{e-}4 \sim 3\text{e-}4$ (an order of magnitude higher than full FT's $1\text{e-}5\sim2\text{e-}5$). LoRA+ further argues $B$ should use a larger lr than $A$.</li><li><strong>target_modules choice</strong>: only <code>q,v</code> is frugal but weak; all linear layers (incl. FFN) is usually most stable. Wrong module names (naming differs across models, e.g. <code>c_attn</code> vs <code>q_proj</code>) make "LoRA not attached, loss not dropping."</li><li><strong>$\alpha/r$ setting</strong>: commonly $\alpha=2r$. If you change $r$ but forget to move $\alpha$, you've effectively changed the learning rate. For high rank, use rsLoRA to avoid collapse.</li><li><strong>QLoRA merge pitfall</strong> (§5.5): don't merge LoRA back into a 4-bit base; dequantize to fp16 then merge.</li><li><strong>Multi-adapter serving</strong>: not merging and adding the bypass online allows hot-swapping multiple adapters; for top inference speed, merge per task into independent weights.</li><li><strong>dtype consistency</strong>: the bypass $A,B$ and the dequantized base must add in the same precision; mixed dtype errors out or behaves oddly.</li><li><strong>You save the adapter, not the full model</strong>: <code>save</code> stores only $A,B$ (tens of MB), lightweight to distribute; load by attaching onto the same base. The base version must align, or $W_0$ mismatches and $\Delta W$ is meaningless.</li><li><strong>Pair with gradient checkpointing</strong>: LoRA doesn't save activations, so for long-sequence training always enable gradient checkpointing or activations still OOM.</li></ul>
+<div class="callout callout-bad"><div class="callout-title">Classic faceplant</div><p>"LoRA brought memory down, so I can use a huge batch" — wrong. Activation memory is not saved, so a large batch can still OOM. LoRA saves the optimizer/gradient part, not the activation part.</p></div>
+<h2 id="10-complexity-and-resources">§10 Complexity and resources</h2>
+<table><thead><tr><th>Dimension</th><th>Full FT</th><th>LoRA</th><th>QLoRA</th></tr></thead><tbody><tr><td>Trainable params</td><td>$\Psi$</td><td>$\sum_i r_i(d_i+k_i)$ (~0.1%–1%)</td><td>same as LoRA</td></tr><tr><td>Base storage</td><td>bf16 $2\Psi$ B</td><td>bf16 $2\Psi$ B</td><td>NF4 4 bit/param $= 0.5\Psi$ B</td></tr><tr><td>Optimizer+grad memory</td><td>$\approx 14\Psi$ B</td><td>$\approx 14\Psi_{\text{lora}}$ B</td><td>same as LoRA</td></tr><tr><td>Activation memory</td><td>high</td><td><strong>same as full FT</strong> (needs checkpointing)</td><td>same as full FT</td></tr><tr><td>Training forward compute</td><td>$W_0 x$</td><td>$W_0 x + \frac{\alpha}{r}B(Ax)$ (two extra small matmuls)</td><td>+ dequant overhead</td></tr><tr><td>Inference latency (after merge)</td><td>baseline</td><td><strong>zero extra</strong></td><td>dequant or merge to fp16</td></tr><tr><td>Max single-GPU trainable model (80GB · vanilla Adam)</td><td>~3B (7B full FT needs ZeRO / offload / 8-bit optimizer)</td><td>~13B–33B</td><td>~65B</td></tr></tbody></table>
+<p>Bypass forward overhead: each adapted layer adds $2 \cdot 2 L r d$ FLOPs ($Ax$ and $B(\cdot)$, two small matmuls); since $r \ll d$, negligible vs the main path's $2Ld^2$. After merge the bypass vanishes entirely.</p>
+<div class="callout callout-warn"><div class="callout-title">&quot;Max single-GPU model&quot; is only a rough order of magnitude</div><p>the real ceiling depends heavily on sequence length, batch, gradient checkpointing, optimizer choice (8-bit / offload), target_modules, and whether ZeRO sharding is used. The table is only a vanilla-Adam ballpark, not a hard limit.</p></div>
+<h2 id="11-25-high-frequency-interview-questions">§11 25 high-frequency interview questions</h2>
+<p>Sorted into three tiers. Click to expand for answer points + pitfalls.</p>
+<h3 id="l1-must-know-any-role-that-has-done-fine-tuning">L1 must-know (any role that has done fine-tuning)</h3>
+<details>
+
+<summary>Q1. What is LoRA's core formula?</summary>
+<ul><li>Freeze $W_0$, learn a low-rank increment $\Delta W = BA$</li><li>Forward $h = W_0 x + \frac{\alpha}{r} BA\,x$</li><li>$B\in\mathbb{R}^{d\times r}$, $A\in\mathbb{R}^{r\times k}$, $r\ll\min(d,k)$</li></ul>
+<p>Saying only "add a small matrix" without making clear $\Delta W$ is a product of two thin matrices of rank $\le r$.</p>
+</details>
+<details>
+
+<summary>Q2. Why init $B=0$ and $A$ random?</summary>
+<ul><li>Make the start $\Delta W = B A = 0$, not perturbing pretraining</li><li>But $A$ nonzero ensures gradients aren't all zero, so it can learn</li><li>Both zero → gradients identically zero → never learns</li></ul>
+<p>Thinking "$B=0$ means no gradient on step one so it can't learn" — wrong; on step one $B$ has a gradient ($\partial L/\partial B \propto (Ax)^\top \ne 0$), only $\Delta W$ is numerically 0 at $t=0$.</p>
+</details>
+<details>
+
+<summary>Q3. What memory does LoRA save vs full FT? What doesn't it save?</summary>
+<ul><li>Saves: base optimizer states (Adam's $m,v$, 8 B) + gradient (2 B) + fp32 master (4 B) ≈ <strong>14 B/param</strong> (full-FT total ~16 B/param incl. 2 B trainable weight); the base bf16 weight 2 B/param is still resident</li><li>Doesn't save: <strong>activation memory</strong> (still backprop through the frozen base), and the base weight itself (still resident)</li><li>Saving activations needs gradient checkpointing</li></ul>
+<p>Saying "LoRA saves memory across the board so I can use a big batch" — activations aren't saved, big batch still OOMs.</p>
+</details>
+<details>
+
+<summary>Q4. What is the scaling factor $\alpha/r$ for?</summary>
+<ul><li>Decouple rank $r$ from learning rate, so changing $r$ needs no lr re-tuning</li><li>Keep $\Delta W$ magnitude comparable across $r$</li><li>Commonly $\alpha=2r$ or $\alpha=r$</li></ul>
+<p>Not knowing $\alpha$ is a hyperparameter, or thinking $\alpha$ must equal $r$.</p>
+</details>
+<details>
+
+<summary>Q5. Why does LoRA have no extra inference latency?</summary>
+<ul><li>After training, merge: $W' = W_0 + \frac{\alpha}{r}BA$</li><li>Inference uses only $W'$, structurally identical to the original linear layer</li><li>A linear bypass can be absorbed into the original weight (linear+linear=linear)</li></ul>
+<p>Saying "LoRA still computes $BA$ at inference" — that's the unmerged case; after merge it's zero.</p>
+</details>
+<details>
+
+<summary>Q6. How to compute the trainable param count? Give an example.</summary>
+<ul><li>Single layer $d\times k$: $r(d+k)$</li><li>Whole model: $\sum_i r_i(d_i+k_i)$</li><li>E.g. 7B adapting $q,k,v,o$ ($4096^2$), $r=8$, 32 layers ≈ 8.4M ≈ 0.12%</li></ul>
+<p>Computing it as $r\cdot d\cdot k$ (that's the element count of $\Delta W$, not the LoRA param count).</p>
+</details>
+<details>
+
+<summary>Q7. Which layers of a Transformer does LoRA usually go on?</summary>
+<ul><li>Original paper: attention $W_q, W_v$ (beats only $W_q$ at equal budget)</li><li>Practice (since QLoRA): all linear layers (incl. FFN gate/up/down) is more stable</li><li>target_modules names vary by model; wrong names mean "not attached"</li></ul>
+<p>Only knowing "on attention," not that modern practice often adapts all linear layers.</p>
+</details>
+<details>
+
+<summary>Q8. How to choose $r$? Is bigger always better?</summary>
+<ul><li>Simple tasks $r=4\sim8$, hard tasks $r=16\sim64$</li><li>Not bigger-is-better: too large overfits, saves little, may hit $\alpha/r$ high-rank collapse</li><li>For high-rank payoff use rsLoRA ($\alpha/\sqrt r$)</li></ul>
+<p>Saying "bigger $r$ is always better," ignoring overfitting and scaling collapse.</p>
+</details>
+<details>
+
+<summary>Q9. Should LoRA's learning rate be larger or smaller than full FT?</summary>
+<ul><li>Usually <strong>an order of magnitude larger</strong> ($1\text{e-}4\sim3\text{e-}4$ vs full FT $1\text{e-}5\sim2\text{e-}5$)</li><li>Because it tunes only a low-rank subspace with few params</li><li>LoRA+ further argues $B$ should use a larger lr than $A$</li></ul>
+<p>Applying full FT's small lr directly, making LoRA learn too slowly.</p>
+</details>
+<details>
+
+<summary>Q10. What do you save from a LoRA run?</summary>
+<ul><li>Only the adapter ($A,B$), tens of MB</li><li>Load by attaching to the same base</li><li>The base version must align, or $W_0$ mismatches and $\Delta W$ is void</li></ul>
+<p>Thinking you save the whole fine-tuned large model.</p>
+</details>
+<h3 id="l2-advanced-research--deep-engineering-roles">L2 advanced (research / deep-engineering roles)</h3>
+<details>
+
+<summary>Q11. Why believe "weight updates are low-rank"? Theoretical basis?</summary>
+<ul><li>Aghajanyan 2020 (arXiv 2012.13255): pretrained models have a very low intrinsic dimension; low-dim subspace optimization approximates full FT</li><li>Hu 2021 followed this: $\Delta W$ low-rank, parameterized as $BA$</li><li>It's an <strong>empirical hypothesis + evidence</strong>, not a strict theorem</li></ul>
+<p>Treating "low rank works" as a proven theorem, or unable to state the source of intrinsic dimension.</p>
+</details>
+<details>
+
+<summary>Q12. Derive the first-step gradients for $A$, $B$ and explain the init.</summary>
+<ul><li>Let $g=\partial L/\partial h$. $\partial L/\partial B = \frac{\alpha}{r} g (Ax)^\top$, $\partial L/\partial A = \frac{\alpha}{r} B^\top g\, x^\top$</li><li>$t=0$: $B=0$ → $\partial L/\partial A=0$ ($A$ frozen); $A\ne0$ → $\partial L/\partial B\ne0$ ($B$ moves)</li><li>Once $B$ becomes nonzero, $A$ gets a gradient next step</li></ul>
+<p>Computing both gradients as nonzero, or saying "$B=0$ so both are zero."</p>
+</details>
+<details>
+
+<summary>Q13. What does rsLoRA fix? Why scaling $\alpha/\sqrt r$?</summary>
+<ul><li>Problem: $\alpha/r$ over-shrinks gradients at high rank, learning collapses</li><li>$BA$'s output is a sum of $r$ terms, std $\propto\sqrt r$; dividing by $\sqrt r$ pulls magnitude back to a constant</li><li>Dividing by $r$ over-suppresses, harder the larger $r$ is</li></ul>
+<p>Just memorizing "rsLoRA uses $\sqrt r$" without the variance/magnitude-stability reason.</p>
+</details>
+<details>
+
+<summary>Q14. What is NF4? Why better than INT4 for weight quantization?</summary>
+<ul><li>NF4 = 4-bit NormalFloat, 16 levels placed at standard-normal quantiles so bins carry equal probability mass</li><li>Weights are ~$\mathcal{N}(0,\sigma^2)$; <strong>under the normal assumption</strong> equal-mass bins are info-theoretically optimal for that fixed distribution (quantile quantization)</li><li>INT4 is equally spaced and wastes bins on normal tails; NF4 is also zero-preserving</li></ul>
+<p>Saying NF4 is plain 4-bit integer, or missing the key "equal probability mass / quantile."</p>
+</details>
+<details>
+
+<summary>Q15. How much does QLoRA's double quantization save? How?</summary>
+<ul><li>Re-quantize each block(64)'s fp32 absmax constant itself</li><li>Single overhead $32/64=0.5$ bit/param → double $\approx0.127$ bit/param</li><li>Saves ~0.37 bit/param on average (~3GB for 65B)</li></ul>
+<p>Not knowing "what's re-quantized is the scaling constant absmax," or confusing it with NF4 itself.</p>
+</details>
+<details>
+
+<summary>Q16. QLoRA's base is 4-bit during training — how do gradients flow?</summary>
+<ul><li>Base stored as NF4, dequantized to bf16 per block for the matmul</li><li>Gradients flow only to the bf16 LoRA params; the NF4 base is frozen with no gradient</li><li>So it saves the base's optimizer/gradient; activations remain</li></ul>
+<p>Thinking gradients are computed directly on 4-bit, or that the base is also updating.</p>
+</details>
+<details>
+
+<summary>Q17. What does DoRA change vs LoRA? Why might it be better?</summary>
+<ul><li>Decompose $W_0$ into magnitude $m=\lVert W_0\rVert_c$ (per column) and direction $V/\lVert V\rVert_c$</li><li>$m$ trainable, LoRA only updates direction: $W'=m\cdot\frac{V+\Delta V}{\lVert V+\Delta V\rVert_c}$</li><li>Unties magnitude and direction; update pattern closer to full FT, gains notable at low rank</li></ul>
+<p>Saying only "DoRA adds a magnitude," not the per-column normalization + direction-via-LoRA.</p>
+</details>
+<details>
+
+<summary>Q18. Why does Adapter have inference latency but merged LoRA doesn't?</summary>
+<ul><li>Adapter serially inserts a nonlinear bottleneck module; inference must run it and it breaks operator fusion</li><li>LoRA is a parallel linear bypass; linear+linear=linear, absorbable into the original weight</li><li>A nonlinear module can't be merged this way</li></ul>
+<p>Saying both "add a small module so both have latency," missing the linear-mergeability point.</p>
+</details>
+<details>
+
+<summary>Q19. Essential difference between Prompt/Prefix Tuning and LoRA?</summary>
+<ul><li>Prompt/Prefix: inject trainable soft tokens / prefix K/V at the input or each layer, <strong>occupying sequence length or KV</strong>, with inference overhead</li><li>LoRA: a low-rank bypass on the weights, <strong>no sequence occupancy</strong>, zero overhead after merge</li><li>Prompt Tuning is weak on small models (Lester: matches full FT only at large scale)</li></ul>
+<p>Lumping LoRA in as "adding tokens," or not knowing Prompt methods occupy sequence length.</p>
+</details>
+<details>
+
+<summary>Q20. What do "init-changing" methods like PiSSA / LoRA-GA change?</summary>
+<ul><li>PiSSA: init $A,B$ with $W_0$'s principal singular vectors (aligning principal components), freeze the residual, faster convergence</li><li>LoRA-GA: make LoRA's first-step gradient direction approximate full FT's gradient (gradient-alignment init)</li><li>Common point: no structural change, only <strong>initialization</strong> to speed convergence / improve quality</li></ul>
+<p>Treating them as new structures, or unable to state the shared "changes initialization."</p>
+</details>
+<h3 id="l3-top-lab-questions-deep-end">L3 top-lab questions (deep end)</h3>
+<details>
+
+<summary>Q21. Why doesn't LoRA save activation memory automatically? How to save it?</summary>
+<ul><li>The bypass hangs on a frozen layer; backprop still flows through the whole network for $\partial L/\partial x$, storing intermediate activations</li><li>LoRA saves optimizer states + gradients + master weights, unrelated to activations</li><li>To save activations use gradient checkpointing (recompute for memory), or sequence parallelism etc.</li></ul>
+<p>Vaguely saying "LoRA saves memory," then unable to answer "which part" when pressed.</p>
+</details>
+<details>
+
+<summary>Q22. How does AdaLoRA implement "adaptive rank"?</summary>
+<ul><li>Parameterize $\Delta W$ in SVD form $P\Lambda Q$</li><li>During training prune $\Lambda$ by singular-value importance, assigning different effective ranks per layer</li><li>Dynamically route the limited rank budget to layers that need it, not uniformly</li></ul>
+<p>Thinking AdaLoRA "auto-selects a global $r$," missing the SVD parameterization + per-layer pruning.</p>
+</details>
+<details>
+
+<summary>Q23. For multi-task deployment, what are the two strategies for one base + many LoRAs? Their costs?</summary>
+<ul><li>Merge approach: merge an independent full weight per task, zero inference latency, but one full weight copy per task and no dynamic switching</li><li>Bypass approach: keep the base, add each task's $\frac{\alpha}{r}B(Ax)$ online, hot-swappable / mix different adapters within a batch, at the cost of restoring a bit of inference overhead</li><li>Industry (e.g. multi-tenant LoRA serving) mostly uses the bypass approach + batching optimizations</li></ul>
+<p>Only knowing merge, not "not merging to support dynamic multi-adapter."</p>
+</details>
+<details>
+
+<summary>Q24. (IA)³ and LoRA — essential difference? Why is (IA)³ more param-frugal?</summary>
+<ul><li>LoRA: adds a low-rank matrix $BA$, params $r(d+k)$</li><li>(IA)³: learns three <strong>scaling vectors</strong> $l_k,l_v,l_{ff}$ applied element-wise to K/V/FFN activations, params only $O(d)$</li><li>(IA)³ is "element-wise rescaling of activations" rather than "adding a matrix increment," so an order of magnitude fewer; T-Few uses it to beat ICL in few-shot</li></ul>
+<p>Treating (IA)³ as a low-rank matrix too, missing "scaling vector × activations."</p>
+</details>
+<details>
+
+<summary>Q25. Can LoRA fine-tuning learn "new knowledge"? Is low rank an expressiveness bottleneck?</summary>
+<ul><li>The low-rank bypass excels at "adjusting existing capabilities": style / format / task adaptation / alignment</li><li>Injecting large amounts of <strong>brand-new factual knowledge</strong> may be limited by low rank — needs larger $r$, more layers, or continued pretraining / full FT</li><li>This is exactly the motivation behind DoRA / high rank / PiSSA to break the expressiveness limit; rank is a capacity knob, not a free lunch</li></ul>
+<p>Absolutely saying "LoRA equals full FT" or "LoRA can't learn anything new" — both overreach; it depends on $r$, the number of adapted layers, and task type.</p>
+</details>
+<h2 id="a-appendix-sanity-check">§A Appendix: sanity check</h2>
+<p>Key invariants of <code>LoRALinear</code> (verifiable with a short script):</p>
+<ul><li><strong>Start equivalence</strong>: after injecting LoRA and before training, the output should equal the base elementwise (since $B=0 \Rightarrow \Delta W=0$).</li><li><strong>Merge consistency</strong>: outputs before/after <code>merge()</code> for the same input should match numerically (under fp32 / eval / dropout=0 the error is ~1e-6 from pure float accumulation; under bf16 or train-mode dropout the error is larger and this value shouldn't be promised).</li><li><strong>Trainable set</strong>: only <code>lora_A</code>, <code>lora_B</code> (and DoRA's <code>m</code>) have <code>requires_grad=True</code>, the base all <code>False</code>.</li><li><strong>Parameter count</strong>: adapting $q,v$, $r=8$, $d=4096$, $L$ layers gives trainable params $= L \times 2 \times 8 \times (4096+4096)$.</li></ul>
+<p>Below is the <strong>real run</strong> output of <a href="code/lora.py"><code>code/lora.py</code></a> ($\text{IN}=32, \text{OUT}=48, r=8, \alpha=16$) on <strong>PyTorch 2.10 / CPU</strong> (each line has an <code>assert</code>; the summary prints only if all pass):</p>
+<pre><code>[a] B=0 init: |out_lora - out_base| = 0.00e+00  OK
+[b] after 1 step: ||dW|| = 4.768e-02, output changed  OK
+[c] merge: |out_merged - out_unmerged| = 3.58e-07; weight += dW = True; unmerge restores base = True  OK
+[d] trainable params = 640 (expect r*(in+out) = 640); base frozen = True  OK
+[e] scaling: standard alpha/r = 2.0000, rsLoRA alpha/sqrt(r) = 5.6569  OK
+[f] DoRA: m.requires_grad = True, base frozen, identity start |Δ| = 2.38e-07  OK
+
+all LoRA / DoRA sanity checks passed ✓</code></pre>
+<p>Here $640 = r(\text{IN}+\text{OUT}) = 8\times(32+48)$ verifies the trainable-param formula of §4; the pure-float error of $3.58\text{e-}7$ across merge verifies the numerical equivalence of zero-latency merging; the DoRA identity start $\lvert\Delta\rvert=2.38\text{e-}7$ verifies $W'=W_0$ when $B=0$.</p>
+<hr />
+<h2 id="runnable-code">📜 Runnable Code</h2>
+<p>The LoRA / DoRA core implementation of this tutorial has a minimal runnable version at <a href="code/lora.py"><code>docs/tutorials/code/lora.py</code></a>:</p>
+<ul><li><a href="code/lora.py"><code>lora.py</code></a> — <code>LoRALinear</code> ($B=0$ identity start · $\alpha/r$ and rsLoRA $\alpha/\sqrt{r}$ scaling · merge/unmerge) + <code>DoRALinear</code> (magnitude–direction decomposition), with 6 <code>assert</code> sanity checks (start equivalence / $\Delta W \ne 0$ after one step / merge consistent &amp; reversible / param count $= r(\text{in}+\text{out})$ / rsLoRA scaling / DoRA frozen base).</li></ul>
+<p>Pure PyTorch, runs on CPU in seconds with no GPU: <code>python docs/tutorials/code/lora.py</code>. The §A output above is this script's real run result.</p>
+<hr />
+<h2 id="references">📚 References</h2>
+<ul><li><strong>LoRA</strong> — Hu et al., <em>LoRA: Low-Rank Adaptation of Large Language Models</em>, arXiv 2106.09685 (2021), ICLR 2022.</li><li><strong>Intrinsic Dimension</strong> — Aghajanyan et al., <em>Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning</em>, arXiv 2012.13255 (2020).</li><li><strong>QLoRA</strong> — Dettmers et al., <em>QLoRA: Efficient Finetuning of Quantized LLMs</em>, arXiv 2305.14314 (2023), NeurIPS 2023.</li><li><strong>DoRA</strong> — Liu et al., <em>DoRA: Weight-Decomposed Low-Rank Adaptation</em>, arXiv 2402.09353 (2024), ICML 2024.</li><li><strong>rsLoRA</strong> — Kalajdzievski, <em>A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA</em>, arXiv 2312.03732 (2023).</li><li><strong>PiSSA</strong> — Meng et al., <em>PiSSA: Principal Singular Values and Singular Vectors Adaptation</em>, arXiv 2404.02948 (2024), NeurIPS 2024.</li><li><strong>LoRA-GA</strong> — Wang et al., <em>LoRA-GA: Low-Rank Adaptation with Gradient Approximation</em>, arXiv 2407.05000 (2024).</li><li><strong>AdaLoRA</strong> — Zhang et al., <em>Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning</em>, arXiv 2303.10512 (2023), ICLR 2023.</li><li><strong>LoRA+</strong> — Hayou et al., <em>LoRA+: Efficient Low Rank Adaptation of Large Models</em>, arXiv 2402.12354 (2024).</li><li><strong>(IA)³ / T-Few</strong> — Liu et al., <em>Few-Shot Parameter-Efficient Fine-Tuning Is Better and Cheaper than In-Context Learning</em>, arXiv 2205.05638 (2022).</li><li><strong>Adapter</strong> — Houlsby et al., <em>Parameter-Efficient Transfer Learning for NLP</em>, arXiv 1902.00751 (2019), ICML 2019.</li><li><strong>Prefix-Tuning</strong> — Li &amp; Liang, <em>Prefix-Tuning: Optimizing Continuous Prompts for Generation</em>, arXiv 2101.00190 (2021), ACL 2021.</li><li><strong>Prompt Tuning</strong> — Lester et al., <em>The Power of Scale for Parameter-Efficient Prompt Tuning</em>, arXiv 2104.08691 (2021), EMNLP 2021.</li><li><strong>P-Tuning v2</strong> — Liu et al., <em>P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks</em>, arXiv 2110.07602 (2021).</li><li><strong>BitFit</strong> — Ben-Zaken et al., <em>BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models</em>, arXiv 2106.10199 (2021), ACL 2022.</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/lora_peft_tutorial_en.md</code> ·
+  SHA256 <code>24273d1ee040</code> ·
+  generated at 2026-06-13 13:22 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

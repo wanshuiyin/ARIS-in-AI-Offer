@@ -8,7 +8,7 @@
 >
 > 📖 **English version (default)**: [README.md](README.md)
 
-**📚 按方向直达** —— 23 篇 first-party cheat sheet，7 大方向 + 1 个社区贡献方向：
+**📚 按方向直达** —— 24 篇 first-party cheat sheet，7 大方向 + 1 个社区贡献方向：
 
 [🧠 General / 基础](#-general--基础) · [🎯 Post-Training & Reasoning](#-post-training--reasoning) · [🏛️ LLM Architecture & Systems](#-llm-architecture--systems) · [🌊 Generative Models — 理论 & Tokenizers](#-generative-models--理论--tokenizers) · [🎨 Generation Systems（图像 / 视频 / 3D / Diffusion 后训练）](#-generation-systems--图像--视频--3d--diffusion-后训练) · [👁️ Multimodal](#-multimodal) · [🤖 Agents](#-agents) · [🦾 Embodied AI / 具身智能](#-embodied-ai--具身智能)
 
@@ -58,6 +58,7 @@
 
 ## 📢 最新动态
 
+- **2026-06-13** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🧩 **新 cheat sheet（第 24 篇）：LoRA / PEFT 参数高效微调** —— 补上了"被全集用了 100+ 次、却从没人讲过其数学"的那篇。覆盖 LoRA（B=0 恒等起点、α/r vs rsLoRA √r 缩放、零延迟 merge）、QLoRA（NF4 分位量化、双重量化、paged optimizer）、DoRA（幅度-方向分解）、家族（PiSSA / AdaLoRA / LoRA+ / (IA)³）vs Adapter / Prefix / Prompt / BitFit —— 含从零 PyTorch（`LoRALinear` / `DoRALinear`）+ 25 高频题。effort=max；3 轮 Codex GPT-5.5 xhigh 数学/代码审（抓出 NF4 bit/byte 单位错、省显存 14-vs-16 B/param、(IA)³ 加性-vs-乘性误标、3 个无法核实的 venue、§10 自相矛盾）+ 1 轮 render 保真审，外加可跑的 [`code/lora.py`](docs/tutorials/code/lora.py)（6 个 assert，真机验证过）。**双语**（中文 + [EN](docs/tutorials/lora_peft_tutorial_en.md)，2 轮翻译保真审）。[`lora_peft_tutorial.html`](docs/tutorials/lora_peft_tutorial.html)。
 - **2026-06-08** — ![POLISH](https://img.shields.io/badge/POLISH-blue?style=flat-square) 🔧 [`tools/render_html.py`](tools/render_html.py) 在 frontmatter 检测前先剥掉开头的 UTF-8 BOM（[6cc4876](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/6cc4876)）。
 - **2026-06-05** — ![COMMUNITY](https://img.shields.io/badge/COMMUNITY-orange?style=flat-square) 🔭 **社区衍生：[@QiZishi](https://github.com/QiZishi) 的在线教程合集站** —— 把这里的 23 篇中文教程与 [Datawhale Hello-Agents](https://github.com/datawhalechina/hello-agents) 的大模型面试问答整合成卡片索引站，随时在线阅读（[线上阅读](https://qizishi.github.io/Autumn-Recruitment-Tutorials-for-LLM/) · 来自 [#3](https://github.com/wanshuiyin/ARIS-in-AI-Offer/issues/3)）。README 新增 [社区衍生](#-社区衍生) 小节收录社区二次创作 —— 基于这套教程做了新东西，开 issue 即可收录（[f8e7d33](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/f8e7d33)）。
 - **2026-06-02** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 📝 **两篇新 blog —— Continuous DLM（表征视角 v2）+ 扩散 × 表征 × 流形** —— Continuous DLM 综述升级为表征视角的扩写版（取代早先的 v1），并新增一篇姊妹篇梳理图像/视频扩散里「借表征 / 用流形」两条脉络（SSL / Consistency / REPA / RAE / JiT / V-JEPA2）。两篇均手写、跨模型审过，且互相引用。线上：[`continuous_dlm_representation_perspective.html`](docs/blogs/continuous_dlm_representation_perspective.html) · [`diffusion_representation_manifold.html`](docs/blogs/diffusion_representation_manifold.html)。见 [Blog 清单 ↓](#-blog-清单)。
@@ -108,6 +109,7 @@
 | **RLHF / DPO / GRPO / PPO** | [📄 中](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/rlhf_dpo_grpo_ppo_tutorial.html) | [📄 EN](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/rlhf_dpo_grpo_ppo_tutorial_en.html) | [MD](docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md) |
 | **Reasoning Models (o1 / R1 / Test-Time Compute / PRM)** | [📄 中](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/reasoning_models_tutorial.html) | [📄 EN](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/reasoning_models_tutorial_en.html) | [MD](docs/tutorials/reasoning_models_tutorial.md) |
 | **LLM On-Policy Distillation (MiniLLM / GKD / Qwen3 / Tinker)** | [📄 中](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/llm_opd_tutorial.html) | [📄 EN](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/llm_opd_tutorial_en.html) | [MD](docs/tutorials/llm_opd_tutorial.md) |
+| **LoRA / PEFT (LoRA / QLoRA / DoRA / rsLoRA / PiSSA / AdaLoRA / (IA)³)** | [📄 中](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/lora_peft_tutorial.html) | [📄 EN](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/lora_peft_tutorial_en.html) | [MD](docs/tutorials/lora_peft_tutorial.md) |
 
 ### 🏛️ LLM Architecture & Systems
 

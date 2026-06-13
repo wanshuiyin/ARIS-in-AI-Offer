@@ -1,0 +1,68 @@
+{
+  "skill": "interview-cheatsheet",
+  "source": "docs/tutorials/lora_peft_tutorial.md",
+  "source_sha256": "1dfbcbf080ce7dc510091e8bf121607c962e8fc2aa946ba066b2cfb89ce41be4",
+  "output": "docs/tutorials/lora_peft_tutorial.html",
+  "runnable_code": "docs/tutorials/code/lora.py",
+  "topic": "LoRA / PEFT 参数高效微调 — LoRA / QLoRA(NF4+double-quant+paged) / DoRA / rsLoRA / PiSSA / AdaLoRA / LoRA-GA / LoRA+ / (IA)³ vs Adapter / Prefix / Prompt / BitFit",
+  "effort": "max",
+  "byline": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
+  "reviewer": "codex gpt-5.5 xhigh, fresh thread per round",
+  "math_code_review": {
+    "verdict": "PASS (4 rounds: R1 caught 7 blocking, R2 verified all fixed + caught 1 new, R3 PASS, R4 runnable-code review WARN→improvements applied)",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "FAIL — 7 blocking",
+        "thread_id": "019ec0de-6fd6-73c0-b7d9-390079b4f5f1",
+        "real_issues_caught": [
+          "NF4 unit error: wrote '~0.5 bit/param' for the 4-bit base weight; 4-bit = 4 bit/param = 0.5 BYTE/param (8x dimension error) in §5.4 and §10 table",
+          "§11 Q3 memory imprecision: attributed ~16 B/param to the SAVED part; saved = grad 2 + master 4 + Adam 8 = 14 B/param, base bf16 2 B/param retained, full-FT total 16",
+          "§6 DoRA code comment misleading: dim=0 code is correct but comment said '沿 in 维归一' implying dim=1",
+          "§11 Q24: title wrongly called (IA)³ 'additive PEFT' — it is multiplicative activation rescaling",
+          "§A refs LoRA-GA: 'NeurIPS 2024' venue unverifiable by reviewer — dropped to arXiv-only",
+          "§A refs LoRA+: 'ICML 2024' venue unverifiable — dropped to arXiv-only",
+          "§A refs (IA)³/T-Few: 'NeurIPS 2022' venue unverifiable — dropped to arXiv-only"
+        ],
+        "confirmed_correct": "core formulas, first-step gradients ∂L/∂A=0 & ∂L/∂B≠0 at init, rsLoRA √r variance argument, 8.39M≈0.12% param count, double-quant 0.127 bit/param & 0.37 saved, bypass FLOPs — all independently re-derived and verified correct"
+      },
+      {
+        "run": 2,
+        "verdict": "FAIL — 1 new blocking (round-1 fixes all verified OK)",
+        "thread_id": "019ec0e9-4dba-71a2-913c-3d1deef61c8a",
+        "issues": "§10 internal contradiction: '单卡可训最大模型 ~7B 勉强' for full-FT contradicts §1/§4's own derivation (7B full-FT Adam ≈112GB > 80GB). Fixed to '~3B (7B needs ZeRO/offload/8-bit optimizer)' + added a caveat callout. 2 warnings (QLoRA code is concept skeleton; merge ~1e-6 only fp32/eval) also addressed."
+      },
+      {
+        "run": 3,
+        "verdict": "PASS",
+        "thread_id": "019ec0ef-d1a9-7623-bf6f-6dae42a93922",
+        "notes": "All 3 round-2 fixes verified consistent with §1/§4 memory math; no new contradiction; final adversarial sweep found zero remaining math/code/citation/factual errors."
+      },
+      {
+        "run": 4,
+        "verdict": "WARN → fixed (no blocking)",
+        "thread_id": "019ec106-0fbc-7453-a0df-d369cc2b440d",
+        "scope": "review of the added runnable script docs/tutorials/code/lora.py + §A real-output integration",
+        "notes": "Code correct, 6 sanity checks meaningful, pasted output consistent (640=8×80, alpha/r=2.0, alpha/√r=5.6569, fp32 errors ~1e-7). 4 warnings; 2 substantive ones applied: (1) allocate lora_A/lora_B on base.weight device/dtype (CUDA/bf16 robustness); (2) made the [c] merge check non-vacuous (assert merged flag + base.weight==w_before+dW). Re-ran clean on Server5 (PyTorch 2.10 CPU): all 6 asserts pass."
+      }
+    ]
+  },
+  "render_review": {
+    "verdict": "PASS",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "PASS",
+        "thread_id": "019ec0f4-daf9-73f0-9b4b-8fc94d4a5b49",
+        "notes": "7/7 fidelity checks pass: all 13 §-sections + 25 Q&A present, MathJax delimiters intact (§2 boxed + §6 DoRA), 4 python blocks char-exact, 4 tables render with all rows, 27 TOC entries, no injection (json_for_script escaping verified), 11 callouts render styled with no list-swallow."
+      },
+      {
+        "run": 2,
+        "verdict": "PASS (re-render after adding §A real output + 📜 Runnable Code section)",
+        "notes": "Deterministic re-render; new section is plain markdown (list + fenced code + inline math, same constructs verified in render round 1). Mechanically verified: TOC 27→28, 'Runnable Code' section and real sanity-check output present in HTML; reproduce check passes (HTML byte-reproduces from source modulo timestamp)."
+      }
+    ]
+  },
+  "summary": "LoRA/PEFT cheat sheet (effort=max, 732 lines) + runnable code (docs/tutorials/code/lora.py): 4-round cross-model codex gpt-5.5 xhigh math/code review + 2-round render-fidelity review, settled at PASS. R1 caught 7 blocking (NF4 bit/byte unit, Q3 14-vs-16 B/param, DoRA comment, (IA)³ additive mislabel, 3 unverifiable venues); R2 verified all fixed + caught 1 internal contradiction (§10 7B full-FT on 80GB vs the doc's own 112GB derivation); R3 PASS; R4 reviewed the runnable script (WARN, applied device/dtype + non-vacuous-merge fixes, re-ran clean on Server5). Core math (LoRA forward, init-gradient zero/nonzero, rsLoRA √r, 0.12% param count, double-quant arithmetic) independently re-derived correct. §A output is the script's REAL run output on PyTorch 2.10 CPU.",
+  "rendered_at": "2026-06-13"
+}
