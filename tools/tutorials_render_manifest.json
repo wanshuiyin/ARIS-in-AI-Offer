@@ -214,6 +214,18 @@
     "title": "Quantization Tutorial En",
     "lang": "en"
   },
+  "docs/tutorials/rag_embedding_retrieval_tutorial.html": {
+    "md": "docs/tutorials/rag_embedding_retrieval_tutorial.md",
+    "title": "RAG + 文本嵌入 面试 Cheat Sheet",
+    "eyebrow": "Interview Prep · RAG + Embedding / Retrieval",
+    "subtitle": "检索增强生成 + 文本嵌入/重排 · InfoNCE / 难负例 / Matryoshka / BM25 / RRF / ColBERT / GraphRAG + 公式推导 + From-Scratch PyTorch + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "lang": "zh-CN"
+  },
+  "docs/tutorials/rag_embedding_retrieval_tutorial_en.html": {
+    "md": "docs/tutorials/rag_embedding_retrieval_tutorial_en.md",
+    "title": "Rag Embedding Retrieval Tutorial En",
+    "lang": "en"
+  },
   "docs/tutorials/reasoning_models_tutorial.html": {
     "md": "docs/tutorials/reasoning_models_tutorial.md",
     "title": "Reasoning Models 面试 Cheat Sheet",

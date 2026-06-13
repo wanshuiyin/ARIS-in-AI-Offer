@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG + 文本嵌入 面试 Cheat Sheet</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/rag_embedding_retrieval_tutorial.md">
+<meta name="aris:source-sha256" content="31ed4b8f0aa37b4b5bf1d69f842a12001f8342f71062158e5e762e97dfd02787">
+<meta name="aris:generated-at" content="2026-06-13 18:03 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-直觉为什么需要-rag">§1 直觉：为什么需要 RAG</a>
+</li>
+<li><a href="#2-文本嵌入双塔--对比学习">§2 文本嵌入：双塔 + 对比学习</a>
+<ul>
+<li><a href="#21-双塔bi-encoder结构">2.1　双塔（bi-encoder）结构</a></li>
+<li><a href="#22-infonce--对比损失必考要会推">2.2　InfoNCE / 对比损失（必考，要会推）</a></li>
+<li><a href="#23-in-batch-负例与难负例">2.3　In-batch 负例与难负例</a></li>
+</ul>
+</li>
+<li><a href="#3-难负例的对偶--matryoshka-表征">§3 难负例的对偶 + Matryoshka 表征</a>
+<ul>
+<li><a href="#31-余弦--点积--归一化">3.1　余弦 / 点积 / 归一化</a></li>
+<li><a href="#32-matryoshka-表征学习mrl">3.2　Matryoshka 表征学习（MRL）</a></li>
+</ul>
+</li>
+<li><a href="#4-从零实现双塔--infonce-训练">§4 从零实现：双塔 + InfoNCE 训练</a>
+</li>
+<li><a href="#5-检索稀疏--稠密--混合">§5 检索：稀疏 / 稠密 / 混合</a>
+<ul>
+<li><a href="#51-稀疏检索bm25">5.1　稀疏检索：BM25</a></li>
+<li><a href="#52-稠密检索--annhnsw">5.2　稠密检索 + ANN（HNSW）</a></li>
+<li><a href="#53-混合检索--rrf">5.3　混合检索 + RRF</a></li>
+</ul>
+</li>
+<li><a href="#6-重排rerank交叉编码器">§6 重排（Rerank）：交叉编码器</a>
+</li>
+<li><a href="#7-rag-管线从-query-到答案">§7 RAG 管线：从 query 到答案</a>
+</li>
+<li><a href="#8-rag-进阶graphrag--对比--评测">§8 RAG 进阶：GraphRAG · 对比 · 评测</a>
+<ul>
+<li><a href="#81-graphrag">8.1　GraphRAG</a></li>
+<li><a href="#82-rag-vs-长上下文-vs-微调">8.2　RAG vs 长上下文 vs 微调</a></li>
+<li><a href="#83-评测别只看生成">8.3　评测（别只看生成）</a></li>
+</ul>
+</li>
+<li><a href="#9-从零实现mini-rag-管线">§9 从零实现：mini-RAG 管线</a>
+</li>
+<li><a href="#10-工程实践与常见-bug">§10 工程实践与常见 bug</a>
+</li>
+<li><a href="#11-复杂度与资源">§11 复杂度与资源</a>
+</li>
+<li><a href="#12-25-高频面试题">§12 25 高频面试题</a>
+<ul>
+<li><a href="#l1必会题任何用过-rag-的岗位">L1必会题（任何用过 RAG 的岗位）</a></li>
+<li><a href="#l2进阶题research--工程深入">L2进阶题（research / 工程深入）</a></li>
+<li><a href="#l3高级题顶级-lab--深水区">L3高级题（顶级 lab / 深水区）</a></li>
+</ul>
+</li>
+<li><a href="#a-附录sanity-check">§A 附录：sanity check</a>
+</li>
+<li><a href="#runnable-code">📜 Runnable Code</a>
+</li>
+<li><a href="#参考文献">📚 参考文献</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Interview Prep · RAG + Embedding / Retrieval</div>
+  <h1>RAG + 文本嵌入 面试 Cheat Sheet</h1>
+  <p class="subtitle">检索增强生成 + 文本嵌入/重排 · InfoNCE / 难负例 / Matryoshka / BM25 / RRF / ColBERT / GraphRAG + 公式推导 + From-Scratch PyTorch + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/rag_embedding_retrieval_tutorial.md</code></span>
+    <span><strong>SHA256:</strong> <code>31ed4b8f0aa3</code></span>
+    <span><strong>Rendered:</strong> 2026-06-13 18:03 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">9 句话搞定 RAG + 嵌入</div><p>一页拿下面试核心要点（详见后文 §2–§11 推导）。</p></div>
+<ol><li><strong>RAG 是什么</strong>：检索增强生成 = 先用 query 从外部知识库<strong>检索</strong>相关片段，再把片段拼进 prompt 让 LLM <strong>生成</strong>答案。应对三件事：知识过期、幻觉、私有数据（Lewis et al. 2020）。</li><li><strong>两半互补</strong>：左半「<strong>训嵌入</strong>」是对比学习（双塔 + InfoNCE + 难负例），数学密；右半「<strong>用嵌入</strong>」是 RAG 管线（chunk → 检索 → 重排 → 拼 prompt），系统密。</li><li><strong>嵌入主公式 InfoNCE</strong>：$\mathcal{L} = -\log \frac{\exp(\text{sim}(q,d^+)/\tau)}{\sum_i \exp(\text{sim}(q,d_i)/\tau)}$ —— 本质是「正样本 vs 一堆负样本」的 softmax 交叉熵，温度 $\tau$ 调锐度。</li><li><strong>双塔 vs 交叉编码器</strong>：双塔（bi-encoder）query/doc 分开编码，<strong>可预计算</strong>、快、用于召回；交叉编码器（cross-encoder）拼一起编码，<strong>不可预计算</strong>、慢但准，用于<strong>重排 top-k</strong>。</li><li><strong>难负例（hard negative）</strong>：从检索 top-k 里挑「像但不相关」的当负例，比随机负例信息量大；但有 <strong>false negative 陷阱</strong>——挑到的「难负例」可能其实相关，反成噪声。</li><li><strong>稀疏 vs 稠密 vs 混合</strong>：BM25（词项精确匹配，强在罕见词/实体）+ 稠密向量（语义匹配）互补，用 <strong>RRF</strong>（Reciprocal Rank Fusion）按排名融合：$\text{RRF}(d)=\sum_r \frac{1}{k+\text{rank}_r(d)}$，$k\approx60$。</li><li><strong>Matryoshka 表征</strong>：一次训练让嵌入的<strong>前 $m$ 维</strong>也是好嵌入，部署时按需截断维度（省存储/加速召回），靠多粒度损失 $\sum_m \mathcal{L}(\text{emb}[:m])$。</li><li><strong>RAG vs 长上下文 vs 微调</strong>：RAG 注入<strong>可更新的外部事实</strong>、可溯源；长上下文塞全文但贵且有「lost in the middle」；微调改<strong>能力/风格</strong>不擅长注入海量新事实。三者常组合。</li><li><strong>评测</strong>：别只看生成，要分层评 <strong>检索质量</strong>（recall@k / nDCG）+ <strong>生成忠实度</strong>（faithfulness / context relevance / answer relevance，如 RAGAS）。</li></ol>
+<h2 id="1-直觉为什么需要-rag">§1 直觉：为什么需要 RAG</h2>
+<p>LLM 有三个结构性短板：<strong>知识截止</strong>（训练后的事不知道）、<strong>幻觉</strong>（不知道时也会一本正经编）、<strong>私有数据</strong>（你公司的文档它没见过）。直接微调来灌知识又贵又慢、还容易过时。</p>
+<p><strong>RAG（Retrieval-Augmented Generation）把「知识」从参数里搬到外部知识库</strong>：把权重当「推理引擎」，把向量库当「可随时更新的外部记忆」。回答时先检索相关片段、再让 LLM 基于片段作答——知识更新只需更新库（不重训）、答案能溯源（引用来源）、私有数据不进训练集。</p>
+<p>这条链路天然分成<strong>互补的两半</strong>：</p>
+<ul><li><strong>训嵌入（左半，数学密）</strong>：怎么把一句话/一段文档变成一个向量，使「语义相近 → 向量相近」。核心是<strong>对比学习</strong>（双塔 + InfoNCE + 难负例）。</li><li><strong>用嵌入（右半，系统密）</strong>：怎么用这些向量搭一条能用的管线——切块（chunking）、建索引（ANN）、召回、重排、拼 prompt、评测。</li></ul>
+<div class="callout callout-info"><div class="callout-title">一句话心智模型</div><p>LLM 是「闭卷考试只能靠脑子」，RAG 是「开卷考试，先用 query 去书里翻到相关页（检索），再照着页面作答（生成）」。翻得准不准 = 嵌入 + 检索质量；答得好不好 = 重排 + prompt + LLM。</p></div>
+<h2 id="2-文本嵌入双塔--对比学习">§2 文本嵌入：双塔 + 对比学习</h2>
+<h3 id="21-双塔bi-encoder结构">2.1　双塔（bi-encoder）结构</h3>
+<p>把 query 和 document 各自过一个编码器（通常共享或孪生 BERT-like 模型），取句向量（<code>[CLS]</code> 或 mean pooling），L2 归一化：</p>
+<p>$$\mathbf{q} = \text{normalize}(\text{Enc}(\text{query})), \qquad \mathbf{d} = \text{normalize}(\text{Enc}(\text{doc}))$$</p>
+<p>相似度用点积（归一化后等于余弦）：$\text{sim}(q,d) = \mathbf{q}^\top \mathbf{d}$。</p>
+<p>关键优势：<strong>doc 向量可离线预计算并建索引</strong>，线上只编码 query 一次、做近邻搜索。这是双塔能扛海量库的根本原因（对比 §6 的交叉编码器）。</p>
+<h3 id="22-infonce--对比损失必考要会推">2.2　InfoNCE / 对比损失（必考，要会推）</h3>
+<p>目标：让 query 和它的正例 doc $d^+$ 相近、和负例 $d^-$ 远离。把它写成「在一堆候选里选出正例」的分类问题——对每个 query，候选集 $\{d^+, d_1^-, \dots, d_{N}^-\}$ 上做 softmax 交叉熵：</p>
+<p>$$\boxed{\;\mathcal{L}_{\text{InfoNCE}} = -\log \frac{\exp(\text{sim}(q, d^+)/\tau)}{\exp(\text{sim}(q, d^+)/\tau) + \sum_{i} \exp(\text{sim}(q, d_i^-)/\tau)}\;}$$</p>
+<p>推导视角：这就是把「相似度 $/\tau$」当 logits、正例索引当 label 的 <strong>cross-entropy</strong>。最小化它 = 最大化 $q$ 与 $d^+$ 的相似度、压低与所有负例的相似度（InfoNCE，van den Oord 2018；用于检索即 DPR，Karpukhin 2020）。</p>
+<p><strong>温度 $\tau$ 的作用</strong>：$\tau$ 小 → logits 被放大 → softmax 更尖 → 模型更「在意」最难的负例（梯度更偏向 hardest negative；但正例已压倒性最大时小 $\tau$ 也会使梯度饱和变小）；$\tau$ 大 → 更平滑、各负例权重更均匀。$\tau$ 太小会对噪声/false negative 过敏，太大则区分度不足，是关键超参（常见 $0.01\sim0.07$）。</p>
+<h3 id="23-in-batch-负例与难负例">2.3　In-batch 负例与难负例</h3>
+<p><strong>In-batch negatives</strong>：一个 batch 有 $B$ 对 $(q_i, d_i^+)$，对 $q_i$ 而言，<strong>同 batch 里其它 $B-1$ 个正例 $d_{j\ne i}^+$ 就当负例</strong>。一次前向就拿到 $B-1$ 个负例，几乎零额外开销（DPR 的关键 trick）。batch 越大、负例越多、对比越强（大 batch 对对比学习很重要）。</p>
+<p><strong>难负例（hard negative）</strong>：随机负例往往太容易（一眼就不相关），梯度小。从 BM25/上一版模型的检索 top-k 里挑「字面/语义像、但其实不相关」的当负例，信息量大得多，是刷榜关键。</p>
+<div class="callout callout-warn"><div class="callout-title">False negative 陷阱</div><p>从 top-k 挖的「难负例」可能<strong>其实是相关的</strong>（只是没标注），把它当负例会给错误梯度。缓解：去掉与正例太像的候选（阈值过滤）、用 cross-encoder 给负例打分剔除高分项、或 teacher 蒸馏软标签。难负例是双刃剑，不是越难越好。</p></div>
+<h2 id="3-难负例的对偶--matryoshka-表征">§3 难负例的对偶 + Matryoshka 表征</h2>
+<h3 id="31-余弦--点积--归一化">3.1　余弦 / 点积 / 归一化</h3>
+<p>L2 归一化后 $\lVert \mathbf{q} \rVert = \lVert \mathbf{d} \rVert = 1$，于是 $\mathbf{q}^\top\mathbf{d} = \cos\theta \in [-1,1]$。归一化的好处：相似度只看<strong>方向</strong>不看模长，训练更稳（绝对阈值仍需按模型/语料校准）。多数检索嵌入都归一化后用点积（等价余弦）。</p>
+<h3 id="32-matryoshka-表征学习mrl">3.2　Matryoshka 表征学习（MRL）</h3>
+<p>普通嵌入是定长（如 768 维），想省存储/加速只能事后降维（PCA）损失大。<strong>Matryoshka（Kusupati 2022）让一次训练就得到「嵌套」嵌入</strong>：前 $m$ 维（$m \in \{64,128,256,\dots,768\}$）各自都是合格嵌入。做法是对多个粒度同时算损失：</p>
+<p>$$\mathcal{L}_{\text{MRL}} = \sum_{m \in \mathcal{M}} w_m \, \mathcal{L}_{\text{InfoNCE}}\big(\mathbf{q}[:m],\ \mathbf{d}[:m]\big)$$</p>
+<p>部署时按预算截断：粗排用前 64/128 维（快、省）、精排用全维。OpenAI <code>text-embedding-3</code>、Nomic、BGE 等都支持 MRL 维度可调。</p>
+<div class="callout callout-info"><div class="callout-title">MRL 为何能成立</div><p>多粒度损失迫使模型把「最重要的语义」压进前几维（类似按重要性排序的主成分），所以截断前缀仍可用。注意：用于余弦/点积检索时，每个前缀 $\mathbf{q}[:m]$ 通常要<strong>重新 L2 归一化</strong>（否则不同前缀范数不同会改变 logit 尺度）。代价：训练目标更复杂、满维质量可能略降一点点，换来部署弹性。</p></div>
+<h2 id="4-从零实现双塔--infonce-训练">§4 从零实现：双塔 + InfoNCE 训练</h2>
+<p>下面是一个可跑的双塔 + in-batch InfoNCE 训练步（用 toy 编码器，重点是对比损失与难负例逻辑）。</p>
+<pre><code class="language-python">import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class DualEncoder(nn.Module):
+    &quot;&quot;&quot;Toy 双塔：query/doc 共享一个编码器；真实场景换成 BERT-like。&quot;&quot;&quot;
+
+    def __init__(self, vocab, dim=128):
+        super().__init__()
+        self.emb = nn.EmbeddingBag(vocab, dim, mode=&quot;mean&quot;)  # 词袋均值当句向量
+        self.proj = nn.Linear(dim, dim)
+
+    def encode(self, ids, offsets):
+        h = self.proj(self.emb(ids, offsets))
+        return F.normalize(h, dim=-1)                        # L2 归一化 -&gt; 点积=余弦
+
+
+def info_nce_in_batch(q, d_pos, tau=0.05):
+    &quot;&quot;&quot;q, d_pos: [B, dim] 已归一化。同 batch 其它正例当负例。&quot;&quot;&quot;
+    logits = (q @ d_pos.t()) / tau          # [B, B]，第 i 行第 i 列是正例
+    labels = torch.arange(q.size(0), device=q.device)
+    return F.cross_entropy(logits, labels)  # 对角线为正 -&gt; 多分类交叉熵
+
+
+def info_nce_with_hard(q, d_pos, d_hard, tau=0.05):
+    &quot;&quot;&quot;额外拼接每个 query 自己的难负例 d_hard: [B, dim]。&quot;&quot;&quot;
+    pos = (q * d_pos).sum(-1, keepdim=True)         # [B,1] 正例相似度
+    in_batch = q @ d_pos.t()                        # [B,B] in-batch 负例
+    in_batch.fill_diagonal_(float(&quot;-inf&quot;))          # 去掉自身正例避免重复计入
+    hard = (q * d_hard).sum(-1, keepdim=True)       # [B,1] 难负例相似度
+    logits = torch.cat([pos, in_batch, hard], dim=1) / tau   # 正例放第 0 列
+    labels = torch.zeros(q.size(0), dtype=torch.long, device=q.device)
+    return F.cross_entropy(logits, labels)</code></pre>
+<p>要点：</p>
+<ul><li><code>info_nce_in_batch</code> 的精髓：相似度矩阵 $q d^\top$ 的<strong>对角线是正例</strong>，所以 label 就是 <code>arange(B)</code>，一行 cross_entropy 搞定。</li><li>加难负例时把正例 logit 放到第 0 列、label 全 0；<code>fill_diagonal_(-inf)</code> 避免 in-batch 矩阵把自身正例又算一遍。</li><li><code>tau</code> 越小 logits 被放得越大，越偏向最难负例。</li></ul>
+<h2 id="5-检索稀疏--稠密--混合">§5 检索：稀疏 / 稠密 / 混合</h2>
+<h3 id="51-稀疏检索bm25">5.1　稀疏检索：BM25</h3>
+<p>BM25 是词项精确匹配的经典基线，对<strong>罕见词、实体名、代码/ID</strong> 这类「必须字面命中」的 query 仍很强：</p>
+<p>$$\text{BM25}(q,d) = \sum_{t \in q} \text{IDF}(t) \cdot \frac{f(t,d)\,(k_1+1)}{f(t,d) + k_1\big(1 - b + b\,\frac{\lvert d\rvert}{\text{avgdl}}\big)}$$</p>
+<p>其中 $f(t,d)$ 是词频，$\lvert d\rvert$ 是文档长度，$\text{avgdl}$ 是平均长度，$k_1$（≈1.2–2.0）控词频饱和、$b$（≈0.75）控长度归一。<strong>词频饱和</strong>：出现 10 次不等于比 1 次重要 10 倍。</p>
+<h3 id="52-稠密检索--annhnsw">5.2　稠密检索 + ANN（HNSW）</h3>
+<p>稠密 = 把 query 编码成向量、在向量库里找最近邻。库一大就不能暴力算全部，用<strong>近似最近邻（ANN）</strong>。主流是 <strong>HNSW</strong>（Malkov &amp; Yashunin 2016）：建多层「可导航小世界」图，高层稀疏跳远、低层密集精搜，查询<strong>经验上近似对数 / 亚线性</strong>（非严格保证，依赖 efSearch、图度数、召回目标）。</p>
+<div class="callout callout-warn"><div class="callout-title">稠密不是万能</div><p>稠密向量擅长<strong>语义/同义/改写</strong>，但对「精确实体、罕见专名、序列号」可能不如 BM25（这些词在语义空间里没区分度）。所以工业界很少纯稠密，多走混合。</p></div>
+<h3 id="53-混合检索--rrf">5.3　混合检索 + RRF</h3>
+<p>把 BM25 和稠密各自的排名用 <strong>Reciprocal Rank Fusion</strong> 融合（只用排名、不用分数，免去量纲对齐）：</p>
+<p>$$\boxed{\;\text{RRF}(d) = \sum_{r \in \mathcal{R}} \frac{1}{k + \text{rank}_r(d)}\;}, \qquad k \approx 60$$</p>
+<p>$\text{rank}_r(d)$ 是文档 $d$ 在检索器 $r$ 里的名次（1 起）。常数 $k$ 压低头部名次的过度主导。RRF 简单、稳、无需训练，是混合检索的默认融合法（Cormack 2009）。</p>
+<h2 id="6-重排rerank交叉编码器">§6 重排（Rerank）：交叉编码器</h2>
+<p>召回（双塔 + ANN）追求<strong>高 recall、快</strong>，但 top-k 里精排不够。<strong>重排器把召回的 top-k（如 100）重新精确打分、取前几个</strong>。</p>
+<table><thead><tr><th></th><th>双塔 bi-encoder</th><th>交叉编码器 cross-encoder</th><th>ColBERT（late interaction）</th></tr></thead><tbody><tr><td>编码方式</td><td>query、doc <strong>分开</strong>编码</td><td><code>[query; doc]</code> <strong>拼一起</strong>编码</td><td>doc 存<strong>逐 token</strong> 向量</td></tr><tr><td>交互</td><td>仅最后点积（无 token 级交互）</td><td>全程 attention（early，强）</td><td>token 级 late interaction（MaxSim）</td></tr><tr><td>可预计算 doc</td><td>✅（建索引）</td><td>❌（每对都要重算）</td><td>✅（存 token 向量，较大）</td></tr><tr><td>速度 / 规模</td><td>快 / 百万–十亿</td><td>慢 / 只能重排 top-k</td><td>中 / 较大存储</td></tr><tr><td>用途</td><td><strong>召回</strong></td><td><strong>重排</strong></td><td>召回+重排折中</td></tr></tbody></table>
+<p>交叉编码器：$\text{score}(q,d) = \text{MLP}(\text{BERT}([q;d])_{\texttt{[CLS]}})$，query 和 doc 的 token 全程互相 attend，所以准；代价是<strong>无法预计算</strong>（doc 表示依赖 query），只能对召回的少量候选跑。</p>
+<p><strong>ColBERT 的 late interaction</strong>：doc 存每个 token 的向量，打分用 MaxSim——query 每个 token 找 doc 里最相似的 token 再求和：</p>
+<p>$$\text{score}(q,d) = \sum_{i \in q} \max_{j \in d} \mathbf{E}_{q_i}^\top \mathbf{E}_{d_j}$$</p>
+<p>比双塔的单向量更细粒度、又能预计算 doc 端，是召回与重排之间的折中（Khattab &amp; Zaharia 2020）。</p>
+<h2 id="7-rag-管线从-query-到答案">§7 RAG 管线：从 query 到答案</h2>
+<pre class="diagram"><code>query
+  │  ① query 改写 / 扩展 (HyDE / multi-query)
+  ▼
+[稀疏 BM25]  +  [稠密 ANN]
+  │                │
+  └──── RRF 融合 ───┘   ② 召回 top-100
+  ▼
+cross-encoder 重排  ③ 取 top-5
+  ▼
+拼 prompt (context + question)  ④ 含来源标注
+  ▼
+LLM 生成 + 引用   ⑤ 可选自检: Self-RAG(生成反思) · CRAG(检索质量→纠错回路)</code></pre>
+<ul><li><strong>⓪ Chunking（离线切块）</strong>：文档切成片段再嵌入（属离线预处理，不在上面的在线流程图里）。块太大 → 检索粗、稀释相关信息；块太小 → 上下文断裂。常用 200–500 token + 重叠（overlap），或按语义/标题结构切。<strong>chunk 策略对效果影响极大</strong>，是最该调的旋钮之一。</li><li><strong>① Query 改写</strong>：<strong>HyDE</strong>（Gao 2022）先让 LLM 生成一个「假设答案」再用它的嵌入检索（query 和 doc 分布对齐）；multi-query 生成多个改写并合并召回。</li><li><strong>④ Prompt 拼装</strong>：context 片段 + 原 question + 「只依据 context 回答、给出处」指令；注意 <strong>lost-in-the-middle</strong>（Liu 2023）——放中间的关键片段易被忽略，重要的放头尾。</li><li><strong>⑤ 自检式 RAG</strong>：<strong>Self-RAG</strong>（Asai 2023）训模型输出「要不要检索 / 检索到的有没有用 / 答案有没有依据」的反思 token；<strong>CRAG</strong>（Yan 2024）给检索质量打分，差就触发 web 搜索或纠正。</li></ul>
+<h2 id="8-rag-进阶graphrag--对比--评测">§8 RAG 进阶：GraphRAG · 对比 · 评测</h2>
+<h3 id="81-graphrag">8.1　GraphRAG</h3>
+<p>朴素 RAG 按片段独立召回，回答「跨多文档的全局性问题」（如「整个报告的主题脉络」）很弱。<strong>GraphRAG</strong>（微软，Edge 2024）先用 LLM 把语料抽成<strong>实体-关系知识图 + 社区摘要</strong>，全局问题走「社区摘要」而非散片段。强在 query-focused summarization，代价是建图贵。</p>
+<h3 id="82-rag-vs-长上下文-vs-微调">8.2　RAG vs 长上下文 vs 微调</h3>
+<table><thead><tr><th></th><th>RAG</th><th>长上下文</th><th>微调</th></tr></thead><tbody><tr><td>注入什么</td><td>可更新的<strong>外部事实</strong></td><td>当次塞进的全文</td><td><strong>能力 / 风格 / 格式</strong></td></tr><tr><td>知识更新</td><td>改库即可、可溯源</td><td>每次重塞、无持久</td><td>重训、易过时</td></tr><tr><td>成本</td><td>检索 + 短 prompt</td><td>长 prompt 贵、慢</td><td>训练贵、推理便宜</td></tr><tr><td>短板</td><td>检索错则答错</td><td>lost-in-the-middle</td><td>不擅长灌海量新事实</td></tr></tbody></table>
+<p>实务里三者常组合：微调调风格 + RAG 注事实 + 适度长上下文容纳召回片段。</p>
+<h3 id="83-评测别只看生成">8.3　评测（别只看生成）</h3>
+<p>分两层评：</p>
+<ul><li><strong>检索层</strong>：recall@k、nDCG、MRR——召回的片段对不对。</li><li><strong>生成层</strong>：<strong>faithfulness</strong>（答案是否忠于 context，不编）、<strong>context relevance</strong>（召回是否相关）、<strong>answer relevance</strong>（答案是否答到点）。RAGAS（Es 2023）用 LLM 自动算这几项。</li></ul>
+<div class="callout callout-bad"><div class="callout-title">经典翻车</div><p>只看「答案读起来对不对」，不分层。检索召回了错片段、LLM 据此「忠实地」给出错答案，端到端看像幻觉，根因却在检索。必须把检索和生成分开归因。</p></div>
+<h2 id="9-从零实现mini-rag-管线">§9 从零实现：mini-RAG 管线</h2>
+<pre><code class="language-python">import re, math
+import torch, torch.nn.functional as F
+
+def chunk(text, size=40, overlap=10):
+    words = text.split()
+    out, i = [], 0
+    while i &lt; len(words):
+        out.append(&quot; &quot;.join(words[i:i+size]))
+        i += size - overlap                      # 滑窗重叠，避免上下文断裂
+    return out
+
+def embed(texts, encoder):                       # encoder: str -&gt; [dim] 归一化向量
+    return F.normalize(torch.stack([encoder(t) for t in texts]), dim=-1)
+
+def dense_topk(qv, dv, k):                        # 余弦 top-k
+    sims = dv @ qv                                # [N]
+    return sims.topk(min(k, len(dv))).indices.tolist()
+
+def bm25_scores(query, docs, k1=1.5, b=0.75):
+    toks = [d.lower().split() for d in docs]
+    avgdl = sum(len(t) for t in toks) / len(toks)
+    N = len(docs)
+    df = {}
+    for t in toks:
+        for w in set(t):
+            df[w] = df.get(w, 0) + 1
+    scores = []
+    for d in toks:
+        s, dl = 0.0, len(d)
+        for w in set(query.lower().split()):
+            if w not in df:
+                continue
+            idf = math.log(1 + (N - df[w] + 0.5) / (df[w] + 0.5))
+            f = d.count(w)
+            s += idf * f * (k1 + 1) / (f + k1 * (1 - b + b * dl / avgdl))
+        scores.append(s)
+    return scores
+
+def rrf(rank_lists, k=60):                        # rank_lists: [[doc_idx 按名次]...]
+    score = {}
+    for ranks in rank_lists:
+        for rank, idx in enumerate(ranks, start=1):
+            score[idx] = score.get(idx, 0.0) + 1.0 / (k + rank)
+    return sorted(score, key=score.get, reverse=True)
+
+def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
+    chunks = [c for doc in corpus for c in chunk(doc)]
+    dv = embed(chunks, encoder)
+    qv = F.normalize(encoder(query), dim=-1)
+    dense_rank = dense_topk(qv, dv, top_recall)                       # 稠密名次
+    bm25 = bm25_scores(query, chunks)                                 # 先算一次，避免 O(N^2)
+    bm25_rank = sorted(range(len(chunks)), key=lambda i: bm25[i], reverse=True)[:top_recall]
+    fused = rrf([dense_rank, bm25_rank])[:top_final]                  # 混合 + 截断
+    context = &quot;\n&quot;.join(f&quot;[{r}] {chunks[i]}&quot; for r, i in enumerate(fused, 1))
+    return f&quot;基于以下片段回答（标注出处编号）：\n{context}\n\n问题：{query}&quot;</code></pre>
+<p>这段把 §5–§7 串起来：切块 → 稠密 + BM25 双路召回 → RRF 融合 → 拼成带出处的 prompt（真实场景在融合后再加 cross-encoder 重排）。</p>
+<h2 id="10-工程实践与常见-bug">§10 工程实践与常见 bug</h2>
+<ul><li><strong>chunk 大小是头号旋钮</strong>：太大检索粗、太小断上下文；先试 256/512 token + 10–20% overlap，按评测调。</li><li><strong>嵌入模型要对域</strong>：通用嵌入在专业领域（医疗/法律/代码）可能弱，考虑领域微调或选对口模型（BGE-M3 / E5 / 领域模型）。</li><li><strong>别纯稠密</strong>：实体/罕见词/精确匹配场景务必加 BM25 混合，否则「检索不到明明有的那条」。</li><li><strong>难负例 false negative</strong>（§2.3）：挖负例要去重、过滤，否则训歪。</li><li><strong>lost in the middle</strong>（§7）：关键片段放 context 头尾，别堆中间。</li><li><strong>重排别省</strong>：召回 recall 够但精度不足时，cross-encoder 重排 top-k 往往是高 ROI 的一步（是否最高取决于召回质量 / 延迟预算 / 候选规模）。</li><li><strong>索引会过期</strong>：库更新后要增量重嵌入 / 重建索引；陈旧索引 = 陈旧答案。</li><li><strong>评测要分层</strong>（§8.3）：检索和生成分开归因，否则定位不了问题在哪。</li><li><strong>温度 $\tau$ 与 batch</strong>：对比学习里大 batch（更多 in-batch 负例）+ 合适 $\tau$ 很关键，小 batch 效果差。</li></ul>
+<div class="callout callout-warn"><div class="callout-title">「加了 RAG 还是幻觉」</div><p>多半不是 LLM 的锅：检索召回了无关/错误片段，LLM「忠实地」据此作答。先查检索（recall@k、片段对不对），再怀疑生成。</p></div>
+<h2 id="11-复杂度与资源">§11 复杂度与资源</h2>
+<table><thead><tr><th>阶段</th><th>计算</th><th>备注</th></tr></thead><tbody><tr><td>嵌入 doc（离线）</td><td>$O(N \cdot C_{\text{enc}})$</td><td>一次性，可批量；MRL 可省存储</td></tr><tr><td>建 ANN 索引（HNSW）</td><td>$O(N \log N)$ 建图</td><td>内存换查询速度</td></tr><tr><td>稠密召回（线上）</td><td>经验近似对数 / 亚线性 per query</td><td>ANN 近似、非精确、非严格保证</td></tr><tr><td>BM25 召回</td><td>倒排索引 $O(\lvert q\rvert \cdot \text{postings})$</td><td>词项级</td></tr><tr><td>RRF 融合</td><td>$O(R \cdot k_{\text{recall}})$</td><td>只排名，极廉价</td></tr><tr><td>cross-encoder 重排</td><td>$O(k_{\text{recall}} \cdot C_{\text{enc}})$</td><td>每个候选一次前向，<strong>只对 top-k</strong></td></tr><tr><td>LLM 生成</td><td>$O(L_{\text{ctx}}^2)$ prefill</td><td>context 越长越贵（见 attention 篇）</td></tr></tbody></table>
+<p>双塔的核心红利：doc 编码 $O(N)$ 但<strong>离线一次</strong>，线上每 query 只编码 1 次 + ANN 查询；交叉编码器无法预计算，所以<strong>只能用在 top-k 重排</strong>，绝不能拿来扫全库。</p>
+<h2 id="12-25-高频面试题">§12 25 高频面试题</h2>
+<p>按难度分三档，点开看答案要点 + 易踩坑。</p>
+<h3 id="l1必会题任何用过-rag-的岗位">L1必会题（任何用过 RAG 的岗位）</h3>
+<details>
+
+<summary>Q1. 什么是 RAG？解决什么问题？</summary>
+<ul><li>检索增强生成：先检索相关片段、再让 LLM 基于片段生成</li><li>缓解：知识截止 / 幻觉 / 私有数据（缓解事实性幻觉 + 提升可溯源，非保证消除幻觉）</li><li>知识更新只需更新库，可溯源</li></ul>
+<p>只说「让 LLM 查资料」，说不清「检索→拼 prompt→生成」三步和它应对的具体问题。</p>
+</details>
+<details>
+
+<summary>Q2. RAG 的基本流程有哪些步骤？</summary>
+<ul><li>离线：文档切块 → 嵌入 → 建索引</li><li>线上：query 嵌入 → 召回 top-k → （重排）→ 拼 prompt → LLM 生成</li><li>可选：query 改写、来源标注、自检</li></ul>
+<p>漏掉切块/重排，或把召回和重排混为一谈。</p>
+</details>
+<details>
+
+<summary>Q3. 双塔（bi-encoder）和交叉编码器（cross-encoder）区别？</summary>
+<ul><li>双塔：query/doc 分开编码，可预计算 doc 向量，快，用于召回</li><li>交叉编码器：拼一起编码，全程 attention，准但不可预计算，用于重排</li><li>召回用双塔、重排用交叉编码器是标准搭配</li></ul>
+<p>说交叉编码器也能建索引扫全库（错，它不可预计算）。</p>
+</details>
+<details>
+
+<summary>Q4. 为什么需要重排（rerank）？</summary>
+<ul><li>召回追求高 recall + 快，精度不够</li><li>交叉编码器对 top-k 精确打分，提升精度</li><li>只对召回的少量候选跑，代价可控</li></ul>
+<p>以为召回就够了，不知道重排常是高 ROI 的一步。</p>
+</details>
+<details>
+
+<summary>Q5. 稀疏（BM25）和稠密检索各自强在哪？</summary>
+<ul><li>BM25：词项精确匹配，强在罕见词/实体/序列号</li><li>稠密：语义/同义/改写匹配</li><li>互补，工业界多用混合</li></ul>
+<p>说稠密全面碾压 BM25（错，精确匹配场景 BM25 常更好）。</p>
+</details>
+<details>
+
+<summary>Q6. 什么是 chunking？块大小怎么影响效果？</summary>
+<ul><li>把文档切成片段再嵌入</li><li>太大：检索粗、稀释相关信息</li><li>太小：上下文断裂</li><li>常 256/512 token + 重叠</li></ul>
+<p>把 chunk 当无关紧要的预处理，不知道它是头号调参旋钮。</p>
+</details>
+<details>
+
+<summary>Q7. 相似度为什么常用余弦 / 归一化点积？</summary>
+<ul><li>L2 归一化后点积 = 余弦</li><li>只看方向不看模长，更稳（阈值仍需校准）</li><li>多数嵌入归一化后用点积</li></ul>
+<p>不知道归一化后点积就是余弦，或答不出归一化的好处。</p>
+</details>
+<details>
+
+<summary>Q8. RAG 和直接把文档塞进长上下文有何不同？</summary>
+<ul><li>RAG：先检索相关片段，prompt 短、可溯源、库可更新</li><li>长上下文：塞全文，贵、慢、有 lost-in-the-middle</li><li>大规模 / 动态知识下 RAG 通常更经济可控（全文也塞不下）</li></ul>
+<p>以为有长上下文就不需要 RAG（库一大就塞不下、也贵）。</p>
+</details>
+<details>
+
+<summary>Q9. 向量库为什么用近似最近邻（ANN）？</summary>
+<ul><li>库大时暴力算全部 $O(N)$ 太慢</li><li>HNSW 等 ANN 把查询降到经验上近似对数 / 亚线性（非严格保证）</li><li>用一点召回率换巨大速度</li></ul>
+<p>说向量检索是精确最近邻（大库下基本都是近似）。</p>
+</details>
+<details>
+
+<summary>Q10. 「加了 RAG 还是幻觉」可能的原因？</summary>
+<ul><li>多半是检索召回了无关/错误片段，LLM 据此「忠实」作答</li><li>也可能 chunk 太碎、prompt 没强约束「只依据 context」</li><li>先查检索质量，再怀疑生成</li></ul>
+<p>直接归咎 LLM，不去查检索那一层。</p>
+</details>
+<h3 id="l2进阶题research--工程深入">L2进阶题（research / 工程深入）</h3>
+<details>
+
+<summary>Q11. 写出 InfoNCE 损失并解释温度 $\tau$。</summary>
+<ul><li>$\mathcal{L} = -\log \frac{\exp(\text{sim}(q,d^+)/\tau)}{\sum_i \exp(\text{sim}(q,d_i)/\tau)}$</li><li>本质是相似度当 logits、正例当 label 的交叉熵</li><li>$\tau$ 小 → softmax 更尖 → 更看重最难负例；太小对噪声敏感</li></ul>
+<p>只会写公式，讲不出「它就是 softmax 交叉熵」和 $\tau$ 的锐度作用。</p>
+</details>
+<details>
+
+<summary>Q12. In-batch negatives 是什么？为什么高效？</summary>
+<ul><li>batch 内每个 query 用其它样本的正例当负例</li><li>一次前向拿到 $B-1$ 个负例，几乎零额外成本</li><li>相似度矩阵对角线是正例，label = arange(B)</li></ul>
+<p>说要单独前向算负例（错，in-batch 复用同 batch）。</p>
+</details>
+<details>
+
+<summary>Q13. 难负例为什么重要？false negative 陷阱是什么？</summary>
+<ul><li>随机负例太易、梯度小；难负例（像但不相关）信息量大</li><li>false negative：挖到的「难负例」可能其实相关 → 错误梯度</li><li>缓解：阈值过滤、cross-encoder 剔除、软标签蒸馏</li></ul>
+<p>只说「难负例好」，不知道它可能引入 false negative 噪声。</p>
+</details>
+<details>
+
+<summary>Q14. RRF 怎么融合多路检索？为什么用排名不用分数？</summary>
+<ul><li>$\text{RRF}(d)=\sum_r \frac{1}{k+\text{rank}_r(d)}$，$k\approx60$</li><li>只用名次，免去不同检索器分数量纲对齐</li><li>简单、稳、无需训练</li></ul>
+<p>试图直接加 BM25 分数和余弦分数（量纲不可比）。</p>
+</details>
+<details>
+
+<summary>Q15. Matryoshka 表征解决什么？怎么训？</summary>
+<ul><li>一次训练得到嵌套嵌入，前 $m$ 维也是好嵌入</li><li>多粒度损失 $\sum_m \mathcal{L}(\text{emb}[:m])$</li><li>部署按预算截断维度（截断后需重新 L2 归一化；省存储/加速粗排）</li></ul>
+<p>以为是事后 PCA 降维（MRL 是训练时就把重要语义压进前缀）。</p>
+</details>
+<details>
+
+<summary>Q16. BM25 里 $k_1$ 和 $b$ 分别控制什么？</summary>
+<ul><li>$k_1$：词频饱和（出现多次的边际收益递减）</li><li>$b$：文档长度归一化强度（$b=1$ 全归一、$b=0$ 不归一）</li><li>典型 $k_1\approx1.2$–$2$，$b\approx0.75$</li></ul>
+<p>说不清词频饱和与长度归一这两个机制。</p>
+</details>
+<details>
+
+<summary>Q17. ColBERT 的 late interaction 与双塔、交叉编码器的关系？</summary>
+<ul><li>双塔：单向量、仅最后点积（无 token 级交互）、可预计算</li><li>交叉编码器：early、全 attention、最强、不可预计算</li><li>ColBERT：token 级 late interaction，存 token 向量、MaxSim $\sum_i\max_j E_{q_i}^\top E_{d_j}$，介于两者、可预计算 doc</li></ul>
+<p>把 ColBERT 当普通双塔，不知道它是 token 级 MaxSim。</p>
+</details>
+<details>
+
+<summary>Q18. HyDE 是什么思路？为什么有用？</summary>
+<ul><li>先让 LLM 生成一个「假设答案」，用它的嵌入去检索</li><li>让 query 分布对齐 doc 分布（答案比问题更像文档）</li><li>零样本稠密检索常因此提升</li></ul>
+<p>以为 HyDE 是改写 query 关键词（其实是生成假设文档再嵌入）。</p>
+</details>
+<details>
+
+<summary>Q19. 怎么评测一个 RAG 系统？</summary>
+<ul><li>检索层：recall@k、nDCG、MRR</li><li>生成层：faithfulness、context relevance、answer relevance（如 RAGAS）</li><li>分层归因：先看检索对不对，再看生成</li></ul>
+<p>只看端到端答案对错，不分检索/生成两层。</p>
+</details>
+<details>
+
+<summary>Q20. lost in the middle 是什么？怎么缓解？</summary>
+<ul><li>长 context 里放中间的关键信息易被模型忽略（Liu 2023）</li><li>缓解：重排后把最相关片段放头尾、压缩 context、减少无关片段</li><li>也是「召回越多越好」不成立的原因之一</li></ul>
+<p>以为 context 越长越全越好，忽略中间信息被弱化。</p>
+</details>
+<h3 id="l3高级题顶级-lab--深水区">L3高级题（顶级 lab / 深水区）</h3>
+<details>
+
+<summary>Q21. 为什么交叉编码器不能拿来扫全库？复杂度差在哪？</summary>
+<ul><li>交叉编码器 doc 表示依赖 query，<strong>无法离线预计算</strong></li><li>每个 (query, doc) 对都要一次完整前向，全库 = $O(N \cdot C_{\text{enc}})$/query</li><li>双塔 doc 离线编码、线上只 ANN 查询（经验近似对数 / 亚线性）；所以交叉编码器只配重排 top-k</li></ul>
+<p>说交叉编码器也能建索引（它的表示和 query 耦合，建不了静态索引）。</p>
+</details>
+<details>
+
+<summary>Q22. 对比学习里 batch size 为什么影响很大？和负例的关系？</summary>
+<ul><li>in-batch 负例数 = batch-1，batch 越大负例越多、对比越强</li><li>大 batch 让 InfoNCE 的分母覆盖更多负例，估计更准</li><li>小 batch 负例少、易过拟合；可用 cross-batch memory / 难负例补偿</li></ul>
+<p>不知道 batch 大小直接决定 in-batch 负例数量。</p>
+</details>
+<details>
+
+<summary>Q23. GraphRAG 相比朴素 RAG 强在哪？代价？</summary>
+<ul><li>朴素 RAG 按片段独立召回，弱在「跨文档全局问题」</li><li>GraphRAG 用 LLM 抽实体-关系图 + 社区摘要，全局问题走摘要</li><li>代价：建图/摘要的离线 LLM 成本高、维护复杂</li></ul>
+<p>把 GraphRAG 当「换个向量库」，不知道它建的是知识图 + 社区摘要。</p>
+</details>
+<details>
+
+<summary>Q24. Self-RAG / CRAG 这类「自检式 RAG」在做什么？</summary>
+<ul><li>Self-RAG：训模型输出反思 token（要不要检索 / 片段有没有用 / 答案有没有依据）</li><li>CRAG：在<strong>检索层</strong>给召回质量打分，差就触发纠正检索（如 web 搜索、重写）</li><li>目标：让 RAG 在「检索没用/错」时不盲目据此作答</li></ul>
+<p>以为是更好的检索器；其实是加自我评估/纠正回路——Self-RAG 侧重生成时反思，CRAG 侧重评估检索质量并触发纠正检索。</p>
+</details>
+<details>
+
+<summary>Q25. 同一套知识，什么时候选 RAG、什么时候选微调、什么时候靠长上下文？</summary>
+<ul><li>注入大量<strong>可更新外部事实</strong> + 要溯源 → RAG</li><li>改<strong>能力/风格/格式/输出结构</strong> → 微调</li><li>单次少量文档、要全局推理且放得下 → 长上下文</li><li>实务常组合：微调调风格 + RAG 注事实 + 长上下文容纳召回</li></ul>
+<p>绝对化地说「RAG 全面优于微调」或反之，不看「注入事实 vs 改能力」的本质区分。</p>
+</details>
+<h2 id="a-附录sanity-check">§A 附录：sanity check</h2>
+<p><code>info_nce_in_batch</code> 与 mini-RAG 的关键不变量（可写脚本验证）：</p>
+<ul><li><strong>对角线即正例</strong>：相似度矩阵 $qd^\top$ 的对角线应是每行最大（训练后），<code>cross_entropy(logits, arange(B))</code> 收敛即对齐。</li><li><strong>归一化</strong>：编码输出 $\lVert\mathbf{q}\rVert\approx1$，点积落在 $[-1,1]$。</li><li><strong>温度方向</strong>：固定 logits、调小 $\tau$，softmax 概率应更集中（熵更低）。</li><li><strong>RRF 单调</strong>：某文档在任一检索器名次提前，其 RRF 分数不应下降。</li><li><strong>混合召回 ⊇ 关键命中</strong>：BM25 能命中的精确实体片段，混合结果里应保留（纯稠密可能漏）。</li></ul>
+<p>下面是 <a href="code/rag_embedding.py"><code>code/rag_embedding.py</code></a> 在 <strong>PyTorch 2.10 / CPU</strong> 上的<strong>真实运行</strong>输出（每行带 <code>assert</code>，全过才打印汇总）：</p>
+<pre><code>[a] in-batch InfoNCE: argmax==idx, loss aligned 0.0000 &lt; shuffled 22.9564  OK
+[b] DualEncoder ||v|| = 1.0000 (~1), max|dot| = 1.0000 (&lt;=1)  OK
+[c] entropy(tau=0.05) = 0.0000 &lt; entropy(tau=0.5) = 1.2945  OK
+[d] with-hard loss = 0.0000 finite, logits (6, 8) == (B, B+2)  OK
+[e] RRF(doc7): base = 0.03226 -&gt; better = 0.03252 (non-decreasing); rrf top = 7  OK
+[f] BM25 top = 1 (entity chunk 1); fused top2 = [1, 2]  OK
+
+all RAG / embedding sanity checks passed ✓</code></pre>
+<p>其中 [a] 对齐时 InfoNCE loss≈0、把正例打乱后骤升到 ~23，证明损失确实在「对齐」上响应（不只是构造了对角阵）；[c] 同一组 logits 下 $\tau=0.05$ 的 softmax 熵（≈0）远低于 $\tau=0.5$（≈1.29），验证小温度更锐；[f] 含罕见实体 <code>Zephyrnaut9000</code> 的片段被 <strong>BM25 排到第 1</strong>、混合（RRF）结果 top-2 保留，演示混合召回对精确实体的稳健（§5.3；注：此 toy 例里稠密恰好也召回了它，真实场景罕见实体/序列号稠密更易漏）。</p>
+<hr />
+<h2 id="runnable-code">📜 Runnable Code</h2>
+<p>本 tutorial 的嵌入 / 检索核心在 <a href="code/rag_embedding.py"><code>docs/tutorials/code/rag_embedding.py</code></a> 有最小可跑版本：</p>
+<ul><li><a href="code/rag_embedding.py"><code>rag_embedding.py</code></a> — <code>DualEncoder</code>（L2 归一化双塔）+ <code>info_nce_in_batch</code> / <code>info_nce_with_hard</code>（in-batch + 难负例对比损失）+ <code>bm25_scores</code> / <code>rrf</code> / 混合召回，含 6 个 <code>assert</code> sanity check（对角线即正例 / 归一化 / 温度锐度 / with-hard 形状 / RRF 单调 / 混合保留实体块）。</li></ul>
+<p>纯 PyTorch，CPU 几秒跑完、无需 GPU：<code>python docs/tutorials/code/rag_embedding.py</code>。上方 §A 的输出即该脚本的真实运行结果。</p>
+<hr />
+<h2 id="参考文献">📚 参考文献</h2>
+<ul><li><strong>RAG</strong> — Lewis et al., <em>Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</em>, arXiv 2005.11401 (2020), NeurIPS 2020.</li><li><strong>DPR</strong> — Karpukhin et al., <em>Dense Passage Retrieval for Open-Domain Question Answering</em>, arXiv 2004.04906 (2020), EMNLP 2020.</li><li><strong>InfoNCE / CPC</strong> — van den Oord et al., <em>Representation Learning with Contrastive Predictive Coding</em>, arXiv 1807.03748 (2018).</li><li><strong>SimCSE</strong> — Gao et al., <em>SimCSE: Simple Contrastive Learning of Sentence Embeddings</em>, arXiv 2104.08821 (2021), EMNLP 2021.</li><li><strong>ColBERT</strong> — Khattab &amp; Zaharia, <em>ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT</em>, arXiv 2004.12832 (2020), SIGIR 2020.</li><li><strong>Matryoshka Representation Learning</strong> — Kusupati et al., arXiv 2205.13147 (2022), NeurIPS 2022.</li><li><strong>BGE-M3</strong> — Chen et al., <em>BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation</em>, arXiv 2402.03216 (2024).</li><li><strong>HyDE</strong> — Gao et al., <em>Precise Zero-Shot Dense Retrieval without Relevance Labels</em>, arXiv 2212.10496 (2022), ACL 2023.</li><li><strong>Self-RAG</strong> — Asai et al., <em>Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</em>, arXiv 2310.11511 (2023), ICLR 2024.</li><li><strong>CRAG</strong> — Yan et al., <em>Corrective Retrieval Augmented Generation</em>, arXiv 2401.15884 (2024).</li><li><strong>GraphRAG</strong> — Edge et al., <em>From Local to Global: A Graph RAG Approach to Query-Focused Summarization</em>, arXiv 2404.16130 (2024).</li><li><strong>RAGAS</strong> — Es et al., <em>RAGAS: Automated Evaluation of Retrieval Augmented Generation</em>, arXiv 2309.15217 (2023).</li><li><strong>RRF</strong> — Cormack et al., <em>Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods</em>, SIGIR 2009.</li><li><strong>HNSW</strong> — Malkov &amp; Yashunin, <em>Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</em>, arXiv 1603.09320 (2016), IEEE TPAMI 2020.</li><li><strong>Lost in the Middle</strong> — Liu et al., <em>Lost in the Middle: How Language Models Use Long Contexts</em>, arXiv 2307.03172 (2023), TACL 2024.</li><li><strong>BM25</strong> — Robertson &amp; Zaragoza, <em>The Probabilistic Relevance Framework: BM25 and Beyond</em>, Foundations and Trends in IR (2009).</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/rag_embedding_retrieval_tutorial.md</code> ·
+  SHA256 <code>31ed4b8f0aa3</code> ·
+  generated at 2026-06-13 18:03 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

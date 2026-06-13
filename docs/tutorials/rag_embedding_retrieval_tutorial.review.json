@@ -1,0 +1,76 @@
+{
+  "skill": "interview-cheatsheet",
+  "source": "docs/tutorials/rag_embedding_retrieval_tutorial.md",
+  "source_sha256": "31ed4b8f0aa37b4b5bf1d69f842a12001f8342f71062158e5e762e97dfd02787",
+  "output": "docs/tutorials/rag_embedding_retrieval_tutorial.html",
+  "runnable_code": "docs/tutorials/code/rag_embedding.py",
+  "topic": "RAG + 文本嵌入/检索/重排 — InfoNCE / 难负例 / Matryoshka / 双塔 vs cross-encoder / ColBERT late interaction / BM25 / RRF / HNSW / HyDE / Self-RAG / CRAG / GraphRAG / RAGAS",
+  "effort": "max",
+  "byline": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
+  "reviewer": "codex gpt-5.5 xhigh, fresh thread per batch",
+  "math_code_review": {
+    "verdict": "PASS (4 batched passes + 1 holistic full-document pass, all zero-blocking; warnings folded in)",
+    "rounds": [
+      {
+        "run": 1,
+        "scope": "citations (inline, no file read)",
+        "verdict": "PASS — 16/16 correct",
+        "thread_id": "019ec1dc-c7e9-7dd1-925f-aeea428a87ed",
+        "notes": "All 16 references verified: author, arXiv id, year, venue (RAG/DPR/InfoNCE/SimCSE/ColBERT/MRL/BGE-M3/HyDE/Self-RAG/CRAG/GraphRAG/RAGAS/RRF/HNSW/Lost-in-the-Middle/BM25)."
+      },
+      {
+        "run": 2,
+        "scope": "formulas (inline, no file read)",
+        "verdict": "WARN → fixed",
+        "thread_id": "019ec1f2-deb3-7681-8312-0e7cbc3fd458",
+        "notes": "8/8 formulas correct. Applied: Matryoshka prefix re-L2-normalize note; temperature gradient-saturation hedge; HNSW O(log N) → empirical near-log/sublinear."
+      },
+      {
+        "run": 3,
+        "scope": "code (inline, no file read)",
+        "verdict": "WARN → fixed",
+        "thread_id": "019ec1f3-e04e-7981-b40f-74b79b50feb3",
+        "notes": "Both python blocks correct. Applied: §9 mini_rag precompute bm25 once (was O(N^2)). ('return discards context' flag was an abbreviated-paste artifact; actual file uses {context}.)"
+      },
+      {
+        "run": 4,
+        "scope": "25 interview answers (§12 only)",
+        "verdict": "WARN → fixed",
+        "thread_id": "019ec1f4-ac62-7102-8ce5-c7541c802687",
+        "notes": "No wrong answers; softened 8 over-absolute claims (Q1 solve→mitigate; rerank ROI; threshold calibration; HNSW empirical; bi-encoder not 'late interaction'; CRAG retrieval-stage)."
+      },
+      {
+        "run": 5,
+        "scope": "HOLISTIC full-document pass (verify all refinements + cross-section consistency)",
+        "verdict": "WARN → fixed",
+        "thread_id": "019ec210-792f-7c30-9405-d0ffe85fe4bb",
+        "notes": "Confirmed 6/8 refinements fully consistent; caught 2 consistency misses + minor warnings, all fixed: §0 'treat 3 things' / Q1 'cure' wording → '应对/缓解' consistent with Q1; §11 table online dense-recall O(log N) → empirical near-log/sublinear (the one occurrence missed by the per-section pass); §7 numbering collision (Chunking + Query-rewrite both ①) → Chunking relabeled ⓪ offline; §7 flow-diagram CRAG clarified as retrieval-quality correction loop; Q15 truncation note + re-normalize. No internal contradictions, no remaining factual/markdown errors."
+      },
+      {
+        "run": 6,
+        "scope": "runnable script docs/tutorials/code/rag_embedding.py + §A real-output integration",
+        "verdict": "WARN → fixed",
+        "thread_id": "019ec222-a3e2-7063-acdd-bedff10b4d0f",
+        "notes": "Code correct, output numbers consistent (with-hard logits (6,8); RRF base 1/62+1/62=0.03226, better 1/61+1/62=0.03252; loss≈0 from d_pos==q). Flagged the sanity checks as smoke tests + a §A overclaim; strengthened: [a] now also asserts aligned loss (≈0) << shuffled-positive loss (~23) so the CE/label wiring is actually tested; [b] now uses the real DualEncoder.encode (not a hand F.normalize); [e] tightened to assert rrf() top == doc-7 (the only doc in both lists). Fixed the §A overclaim: this toy [f] shows BM25 ranks the rare entity #1 and RRF keeps it top-2 (it does NOT itself demonstrate pure-dense missing — the toy dense also recalls it; reworded to say so). Re-ran clean on Server5 (PyTorch 2.10 CPU): all 6 asserts pass."
+      }
+    ]
+  },
+  "render_review": {
+    "verdict": "PASS",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "PASS",
+        "thread_id": "019ec1ff-7235-7170-ba4f-9eb43e83d710",
+        "notes": "7/7 fidelity checks: all 14 §-sections + 25 Q&A present, MathJax delimiters intact (InfoNCE/BM25/RRF/ColBERT boxes), 2 python blocks char-exact, 3 tables render, 29 TOC, no injection, 7 callouts styled no list-swallow."
+      },
+      {
+        "run": 2,
+        "verdict": "PASS (re-render after holistic-pass consistency edits)",
+        "notes": "Deterministic re-render after minor wording edits to existing constructs (§11 table cell, §7 diagram line + bullets, §0/Q1/Q15 wording). Mechanically verified: 29 TOC stable, edited cells/lines present, reproduce passes (HTML byte-reproduces from source modulo timestamp)."
+      }
+    ]
+  },
+  "summary": "RAG + Embedding/Retrieval cheat sheet (effort=max, 662 lines): cross-model codex gpt-5.5 xhigh review in 4 batched passes (citations 16/16 · formulas 8/8 · code · 25 answers) + 1 holistic full-document pass + 1 render-fidelity pass, settled at PASS with zero blocking issues. All citations and formulas independently verified. Refinements folded in: Matryoshka prefix re-normalization, bm25 O(N^2)→precompute, bi-encoder-vs-ColBERT 'late interaction' terminology, CRAG retrieval-stage clarification, §7 numbering, and ~10 over-absolute claims softened (hallucination mitigate-not-solve, HNSW empirical complexity, threshold calibration).",
+  "rendered_at": "2026-06-14"
+}

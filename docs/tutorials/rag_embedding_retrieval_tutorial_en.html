@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rag Embedding Retrieval Tutorial En</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/rag_embedding_retrieval_tutorial_en.md">
+<meta name="aris:source-sha256" content="1ec7d4c32dc4fc937402cb9525db77aac51c121249ae87bf4a8da22ee72f6a2c">
+<meta name="aris:generated-at" content="2026-06-13 18:18 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-intuition-why-we-need-rag">§1 Intuition: why we need RAG</a>
+</li>
+<li><a href="#2-text-embeddings-bi-encoder--contrastive-learning">§2 Text embeddings: bi-encoder + contrastive learning</a>
+<ul>
+<li><a href="#21-bi-encoder-structure">2.1　Bi-encoder structure</a></li>
+<li><a href="#22-infonce--contrastive-loss-must-know-know-the-derivation">2.2　InfoNCE / contrastive loss (must-know, know the derivation)</a></li>
+<li><a href="#23-in-batch-negatives-and-hard-negatives">2.3　In-batch negatives and hard negatives</a></li>
+</ul>
+</li>
+<li><a href="#3-the-dual-of-hard-negatives--matryoshka-representations">§3 The dual of hard negatives + Matryoshka representations</a>
+<ul>
+<li><a href="#31-cosine--dot-product--normalization">3.1　Cosine / dot product / normalization</a></li>
+<li><a href="#32-matryoshka-representation-learning-mrl">3.2　Matryoshka Representation Learning (MRL)</a></li>
+</ul>
+</li>
+<li><a href="#4-from-scratch-bi-encoder--infonce-training">§4 From scratch: bi-encoder + InfoNCE training</a>
+</li>
+<li><a href="#5-retrieval-sparse--dense--hybrid">§5 Retrieval: sparse / dense / hybrid</a>
+<ul>
+<li><a href="#51-sparse-retrieval-bm25">5.1　Sparse retrieval: BM25</a></li>
+<li><a href="#52-dense-retrieval--ann-hnsw">5.2　Dense retrieval + ANN (HNSW)</a></li>
+<li><a href="#53-hybrid-retrieval--rrf">5.3　Hybrid retrieval + RRF</a></li>
+</ul>
+</li>
+<li><a href="#6-reranking-cross-encoder">§6 Reranking: cross-encoder</a>
+</li>
+<li><a href="#7-the-rag-pipeline-from-query-to-answer">§7 The RAG pipeline: from query to answer</a>
+</li>
+<li><a href="#8-advanced-rag-graphrag--comparison--evaluation">§8 Advanced RAG: GraphRAG · comparison · evaluation</a>
+<ul>
+<li><a href="#81-graphrag">8.1　GraphRAG</a></li>
+<li><a href="#82-rag-vs-long-context-vs-fine-tuning">8.2　RAG vs long-context vs fine-tuning</a></li>
+<li><a href="#83-evaluation-dont-only-look-at-generation">8.3　Evaluation (don&#x27;t only look at generation)</a></li>
+</ul>
+</li>
+<li><a href="#9-from-scratch-a-mini-rag-pipeline">§9 From scratch: a mini-RAG pipeline</a>
+</li>
+<li><a href="#10-engineering-practice-and-common-bugs">§10 Engineering practice and common bugs</a>
+</li>
+<li><a href="#11-complexity-and-resources">§11 Complexity and resources</a>
+</li>
+<li><a href="#12-25-high-frequency-interview-questions">§12 25 high-frequency interview questions</a>
+<ul>
+<li><a href="#l1-must-know-any-role-that-has-used-rag">L1 must-know (any role that has used RAG)</a></li>
+<li><a href="#l2-advanced-research--deep-engineering">L2 advanced (research / deep-engineering)</a></li>
+<li><a href="#l3-top-lab-questions-deep-end">L3 top-lab questions (deep end)</a></li>
+</ul>
+</li>
+<li><a href="#a-appendix-sanity-check">§A Appendix: sanity check</a>
+</li>
+<li><a href="#runnable-code">📜 Runnable Code</a>
+</li>
+<li><a href="#references">📚 References</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  
+  <h1>Rag Embedding Retrieval Tutorial En</h1>
+  
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/rag_embedding_retrieval_tutorial_en.md</code></span>
+    <span><strong>SHA256:</strong> <code>1ec7d4c32dc4</code></span>
+    <span><strong>Rendered:</strong> 2026-06-13 18:18 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">9 sentences to nail RAG + Embedding</div><p>one page covering the interview essentials (see §2–§11 for derivations).</p></div>
+<ol><li><strong>What RAG is</strong>: Retrieval-Augmented Generation = first <strong>retrieve</strong> relevant passages from an external knowledge base with the query, then stitch them into the prompt and let the LLM <strong>generate</strong> the answer. It addresses three things: stale knowledge, hallucination, private data (Lewis et al. 2020).</li><li><strong>Two complementary halves</strong>: the left half "<strong>train embeddings</strong>" is contrastive learning (bi-encoder + InfoNCE + hard negatives), math-dense; the right half "<strong>use embeddings</strong>" is the RAG pipeline (chunk → retrieve → rerank → assemble prompt), systems-dense.</li><li><strong>The embedding main loss, InfoNCE</strong>: $\mathcal{L} = -\log \frac{\exp(\text{sim}(q,d^+)/\tau)}{\sum_i \exp(\text{sim}(q,d_i)/\tau)}$ — essentially the softmax cross-entropy of "the positive vs a pile of negatives," with temperature $\tau$ tuning sharpness.</li><li><strong>Bi-encoder vs cross-encoder</strong>: the bi-encoder encodes query/doc separately, is <strong>precomputable</strong>, fast, used for recall; the cross-encoder encodes them together, is <strong>not precomputable</strong>, slow but accurate, used to <strong>rerank top-k</strong>.</li><li><strong>Hard negatives</strong>: pick "similar but irrelevant" docs from the retrieval top-k as negatives — more informative than random negatives; but beware the <strong>false negative trap</strong> — a picked "hard negative" may actually be relevant and become noise.</li><li><strong>Sparse vs dense vs hybrid</strong>: BM25 (exact term matching, strong on rare words / entities) + dense vectors (semantic matching) complement each other, fused by rank with <strong>RRF</strong> (Reciprocal Rank Fusion): $\text{RRF}(d)=\sum_r \frac{1}{k+\text{rank}_r(d)}$, $k\approx60$.</li><li><strong>Matryoshka representations</strong>: one training run makes the <strong>first $m$ dims</strong> of the embedding also a good embedding, so deployment truncates dimensions on demand (save storage / speed up recall) via the multi-granularity loss $\sum_m \mathcal{L}(\text{emb}[:m])$.</li><li><strong>RAG vs long-context vs fine-tuning</strong>: RAG injects <strong>updatable external facts</strong> and is traceable; long-context stuffs the full text but is expensive and suffers "lost in the middle"; fine-tuning changes <strong>capability/style</strong>, not great at injecting massive new facts. The three are often combined.</li><li><strong>Evaluation</strong>: don't only look at generation — evaluate in layers: <strong>retrieval quality</strong> (recall@k / nDCG) + <strong>generation faithfulness</strong> (faithfulness / context relevance / answer relevance, e.g. RAGAS).</li></ol>
+<h2 id="1-intuition-why-we-need-rag">§1 Intuition: why we need RAG</h2>
+<p>LLMs have three structural weaknesses: <strong>knowledge cutoff</strong> (they don't know post-training events), <strong>hallucination</strong> (they confidently make things up when they don't know), and <strong>private data</strong> (they haven't seen your company's docs). Fine-tuning to inject knowledge is expensive, slow, and goes stale.</p>
+<p><strong>RAG (Retrieval-Augmented Generation) moves "knowledge" out of the parameters into an external knowledge base</strong>: treat the weights as the "reasoning engine" and the vector store as "external memory you can update any time." When answering, first retrieve relevant passages, then let the LLM answer based on them — knowledge updates only need a store update (no retraining), answers can be traced (cite sources), and private data never enters the training set.</p>
+<p>This chain splits naturally into <strong>two complementary halves</strong>:</p>
+<ul><li><strong>Train embeddings (left half, math-dense)</strong>: how to turn a sentence/passage into a vector such that "semantically close → vectors close." The core is <strong>contrastive learning</strong> (bi-encoder + InfoNCE + hard negatives).</li><li><strong>Use embeddings (right half, systems-dense)</strong>: how to build a usable pipeline from these vectors — chunking, indexing (ANN), recall, reranking, prompt assembly, evaluation.</li></ul>
+<div class="callout callout-info"><div class="callout-title">One-sentence mental model</div><p>An LLM is a "closed-book exam relying only on memory"; RAG is an "open-book exam: first use the query to find the relevant pages in the book (retrieve), then answer following those pages (generate)." How accurately you find = embedding + retrieval quality; how well you answer = rerank + prompt + LLM.</p></div>
+<h2 id="2-text-embeddings-bi-encoder--contrastive-learning">§2 Text embeddings: bi-encoder + contrastive learning</h2>
+<h3 id="21-bi-encoder-structure">2.1　Bi-encoder structure</h3>
+<p>Pass the query and the document each through an encoder (usually a shared or siamese BERT-like model), take a sentence vector (<code>[CLS]</code> or mean pooling), and L2-normalize:</p>
+<p>$$\mathbf{q} = \text{normalize}(\text{Enc}(\text{query})), \qquad \mathbf{d} = \text{normalize}(\text{Enc}(\text{doc}))$$</p>
+<p>Similarity is the dot product (which equals cosine after normalization): $\text{sim}(q,d) = \mathbf{q}^\top \mathbf{d}$.</p>
+<p>Key advantage: <strong>doc vectors can be precomputed offline and indexed</strong>, so online you only encode the query once and do nearest-neighbor search. This is the root reason the bi-encoder scales to huge bases (contrast the cross-encoder in §6).</p>
+<h3 id="22-infonce--contrastive-loss-must-know-know-the-derivation">2.2　InfoNCE / contrastive loss (must-know, know the derivation)</h3>
+<p>Goal: make the query close to its positive doc $d^+$ and far from negatives $d^-$. Write it as "pick the positive out of a pile of candidates" — a softmax cross-entropy over the candidate set $\{d^+, d_1^-, \dots, d_{N}^-\}$:</p>
+<p>$$\boxed{\;\mathcal{L}_{\text{InfoNCE}} = -\log \frac{\exp(\text{sim}(q, d^+)/\tau)}{\exp(\text{sim}(q, d^+)/\tau) + \sum_{i} \exp(\text{sim}(q, d_i^-)/\tau)}\;}$$</p>
+<p>Derivation view: this is just <strong>cross-entropy</strong> with "similarity $/\tau$" as logits and the positive index as the label. Minimizing it = maximizing $q$'s similarity to $d^+$ and suppressing similarity to all negatives (InfoNCE, van den Oord 2018; applied to retrieval it's DPR, Karpukhin 2020).</p>
+<p><strong>Role of temperature $\tau$</strong>: small $\tau$ → logits amplified → softmax sharper → the model "cares" more about the hardest negative (gradient leans toward the hardest negative; but when the positive already dominates, small $\tau$ can also saturate and shrink the gradient); large $\tau$ → smoother, more uniform negative weights. Too-small $\tau$ is sensitive to noise/false-negatives, too-large lacks discrimination — a key hyperparameter (commonly $0.01\sim0.07$).</p>
+<h3 id="23-in-batch-negatives-and-hard-negatives">2.3　In-batch negatives and hard negatives</h3>
+<p><strong>In-batch negatives</strong>: a batch has $B$ pairs $(q_i, d_i^+)$; for $q_i$, <strong>the other $B-1$ positives $d_{j\ne i}^+$ serve as negatives</strong>. One forward pass yields $B-1$ negatives at almost zero extra cost (DPR's key trick). Bigger batch → more negatives → stronger contrast (large batch matters for contrastive learning).</p>
+<p><strong>Hard negatives</strong>: random negatives are often too easy (obviously irrelevant), with small gradients. Picking "lexically/semantically similar but actually irrelevant" docs from a BM25 / previous-model retrieval top-k is far more informative — a key to leaderboard gains.</p>
+<div class="callout callout-warn"><div class="callout-title">False negative trap</div><p>a "hard negative" mined from the top-k may <strong>actually be relevant</strong> (just unlabeled), and treating it as a negative gives a wrong gradient. Mitigation: drop candidates too similar to the positive (threshold filtering), use a cross-encoder to score and remove high-scoring ones, or distill soft labels. Hard negatives are a double-edged sword — harder is not always better.</p></div>
+<h2 id="3-the-dual-of-hard-negatives--matryoshka-representations">§3 The dual of hard negatives + Matryoshka representations</h2>
+<h3 id="31-cosine--dot-product--normalization">3.1　Cosine / dot product / normalization</h3>
+<p>After L2 normalization $\lVert \mathbf{q} \rVert = \lVert \mathbf{d} \rVert = 1$, so $\mathbf{q}^\top\mathbf{d} = \cos\theta \in [-1,1]$. The benefit of normalization: similarity looks only at <strong>direction</strong>, not magnitude — training is more stable (an absolute threshold still needs calibration per model/corpus). Most retrieval embeddings are normalized and use the dot product (= cosine).</p>
+<h3 id="32-matryoshka-representation-learning-mrl">3.2　Matryoshka Representation Learning (MRL)</h3>
+<p>A plain embedding is fixed-length (e.g. 768-dim); to save storage / speed up you can only reduce dimensions afterward (PCA), at a big loss. <strong>Matryoshka (Kusupati 2022) gets "nested" embeddings from one training run</strong>: the first $m$ dims ($m \in \{64,128,256,\dots,768\}$) are each a valid embedding. This is done by computing the loss at multiple granularities simultaneously:</p>
+<p>$$\mathcal{L}_{\text{MRL}} = \sum_{m \in \mathcal{M}} w_m \, \mathcal{L}_{\text{InfoNCE}}\big(\mathbf{q}[:m],\ \mathbf{d}[:m]\big)$$</p>
+<p>At deployment you truncate by budget: coarse ranking uses the first 64/128 dims (fast, cheap), fine ranking uses the full dims. OpenAI <code>text-embedding-3</code>, Nomic, BGE etc. all support adjustable MRL dimensions.</p>
+<div class="callout callout-info"><div class="callout-title">Why MRL works</div><p>the multi-granularity loss forces the model to pack "the most important semantics" into the first few dims (like principal components ordered by importance), so a truncated prefix is still usable. Note: when used for cosine/dot retrieval, each prefix $\mathbf{q}[:m]$ should typically be <strong>re-L2-normalized</strong> (otherwise differing prefix norms change the logit scale). Cost: a more complex training objective and a slight possible drop in full-dim quality, traded for deployment flexibility.</p></div>
+<h2 id="4-from-scratch-bi-encoder--infonce-training">§4 From scratch: bi-encoder + InfoNCE training</h2>
+<p>Below is a runnable bi-encoder + in-batch InfoNCE training step (with a toy encoder; the focus is the contrastive loss and the hard-negative logic).</p>
+<pre><code class="language-python">import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class DualEncoder(nn.Module):
+    &quot;&quot;&quot;Toy bi-encoder: query/doc share one encoder; swap in a BERT-like model in practice.&quot;&quot;&quot;
+
+    def __init__(self, vocab, dim=128):
+        super().__init__()
+        self.emb = nn.EmbeddingBag(vocab, dim, mode=&quot;mean&quot;)  # bag-of-words mean as sentence vector
+        self.proj = nn.Linear(dim, dim)
+
+    def encode(self, ids, offsets):
+        h = self.proj(self.emb(ids, offsets))
+        return F.normalize(h, dim=-1)                        # L2 normalize -&gt; dot product = cosine
+
+
+def info_nce_in_batch(q, d_pos, tau=0.05):
+    &quot;&quot;&quot;q, d_pos: [B, dim] normalized. Other positives in the batch serve as negatives.&quot;&quot;&quot;
+    logits = (q @ d_pos.t()) / tau          # [B, B], entry (i, i) is the positive
+    labels = torch.arange(q.size(0), device=q.device)
+    return F.cross_entropy(logits, labels)  # diagonal is positive -&gt; multiclass cross-entropy
+
+
+def info_nce_with_hard(q, d_pos, d_hard, tau=0.05):
+    &quot;&quot;&quot;Append each query&#x27;s own hard negative d_hard: [B, dim].&quot;&quot;&quot;
+    pos = (q * d_pos).sum(-1, keepdim=True)         # [B,1] positive similarity
+    in_batch = q @ d_pos.t()                        # [B,B] in-batch negatives
+    in_batch.fill_diagonal_(float(&quot;-inf&quot;))          # drop self-positive to avoid double counting
+    hard = (q * d_hard).sum(-1, keepdim=True)       # [B,1] hard-negative similarity
+    logits = torch.cat([pos, in_batch, hard], dim=1) / tau   # positive at column 0
+    labels = torch.zeros(q.size(0), dtype=torch.long, device=q.device)
+    return F.cross_entropy(logits, labels)</code></pre>
+<p>Key points:</p>
+<ul><li>The essence of <code>info_nce_in_batch</code>: the <strong>diagonal of the similarity matrix</strong> $q d^\top$ <strong>is the positive</strong>, so the label is just <code>arange(B)</code>, and one cross_entropy line does it.</li><li>When adding hard negatives, put the positive logit at column 0 and set the label to all 0; <code>fill_diagonal_(-inf)</code> avoids the in-batch matrix counting the self-positive again.</li><li>The smaller <code>tau</code> is, the more the logits are amplified, the more it leans toward the hardest negative.</li></ul>
+<h2 id="5-retrieval-sparse--dense--hybrid">§5 Retrieval: sparse / dense / hybrid</h2>
+<h3 id="51-sparse-retrieval-bm25">5.1　Sparse retrieval: BM25</h3>
+<p>BM25 is the classic exact-term-matching baseline, still strong for <strong>rare words, entity names, code/IDs</strong> — queries that "must match literally":</p>
+<p>$$\text{BM25}(q,d) = \sum_{t \in q} \text{IDF}(t) \cdot \frac{f(t,d)\,(k_1+1)}{f(t,d) + k_1\big(1 - b + b\,\frac{\lvert d\rvert}{\text{avgdl}}\big)}$$</p>
+<p>where $f(t,d)$ is term frequency, $\lvert d\rvert$ is document length, $\text{avgdl}$ is average length, $k_1$ (≈1.2–2.0) controls term-frequency saturation, and $b$ (≈0.75) controls length normalization. <strong>Term-frequency saturation</strong>: appearing 10 times isn't 10× more important than once.</p>
+<h3 id="52-dense-retrieval--ann-hnsw">5.2　Dense retrieval + ANN (HNSW)</h3>
+<p>Dense = encode the query into a vector and find nearest neighbors in the vector store. Once the store is large you can't brute-force all of it — use <strong>approximate nearest neighbor (ANN)</strong>. The mainstream is <strong>HNSW</strong> (Malkov &amp; Yashunin 2016): build a multi-layer "navigable small world" graph, with sparse long hops up top and dense fine search at the bottom, giving query cost <strong>empirically near-logarithmic / sublinear</strong> (not a strict guarantee; depends on efSearch, graph degree, recall target).</p>
+<div class="callout callout-warn"><div class="callout-title">Dense is not a panacea</div><p>dense vectors excel at <strong>semantics/synonyms/paraphrase</strong>, but for "exact entities, rare proper nouns, serial numbers" they may lose to BM25 (these words have no discriminative power in the semantic space). So industry rarely goes pure dense — mostly hybrid.</p></div>
+<h3 id="53-hybrid-retrieval--rrf">5.3　Hybrid retrieval + RRF</h3>
+<p>Fuse BM25's and dense's respective rankings with <strong>Reciprocal Rank Fusion</strong> (using only ranks, not scores, sidestepping scale alignment):</p>
+<p>$$\boxed{\;\text{RRF}(d) = \sum_{r \in \mathcal{R}} \frac{1}{k + \text{rank}_r(d)}\;}, \qquad k \approx 60$$</p>
+<p>$\text{rank}_r(d)$ is document $d$'s rank in retriever $r$ (1-based). The constant $k$ damps the head ranks' over-dominance. RRF is simple, stable, training-free — the default fusion for hybrid retrieval (Cormack 2009).</p>
+<h2 id="6-reranking-cross-encoder">§6 Reranking: cross-encoder</h2>
+<p>Recall (bi-encoder + ANN) chases <strong>high recall, fast</strong>, but the precision of the top-k isn't enough. <strong>A reranker re-scores the recalled top-k (say 100) precisely and takes the top few</strong>.</p>
+<table><thead><tr><th></th><th>Bi-encoder</th><th>Cross-encoder</th><th>ColBERT (late interaction)</th></tr></thead><tbody><tr><td>Encoding</td><td>query, doc encoded <strong>separately</strong></td><td><code>[query; doc]</code> encoded <strong>together</strong></td><td>doc stores <strong>per-token</strong> vectors</td></tr><tr><td>Interaction</td><td>only a final dot product (no token-level interaction)</td><td>full attention throughout (early, strong)</td><td>token-level late interaction (MaxSim)</td></tr><tr><td>Precomputable doc</td><td>✅ (build an index)</td><td>❌ (every pair recomputed)</td><td>✅ (store token vectors, larger)</td></tr><tr><td>Speed / scale</td><td>fast / millions–billions</td><td>slow / rerank top-k only</td><td>mid / larger storage</td></tr><tr><td>Use</td><td><strong>recall</strong></td><td><strong>rerank</strong></td><td>recall+rerank compromise</td></tr></tbody></table>
+<p>Cross-encoder: $\text{score}(q,d) = \text{MLP}(\text{BERT}([q;d])_{\texttt{[CLS]}})$ — the query's and doc's tokens attend to each other throughout, hence accurate; the cost is <strong>it can't be precomputed</strong> (the doc representation depends on the query), so it only runs over a small number of recalled candidates.</p>
+<p><strong>ColBERT's late interaction</strong>: the doc stores each token's vector, and scoring uses MaxSim — each query token finds the most similar token in the doc and sums:</p>
+<p>$$\text{score}(q,d) = \sum_{i \in q} \max_{j \in d} \mathbf{E}_{q_i}^\top \mathbf{E}_{d_j}$$</p>
+<p>Finer-grained than the bi-encoder's single vector, yet the doc side is still precomputable — a compromise between recall and reranking (Khattab &amp; Zaharia 2020).</p>
+<h2 id="7-the-rag-pipeline-from-query-to-answer">§7 The RAG pipeline: from query to answer</h2>
+<pre class="diagram"><code>query
+  │  ① query rewrite / expand (HyDE / multi-query)
+  ▼
+[sparse BM25]  +  [dense ANN]
+  │                │
+  └──── RRF fuse ───┘   ② recall top-100
+  ▼
+cross-encoder rerank  ③ take top-5
+  ▼
+assemble prompt (context + question)  ④ with source labels
+  ▼
+LLM generate + cite   ⑤ optional self-check: Self-RAG(generation reflection) · CRAG(retrieval-quality → correction loop)</code></pre>
+<ul><li><strong>⓪ Chunking (offline)</strong>: split documents into passages then embed (this is offline preprocessing, not shown in the online flow above). Too large → coarse retrieval, diluted relevant info; too small → broken context. Common is 200–500 token + overlap, or split by semantics/heading structure. <strong>Chunking strategy hugely affects results</strong> — one of the most worth-tuning knobs.</li><li><strong>① Query rewrite</strong>: <strong>HyDE</strong> (Gao 2022) first lets the LLM generate a "hypothetical answer" then retrieves with its embedding (aligning the query and doc distributions); multi-query generates several rewrites and merges recall.</li><li><strong>④ Prompt assembly</strong>: context passages + the original question + an instruction to "answer only from the context and give sources"; mind <strong>lost-in-the-middle</strong> (Liu 2023) — key passages placed in the middle are easily ignored, so put the important ones at the head and tail.</li><li><strong>⑤ Self-checking RAG</strong>: <strong>Self-RAG</strong> (Asai 2023) trains the model to emit reflection tokens ("should I retrieve / is the retrieved useful / is the answer grounded"); <strong>CRAG</strong> (Yan 2024) scores retrieval quality and, if poor, triggers web search or correction.</li></ul>
+<h2 id="8-advanced-rag-graphrag--comparison--evaluation">§8 Advanced RAG: GraphRAG · comparison · evaluation</h2>
+<h3 id="81-graphrag">8.1　GraphRAG</h3>
+<p>Naive RAG recalls passages independently and is weak at "global questions spanning many documents" (e.g. "the thematic thread of the whole report"). <strong>GraphRAG</strong> (Microsoft, Edge 2024) first uses an LLM to extract the corpus into an <strong>entity-relation knowledge graph + community summaries</strong>, and global questions go through "community summaries" rather than scattered passages. Strong at query-focused summarization; the cost is expensive graph building.</p>
+<h3 id="82-rag-vs-long-context-vs-fine-tuning">8.2　RAG vs long-context vs fine-tuning</h3>
+<table><thead><tr><th></th><th>RAG</th><th>Long-context</th><th>Fine-tuning</th></tr></thead><tbody><tr><td>What it injects</td><td>updatable <strong>external facts</strong></td><td>the full text stuffed in this time</td><td><strong>capability / style / format</strong></td></tr><tr><td>Knowledge update</td><td>update the store, traceable</td><td>re-stuff each time, no persistence</td><td>retrain, easily stale</td></tr><tr><td>Cost</td><td>retrieval + short prompt</td><td>long prompt, expensive, slow</td><td>training expensive, inference cheap</td></tr><tr><td>Weakness</td><td>wrong retrieval → wrong answer</td><td>lost-in-the-middle</td><td>bad at injecting massive new facts</td></tr></tbody></table>
+<p>In practice the three are often combined: fine-tune for style + RAG for facts + moderate long-context to hold the recalled passages.</p>
+<h3 id="83-evaluation-dont-only-look-at-generation">8.3　Evaluation (don't only look at generation)</h3>
+<p>Evaluate in two layers:</p>
+<ul><li><strong>Retrieval layer</strong>: recall@k, nDCG, MRR — whether the recalled passages are right.</li><li><strong>Generation layer</strong>: <strong>faithfulness</strong> (is the answer faithful to the context, no fabrication), <strong>context relevance</strong> (is the recall relevant), <strong>answer relevance</strong> (does the answer hit the point). RAGAS (Es 2023) computes these automatically with an LLM.</li></ul>
+<div class="callout callout-bad"><div class="callout-title">Classic faceplant</div><p>only looking at "does the answer read correctly," without layering. The retrieval recalls a wrong passage, the LLM "faithfully" gives a wrong answer based on it, and end-to-end it looks like hallucination while the root cause is in retrieval. You must attribute retrieval and generation separately.</p></div>
+<h2 id="9-from-scratch-a-mini-rag-pipeline">§9 From scratch: a mini-RAG pipeline</h2>
+<pre><code class="language-python">import re, math
+import torch, torch.nn.functional as F
+
+def chunk(text, size=40, overlap=10):
+    words = text.split()
+    out, i = [], 0
+    while i &lt; len(words):
+        out.append(&quot; &quot;.join(words[i:i+size]))
+        i += size - overlap                      # sliding window with overlap, avoid broken context
+    return out
+
+def embed(texts, encoder):                       # encoder: str -&gt; [dim] normalized vector
+    return F.normalize(torch.stack([encoder(t) for t in texts]), dim=-1)
+
+def dense_topk(qv, dv, k):                        # cosine top-k
+    sims = dv @ qv                                # [N]
+    return sims.topk(min(k, len(dv))).indices.tolist()
+
+def bm25_scores(query, docs, k1=1.5, b=0.75):
+    toks = [d.lower().split() for d in docs]
+    avgdl = sum(len(t) for t in toks) / len(toks)
+    N = len(docs)
+    df = {}
+    for t in toks:
+        for w in set(t):
+            df[w] = df.get(w, 0) + 1
+    scores = []
+    for d in toks:
+        s, dl = 0.0, len(d)
+        for w in set(query.lower().split()):
+            if w not in df:
+                continue
+            idf = math.log(1 + (N - df[w] + 0.5) / (df[w] + 0.5))
+            f = d.count(w)
+            s += idf * f * (k1 + 1) / (f + k1 * (1 - b + b * dl / avgdl))
+        scores.append(s)
+    return scores
+
+def rrf(rank_lists, k=60):                        # rank_lists: [[doc_idx by rank]...]
+    score = {}
+    for ranks in rank_lists:
+        for rank, idx in enumerate(ranks, start=1):
+            score[idx] = score.get(idx, 0.0) + 1.0 / (k + rank)
+    return sorted(score, key=score.get, reverse=True)
+
+def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
+    chunks = [c for doc in corpus for c in chunk(doc)]
+    dv = embed(chunks, encoder)
+    qv = F.normalize(encoder(query), dim=-1)
+    dense_rank = dense_topk(qv, dv, top_recall)                      # dense ranks
+    bm25 = bm25_scores(query, chunks)                               # compute once, avoid O(N^2)
+    bm25_rank = sorted(range(len(chunks)), key=lambda i: bm25[i], reverse=True)[:top_recall]
+    fused = rrf([dense_rank, bm25_rank])[:top_final]                # fuse + truncate
+    context = &quot;\n&quot;.join(f&quot;[{r}] {chunks[i]}&quot; for r, i in enumerate(fused, 1))
+    return f&quot;Answer based on the following passages (cite the source number):\n{context}\n\nQuestion: {query}&quot;</code></pre>
+<p>This ties §5–§7 together: chunk → dense + BM25 dual recall → RRF fuse → assemble a source-labeled prompt (in practice add a cross-encoder rerank after fusion).</p>
+<h2 id="10-engineering-practice-and-common-bugs">§10 Engineering practice and common bugs</h2>
+<ul><li><strong>Chunk size is the number-one knob</strong>: too large → coarse retrieval, too small → broken context; start with 256/512 token + 10–20% overlap, tune by evaluation.</li><li><strong>Match the embedding model to the domain</strong>: a generic embedding may be weak in specialized domains (medical/legal/code); consider domain fine-tuning or a matching model (BGE-M3 / E5 / domain models).</li><li><strong>Don't go pure dense</strong>: for entity/rare-word/exact-match scenarios always add BM25 hybrid, otherwise "you can't retrieve the one that's obviously there."</li><li><strong>Hard-negative false negatives</strong> (§2.3): dedup and filter when mining negatives, or you train it crooked.</li><li><strong>Lost in the middle</strong> (§7): put key passages at the head/tail of the context, not piled in the middle.</li><li><strong>Don't skip reranking</strong>: when recall is enough but precision isn't, a cross-encoder rerank of the top-k is often a high-ROI step (whether it is the highest depends on recall quality / latency budget / candidate scale).</li><li><strong>The index goes stale</strong>: after the store updates, incrementally re-embed / rebuild the index; a stale index = stale answers.</li><li><strong>Evaluate in layers</strong> (§8.3): attribute retrieval and generation separately, or you can't locate where the problem is.</li><li><strong>Temperature $\tau$ and batch</strong>: in contrastive learning a large batch (more in-batch negatives) + a suitable $\tau$ matter a lot; small batches perform poorly.</li></ul>
+<div class="callout callout-warn"><div class="callout-title">&quot;Still hallucinating with RAG&quot;</div><p>usually not the LLM's fault: the retrieval recalled an irrelevant/wrong passage and the LLM "faithfully" answered from it. Check retrieval first (recall@k, are the passages right), then suspect generation.</p></div>
+<h2 id="11-complexity-and-resources">§11 Complexity and resources</h2>
+<table><thead><tr><th>Stage</th><th>Compute</th><th>Note</th></tr></thead><tbody><tr><td>Embed docs (offline)</td><td>$O(N \cdot C_{\text{enc}})$</td><td>one-off, batchable; MRL can save storage</td></tr><tr><td>Build ANN index (HNSW)</td><td>$O(N \log N)$ build</td><td>memory for query speed</td></tr><tr><td>Dense recall (online)</td><td>empirically near-log / sublinear per query</td><td>ANN approximate, not exact, not a strict guarantee</td></tr><tr><td>BM25 recall</td><td>inverted index $O(\lvert q\rvert \cdot \text{postings})$</td><td>term-level</td></tr><tr><td>RRF fusion</td><td>$O(R \cdot k_{\text{recall}})$</td><td>ranks only, dirt cheap</td></tr><tr><td>Cross-encoder rerank</td><td>$O(k_{\text{recall}} \cdot C_{\text{enc}})$</td><td>one forward per candidate, <strong>top-k only</strong></td></tr><tr><td>LLM generation</td><td>$O(L_{\text{ctx}}^2)$ prefill</td><td>longer context costs more (see the attention sheet)</td></tr></tbody></table>
+<p>The bi-encoder's core dividend: doc encoding is $O(N)$ but <strong>done offline once</strong>, and online each query is just one encode + an ANN query; the cross-encoder can't be precomputed, so it's <strong>only usable for top-k reranking</strong> and must never scan the whole base.</p>
+<h2 id="12-25-high-frequency-interview-questions">§12 25 high-frequency interview questions</h2>
+<p>Sorted into three tiers. Click to expand for answer points + pitfalls.</p>
+<h3 id="l1-must-know-any-role-that-has-used-rag">L1 must-know (any role that has used RAG)</h3>
+<details>
+
+<summary>Q1. What is RAG? What problem does it solve?</summary>
+<ul><li>Retrieval-augmented generation: first retrieve relevant passages, then let the LLM generate based on them</li><li>Mitigates: knowledge cutoff / hallucination / private data (mitigates factual hallucination + adds traceability; does not guarantee elimination)</li><li>Knowledge updates only need a store update, traceable</li></ul>
+<p>Saying only "let the LLM look things up," without the "retrieve→assemble prompt→generate" three steps and the specific problems it addresses.</p>
+</details>
+<details>
+
+<summary>Q2. What are the basic steps of the RAG pipeline?</summary>
+<ul><li>Offline: chunk documents → embed → build index</li><li>Online: embed query → recall top-k → (rerank) → assemble prompt → LLM generate</li><li>Optional: query rewrite, source labeling, self-check</li></ul>
+<p>Missing chunking/reranking, or conflating recall and reranking.</p>
+</details>
+<details>
+
+<summary>Q3. Bi-encoder vs cross-encoder?</summary>
+<ul><li>Bi-encoder: query/doc encoded separately, doc vectors precomputable, fast, for recall</li><li>Cross-encoder: encoded together, full attention, accurate but not precomputable, for reranking</li><li>Bi-encoder for recall + cross-encoder for reranking is the standard pairing</li></ul>
+<p>Saying a cross-encoder can also index and scan the whole base (wrong, it's not precomputable).</p>
+</details>
+<details>
+
+<summary>Q4. Why do we need reranking?</summary>
+<ul><li>Recall chases high recall + fast, precision isn't enough</li><li>The cross-encoder scores the top-k precisely, boosting precision</li><li>Runs only over the few recalled candidates, cost controllable</li></ul>
+<p>Thinking recall is enough, not knowing reranking is often a high-ROI step.</p>
+</details>
+<details>
+
+<summary>Q5. What are sparse (BM25) and dense retrieval each strong at?</summary>
+<ul><li>BM25: exact term matching, strong on rare words / entities / serial numbers</li><li>Dense: semantic / synonym / paraphrase matching</li><li>Complementary, industry mostly uses hybrid</li></ul>
+<p>Saying dense fully dominates BM25 (wrong, for exact-match scenarios BM25 is often better).</p>
+</details>
+<details>
+
+<summary>Q6. What is chunking? How does chunk size affect results?</summary>
+<ul><li>Split documents into passages then embed</li><li>Too large: coarse retrieval, diluted relevant info</li><li>Too small: broken context</li><li>Commonly 256/512 token + overlap</li></ul>
+<p>Treating chunking as an unimportant preprocessing step, not knowing it's the number-one tuning knob.</p>
+</details>
+<details>
+
+<summary>Q7. Why is cosine / normalized dot product commonly used?</summary>
+<ul><li>After L2 normalization, dot product = cosine</li><li>Looks only at direction, not magnitude — more stable (absolute threshold still needs calibration)</li><li>Most embeddings are normalized and use the dot product</li></ul>
+<p>Not knowing the normalized dot product is the cosine, or unable to state the benefit of normalization.</p>
+</details>
+<details>
+
+<summary>Q8. How does RAG differ from stuffing documents into a long context?</summary>
+<ul><li>RAG: retrieve relevant passages first, short prompt, traceable, store updatable</li><li>Long-context: stuff the full text, expensive, slow, with lost-in-the-middle</li><li>For large stores RAG is more economical/controllable (the full text also doesn't fit)</li></ul>
+<p>Thinking a long context removes the need for RAG (a large store won't fit and is expensive).</p>
+</details>
+<details>
+
+<summary>Q9. Why use approximate nearest neighbor (ANN) for the vector store?</summary>
+<ul><li>Brute-forcing all of a large store $O(N)$ is too slow</li><li>HNSW and other ANN bring queries down to empirically near-logarithmic / sublinear (not a strict guarantee)</li><li>Trade a little recall for huge speed</li></ul>
+<p>Saying vector retrieval is exact nearest neighbor (at large scale it's basically approximate).</p>
+</details>
+<details>
+
+<summary>Q10. Possible reasons for "still hallucinating with RAG"?</summary>
+<ul><li>Usually the retrieval recalled an irrelevant/wrong passage and the LLM "faithfully" answered from it</li><li>Could also be chunks too fragmented, or the prompt didn't strongly constrain "answer only from context"</li><li>Check retrieval quality first, then suspect generation</li></ul>
+<p>Blaming the LLM directly, without checking the retrieval layer.</p>
+</details>
+<h3 id="l2-advanced-research--deep-engineering">L2 advanced (research / deep-engineering)</h3>
+<details>
+
+<summary>Q11. Write the InfoNCE loss and explain temperature $\tau$.</summary>
+<ul><li>$\mathcal{L} = -\log \frac{\exp(\text{sim}(q,d^+)/\tau)}{\sum_i \exp(\text{sim}(q,d_i)/\tau)}$</li><li>Essentially cross-entropy with similarity as logits and the positive as label</li><li>Small $\tau$ → sharper softmax → cares more about the hardest negative; too small is noise-sensitive</li></ul>
+<p>Only writing the formula, unable to explain "it is softmax cross-entropy" and the sharpness role of $\tau$.</p>
+</details>
+<details>
+
+<summary>Q12. What are in-batch negatives? Why efficient?</summary>
+<ul><li>Each query in the batch uses the other samples' positives as negatives</li><li>One forward yields $B-1$ negatives at almost zero extra cost</li><li>The similarity matrix diagonal is the positive, label = arange(B)</li></ul>
+<p>Saying you need a separate forward for negatives (wrong, in-batch reuses the same batch).</p>
+</details>
+<details>
+
+<summary>Q13. Why are hard negatives important? What is the false-negative trap?</summary>
+<ul><li>Random negatives are too easy with small gradients; hard negatives (similar but irrelevant) are far more informative</li><li>False negative: a mined "hard negative" may actually be relevant → wrong gradient</li><li>Mitigation: threshold filtering, cross-encoder removal, soft-label distillation</li></ul>
+<p>Only saying "hard negatives are good," not knowing they can introduce false-negative noise.</p>
+</details>
+<details>
+
+<summary>Q14. How does RRF fuse multiple retrievers? Why use ranks not scores?</summary>
+<ul><li>$\text{RRF}(d)=\sum_r \frac{1}{k+\text{rank}_r(d)}$, $k\approx60$</li><li>Uses only ranks, avoiding aligning different retrievers' score scales</li><li>Simple, stable, training-free</li></ul>
+<p>Trying to add BM25 scores and cosine scores directly (incomparable scales).</p>
+</details>
+<details>
+
+<summary>Q15. What does Matryoshka representation solve? How is it trained?</summary>
+<ul><li>One training run yields nested embeddings, the first $m$ dims are also a good embedding</li><li>Multi-granularity loss $\sum_m \mathcal{L}(\text{emb}[:m])$</li><li>Deployment truncates dimensions by budget (re-L2-normalize after truncation; save storage / speed up coarse ranking)</li></ul>
+<p>Thinking it's post-hoc PCA reduction (MRL packs the important semantics into the prefix during training).</p>
+</details>
+<details>
+
+<summary>Q16. What do $k_1$ and $b$ control in BM25?</summary>
+<ul><li>$k_1$: term-frequency saturation (diminishing marginal returns of repeated occurrences)</li><li>$b$: document-length normalization strength ($b=1$ full, $b=0$ none)</li><li>Typical $k_1\approx1.2$–$2$, $b\approx0.75$</li></ul>
+<p>Unable to articulate the two mechanisms of term-frequency saturation and length normalization.</p>
+</details>
+<details>
+
+<summary>Q17. How does ColBERT's late interaction relate to the bi-encoder and cross-encoder?</summary>
+<ul><li>Bi-encoder: single vector, interaction only at the final dot product (no token-level interaction), precomputable</li><li>Cross-encoder: early, full attention, strongest, not precomputable</li><li>ColBERT: token-level late interaction, stores token vectors, MaxSim $\sum_i\max_j E_{q_i}^\top E_{d_j}$, between the two, doc precomputable</li></ul>
+<p>Treating ColBERT as a plain bi-encoder, not knowing it's token-level MaxSim.</p>
+</details>
+<details>
+
+<summary>Q18. What is HyDE's idea? Why is it useful?</summary>
+<ul><li>First let the LLM generate a "hypothetical answer," retrieve with its embedding</li><li>Align the query distribution with the doc distribution (an answer looks more like a document than a question)</li><li>Zero-shot dense retrieval often improves as a result</li></ul>
+<p>Thinking HyDE rewrites query keywords (it actually generates a hypothetical document then embeds it).</p>
+</details>
+<details>
+
+<summary>Q19. How do you evaluate a RAG system?</summary>
+<ul><li>Retrieval layer: recall@k, nDCG, MRR</li><li>Generation layer: faithfulness, context relevance, answer relevance (e.g. RAGAS)</li><li>Layered attribution: first whether retrieval is right, then generation</li></ul>
+<p>Only looking at end-to-end answer correctness, not separating retrieval / generation.</p>
+</details>
+<details>
+
+<summary>Q20. What is lost-in-the-middle? How to mitigate?</summary>
+<ul><li>In a long context, key info placed in the middle is easily ignored (Liu 2023)</li><li>Mitigation: after reranking, put the most relevant passages at head/tail, compress the context, reduce irrelevant passages</li><li>Also a reason "more recall is always better" doesn't hold</li></ul>
+<p>Thinking a longer/fuller context is always better, ignoring that middle info is weakened.</p>
+</details>
+<h3 id="l3-top-lab-questions-deep-end">L3 top-lab questions (deep end)</h3>
+<details>
+
+<summary>Q21. Why can't a cross-encoder scan the whole base? Where does complexity differ?</summary>
+<ul><li>The cross-encoder's doc representation depends on the query, so it <strong>can't be precomputed offline</strong></li><li>Every (query, doc) pair needs a full forward, the whole base = $O(N \cdot C_{\text{enc}})$/query</li><li>The bi-encoder encodes docs offline, online only an ANN query (empirically near-log / sublinear); so the cross-encoder is only for reranking top-k</li></ul>
+<p>Saying a cross-encoder can also index (its representation is coupled to the query, you can't build a static index).</p>
+</details>
+<details>
+
+<summary>Q22. Why does batch size matter so much in contrastive learning? Relation to negatives?</summary>
+<ul><li>in-batch negatives = batch − 1, bigger batch → more negatives → stronger contrast</li><li>a large batch makes InfoNCE's denominator cover more negatives, a more accurate estimate</li><li>small batch has few negatives and overfits easily; can compensate with cross-batch memory / hard negatives</li></ul>
+<p>Not knowing batch size directly determines the number of in-batch negatives.</p>
+</details>
+<details>
+
+<summary>Q23. How is GraphRAG stronger than naive RAG? At what cost?</summary>
+<ul><li>Naive RAG recalls passages independently, weak at "cross-document global questions"</li><li>GraphRAG uses an LLM to extract an entity-relation graph + community summaries, global questions go through the summaries</li><li>Cost: high offline LLM cost of graph/summary building, complex to maintain</li></ul>
+<p>Treating GraphRAG as "swapping the vector store," not knowing it builds a knowledge graph + community summaries.</p>
+</details>
+<details>
+
+<summary>Q24. What do "self-checking RAG" methods like Self-RAG / CRAG do?</summary>
+<ul><li>Self-RAG: trains the model to emit reflection tokens (should I retrieve / is the passage useful / is the answer grounded)</li><li>CRAG: scores retrieval quality at the <strong>retrieval layer</strong>, if poor triggers correction (web search, rewrite)</li><li>Goal: keep RAG from blindly answering when retrieval is useless/wrong</li></ul>
+<p>Thinking they're better retrievers; actually they add a self-evaluation/correction loop — Self-RAG focuses on generation-time reflection, CRAG focuses on evaluating retrieval quality and triggering corrective retrieval.</p>
+</details>
+<details>
+
+<summary>Q25. When to choose RAG, when fine-tuning, when long-context for the same knowledge?</summary>
+<ul><li>Inject large amounts of <strong>updatable external facts</strong> + need traceability → RAG</li><li>Change <strong>capability/style/format/output structure</strong> → fine-tuning</li><li>A few documents at once, needing global reasoning and they fit → long-context</li><li>In practice often combined: fine-tune for style + RAG for facts + long-context to hold the recall</li></ul>
+<p>Absolutely saying "RAG fully beats fine-tuning" or vice versa, ignoring the essential split of "inject facts vs change capability."</p>
+</details>
+<h2 id="a-appendix-sanity-check">§A Appendix: sanity check</h2>
+<p>Key invariants of <code>info_nce_in_batch</code> and mini-RAG (verifiable with a script):</p>
+<ul><li><strong>Diagonal is the positive</strong>: the diagonal of the similarity matrix $qd^\top$ should be each row's max (after training); <code>cross_entropy(logits, arange(B))</code> converging means alignment.</li><li><strong>Normalization</strong>: encoder output $\lVert\mathbf{q}\rVert\approx1$, dot product in $[-1,1]$.</li><li><strong>Temperature direction</strong>: with fixed logits, lowering $\tau$ makes the softmax probabilities more concentrated (lower entropy).</li><li><strong>RRF monotone</strong>: if a document moves earlier in any retriever's rank, its RRF score should not drop.</li><li><strong>Hybrid recall ⊇ exact hits</strong>: a precise-entity passage that BM25 can hit should be kept in the hybrid result (pure dense may miss it).</li></ul>
+<p>Below is the <strong>real run</strong> output of <a href="code/rag_embedding.py"><code>code/rag_embedding.py</code></a> on <strong>PyTorch 2.10 / CPU</strong> (each line has an <code>assert</code>; the summary prints only if all pass):</p>
+<pre><code>[a] in-batch InfoNCE: argmax==idx, loss aligned 0.0000 &lt; shuffled 22.9564  OK
+[b] DualEncoder ||v|| = 1.0000 (~1), max|dot| = 1.0000 (&lt;=1)  OK
+[c] entropy(tau=0.05) = 0.0000 &lt; entropy(tau=0.5) = 1.2945  OK
+[d] with-hard loss = 0.0000 finite, logits (6, 8) == (B, B+2)  OK
+[e] RRF(doc7): base = 0.03226 -&gt; better = 0.03252 (non-decreasing); rrf top = 7  OK
+[f] BM25 top = 1 (entity chunk 1); fused top2 = [1, 2]  OK
+
+all RAG / embedding sanity checks passed ✓</code></pre>
+<p>Here [a] shows the InfoNCE loss is ≈0 when aligned and jumps to ~23 when the positives are shuffled, proving the loss really responds to "alignment" (not just that a diagonal matrix was constructed); [c] under the same logits the softmax entropy at $\tau=0.05$ (≈0) is far below that at $\tau=0.5$ (≈1.29), verifying a smaller temperature is sharper; [f] the passage with the rare entity <code>Zephyrnaut9000</code> is <strong>ranked #1 by BM25</strong> and kept in the hybrid (RRF) top-2, demonstrating hybrid recall's robustness to exact entities (§5.3; note: in this toy case dense happens to recall it too — in real scenarios dense more easily misses rare entities / serial numbers).</p>
+<hr />
+<h2 id="runnable-code">📜 Runnable Code</h2>
+<p>The embedding / retrieval core of this tutorial has a minimal runnable version at <a href="code/rag_embedding.py"><code>docs/tutorials/code/rag_embedding.py</code></a>:</p>
+<ul><li><a href="code/rag_embedding.py"><code>rag_embedding.py</code></a> — <code>DualEncoder</code> (L2-normalized bi-encoder) + <code>info_nce_in_batch</code> / <code>info_nce_with_hard</code> (in-batch + hard-negative contrastive loss) + <code>bm25_scores</code> / <code>rrf</code> / hybrid recall, with 6 <code>assert</code> sanity checks (diagonal-is-positive / normalization / temperature sharpness / with-hard shape / RRF monotone / hybrid keeps the entity chunk).</li></ul>
+<p>Pure PyTorch, runs on CPU in seconds with no GPU: <code>python docs/tutorials/code/rag_embedding.py</code>. The §A output above is this script's real run result.</p>
+<hr />
+<h2 id="references">📚 References</h2>
+<ul><li><strong>RAG</strong> — Lewis et al., <em>Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</em>, arXiv 2005.11401 (2020), NeurIPS 2020.</li><li><strong>DPR</strong> — Karpukhin et al., <em>Dense Passage Retrieval for Open-Domain Question Answering</em>, arXiv 2004.04906 (2020), EMNLP 2020.</li><li><strong>InfoNCE / CPC</strong> — van den Oord et al., <em>Representation Learning with Contrastive Predictive Coding</em>, arXiv 1807.03748 (2018).</li><li><strong>SimCSE</strong> — Gao et al., <em>SimCSE: Simple Contrastive Learning of Sentence Embeddings</em>, arXiv 2104.08821 (2021), EMNLP 2021.</li><li><strong>ColBERT</strong> — Khattab &amp; Zaharia, <em>ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT</em>, arXiv 2004.12832 (2020), SIGIR 2020.</li><li><strong>Matryoshka Representation Learning</strong> — Kusupati et al., arXiv 2205.13147 (2022), NeurIPS 2022.</li><li><strong>BGE-M3</strong> — Chen et al., <em>BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation</em>, arXiv 2402.03216 (2024).</li><li><strong>HyDE</strong> — Gao et al., <em>Precise Zero-Shot Dense Retrieval without Relevance Labels</em>, arXiv 2212.10496 (2022), ACL 2023.</li><li><strong>Self-RAG</strong> — Asai et al., <em>Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</em>, arXiv 2310.11511 (2023), ICLR 2024.</li><li><strong>CRAG</strong> — Yan et al., <em>Corrective Retrieval Augmented Generation</em>, arXiv 2401.15884 (2024).</li><li><strong>GraphRAG</strong> — Edge et al., <em>From Local to Global: A Graph RAG Approach to Query-Focused Summarization</em>, arXiv 2404.16130 (2024).</li><li><strong>RAGAS</strong> — Es et al., <em>RAGAS: Automated Evaluation of Retrieval Augmented Generation</em>, arXiv 2309.15217 (2023).</li><li><strong>RRF</strong> — Cormack et al., <em>Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods</em>, SIGIR 2009.</li><li><strong>HNSW</strong> — Malkov &amp; Yashunin, <em>Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</em>, arXiv 1603.09320 (2016), IEEE TPAMI 2020.</li><li><strong>Lost in the Middle</strong> — Liu et al., <em>Lost in the Middle: How Language Models Use Long Contexts</em>, arXiv 2307.03172 (2023), TACL 2024.</li><li><strong>BM25</strong> — Robertson &amp; Zaragoza, <em>The Probabilistic Relevance Framework: BM25 and Beyond</em>, Foundations and Trends in IR (2009).</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/rag_embedding_retrieval_tutorial_en.md</code> ·
+  SHA256 <code>1ec7d4c32dc4</code> ·
+  generated at 2026-06-13 18:18 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "skill": "interview-cheatsheet (EN translation-fidelity)",
+  "source": "docs/tutorials/rag_embedding_retrieval_tutorial_en.md",
+  "source_sha256": "1ec7d4c32dc4fc937402cb9525db77aac51c121249ae87bf4a8da22ee72f6a2c",
+  "output": "docs/tutorials/rag_embedding_retrieval_tutorial_en.html",
+  "zh_source": "docs/tutorials/rag_embedding_retrieval_tutorial.md",
+  "reviewer": "codex gpt-5.5 xhigh, fresh thread per round",
+  "verdict": "PASS",
+  "thread_id": "019ec230-577f-7e01-83ed-db03f8a8c6a3",
+  "translation_fidelity_review": {
+    "verdict": "PASS (after 2 rounds)",
+    "date": "2026-06-14",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "FAIL — 3 fidelity issues",
+        "thread_id": "019ec22b-21c7-72e0-9a8c-7332b21d936a",
+        "issues": [
+          "§6 table ColBERT cell: EN reverted to the pre-fix 'token-level MaxSim (mid)' instead of the ZH's reviewed 'token-level late interaction (MaxSim)'",
+          "§10 reranking bullet: EN dropped the ZH's softened caveat and used 'highest-ROI' (the ZH had softened this to 'high-ROI ... whether highest depends on recall/latency/scale')",
+          "§12 Q4 pitfall: EN 'highest-ROI step' vs ZH 'high-ROI step'"
+        ],
+        "note": "Same root cause as the LoRA EN edition: translated from the original structure and revived two reviewed-and-softened ZH claims. Numbers/formulas/citations/code all PASS; §A real-output block byte-identical."
+      },
+      {
+        "run": 2,
+        "verdict": "PASS",
+        "thread_id": "019ec230-577f-7e01-83ed-db03f8a8c6a3",
+        "issues": [],
+        "summary": "Fresh cross-model VERIFY confirms all 3 fixes: §6 ColBERT now 'token-level late interaction (MaxSim)' (bi-encoder stays 'no token-level interaction'); §10 'a high-ROI step' with restored caveat; Q4 'a high-ROI step'. Final sweep: no other reviewed-softened ZH claim reverted (RAG mitigate-not-solve, HNSW empirical, CRAG retrieval-stage, Matryoshka re-normalize, ⓪ offline chunking all carried over); §A real-output byte-identical; all 16 citations match; code logic identical with English comments (repo convention)."
+      }
+    ]
+  },
+  "summary": "EN edition of the RAG + Embedding/Retrieval cheat sheet: 2-round cross-model translation-fidelity review (Codex GPT-5.5 xhigh). Round 1 caught 3 fidelity gaps (all revived ZH-fixed softenings: ColBERT 'late interaction' terminology, rerank 'highest'→'high' ROI ×2); round 2 PASS. Code logic identical to ZH with English-translated comments; §A real-run output preserved byte-for-byte.",
+  "rendered_at": "2026-06-14"
+}
