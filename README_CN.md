@@ -22,8 +22,6 @@
 
 每篇都是一份长文 + 公式 + 从零开始的 PyTorch 代码 + 25 高频面试题（L1 必会 · L2 进阶 · L3 顶级 lab）。
 
-> 🔥 **新 feature** · 🌐 **本仓库另一个 feature** —— [**ARIS-Homepage**](#-aris-homepage--fact-checked-学术主页生成器)：用 **CV + 你选的 GitHub repos** 一键生成 fact-checked 学术主页，单文件 HTML 输出。v1.1 新增 `--from-repos owner/repo,...` —— `gh` CLI 抓 stars / releases / READMEs，把 repo 时间线 merge 进主页。[**🔥 Live demo 在 wanshuiyin.github.io →**](https://wanshuiyin.github.io/)
-
 <p align="center">
   <img src="assets/preview_strip.jpg" alt="ARIS-in-AI-Offer 预览 — 基础知识 + 面试题 + 实际代码，截自一篇代表性 cheat sheet" width="100%">
 </p>
