@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/lora_peft_tutorial_en.md">
-<meta name="aris:source-sha256" content="24273d1ee0404b786aac57110192ce280e3f3a446fd404458ba73dcb6db10647">
-<meta name="aris:generated-at" content="2026-06-13 13:22 UTC">
+<meta name="aris:source-sha256" content="74315b4172b6ac32a82828561fc6e9c23bebae667cd4e949cf126a9944e3202e">
+<meta name="aris:generated-at" content="2026-06-15 05:14 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -580,8 +580,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/lora_peft_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>24273d1ee040</code></span>
-    <span><strong>Rendered:</strong> 2026-06-13 13:22 UTC</span>
+    <span><strong>SHA256:</strong> <code>74315b4172b6</code></span>
+    <span><strong>Rendered:</strong> 2026-06-15 05:14 UTC</span>
     
   </div>
 </header>
@@ -608,7 +608,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>i.e. <strong>the starting point equals the pretrained model exactly</strong>, introducing no perturbation. This matters: if the start already deviates from pretraining, you throw away pretrained knowledge and may blow up the loss.</p>
 <p>So why not <strong>zero both</strong>? Because it would never learn. Look at the first-step gradients (loss $L$, output-direction gradient $g = \partial L / \partial h$):</p>
 <p>$$\frac{\partial L}{\partial B} = \frac{\alpha}{r}\, g\, (A x)^\top, \qquad \frac{\partial L}{\partial A} = \frac{\alpha}{r}\, B^\top g\, x^\top$$</p>
-<ul><li>$A$ nonzero → $Ax \neq 0$ → $\partial L/\partial B \neq 0$: <strong>$B$ can move on step one</strong>;</li><li>$B = 0$ → $\partial L/\partial A = 0$: $A$ doesn't move on step one, but once $B$ becomes nonzero, $A$ gets gradient on the next step.</li></ul>
+<ul><li>$A$ nonzero → generically $Ax \neq 0$ → $\partial L/\partial B \neq 0$: <strong>$B$ can move on step one</strong> (unless $g=0$ or $x$ happens to lie in $A$'s null space, etc.);</li><li>$B = 0$ → $\partial L/\partial A = 0$: $A$ doesn't move on step one, but once $B$ becomes nonzero, $A$ gets gradient on the next step.</li></ul>
 <p>If $A=B=0$, both gradients are identically zero and $\Delta W$ stays 0 forever. <strong>So it must be "one zero, one nonzero": $A$ nonzero guarantees learnability, $B=0$ guarantees a clean start.</strong> (Symmetrically, $A=0$ with $B$ random also works; both conventions appear in PEFT libraries — the key is exactly one being zero.)</p>
 <div class="callout callout-warn"><div class="callout-title">Common misconception</div><p>"$B=0$ so LoRA learns nothing on step one" is wrong. On step one $B$ is indeed updating (nonzero gradient); it is just that $\Delta W$ is numerically 0 at $t=0$. It is "output increment is zero," not "gradient is zero."</p></div>
 <h3 id="23-scaling-factor-alphar-and-rslora">2.3　Scaling factor $\alpha/r$ and rsLoRA</h3>
@@ -734,11 +734,12 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <div class="callout callout-warn"><div class="callout-title">QLoRA ≠ inference memory saving</div><p>QLoRA solves fitting a large model on one card <strong>during fine-tuning</strong>. At inference, if you dequantize-and-merge to fp16 the memory goes back to full precision; to also save inference memory you need a dedicated 4-bit inference path (bitsandbytes / GPTQ / AWQ, see the quantization sheet).</p></div>
 <h2 id="6-dora-magnitudedirection-decomposition">§6 DoRA: magnitude–direction decomposition</h2>
 <p>DoRA (Weight-Decomposed Low-Rank Adaptation, Liu et al., 2024, arXiv 2402.09353, ICML 2024) observed a systematic difference between full fine-tuning and LoRA in "how the <strong>magnitude</strong> and <strong>direction</strong> of the weights co-evolve," and that LoRA's expressive pattern is limited. DoRA explicitly decomposes the pretrained weight into magnitude and direction, learning them separately.</p>
-<p>Decompose the weight <strong>per column</strong> ($\lVert\cdot\rVert_c$ denotes the column-wise 2-norm):</p>
-<p>$$W_0 = m \cdot \frac{V}{\lVert V \rVert_c}, \qquad m = \lVert W_0 \rVert_c \in \mathbb{R}^{1\times k}, \quad V = W_0$$</p>
-<p>where $m$ is the per-column magnitude (a row vector) and $V/\lVert V\rVert_c$ is the unit direction. DoRA makes <strong>$m$ trainable</strong> and <strong>updates the direction with LoRA</strong>:</p>
-<p>$$\boxed{\;W' = m \cdot \frac{V + \Delta V}{\lVert V + \Delta V \rVert_c}, \qquad \Delta V = BA\;}$$</p>
-<p>Intuition: LoRA couples magnitude and direction inside a single $\Delta W$; DoRA pulls magnitude out into a separate scalar sequence $m$, letting the low-rank bypass focus on learning direction. Empirically DoRA's "magnitude–direction update pattern" is closer to full fine-tuning, often slightly beating LoRA at equal parameter count, especially at low rank (small $r$). The cost: column normalization adds a little compute and implementation complexity; when merging you fold $m$ and the normalization back into $W'$ (still a single matrix after merge, zero inference latency).</p>
+<p>Decompose the weight <strong>per output neuron (row)</strong> (following weight normalization: each output's weight vector = magnitude × unit direction; $\lVert\cdot\rVert_r$ is the per-row / per-output 2-norm, i.e. over the in dimension <code>dim=1</code> for a PyTorch weight $[\text{out},\text{in}]$):</p>
+<p>$$W_0 = m \odot \frac{V}{\lVert V \rVert_r}, \qquad m = \lVert W_0 \rVert_r \in \mathbb{R}^{d\times 1}, \quad V = W_0$$</p>
+<p>where $m$ is <strong>one scalar magnitude per output neuron</strong> ($d$-dim) and $V/\lVert V\rVert_r$ is the per-row unit direction. DoRA makes <strong>$m$ trainable</strong> and <strong>updates the direction with LoRA</strong>:</p>
+<p>$$\boxed{\;W' = m \odot \frac{V + \Delta V}{\lVert V + \Delta V \rVert_r}, \qquad \Delta V = BA\;}$$</p>
+<p>(Axis gotcha: DoRA follows weight normalization, so the magnitude is <strong>per-output</strong> — HF PEFT implements <code>torch.linalg.norm(weight, dim=1)</code>; the DoRA paper writes $W\in\mathbb{R}^{\text{in}\times\text{out}}$ with a column-wise norm, equivalent to the per-row / per-output norm on a PyTorch $[\text{out},\text{in}]$ weight here.)</p>
+<p>Intuition: LoRA couples magnitude and direction inside a single $\Delta W$; DoRA pulls magnitude out into a separate scalar sequence $m$, letting the low-rank bypass focus on learning direction. Empirically DoRA's "magnitude–direction update pattern" is closer to full fine-tuning, often slightly beating LoRA at equal parameter count, especially at low rank (small $r$). The cost: per-row normalization adds a little compute and implementation complexity; when merging you fold $m$ and the normalization back into $W'$ (still a single matrix after merge, zero inference latency).</p>
 <pre><code class="language-python">class DoRALinear(nn.Module):
     def __init__(self, base: nn.Linear, r=8, alpha=16):
         super().__init__()
@@ -750,16 +751,16 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
         self.lora_A = nn.Parameter(torch.empty(r, in_f))
         self.lora_B = nn.Parameter(torch.zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-        # m init = per-column norm; weight is [out, in], per-column norm = norm over the out dim (dim=0) for each in-column
-        self.m = nn.Parameter(self.base.weight.norm(dim=0, keepdim=True))  # [1, in]
+        # per-output magnitude: weight is [out, in], norm over the in dim (dim=1) -&gt; [out, 1] (same as HF PEFT)
+        self.m = nn.Parameter(self.base.weight.norm(dim=1, keepdim=True))  # [out, 1]
 
     def forward(self, x):
         dW = self.scaling * (self.lora_B @ self.lora_A)       # [out, in]
         V = self.base.weight + dW
-        Vnorm = V.norm(dim=0, keepdim=True) + 1e-8           # [1, in] per-column norm
-        W_eff = self.m * V / Vnorm                            # direction × magnitude
+        Vnorm = V.norm(dim=1, keepdim=True) + 1e-8           # [out, 1] per-output norm
+        W_eff = self.m * V / Vnorm                            # direction × magnitude (per-output)
         return F.linear(x, W_eff, self.base.bias)</code></pre>
-<div class="callout callout-info"><div class="callout-title">Interview point: what DoRA changes</div><p>LoRA only learns $\Delta W=BA$; DoRA = a trainable magnitude $m$ + learning direction with LoRA. It explains "why LoRA underperforms full FT on some tasks" — LoRA's magnitude/direction updates are tied together, and DoRA unties them.</p></div>
+<div class="callout callout-info"><div class="callout-title">Interview point: what DoRA changes</div><p>LoRA only learns $\Delta W=BA$; DoRA = a trainable magnitude $m$ + learning direction with LoRA. It explains "why LoRA underperforms full FT on some tasks" — LoRA's magnitude/direction updates are tied together, and DoRA unties them. DoRA can stack on QLoRA (<strong>QDoRA</strong>) to decompose on a quantized base, balancing memory and quality.</p></div>
 <h2 id="7-the-lora-family-at-a-glance">§7 The LoRA family at a glance</h2>
 <table><thead><tr><th>Variant</th><th>One line</th><th>What it changes vs LoRA</th><th>Paper</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>low-rank bypass $BA$</td><td>baseline</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>rsLoRA</strong></td><td>scaling → $\alpha/\sqrt{r}$</td><td>high-rank gradient stability</td><td>Kalajdzievski 2023, 2312.03732</td></tr><tr><td><strong>DoRA</strong></td><td>magnitude–direction decomp</td><td>unties magnitude and direction</td><td>Liu 2024, 2402.09353</td></tr><tr><td><strong>PiSSA</strong></td><td>init $A,B$ from $W_0$ principal components</td><td>initialization (faster convergence)</td><td>Meng 2024, 2404.02948</td></tr><tr><td><strong>LoRA-GA</strong></td><td>make the first step approximate full FT</td><td>initialization (gradient alignment)</td><td>Wang 2024, 2407.05000</td></tr><tr><td><strong>AdaLoRA</strong></td><td>SVD form + importance-based rank pruning</td><td>adaptive rank-budget allocation</td><td>Zhang 2023, 2303.10512</td></tr><tr><td><strong>LoRA+</strong></td><td>different lr for $A,B$</td><td>optimization (larger lr for $B$)</td><td>Hayou 2024, 2402.12354</td></tr><tr><td><strong>(IA)³</strong></td><td>learn scaling vectors × activations</td><td>non-low-rank, even fewer params</td><td>Liu 2022, 2205.05638</td></tr></tbody></table>
 <p>A few worth expanding:</p>
@@ -880,8 +881,8 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <details>
 
 <summary>Q17. What does DoRA change vs LoRA? Why might it be better?</summary>
-<ul><li>Decompose $W_0$ into magnitude $m=\lVert W_0\rVert_c$ (per column) and direction $V/\lVert V\rVert_c$</li><li>$m$ trainable, LoRA only updates direction: $W'=m\cdot\frac{V+\Delta V}{\lVert V+\Delta V\rVert_c}$</li><li>Unties magnitude and direction; update pattern closer to full FT, gains notable at low rank</li></ul>
-<p>Saying only "DoRA adds a magnitude," not the per-column normalization + direction-via-LoRA.</p>
+<ul><li>Decompose $W_0$ into magnitude $m=\lVert W_0\rVert_r$ (<strong>per output row</strong>, over the in dim <code>dim=1</code>, same as weight norm / HF PEFT) and direction $V/\lVert V\rVert_r$</li><li>$m$ trainable, LoRA only updates direction: $W'=m\odot\frac{V+\Delta V}{\lVert V+\Delta V\rVert_r}$</li><li>Unties magnitude and direction; update pattern closer to full FT, gains notable at low rank</li></ul>
+<p>Saying only "DoRA adds a magnitude," not the <strong>per-output</strong> normalization + direction-via-LoRA; or getting the magnitude axis wrong (per-input instead of per-output — DoRA is per-output).</p>
 </details>
 <details>
 
@@ -917,7 +918,7 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <details>
 
 <summary>Q23. For multi-task deployment, what are the two strategies for one base + many LoRAs? Their costs?</summary>
-<ul><li>Merge approach: merge an independent full weight per task, zero inference latency, but one full weight copy per task and no dynamic switching</li><li>Bypass approach: keep the base, add each task's $\frac{\alpha}{r}B(Ax)$ online, hot-swappable / mix different adapters within a batch, at the cost of restoring a bit of inference overhead</li><li>Industry (e.g. multi-tenant LoRA serving) mostly uses the bypass approach + batching optimizations</li></ul>
+<ul><li>Merge approach: merge an independent full weight per task, zero inference latency, but one full weight copy per task and no dynamic switching</li><li>Bypass approach: keep the base, add each task's $\frac{\alpha}{r}B(Ax)$ online, hot-swappable / mix different adapters within a batch, at the cost of restoring a bit of inference overhead</li><li>Industry mostly uses the bypass approach + batching optimizations; dedicated <strong>multi-LoRA serving systems</strong> (S-LoRA, Punica) serve hundreds–thousands of adapters concurrently on one base at high throughput (unified memory paging + custom batched kernels)</li></ul>
 <p>Only knowing merge, not "not merging to support dynamic multi-adapter."</p>
 </details>
 <details>
@@ -929,7 +930,7 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <details>
 
 <summary>Q25. Can LoRA fine-tuning learn "new knowledge"? Is low rank an expressiveness bottleneck?</summary>
-<ul><li>The low-rank bypass excels at "adjusting existing capabilities": style / format / task adaptation / alignment</li><li>Injecting large amounts of <strong>brand-new factual knowledge</strong> may be limited by low rank — needs larger $r$, more layers, or continued pretraining / full FT</li><li>This is exactly the motivation behind DoRA / high rank / PiSSA to break the expressiveness limit; rank is a capacity knob, not a free lunch</li></ul>
+<ul><li>The low-rank bypass excels at "adjusting existing capabilities": style / format / task adaptation / alignment</li><li>Injecting large amounts of <strong>brand-new factual knowledge</strong> may be limited by low rank — needs larger $r$, more layers, or continued pretraining / full FT</li><li>Biderman et al. (2024, <em>LoRA Learns Less and Forgets Less</em>, arXiv 2405.09673) show empirically that on hard tasks (code / math) LoRA often learns less than full FT but <strong>also forgets less</strong> — the low-rank constraint is a double-edged sword</li><li>This is exactly the motivation behind DoRA / high rank / PiSSA to break the expressiveness limit; rank is a capacity knob, not a free lunch</li></ul>
 <p>Absolutely saying "LoRA equals full FT" or "LoRA can't learn anything new" — both overreach; it depends on $r$, the number of adapted layers, and task type.</p>
 </details>
 <h2 id="a-appendix-sanity-check">§A Appendix: sanity check</h2>
@@ -941,10 +942,10 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 [c] merge: |out_merged - out_unmerged| = 3.58e-07; weight += dW = True; unmerge restores base = True  OK
 [d] trainable params = 640 (expect r*(in+out) = 640); base frozen = True  OK
 [e] scaling: standard alpha/r = 2.0000, rsLoRA alpha/sqrt(r) = 5.6569  OK
-[f] DoRA: m.requires_grad = True, base frozen, identity start |Δ| = 2.38e-07  OK
+[f] DoRA: m.requires_grad = True, base frozen, identity start |Δ| = 1.19e-07  OK
 
 all LoRA / DoRA sanity checks passed ✓</code></pre>
-<p>Here $640 = r(\text{IN}+\text{OUT}) = 8\times(32+48)$ verifies the trainable-param formula of §4; the pure-float error of $3.58\text{e-}7$ across merge verifies the numerical equivalence of zero-latency merging; the DoRA identity start $\lvert\Delta\rvert=2.38\text{e-}7$ verifies $W'=W_0$ when $B=0$.</p>
+<p>Here $640 = r(\text{IN}+\text{OUT}) = 8\times(32+48)$ verifies the trainable-param formula of §4; the pure-float error of $3.58\text{e-}7$ across merge verifies the numerical equivalence of zero-latency merging; the DoRA identity start $\lvert\Delta\rvert=1.19\text{e-}7$ verifies $W'=W_0$ when $B=0$.</p>
 <hr />
 <h2 id="runnable-code">📜 Runnable Code</h2>
 <p>The LoRA / DoRA core implementation of this tutorial has a minimal runnable version at <a href="code/lora.py"><code>docs/tutorials/code/lora.py</code></a>:</p>
@@ -952,13 +953,13 @@ all LoRA / DoRA sanity checks passed ✓</code></pre>
 <p>Pure PyTorch, runs on CPU in seconds with no GPU: <code>python docs/tutorials/code/lora.py</code>. The §A output above is this script's real run result.</p>
 <hr />
 <h2 id="references">📚 References</h2>
-<ul><li><strong>LoRA</strong> — Hu et al., <em>LoRA: Low-Rank Adaptation of Large Language Models</em>, arXiv 2106.09685 (2021), ICLR 2022.</li><li><strong>Intrinsic Dimension</strong> — Aghajanyan et al., <em>Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning</em>, arXiv 2012.13255 (2020).</li><li><strong>QLoRA</strong> — Dettmers et al., <em>QLoRA: Efficient Finetuning of Quantized LLMs</em>, arXiv 2305.14314 (2023), NeurIPS 2023.</li><li><strong>DoRA</strong> — Liu et al., <em>DoRA: Weight-Decomposed Low-Rank Adaptation</em>, arXiv 2402.09353 (2024), ICML 2024.</li><li><strong>rsLoRA</strong> — Kalajdzievski, <em>A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA</em>, arXiv 2312.03732 (2023).</li><li><strong>PiSSA</strong> — Meng et al., <em>PiSSA: Principal Singular Values and Singular Vectors Adaptation</em>, arXiv 2404.02948 (2024), NeurIPS 2024.</li><li><strong>LoRA-GA</strong> — Wang et al., <em>LoRA-GA: Low-Rank Adaptation with Gradient Approximation</em>, arXiv 2407.05000 (2024).</li><li><strong>AdaLoRA</strong> — Zhang et al., <em>Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning</em>, arXiv 2303.10512 (2023), ICLR 2023.</li><li><strong>LoRA+</strong> — Hayou et al., <em>LoRA+: Efficient Low Rank Adaptation of Large Models</em>, arXiv 2402.12354 (2024).</li><li><strong>(IA)³ / T-Few</strong> — Liu et al., <em>Few-Shot Parameter-Efficient Fine-Tuning Is Better and Cheaper than In-Context Learning</em>, arXiv 2205.05638 (2022).</li><li><strong>Adapter</strong> — Houlsby et al., <em>Parameter-Efficient Transfer Learning for NLP</em>, arXiv 1902.00751 (2019), ICML 2019.</li><li><strong>Prefix-Tuning</strong> — Li &amp; Liang, <em>Prefix-Tuning: Optimizing Continuous Prompts for Generation</em>, arXiv 2101.00190 (2021), ACL 2021.</li><li><strong>Prompt Tuning</strong> — Lester et al., <em>The Power of Scale for Parameter-Efficient Prompt Tuning</em>, arXiv 2104.08691 (2021), EMNLP 2021.</li><li><strong>P-Tuning v2</strong> — Liu et al., <em>P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks</em>, arXiv 2110.07602 (2021).</li><li><strong>BitFit</strong> — Ben-Zaken et al., <em>BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models</em>, arXiv 2106.10199 (2021), ACL 2022.</li></ul>
+<ul><li><strong>LoRA</strong> — Hu et al., <em>LoRA: Low-Rank Adaptation of Large Language Models</em>, arXiv 2106.09685 (2021), ICLR 2022.</li><li><strong>Intrinsic Dimension</strong> — Aghajanyan et al., <em>Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning</em>, arXiv 2012.13255 (2020).</li><li><strong>QLoRA</strong> — Dettmers et al., <em>QLoRA: Efficient Finetuning of Quantized LLMs</em>, arXiv 2305.14314 (2023), NeurIPS 2023.</li><li><strong>DoRA</strong> — Liu et al., <em>DoRA: Weight-Decomposed Low-Rank Adaptation</em>, arXiv 2402.09353 (2024), ICML 2024.</li><li><strong>rsLoRA</strong> — Kalajdzievski, <em>A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA</em>, arXiv 2312.03732 (2023).</li><li><strong>PiSSA</strong> — Meng et al., <em>PiSSA: Principal Singular Values and Singular Vectors Adaptation</em>, arXiv 2404.02948 (2024), NeurIPS 2024.</li><li><strong>LoRA-GA</strong> — Wang et al., <em>LoRA-GA: Low-Rank Adaptation with Gradient Approximation</em>, arXiv 2407.05000 (2024).</li><li><strong>AdaLoRA</strong> — Zhang et al., <em>Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning</em>, arXiv 2303.10512 (2023), ICLR 2023.</li><li><strong>LoRA+</strong> — Hayou et al., <em>LoRA+: Efficient Low Rank Adaptation of Large Models</em>, arXiv 2402.12354 (2024).</li><li><strong>(IA)³ / T-Few</strong> — Liu et al., <em>Few-Shot Parameter-Efficient Fine-Tuning Is Better and Cheaper than In-Context Learning</em>, arXiv 2205.05638 (2022).</li><li><strong>Adapter</strong> — Houlsby et al., <em>Parameter-Efficient Transfer Learning for NLP</em>, arXiv 1902.00751 (2019), ICML 2019.</li><li><strong>Prefix-Tuning</strong> — Li &amp; Liang, <em>Prefix-Tuning: Optimizing Continuous Prompts for Generation</em>, arXiv 2101.00190 (2021), ACL 2021.</li><li><strong>Prompt Tuning</strong> — Lester et al., <em>The Power of Scale for Parameter-Efficient Prompt Tuning</em>, arXiv 2104.08691 (2021), EMNLP 2021.</li><li><strong>P-Tuning v2</strong> — Liu et al., <em>P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks</em>, arXiv 2110.07602 (2021).</li><li><strong>BitFit</strong> — Ben-Zaken et al., <em>BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models</em>, arXiv 2106.10199 (2021), ACL 2022.</li><li><strong>S-LoRA</strong> — Sheng et al., <em>S-LoRA: Serving Thousands of Concurrent LoRA Adapters</em>, arXiv 2311.03285 (2023).</li><li><strong>LoRA Learns Less and Forgets Less</strong> — Biderman et al., arXiv 2405.09673 (2024), TMLR 2024.</li></ul>
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/lora_peft_tutorial_en.md</code> ·
-  SHA256 <code>24273d1ee040</code> ·
-  generated at 2026-06-13 13:22 UTC.
+  SHA256 <code>74315b4172b6</code> ·
+  generated at 2026-06-15 05:14 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

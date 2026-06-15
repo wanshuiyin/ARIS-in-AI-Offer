@@ -81,7 +81,12 @@ class LoRALinear(nn.Module):
 
 
 class DoRALinear(nn.Module):
-    """DoRA: W' = m * (V + dV)/||V + dV||_c, dV = (alpha/r) B A, m = ||W0||_c (per column)."""
+    """DoRA: W' = m * (V + dV)/||V + dV||, dV = (alpha/r) B A, m = ||W0|| per OUTPUT row.
+
+    Magnitude is per output neuron (weight-normalization style): for a PyTorch
+    weight [out, in], the norm is over the input dim (dim=1) -> m shape [out, 1].
+    This matches the reference DoRA / HF PEFT (torch.linalg.norm(weight, dim=1)).
+    """
 
     def __init__(self, base: nn.Linear, r: int = 8, alpha: int = 16):
         super().__init__()
@@ -93,14 +98,14 @@ class DoRALinear(nn.Module):
         self.lora_A = nn.Parameter(torch.empty(r, in_f))
         self.lora_B = nn.Parameter(torch.zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-        # weight is [out, in]; column-wise norm = norm over the out dim (dim=0) -> [1, in]
-        self.m = nn.Parameter(self.base.weight.norm(dim=0, keepdim=True))  # [1, in]
+        # per-output magnitude: norm over the in dim (dim=1) -> [out, 1]
+        self.m = nn.Parameter(self.base.weight.norm(dim=1, keepdim=True))  # [out, 1]
 
     def forward(self, x):
         dW = self.scaling * (self.lora_B @ self.lora_A)        # [out, in]
         V = self.base.weight + dW
-        Vnorm = V.norm(dim=0, keepdim=True) + 1e-8             # [1, in]
-        W_eff = self.m * V / Vnorm
+        Vnorm = V.norm(dim=1, keepdim=True) + 1e-8            # [out, 1] per-output norm
+        W_eff = self.m * V / Vnorm                            # [out,1]*[out,in]/[out,1]
         return F.linear(x, W_eff, self.base.bias)
 
 

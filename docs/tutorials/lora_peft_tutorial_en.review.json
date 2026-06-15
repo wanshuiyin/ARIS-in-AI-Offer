@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/lora_peft_tutorial_en.md",
-  "source_sha256": "24273d1ee0404b786aac57110192ce280e3f3a446fd404458ba73dcb6db10647",
+  "source_sha256": "74315b4172b6ac32a82828561fc6e9c23bebae667cd4e949cf126a9944e3202e",
   "output": "docs/tutorials/lora_peft_tutorial_en.html",
   "zh_source": "docs/tutorials/lora_peft_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread per round",
@@ -32,5 +32,12 @@
     ]
   },
   "summary": "EN edition of the LoRA/PEFT cheat sheet: 2-round cross-model translation-fidelity review (Codex GPT-5.5 xhigh, fresh thread per round). Round 1 caught 3 fidelity gaps (two were revived ZH-fixed errors: intrinsic-rank vs -dimension, Q24 additive mislabel; plus a merge-docstring rsLoRA nuance drop); round 2 PASS. Code logic identical to ZH with English-translated comments (repo convention); §A real-run output preserved byte-for-byte.",
-  "rendered_at": "2026-06-13"
+  "rendered_at": "2026-06-13",
+  "post_ship_review": [
+    {
+      "scope": "post-ship mirror of CN final-review fixes",
+      "verdict": "FIXED",
+      "notes": "Mirrored the DoRA per-output axis fix (§6 + Q17 + §A |Δ|=1.19e-7), §2.2 gradient hedge, and enrichments (S-LoRA, Biderman 2405.09673, QDoRA) into the EN edition; code dim=0->dim=1."
+    }
+  ]
 }

@@ -62,7 +62,7 @@ $$\Delta W_{t=0} = B_0 A_0 = 0 \cdot A_0 = 0 \;\Rightarrow\; h_{t=0} = W_0 x$$
 
 $$\frac{\partial L}{\partial B} = \frac{\alpha}{r}\, g\, (A x)^\top, \qquad \frac{\partial L}{\partial A} = \frac{\alpha}{r}\, B^\top g\, x^\top$$
 
-- $A$ 非零 → $Ax \neq 0$ → $\partial L/\partial B \neq 0$：**第一步 $B$ 能动**；
+- $A$ 非零 → 一般情况下 $Ax \neq 0$ → $\partial L/\partial B \neq 0$：**第一步 $B$ 能动**（除非 $g=0$ 或 $x$ 恰落在 $A$ 的零空间等退化情形）；
 - $B = 0$ → $\partial L/\partial A = 0$：第一步 $A$ 不动，但只要 $B$ 动起来变非零，下一步 $A$ 就有梯度了。
 
 如果 $A=B=0$，则两个梯度恒为零，$\Delta W$ 永远是 0。**所以必须"一零一非零"：$A$ 非零保证可学性，$B=0$ 保证干净起点。**（对称地，$A=0$、$B$ 随机也可以，PEFT 库里两种约定都见过；关键是恰好一个为零。）
@@ -262,15 +262,17 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 
 DoRA（Weight-Decomposed Low-Rank Adaptation，Liu et al., 2024, arXiv 2402.09353, ICML 2024）观察到：满参微调和 LoRA 在"权重的**幅度（magnitude）**与**方向（direction）**如何协同变化"上有系统性差异，LoRA 的表达模式受限。DoRA 把预训练权重显式分解为幅度和方向两部分，分别学习。
 
-把权重按**列**分解（$\lVert\cdot\rVert_c$ 表示逐列 2-范数）：
+把权重按**输出神经元（行）**分解（沿用 weight normalization：每个输出的权重向量 = 幅度 × 单位方向；$\lVert\cdot\rVert_r$ 表示逐行 / 逐输出 2-范数，对 PyTorch 权重 $[\text{out},\text{in}]$ 即沿 in 维 `dim=1`）：
 
-$$W_0 = m \cdot \frac{V}{\lVert V \rVert_c}, \qquad m = \lVert W_0 \rVert_c \in \mathbb{R}^{1\times k}, \quad V = W_0$$
+$$W_0 = m \odot \frac{V}{\lVert V \rVert_r}, \qquad m = \lVert W_0 \rVert_r \in \mathbb{R}^{d\times 1}, \quad V = W_0$$
 
-其中 $m$ 是每列的幅度（行向量），$V/\lVert V\rVert_c$ 是单位方向。DoRA 让 **$m$ 可训练**，并用 **LoRA 更新方向**：
+其中 $m$ 是**每个输出神经元一个标量幅度**（$d$ 维），$V/\lVert V\rVert_r$ 是每行单位方向。DoRA 让 **$m$ 可训练**，并用 **LoRA 更新方向**：
 
-$$\boxed{\;W' = m \cdot \frac{V + \Delta V}{\lVert V + \Delta V \rVert_c}, \qquad \Delta V = BA\;}$$
+$$\boxed{\;W' = m \odot \frac{V + \Delta V}{\lVert V + \Delta V \rVert_r}, \qquad \Delta V = BA\;}$$
 
-直觉：LoRA 把幅度和方向耦合在一个 $\Delta W$ 里一起调；DoRA 把幅度抽出来单独给一个标量序列 $m$，让低秩旁路专注学方向。实证上 DoRA 的"幅度-方向更新模式"更接近满参微调，常在同等参数量下小幅超过 LoRA，尤其在低秩（$r$ 小）时增益明显。代价：列归一化带来一点额外计算和实现复杂度；合并时需把 $m$ 和归一化一起折算回 $W'$（合并后仍是单一矩阵、推理零延迟）。
+（轴向易错：DoRA 沿用 weight normalization，幅度是**逐输出**的——HF PEFT 实现即 `torch.linalg.norm(weight, dim=1)`；DoRA 原文把 $W$ 记作 $\mathbb{R}^{\text{in}\times\text{out}}$ 的逐列范数，等价于此处 PyTorch $[\text{out},\text{in}]$ 的逐行 / per-output。）
+
+直觉：LoRA 把幅度和方向耦合在一个 $\Delta W$ 里一起调；DoRA 把幅度抽出来单独给一个标量序列 $m$，让低秩旁路专注学方向。实证上 DoRA 的"幅度-方向更新模式"更接近满参微调，常在同等参数量下小幅超过 LoRA，尤其在低秩（$r$ 小）时增益明显。代价：逐行归一化带来一点额外计算和实现复杂度；合并时需把 $m$ 和归一化一起折算回 $W'$（合并后仍是单一矩阵、推理零延迟）。
 
 ```python
 class DoRALinear(nn.Module):
@@ -284,18 +286,18 @@ class DoRALinear(nn.Module):
         self.lora_A = nn.Parameter(torch.empty(r, in_f))
         self.lora_B = nn.Parameter(torch.zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-        # m 初始化为每列范数；W 形状 [out, in]，逐列范数 = 每个 in 列沿 out 维(dim=0)求 norm
-        self.m = nn.Parameter(self.base.weight.norm(dim=0, keepdim=True))  # [1, in]
+        # 逐输出幅度：W 形状 [out, in]，沿 in 维(dim=1)求范数 -> [out, 1]（同 HF PEFT）
+        self.m = nn.Parameter(self.base.weight.norm(dim=1, keepdim=True))  # [out, 1]
 
     def forward(self, x):
         dW = self.scaling * (self.lora_B @ self.lora_A)       # [out, in]
         V = self.base.weight + dW
-        Vnorm = V.norm(dim=0, keepdim=True) + 1e-8            # [1, in] 逐列范数
-        W_eff = self.m * V / Vnorm                            # 方向 × 幅度
+        Vnorm = V.norm(dim=1, keepdim=True) + 1e-8           # [out, 1] 逐输出范数
+        W_eff = self.m * V / Vnorm                            # 方向 × 幅度（逐输出）
         return F.linear(x, W_eff, self.base.bias)
 ```
 
-> 💡 **面试点：DoRA 改了什么** — LoRA 只学 $\Delta W=BA$；DoRA = 可训练幅度 $m$ + 用 LoRA 学方向。它解释了"LoRA 为何在某些任务弱于满参"——因为 LoRA 的幅度/方向更新被绑死，DoRA 解绑了。
+> 💡 **面试点：DoRA 改了什么** — LoRA 只学 $\Delta W=BA$；DoRA = 可训练幅度 $m$ + 用 LoRA 学方向。它解释了"LoRA 为何在某些任务弱于满参"——因为 LoRA 的幅度/方向更新被绑死，DoRA 解绑了。DoRA 可叠加 QLoRA（**QDoRA**）在量化基座上做分解，兼顾显存与效果。
 
 ## §7 LoRA 家族变体一览
 
@@ -571,11 +573,11 @@ PEFT 大致分四类：**加性低秩（LoRA 系）**、**加性模块（Adapter
 
 <summary>Q17. DoRA 相比 LoRA 改了什么？为什么可能更好？</summary>
 
-- 把 $W_0$ 分解为幅度 $m=\lVert W_0\rVert_c$（逐列）与方向 $V/\lVert V\rVert_c$
-- $m$ 可训练，LoRA 只负责更新方向：$W'=m\cdot\frac{V+\Delta V}{\lVert V+\Delta V\rVert_c}$
+- 把 $W_0$ 分解为幅度 $m=\lVert W_0\rVert_r$（**逐输出行**，沿 in 维 `dim=1`，同 weight norm / HF PEFT）与方向 $V/\lVert V\rVert_r$
+- $m$ 可训练，LoRA 只负责更新方向：$W'=m\odot\frac{V+\Delta V}{\lVert V+\Delta V\rVert_r}$
 - 解绑幅度与方向，更新模式更接近满参，低秩时增益明显
 
-只说"DoRA 加了个 magnitude"，讲不清是逐列归一 + 方向用 LoRA 学。
+只说"DoRA 加了个 magnitude"，讲不清是**逐输出**归一 + 方向用 LoRA 学；或把幅度轴搞成逐输入（错，DoRA 是逐输出）。
 
 </details>
 
@@ -647,7 +649,7 @@ PEFT 大致分四类：**加性低秩（LoRA 系）**、**加性模块（Adapter
 
 - 合并法：为每个任务合并出独立全权重，推理零延迟，但每任务一份完整权重、不能动态切换
 - 旁路法：基座不动、在线加各自 $\frac{\alpha}{r}B(Ax)$，可热插拔 / batch 内混合不同 adapter，代价是恢复了一点推理开销
-- 工业界（如多租户 LoRA serving）多用旁路法 + 批处理优化
+- 工业界多用旁路法 + 批处理优化；专门的**多 LoRA serving 系统**（S-LoRA、Punica）能在同一基座上高吞吐并发服务成百上千个 adapter（统一显存分页 + 自定义 batched kernel）
 
 只知道合并，不知道"不合并以支持动态多 adapter"。
 
@@ -671,6 +673,7 @@ PEFT 大致分四类：**加性低秩（LoRA 系）**、**加性模块（Adapter
 
 - 低秩旁路擅长**风格 / 格式 / 任务适配 / 对齐**这类"调整已有能力"的场景
 - 注入大量**全新事实知识**时低秩可能受限，需更大 $r$、配更多层，或继续预训练 / 全参
+- Biderman et al. (2024, *LoRA Learns Less and Forgets Less*, arXiv 2405.09673) 实证：难任务（如代码 / 数学）上 LoRA 常学得不如满参，但**遗忘也更轻**——低秩约束是一把双刃剑
 - 这也是 DoRA / 高秩 / PiSSA 等想突破表达力的动机；秩是容量旋钮，不是免费午餐
 
 绝对化地说"LoRA 和满参等价"或"LoRA 学不了任何新东西"——都过头，取决于 $r$、适配层数与任务类型。
@@ -694,12 +697,12 @@ PEFT 大致分四类：**加性低秩（LoRA 系）**、**加性模块（Adapter
 [c] merge: |out_merged - out_unmerged| = 3.58e-07; weight += dW = True; unmerge restores base = True  OK
 [d] trainable params = 640 (expect r*(in+out) = 640); base frozen = True  OK
 [e] scaling: standard alpha/r = 2.0000, rsLoRA alpha/sqrt(r) = 5.6569  OK
-[f] DoRA: m.requires_grad = True, base frozen, identity start |Δ| = 2.38e-07  OK
+[f] DoRA: m.requires_grad = True, base frozen, identity start |Δ| = 1.19e-07  OK
 
 all LoRA / DoRA sanity checks passed ✓
 ```
 
-其中 $640 = r(\text{IN}+\text{OUT}) = 8\times(32+48)$ 验证了 §4 的可训练参数公式；merge 前后 $3.58\text{e-}7$ 的纯浮点误差验证了零延迟合并的数值等价；DoRA 恒等起点 $\lvert\Delta\rvert=2.38\text{e-}7$ 验证了 $B=0$ 时 $W'=W_0$。
+其中 $640 = r(\text{IN}+\text{OUT}) = 8\times(32+48)$ 验证了 §4 的可训练参数公式；merge 前后 $3.58\text{e-}7$ 的纯浮点误差验证了零延迟合并的数值等价；DoRA 恒等起点 $\lvert\Delta\rvert=1.19\text{e-}7$ 验证了 $B=0$ 时 $W'=W_0$。
 
 ---
 
@@ -730,3 +733,5 @@ all LoRA / DoRA sanity checks passed ✓
 - **Prompt Tuning** — Lester et al., *The Power of Scale for Parameter-Efficient Prompt Tuning*, arXiv 2104.08691 (2021), EMNLP 2021.
 - **P-Tuning v2** — Liu et al., *P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks*, arXiv 2110.07602 (2021).
 - **BitFit** — Ben-Zaken et al., *BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models*, arXiv 2106.10199 (2021), ACL 2022.
+- **S-LoRA** — Sheng et al., *S-LoRA: Serving Thousands of Concurrent LoRA Adapters*, arXiv 2311.03285 (2023).
+- **LoRA Learns Less and Forgets Less** — Biderman et al., arXiv 2405.09673 (2024), TMLR 2024.

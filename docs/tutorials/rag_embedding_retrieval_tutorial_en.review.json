@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/rag_embedding_retrieval_tutorial_en.md",
-  "source_sha256": "1ec7d4c32dc4fc937402cb9525db77aac51c121249ae87bf4a8da22ee72f6a2c",
+  "source_sha256": "cbee547b2c6defcf50dc8603e2e734fb8ad2b31504bc099cd2b6eb379cfed631",
   "output": "docs/tutorials/rag_embedding_retrieval_tutorial_en.html",
   "zh_source": "docs/tutorials/rag_embedding_retrieval_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread per round",
@@ -32,5 +32,12 @@
     ]
   },
   "summary": "EN edition of the RAG + Embedding/Retrieval cheat sheet: 2-round cross-model translation-fidelity review (Codex GPT-5.5 xhigh). Round 1 caught 3 fidelity gaps (all revived ZH-fixed softenings: ColBERT 'late interaction' terminology, rerank 'highest'→'high' ROI ×2); round 2 PASS. Code logic identical to ZH with English-translated comments; §A real-run output preserved byte-for-byte.",
-  "rendered_at": "2026-06-14"
+  "rendered_at": "2026-06-14",
+  "post_ship_review": [
+    {
+      "scope": "post-ship mirror of CN final-review fixes",
+      "verdict": "FIXED",
+      "notes": "Mirrored the HyDE (hypothetical document), CRAG (retrieved-doc relevance/confidence) fixes and the 4 enrichments (SPLADE, ColBERTv2/PLAID, Contextual Retrieval/late chunking, BEIR/MTEB) into the EN edition."
+    }
+  ]
 }

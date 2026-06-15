@@ -150,6 +150,8 @@ $$\boxed{\;\text{RRF}(d) = \sum_{r \in \mathcal{R}} \frac{1}{k + \text{rank}_r(d
 
 $\text{rank}_r(d)$ is document $d$'s rank in retriever $r$ (1-based). The constant $k$ damps the head ranks' over-dominance. RRF is simple, stable, training-free — the default fusion for hybrid retrieval (Cormack 2009).
 
+> 💡 **learned sparse: SPLADE** — besides BM25 (terms) and dense (semantics) there's a middle path: **SPLADE** (Formal 2021) uses an MLM head to expand query/doc into **sparse term vectors with learned weights** (including synonyms/expansion terms) — it fits an inverted index (fast, interpretable) yet has semantic expansion, often a strong baseline or one leg of the hybrid.
+
 ## §6 Reranking: cross-encoder
 
 Recall (bi-encoder + ANN) chases **high recall, fast**, but the precision of the top-k isn't enough. **A reranker re-scores the recalled top-k (say 100) precisely and takes the top few**.
@@ -168,7 +170,7 @@ Cross-encoder: $\text{score}(q,d) = \text{MLP}(\text{BERT}([q;d])_{\texttt{[CLS]
 
 $$\text{score}(q,d) = \sum_{i \in q} \max_{j \in d} \mathbf{E}_{q_i}^\top \mathbf{E}_{d_j}$$
 
-Finer-grained than the bi-encoder's single vector, yet the doc side is still precomputable — a compromise between recall and reranking (Khattab & Zaharia 2020).
+Finer-grained than the bi-encoder's single vector, yet the doc side is still precomputable — a compromise between recall and reranking (Khattab & Zaharia 2020). The cost is **storage/latency**: each doc stores per-token vectors, far larger than a single vector; **ColBERTv2** (quantization + residual compression) and **PLAID** (centroid pruning for speed) are the key engineering that make multi-vector late interaction land at acceptable storage/latency (Santhanam 2021/2022). Single-vector vs multi-vector is the classic "save storage vs higher precision" tradeoff.
 
 ## §7 The RAG pipeline: from query to answer
 
@@ -188,9 +190,9 @@ LLM generate + cite   ⑤ optional self-check: Self-RAG(generation reflection) �
 ```
 
 - **⓪ Chunking (offline)**: split documents into passages then embed (this is offline preprocessing, not shown in the online flow above). Too large → coarse retrieval, diluted relevant info; too small → broken context. Common is 200–500 token + overlap, or split by semantics/heading structure. **Chunking strategy hugely affects results** — one of the most worth-tuning knobs.
-- **① Query rewrite**: **HyDE** (Gao 2022) first lets the LLM generate a "hypothetical answer" then retrieves with its embedding (aligning the query and doc distributions); multi-query generates several rewrites and merges recall.
+- **① Query rewrite**: **HyDE** (Gao 2022) first lets the LLM generate a **hypothetical document/passage** then retrieves with its embedding (aligning the query-vector distribution with real documents; in QA this pseudo-document often looks answer-like, but the core is using a pseudo-document to query the real corpus); multi-query generates several rewrites and merges recall.
 - **④ Prompt assembly**: context passages + the original question + an instruction to "answer only from the context and give sources"; mind **lost-in-the-middle** (Liu 2023) — key passages placed in the middle are easily ignored, so put the important ones at the head and tail.
-- **⑤ Self-checking RAG**: **Self-RAG** (Asai 2023) trains the model to emit reflection tokens ("should I retrieve / is the retrieved useful / is the answer grounded"); **CRAG** (Yan 2024) scores retrieval quality and, if poor, triggers web search or correction.
+- **⑤ Self-checking RAG**: **Self-RAG** (Asai 2023) trains the model to emit reflection tokens ("should I retrieve / is the retrieved useful / is the answer grounded"); **CRAG** (Yan 2024) uses a lightweight evaluator to score the relevance/confidence of the **retrieved documents**, and on low confidence/ambiguity triggers corrective retrieval (web search / rewrite).
 
 ## §8 Advanced RAG: GraphRAG · comparison · evaluation
 
@@ -213,7 +215,7 @@ In practice the three are often combined: fine-tune for style + RAG for facts + 
 
 Evaluate in two layers:
 
-- **Retrieval layer**: recall@k, nDCG, MRR — whether the recalled passages are right.
+- **Retrieval layer**: recall@k, nDCG, MRR — whether the recalled passages are right; pick an embedding/retriever using standard benchmarks like **MTEB** (general embedding leaderboard, Muennighoff 2022) and **BEIR** (zero-shot retrieval generalization, Thakur 2021), not just the end-to-end score.
 - **Generation layer**: **faithfulness** (is the answer faithful to the context, no fabrication), **context relevance** (is the recall relevant), **answer relevance** (does the answer hit the point). RAGAS (Es 2023) computes these automatically with an LLM.
 
 > ❌ **Classic faceplant** — only looking at "does the answer read correctly," without layering. The retrieval recalls a wrong passage, the LLM "faithfully" gives a wrong answer based on it, and end-to-end it looks like hallucination while the root cause is in retrieval. You must attribute retrieval and generation separately.
@@ -283,6 +285,7 @@ This ties §5–§7 together: chunk → dense + BM25 dual recall → RRF fuse �
 ## §10 Engineering practice and common bugs
 
 - **Chunk size is the number-one knob**: too large → coarse retrieval, too small → broken context; start with 256/512 token + 10–20% overlap, tune by evaluation.
+- **Higher-value than tuning chunk size**: **Contextual Retrieval** (Anthropic 2024, prepend an LLM-generated whole-document context to each chunk before embedding) and **late chunking** (Jina 2024, run the full doc through a long-context encoder first, then chunk-pool) both target the root cause "plain chunking loses document-level context," often paying off more than just tuning chunk size.
 - **Match the embedding model to the domain**: a generic embedding may be weak in specialized domains (medical/legal/code); consider domain fine-tuning or a matching model (BGE-M3 / E5 / domain models).
 - **Don't go pure dense**: for entity/rare-word/exact-match scenarios always add BM25 hybrid, otherwise "you can't retrieve the one that's obviously there."
 - **Hard-negative false negatives** (§2.3): dedup and filter when mining negatives, or you train it crooked.
@@ -525,8 +528,8 @@ Treating ColBERT as a plain bi-encoder, not knowing it's token-level MaxSim.
 
 <summary>Q18. What is HyDE's idea? Why is it useful?</summary>
 
-- First let the LLM generate a "hypothetical answer," retrieve with its embedding
-- Align the query distribution with the doc distribution (an answer looks more like a document than a question)
+- First let the LLM generate a **hypothetical document/passage**, retrieve with its embedding
+- Align the query-vector distribution with real documents (the pseudo-document looks more like a corpus document than the raw question)
 - Zero-shot dense retrieval often improves as a result
 
 Thinking HyDE rewrites query keywords (it actually generates a hypothetical document then embeds it).
@@ -600,7 +603,7 @@ Treating GraphRAG as "swapping the vector store," not knowing it builds a knowle
 <summary>Q24. What do "self-checking RAG" methods like Self-RAG / CRAG do?</summary>
 
 - Self-RAG: trains the model to emit reflection tokens (should I retrieve / is the passage useful / is the answer grounded)
-- CRAG: scores retrieval quality at the **retrieval layer**, if poor triggers correction (web search, rewrite)
+- CRAG: at the **retrieval layer**, an evaluator scores the relevance/confidence of the retrieved docs (you can't measure true recall at inference without a labeled set), and on low confidence triggers corrective retrieval (web search, rewrite)
 - Goal: keep RAG from blindly answering when retrieval is useless/wrong
 
 Thinking they're better retrievers; actually they add a self-evaluation/correction loop — Self-RAG focuses on generation-time reflection, CRAG focuses on evaluating retrieval quality and triggering corrective retrieval.
@@ -675,3 +678,10 @@ Pure PyTorch, runs on CPU in seconds with no GPU: `python docs/tutorials/code/ra
 - **HNSW** — Malkov & Yashunin, *Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs*, arXiv 1603.09320 (2016), IEEE TPAMI 2020.
 - **Lost in the Middle** — Liu et al., *Lost in the Middle: How Language Models Use Long Contexts*, arXiv 2307.03172 (2023), TACL 2024.
 - **BM25** — Robertson & Zaragoza, *The Probabilistic Relevance Framework: BM25 and Beyond*, Foundations and Trends in IR (2009).
+- **SPLADE** — Formal et al., *SPLADE: Sparse Lexical and Expansion Model for First Stage Ranking*, arXiv 2107.05720 (2021), SIGIR 2021.
+- **ColBERTv2** — Santhanam et al., *ColBERTv2: Efficient and Effective Retrieval via Lightweight Late Interaction*, arXiv 2112.01488 (2021), NAACL 2022.
+- **PLAID** — Santhanam et al., *PLAID: An Efficient Engine for Late Interaction Retrieval*, arXiv 2205.09707 (2022), CIKM 2022.
+- **Contextual Retrieval** — Anthropic, *Introducing Contextual Retrieval* (engineering blog, 2024).
+- **Late Chunking** — Günther et al., *Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models*, arXiv 2409.04701 (2024).
+- **BEIR** — Thakur et al., *BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models*, arXiv 2104.08663 (2021), NeurIPS 2021 D&B.
+- **MTEB** — Muennighoff et al., *MTEB: Massive Text Embedding Benchmark*, arXiv 2210.07316 (2022), EACL 2023.

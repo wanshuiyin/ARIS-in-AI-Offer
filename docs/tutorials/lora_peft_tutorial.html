@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/lora_peft_tutorial.md">
-<meta name="aris:source-sha256" content="1dfbcbf080ce7dc510091e8bf121607c962e8fc2aa946ba066b2cfb89ce41be4">
-<meta name="aris:generated-at" content="2026-06-13 12:52 UTC">
+<meta name="aris:source-sha256" content="5e6a533cffa76a3740511f522eb0cd125a48121faee7f23e57a0cf1f83577120">
+<meta name="aris:generated-at" content="2026-06-15 05:14 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -580,8 +580,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/lora_peft_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>1dfbcbf080ce</code></span>
-    <span><strong>Rendered:</strong> 2026-06-13 12:52 UTC</span>
+    <span><strong>SHA256:</strong> <code>5e6a533cffa7</code></span>
+    <span><strong>Rendered:</strong> 2026-06-15 05:14 UTC</span>
     
   </div>
 </header>
@@ -608,7 +608,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>即<strong>训练起点完全等于预训练模型</strong>，不引入任何扰动。这点很关键：如果起点就偏离预训练，等于丢掉了预训练知识、还可能炸 loss。</p>
 <p>那为什么不<strong>两个都置零</strong>？因为会永远学不动。看第一步梯度（设损失 $L$，输出方向梯度 $g = \partial L / \partial h$）：</p>
 <p>$$\frac{\partial L}{\partial B} = \frac{\alpha}{r}\, g\, (A x)^\top, \qquad \frac{\partial L}{\partial A} = \frac{\alpha}{r}\, B^\top g\, x^\top$$</p>
-<ul><li>$A$ 非零 → $Ax \neq 0$ → $\partial L/\partial B \neq 0$：<strong>第一步 $B$ 能动</strong>；</li><li>$B = 0$ → $\partial L/\partial A = 0$：第一步 $A$ 不动，但只要 $B$ 动起来变非零，下一步 $A$ 就有梯度了。</li></ul>
+<ul><li>$A$ 非零 → 一般情况下 $Ax \neq 0$ → $\partial L/\partial B \neq 0$：<strong>第一步 $B$ 能动</strong>（除非 $g=0$ 或 $x$ 恰落在 $A$ 的零空间等退化情形）；</li><li>$B = 0$ → $\partial L/\partial A = 0$：第一步 $A$ 不动，但只要 $B$ 动起来变非零，下一步 $A$ 就有梯度了。</li></ul>
 <p>如果 $A=B=0$，则两个梯度恒为零，$\Delta W$ 永远是 0。<strong>所以必须"一零一非零"：$A$ 非零保证可学性，$B=0$ 保证干净起点。</strong>（对称地，$A=0$、$B$ 随机也可以，PEFT 库里两种约定都见过；关键是恰好一个为零。）</p>
 <div class="callout callout-warn"><div class="callout-title">常见误解</div><p>"$B=0$ 所以 LoRA 第一步什么都没学到" 是错的。第一步 $B$ 确实在更新（梯度非零），只是 $\Delta W$ 在 $t=0$ 那一刻数值为 0。是"输出增量为零"而非"梯度为零"。</p></div>
 <h3 id="23-缩放因子-alphar-与-rslora">2.3　缩放因子 $\alpha/r$ 与 rsLoRA</h3>
@@ -734,11 +734,12 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <div class="callout callout-warn"><div class="callout-title">QLoRA ≠ 推理省显存</div><p>QLoRA 解决的是<strong>微调时</strong>把大模型塞进单卡。推理阶段如果反量化合并成 fp16，显存又回到全精度；要推理也省显存得用专门的 4-bit 推理路径（如 bitsandbytes / GPTQ / AWQ，见 quantization 篇）。</p></div>
 <h2 id="6-dora幅度-方向分解">§6 DoRA：幅度-方向分解</h2>
 <p>DoRA（Weight-Decomposed Low-Rank Adaptation，Liu et al., 2024, arXiv 2402.09353, ICML 2024）观察到：满参微调和 LoRA 在"权重的<strong>幅度（magnitude）</strong>与<strong>方向（direction）</strong>如何协同变化"上有系统性差异，LoRA 的表达模式受限。DoRA 把预训练权重显式分解为幅度和方向两部分，分别学习。</p>
-<p>把权重按<strong>列</strong>分解（$\lVert\cdot\rVert_c$ 表示逐列 2-范数）：</p>
-<p>$$W_0 = m \cdot \frac{V}{\lVert V \rVert_c}, \qquad m = \lVert W_0 \rVert_c \in \mathbb{R}^{1\times k}, \quad V = W_0$$</p>
-<p>其中 $m$ 是每列的幅度（行向量），$V/\lVert V\rVert_c$ 是单位方向。DoRA 让 <strong>$m$ 可训练</strong>，并用 <strong>LoRA 更新方向</strong>：</p>
-<p>$$\boxed{\;W' = m \cdot \frac{V + \Delta V}{\lVert V + \Delta V \rVert_c}, \qquad \Delta V = BA\;}$$</p>
-<p>直觉：LoRA 把幅度和方向耦合在一个 $\Delta W$ 里一起调；DoRA 把幅度抽出来单独给一个标量序列 $m$，让低秩旁路专注学方向。实证上 DoRA 的"幅度-方向更新模式"更接近满参微调，常在同等参数量下小幅超过 LoRA，尤其在低秩（$r$ 小）时增益明显。代价：列归一化带来一点额外计算和实现复杂度；合并时需把 $m$ 和归一化一起折算回 $W'$（合并后仍是单一矩阵、推理零延迟）。</p>
+<p>把权重按<strong>输出神经元（行）</strong>分解（沿用 weight normalization：每个输出的权重向量 = 幅度 × 单位方向；$\lVert\cdot\rVert_r$ 表示逐行 / 逐输出 2-范数，对 PyTorch 权重 $[\text{out},\text{in}]$ 即沿 in 维 <code>dim=1</code>）：</p>
+<p>$$W_0 = m \odot \frac{V}{\lVert V \rVert_r}, \qquad m = \lVert W_0 \rVert_r \in \mathbb{R}^{d\times 1}, \quad V = W_0$$</p>
+<p>其中 $m$ 是<strong>每个输出神经元一个标量幅度</strong>（$d$ 维），$V/\lVert V\rVert_r$ 是每行单位方向。DoRA 让 <strong>$m$ 可训练</strong>，并用 <strong>LoRA 更新方向</strong>：</p>
+<p>$$\boxed{\;W' = m \odot \frac{V + \Delta V}{\lVert V + \Delta V \rVert_r}, \qquad \Delta V = BA\;}$$</p>
+<p>（轴向易错：DoRA 沿用 weight normalization，幅度是<strong>逐输出</strong>的——HF PEFT 实现即 <code>torch.linalg.norm(weight, dim=1)</code>；DoRA 原文把 $W$ 记作 $\mathbb{R}^{\text{in}\times\text{out}}$ 的逐列范数，等价于此处 PyTorch $[\text{out},\text{in}]$ 的逐行 / per-output。）</p>
+<p>直觉：LoRA 把幅度和方向耦合在一个 $\Delta W$ 里一起调；DoRA 把幅度抽出来单独给一个标量序列 $m$，让低秩旁路专注学方向。实证上 DoRA 的"幅度-方向更新模式"更接近满参微调，常在同等参数量下小幅超过 LoRA，尤其在低秩（$r$ 小）时增益明显。代价：逐行归一化带来一点额外计算和实现复杂度；合并时需把 $m$ 和归一化一起折算回 $W'$（合并后仍是单一矩阵、推理零延迟）。</p>
 <pre><code class="language-python">class DoRALinear(nn.Module):
     def __init__(self, base: nn.Linear, r=8, alpha=16):
         super().__init__()
@@ -750,16 +751,16 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
         self.lora_A = nn.Parameter(torch.empty(r, in_f))
         self.lora_B = nn.Parameter(torch.zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-        # m 初始化为每列范数；W 形状 [out, in]，逐列范数 = 每个 in 列沿 out 维(dim=0)求 norm
-        self.m = nn.Parameter(self.base.weight.norm(dim=0, keepdim=True))  # [1, in]
+        # 逐输出幅度：W 形状 [out, in]，沿 in 维(dim=1)求范数 -&gt; [out, 1]（同 HF PEFT）
+        self.m = nn.Parameter(self.base.weight.norm(dim=1, keepdim=True))  # [out, 1]
 
     def forward(self, x):
         dW = self.scaling * (self.lora_B @ self.lora_A)       # [out, in]
         V = self.base.weight + dW
-        Vnorm = V.norm(dim=0, keepdim=True) + 1e-8            # [1, in] 逐列范数
-        W_eff = self.m * V / Vnorm                            # 方向 × 幅度
+        Vnorm = V.norm(dim=1, keepdim=True) + 1e-8           # [out, 1] 逐输出范数
+        W_eff = self.m * V / Vnorm                            # 方向 × 幅度（逐输出）
         return F.linear(x, W_eff, self.base.bias)</code></pre>
-<div class="callout callout-info"><div class="callout-title">面试点：DoRA 改了什么</div><p>LoRA 只学 $\Delta W=BA$；DoRA = 可训练幅度 $m$ + 用 LoRA 学方向。它解释了"LoRA 为何在某些任务弱于满参"——因为 LoRA 的幅度/方向更新被绑死，DoRA 解绑了。</p></div>
+<div class="callout callout-info"><div class="callout-title">面试点：DoRA 改了什么</div><p>LoRA 只学 $\Delta W=BA$；DoRA = 可训练幅度 $m$ + 用 LoRA 学方向。它解释了"LoRA 为何在某些任务弱于满参"——因为 LoRA 的幅度/方向更新被绑死，DoRA 解绑了。DoRA 可叠加 QLoRA（<strong>QDoRA</strong>）在量化基座上做分解，兼顾显存与效果。</p></div>
 <h2 id="7-lora-家族变体一览">§7 LoRA 家族变体一览</h2>
 <table><thead><tr><th>变体</th><th>一句话</th><th>改了 LoRA 的什么</th><th>论文</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>低秩旁路 $BA$</td><td>基线</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>rsLoRA</strong></td><td>缩放改 $\alpha/\sqrt{r}$</td><td>高秩梯度稳定</td><td>Kalajdzievski 2023, 2312.03732</td></tr><tr><td><strong>DoRA</strong></td><td>幅度-方向分解</td><td>解绑幅度与方向</td><td>Liu 2024, 2402.09353</td></tr><tr><td><strong>PiSSA</strong></td><td>用 $W_0$ 主成分初始化 $A,B$</td><td>初始化（更快收敛）</td><td>Meng 2024, 2404.02948</td></tr><tr><td><strong>LoRA-GA</strong></td><td>让首步梯度逼近满参</td><td>初始化（梯度对齐）</td><td>Wang 2024, 2407.05000</td></tr><tr><td><strong>AdaLoRA</strong></td><td>SVD 形式 + 按重要性剪秩</td><td>自适应分配秩预算</td><td>Zhang 2023, 2303.10512</td></tr><tr><td><strong>LoRA+</strong></td><td>$A,B$ 用不同学习率</td><td>优化（$B$ 更大 lr）</td><td>Hayou 2024, 2402.12354</td></tr><tr><td><strong>(IA)³</strong></td><td>学缩放向量乘激活</td><td>非低秩、参数更省</td><td>Liu 2022, 2205.05638</td></tr></tbody></table>
 <p>几个值得展开的：</p>
@@ -880,8 +881,8 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <details>
 
 <summary>Q17. DoRA 相比 LoRA 改了什么？为什么可能更好？</summary>
-<ul><li>把 $W_0$ 分解为幅度 $m=\lVert W_0\rVert_c$（逐列）与方向 $V/\lVert V\rVert_c$</li><li>$m$ 可训练，LoRA 只负责更新方向：$W'=m\cdot\frac{V+\Delta V}{\lVert V+\Delta V\rVert_c}$</li><li>解绑幅度与方向，更新模式更接近满参，低秩时增益明显</li></ul>
-<p>只说"DoRA 加了个 magnitude"，讲不清是逐列归一 + 方向用 LoRA 学。</p>
+<ul><li>把 $W_0$ 分解为幅度 $m=\lVert W_0\rVert_r$（<strong>逐输出行</strong>，沿 in 维 <code>dim=1</code>，同 weight norm / HF PEFT）与方向 $V/\lVert V\rVert_r$</li><li>$m$ 可训练，LoRA 只负责更新方向：$W'=m\odot\frac{V+\Delta V}{\lVert V+\Delta V\rVert_r}$</li><li>解绑幅度与方向，更新模式更接近满参，低秩时增益明显</li></ul>
+<p>只说"DoRA 加了个 magnitude"，讲不清是<strong>逐输出</strong>归一 + 方向用 LoRA 学；或把幅度轴搞成逐输入（错，DoRA 是逐输出）。</p>
 </details>
 <details>
 
@@ -917,7 +918,7 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <details>
 
 <summary>Q23. 多任务部署时，一个基座挂多个 LoRA 有哪两种策略？各自代价？</summary>
-<ul><li>合并法：为每个任务合并出独立全权重，推理零延迟，但每任务一份完整权重、不能动态切换</li><li>旁路法：基座不动、在线加各自 $\frac{\alpha}{r}B(Ax)$，可热插拔 / batch 内混合不同 adapter，代价是恢复了一点推理开销</li><li>工业界（如多租户 LoRA serving）多用旁路法 + 批处理优化</li></ul>
+<ul><li>合并法：为每个任务合并出独立全权重，推理零延迟，但每任务一份完整权重、不能动态切换</li><li>旁路法：基座不动、在线加各自 $\frac{\alpha}{r}B(Ax)$，可热插拔 / batch 内混合不同 adapter，代价是恢复了一点推理开销</li><li>工业界多用旁路法 + 批处理优化；专门的<strong>多 LoRA serving 系统</strong>（S-LoRA、Punica）能在同一基座上高吞吐并发服务成百上千个 adapter（统一显存分页 + 自定义 batched kernel）</li></ul>
 <p>只知道合并，不知道"不合并以支持动态多 adapter"。</p>
 </details>
 <details>
@@ -929,7 +930,7 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <details>
 
 <summary>Q25. LoRA 微调能学到"新知识"吗？低秩是不是表达瓶颈？</summary>
-<ul><li>低秩旁路擅长<strong>风格 / 格式 / 任务适配 / 对齐</strong>这类"调整已有能力"的场景</li><li>注入大量<strong>全新事实知识</strong>时低秩可能受限，需更大 $r$、配更多层，或继续预训练 / 全参</li><li>这也是 DoRA / 高秩 / PiSSA 等想突破表达力的动机；秩是容量旋钮，不是免费午餐</li></ul>
+<ul><li>低秩旁路擅长<strong>风格 / 格式 / 任务适配 / 对齐</strong>这类"调整已有能力"的场景</li><li>注入大量<strong>全新事实知识</strong>时低秩可能受限，需更大 $r$、配更多层，或继续预训练 / 全参</li><li>Biderman et al. (2024, <em>LoRA Learns Less and Forgets Less</em>, arXiv 2405.09673) 实证：难任务（如代码 / 数学）上 LoRA 常学得不如满参，但<strong>遗忘也更轻</strong>——低秩约束是一把双刃剑</li><li>这也是 DoRA / 高秩 / PiSSA 等想突破表达力的动机；秩是容量旋钮，不是免费午餐</li></ul>
 <p>绝对化地说"LoRA 和满参等价"或"LoRA 学不了任何新东西"——都过头，取决于 $r$、适配层数与任务类型。</p>
 </details>
 <h2 id="a-附录sanity-check">§A 附录：sanity check</h2>
@@ -941,10 +942,10 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 [c] merge: |out_merged - out_unmerged| = 3.58e-07; weight += dW = True; unmerge restores base = True  OK
 [d] trainable params = 640 (expect r*(in+out) = 640); base frozen = True  OK
 [e] scaling: standard alpha/r = 2.0000, rsLoRA alpha/sqrt(r) = 5.6569  OK
-[f] DoRA: m.requires_grad = True, base frozen, identity start |Δ| = 2.38e-07  OK
+[f] DoRA: m.requires_grad = True, base frozen, identity start |Δ| = 1.19e-07  OK
 
 all LoRA / DoRA sanity checks passed ✓</code></pre>
-<p>其中 $640 = r(\text{IN}+\text{OUT}) = 8\times(32+48)$ 验证了 §4 的可训练参数公式；merge 前后 $3.58\text{e-}7$ 的纯浮点误差验证了零延迟合并的数值等价；DoRA 恒等起点 $\lvert\Delta\rvert=2.38\text{e-}7$ 验证了 $B=0$ 时 $W'=W_0$。</p>
+<p>其中 $640 = r(\text{IN}+\text{OUT}) = 8\times(32+48)$ 验证了 §4 的可训练参数公式；merge 前后 $3.58\text{e-}7$ 的纯浮点误差验证了零延迟合并的数值等价；DoRA 恒等起点 $\lvert\Delta\rvert=1.19\text{e-}7$ 验证了 $B=0$ 时 $W'=W_0$。</p>
 <hr />
 <h2 id="runnable-code">📜 Runnable Code</h2>
 <p>本 tutorial 的 LoRA / DoRA 核心实现在 <a href="code/lora.py"><code>docs/tutorials/code/lora.py</code></a> 有最小可跑版本：</p>
@@ -952,13 +953,13 @@ all LoRA / DoRA sanity checks passed ✓</code></pre>
 <p>纯 PyTorch，CPU 几秒跑完、无需 GPU：<code>python docs/tutorials/code/lora.py</code>。上方 §A 的输出即该脚本的真实运行结果。</p>
 <hr />
 <h2 id="参考文献">📚 参考文献</h2>
-<ul><li><strong>LoRA</strong> — Hu et al., <em>LoRA: Low-Rank Adaptation of Large Language Models</em>, arXiv 2106.09685 (2021), ICLR 2022.</li><li><strong>Intrinsic Dimension</strong> — Aghajanyan et al., <em>Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning</em>, arXiv 2012.13255 (2020).</li><li><strong>QLoRA</strong> — Dettmers et al., <em>QLoRA: Efficient Finetuning of Quantized LLMs</em>, arXiv 2305.14314 (2023), NeurIPS 2023.</li><li><strong>DoRA</strong> — Liu et al., <em>DoRA: Weight-Decomposed Low-Rank Adaptation</em>, arXiv 2402.09353 (2024), ICML 2024.</li><li><strong>rsLoRA</strong> — Kalajdzievski, <em>A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA</em>, arXiv 2312.03732 (2023).</li><li><strong>PiSSA</strong> — Meng et al., <em>PiSSA: Principal Singular Values and Singular Vectors Adaptation</em>, arXiv 2404.02948 (2024), NeurIPS 2024.</li><li><strong>LoRA-GA</strong> — Wang et al., <em>LoRA-GA: Low-Rank Adaptation with Gradient Approximation</em>, arXiv 2407.05000 (2024).</li><li><strong>AdaLoRA</strong> — Zhang et al., <em>Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning</em>, arXiv 2303.10512 (2023), ICLR 2023.</li><li><strong>LoRA+</strong> — Hayou et al., <em>LoRA+: Efficient Low Rank Adaptation of Large Models</em>, arXiv 2402.12354 (2024).</li><li><strong>(IA)³ / T-Few</strong> — Liu et al., <em>Few-Shot Parameter-Efficient Fine-Tuning Is Better and Cheaper than In-Context Learning</em>, arXiv 2205.05638 (2022).</li><li><strong>Adapter</strong> — Houlsby et al., <em>Parameter-Efficient Transfer Learning for NLP</em>, arXiv 1902.00751 (2019), ICML 2019.</li><li><strong>Prefix-Tuning</strong> — Li &amp; Liang, <em>Prefix-Tuning: Optimizing Continuous Prompts for Generation</em>, arXiv 2101.00190 (2021), ACL 2021.</li><li><strong>Prompt Tuning</strong> — Lester et al., <em>The Power of Scale for Parameter-Efficient Prompt Tuning</em>, arXiv 2104.08691 (2021), EMNLP 2021.</li><li><strong>P-Tuning v2</strong> — Liu et al., <em>P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks</em>, arXiv 2110.07602 (2021).</li><li><strong>BitFit</strong> — Ben-Zaken et al., <em>BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models</em>, arXiv 2106.10199 (2021), ACL 2022.</li></ul>
+<ul><li><strong>LoRA</strong> — Hu et al., <em>LoRA: Low-Rank Adaptation of Large Language Models</em>, arXiv 2106.09685 (2021), ICLR 2022.</li><li><strong>Intrinsic Dimension</strong> — Aghajanyan et al., <em>Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning</em>, arXiv 2012.13255 (2020).</li><li><strong>QLoRA</strong> — Dettmers et al., <em>QLoRA: Efficient Finetuning of Quantized LLMs</em>, arXiv 2305.14314 (2023), NeurIPS 2023.</li><li><strong>DoRA</strong> — Liu et al., <em>DoRA: Weight-Decomposed Low-Rank Adaptation</em>, arXiv 2402.09353 (2024), ICML 2024.</li><li><strong>rsLoRA</strong> — Kalajdzievski, <em>A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA</em>, arXiv 2312.03732 (2023).</li><li><strong>PiSSA</strong> — Meng et al., <em>PiSSA: Principal Singular Values and Singular Vectors Adaptation</em>, arXiv 2404.02948 (2024), NeurIPS 2024.</li><li><strong>LoRA-GA</strong> — Wang et al., <em>LoRA-GA: Low-Rank Adaptation with Gradient Approximation</em>, arXiv 2407.05000 (2024).</li><li><strong>AdaLoRA</strong> — Zhang et al., <em>Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning</em>, arXiv 2303.10512 (2023), ICLR 2023.</li><li><strong>LoRA+</strong> — Hayou et al., <em>LoRA+: Efficient Low Rank Adaptation of Large Models</em>, arXiv 2402.12354 (2024).</li><li><strong>(IA)³ / T-Few</strong> — Liu et al., <em>Few-Shot Parameter-Efficient Fine-Tuning Is Better and Cheaper than In-Context Learning</em>, arXiv 2205.05638 (2022).</li><li><strong>Adapter</strong> — Houlsby et al., <em>Parameter-Efficient Transfer Learning for NLP</em>, arXiv 1902.00751 (2019), ICML 2019.</li><li><strong>Prefix-Tuning</strong> — Li &amp; Liang, <em>Prefix-Tuning: Optimizing Continuous Prompts for Generation</em>, arXiv 2101.00190 (2021), ACL 2021.</li><li><strong>Prompt Tuning</strong> — Lester et al., <em>The Power of Scale for Parameter-Efficient Prompt Tuning</em>, arXiv 2104.08691 (2021), EMNLP 2021.</li><li><strong>P-Tuning v2</strong> — Liu et al., <em>P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks</em>, arXiv 2110.07602 (2021).</li><li><strong>BitFit</strong> — Ben-Zaken et al., <em>BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models</em>, arXiv 2106.10199 (2021), ACL 2022.</li><li><strong>S-LoRA</strong> — Sheng et al., <em>S-LoRA: Serving Thousands of Concurrent LoRA Adapters</em>, arXiv 2311.03285 (2023).</li><li><strong>LoRA Learns Less and Forgets Less</strong> — Biderman et al., arXiv 2405.09673 (2024), TMLR 2024.</li></ul>
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/lora_peft_tutorial.md</code> ·
-  SHA256 <code>1dfbcbf080ce</code> ·
-  generated at 2026-06-13 12:52 UTC.
+  SHA256 <code>5e6a533cffa7</code> ·
+  generated at 2026-06-15 05:14 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

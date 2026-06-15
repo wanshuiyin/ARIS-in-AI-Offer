@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/lora_peft_tutorial.md",
-  "source_sha256": "1dfbcbf080ce7dc510091e8bf121607c962e8fc2aa946ba066b2cfb89ce41be4",
+  "source_sha256": "5e6a533cffa76a3740511f522eb0cd125a48121faee7f23e57a0cf1f83577120",
   "output": "docs/tutorials/lora_peft_tutorial.html",
   "runnable_code": "docs/tutorials/code/lora.py",
   "topic": "LoRA / PEFT 参数高效微调 — LoRA / QLoRA(NF4+double-quant+paged) / DoRA / rsLoRA / PiSSA / AdaLoRA / LoRA-GA / LoRA+ / (IA)³ vs Adapter / Prefix / Prompt / BitFit",
@@ -64,5 +64,16 @@
     ]
   },
   "summary": "LoRA/PEFT cheat sheet (effort=max, 732 lines) + runnable code (docs/tutorials/code/lora.py): 4-round cross-model codex gpt-5.5 xhigh math/code review + 2-round render-fidelity review, settled at PASS. R1 caught 7 blocking (NF4 bit/byte unit, Q3 14-vs-16 B/param, DoRA comment, (IA)³ additive mislabel, 3 unverifiable venues); R2 verified all fixed + caught 1 internal contradiction (§10 7B full-FT on 80GB vs the doc's own 112GB derivation); R3 PASS; R4 reviewed the runnable script (WARN, applied device/dtype + non-vacuous-merge fixes, re-ran clean on Server5). Core math (LoRA forward, init-gradient zero/nonzero, rsLoRA √r, 0.12% param count, double-quant arithmetic) independently re-derived correct. §A output is the script's REAL run output on PyTorch 2.10 CPU.",
-  "rendered_at": "2026-06-13"
+  "rendered_at": "2026-06-13",
+  "post_ship_review": [
+    {
+      "scope": "post-ship final adversarial review (fresh skeptic pass) + fixes",
+      "verdict": "FIXED",
+      "threads": [
+        "019ec991 (found)",
+        "019ec9b4 (fix verified CORRECT)"
+      ],
+      "notes": "REAL BUG caught that survived 4 prior rounds: DoRA magnitude axis was per-INPUT (norm dim=0) but real DoRA / HF PEFT use per-OUTPUT (torch.linalg.norm(weight, dim=1), weight-normalization style). Fixed §6 formula+code+comment, Q17, lora.py DoRALinear (dim=0->dim=1); re-ran on Server5 (identity |Δ| now 1.19e-7); Codex re-verified CORRECT. Also: §2.2 hedged 'A≠0⇒∂L/∂B≠0' (degenerate g=0 / x∈null(A)). Enrichment: S-LoRA/Punica multi-LoRA serving (Q23), 'LoRA Learns Less and Forgets Less' Biderman 2405.09673 (Q25), QDoRA (§6); +2 refs (citations verified)."
+    }
+  ]
 }

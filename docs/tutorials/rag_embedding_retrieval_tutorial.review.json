@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/rag_embedding_retrieval_tutorial.md",
-  "source_sha256": "31ed4b8f0aa37b4b5bf1d69f842a12001f8342f71062158e5e762e97dfd02787",
+  "source_sha256": "9534fd9052074c17225bb0396f7dce3be11995ca1bbded691f371271dc495a4b",
   "output": "docs/tutorials/rag_embedding_retrieval_tutorial.html",
   "runnable_code": "docs/tutorials/code/rag_embedding.py",
   "topic": "RAG + 文本嵌入/检索/重排 — InfoNCE / 难负例 / Matryoshka / 双塔 vs cross-encoder / ColBERT late interaction / BM25 / RRF / HNSW / HyDE / Self-RAG / CRAG / GraphRAG / RAGAS",
@@ -72,5 +72,13 @@
     ]
   },
   "summary": "RAG + Embedding/Retrieval cheat sheet (effort=max, 662 lines): cross-model codex gpt-5.5 xhigh review in 4 batched passes (citations 16/16 · formulas 8/8 · code · 25 answers) + 1 holistic full-document pass + 1 render-fidelity pass, settled at PASS with zero blocking issues. All citations and formulas independently verified. Refinements folded in: Matryoshka prefix re-normalization, bm25 O(N^2)→precompute, bi-encoder-vs-ColBERT 'late interaction' terminology, CRAG retrieval-stage clarification, §7 numbering, and ~10 over-absolute claims softened (hallucination mitigate-not-solve, HNSW empirical complexity, threshold calibration).",
-  "rendered_at": "2026-06-14"
+  "rendered_at": "2026-06-14",
+  "post_ship_review": [
+    {
+      "scope": "post-ship final adversarial review + fixes",
+      "verdict": "FIXED",
+      "thread": "019ec996 (found)",
+      "notes": "2 minor errors fixed: HyDE = generate a hypothetical DOCUMENT/passage (not 'answer'), §7+Q18; CRAG scores RETRIEVED-doc relevance/confidence (not 'recall', untestable at inference), §7+Q24. Enrichment (compact): SPLADE learned-sparse (§5.3), ColBERTv2/PLAID + single-vs-multi-vector tradeoff (§6), Contextual Retrieval + late chunking (§10), BEIR/MTEB benchmarks (§8.3); +7 refs (citations verified; ColBERTv2 title corrected to 'Efficient and Effective')."
+    }
+  ]
 }

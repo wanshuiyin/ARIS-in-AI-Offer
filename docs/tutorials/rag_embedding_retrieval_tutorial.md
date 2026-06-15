@@ -150,6 +150,8 @@ $$\boxed{\;\text{RRF}(d) = \sum_{r \in \mathcal{R}} \frac{1}{k + \text{rank}_r(d
 
 $\text{rank}_r(d)$ 是文档 $d$ 在检索器 $r$ 里的名次（1 起）。常数 $k$ 压低头部名次的过度主导。RRF 简单、稳、无需训练，是混合检索的默认融合法（Cormack 2009）。
 
+> 💡 **learned sparse：SPLADE** — 在 BM25（词项）与稠密（语义）之外还有一条中间路线：**SPLADE**（Formal 2021）用 MLM 头把 query/doc 展开成**带学习权重的稀疏词项向量**（含同义/扩展词），既能进倒排索引（快、可解释），又有语义扩展能力，常作为强 baseline 或混合的一路。
+
 ## §6 重排（Rerank）：交叉编码器
 
 召回（双塔 + ANN）追求**高 recall、快**，但 top-k 里精排不够。**重排器把召回的 top-k（如 100）重新精确打分、取前几个**。
@@ -168,7 +170,7 @@ $\text{rank}_r(d)$ 是文档 $d$ 在检索器 $r$ 里的名次（1 起）。常�
 
 $$\text{score}(q,d) = \sum_{i \in q} \max_{j \in d} \mathbf{E}_{q_i}^\top \mathbf{E}_{d_j}$$
 
-比双塔的单向量更细粒度、又能预计算 doc 端，是召回与重排之间的折中（Khattab & Zaharia 2020）。
+比双塔的单向量更细粒度、又能预计算 doc 端，是召回与重排之间的折中（Khattab & Zaharia 2020）。代价是**存储/延迟**：每个 doc 存逐 token 向量，索引远大于单向量；**ColBERTv2**（量化 + 残差压缩）与 **PLAID**（中心点剪枝加速）是把多向量 late interaction 真正落地到可接受存储/延迟的关键工程（Santhanam 2021/2022）。单向量 vs 多向量是「省存储 vs 高精度」的经典权衡。
 
 ## §7 RAG 管线：从 query 到答案
 
@@ -188,9 +190,9 @@ LLM 生成 + 引用   ⑤ 可选自检: Self-RAG(生成反思) · CRAG(检索质
 ```
 
 - **⓪ Chunking（离线切块）**：文档切成片段再嵌入（属离线预处理，不在上面的在线流程图里）。块太大 → 检索粗、稀释相关信息；块太小 → 上下文断裂。常用 200–500 token + 重叠（overlap），或按语义/标题结构切。**chunk 策略对效果影响极大**，是最该调的旋钮之一。
-- **① Query 改写**：**HyDE**（Gao 2022）先让 LLM 生成一个「假设答案」再用它的嵌入检索（query 和 doc 分布对齐）；multi-query 生成多个改写并合并召回。
+- **① Query 改写**：**HyDE**（Gao 2022）先让 LLM 生成一个「假设**文档 / 段落**」再用它的嵌入检索（让查询向量分布对齐真实文档；QA 场景这段「伪文档」常像答案，但核心是用伪文档去查真实语料）；multi-query 生成多个改写并合并召回。
 - **④ Prompt 拼装**：context 片段 + 原 question + 「只依据 context 回答、给出处」指令；注意 **lost-in-the-middle**（Liu 2023）——放中间的关键片段易被忽略，重要的放头尾。
-- **⑤ 自检式 RAG**：**Self-RAG**（Asai 2023）训模型输出「要不要检索 / 检索到的有没有用 / 答案有没有依据」的反思 token；**CRAG**（Yan 2024）给检索质量打分，差就触发 web 搜索或纠正。
+- **⑤ 自检式 RAG**：**Self-RAG**（Asai 2023）训模型输出「要不要检索 / 检索到的有没有用 / 答案有没有依据」的反思 token；**CRAG**（Yan 2024）用轻量 evaluator 给**已检索文档**的相关性/置信度打分，低置信或歧义时触发纠正检索（web 搜索 / 重写）。
 
 ## §8 RAG 进阶：GraphRAG · 对比 · 评测
 
@@ -213,7 +215,7 @@ LLM 生成 + 引用   ⑤ 可选自检: Self-RAG(生成反思) · CRAG(检索质
 
 分两层评：
 
-- **检索层**：recall@k、nDCG、MRR——召回的片段对不对。
+- **检索层**：recall@k、nDCG、MRR——召回的片段对不对；选嵌入/检索器可参考 **MTEB**（嵌入综合榜，Muennighoff 2022）与 **BEIR**（零样本检索泛化，Thakur 2021）这类标准 benchmark，而非只看端到端分。
 - **生成层**：**faithfulness**（答案是否忠于 context，不编）、**context relevance**（召回是否相关）、**answer relevance**（答案是否答到点）。RAGAS（Es 2023）用 LLM 自动算这几项。
 
 > ❌ **经典翻车** — 只看「答案读起来对不对」，不分层。检索召回了错片段、LLM 据此「忠实地」给出错答案，端到端看像幻觉，根因却在检索。必须把检索和生成分开归因。
@@ -283,6 +285,7 @@ def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
 ## §10 工程实践与常见 bug
 
 - **chunk 大小是头号旋钮**：太大检索粗、太小断上下文；先试 256/512 token + 10–20% overlap，按评测调。
+- **比调 chunk size 更高价值的改进**：**Contextual Retrieval**（Anthropic 2024，嵌入前给每个 chunk 补一段 LLM 生成的全文上下文）与 **late chunking**（Jina 2024，先整文过长上下文 encoder、再切块池化）都针对「普通切块丢失文档级上下文」这一根因，往往比单纯调块大小收益更大。
 - **嵌入模型要对域**：通用嵌入在专业领域（医疗/法律/代码）可能弱，考虑领域微调或选对口模型（BGE-M3 / E5 / 领域模型）。
 - **别纯稠密**：实体/罕见词/精确匹配场景务必加 BM25 混合，否则「检索不到明明有的那条」。
 - **难负例 false negative**（§2.3）：挖负例要去重、过滤，否则训歪。
@@ -525,8 +528,8 @@ def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
 
 <summary>Q18. HyDE 是什么思路？为什么有用？</summary>
 
-- 先让 LLM 生成一个「假设答案」，用它的嵌入去检索
-- 让 query 分布对齐 doc 分布（答案比问题更像文档）
+- 先让 LLM 生成一个「假设文档 / 段落」，用它的嵌入去检索
+- 让查询向量分布对齐真实文档（伪文档比原始问题更像语料里的文档）
 - 零样本稠密检索常因此提升
 
 以为 HyDE 是改写 query 关键词（其实是生成假设文档再嵌入）。
@@ -600,7 +603,7 @@ def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
 <summary>Q24. Self-RAG / CRAG 这类「自检式 RAG」在做什么？</summary>
 
 - Self-RAG：训模型输出反思 token（要不要检索 / 片段有没有用 / 答案有没有依据）
-- CRAG：在**检索层**给召回质量打分，差就触发纠正检索（如 web 搜索、重写）
+- CRAG：在**检索层**用 evaluator 给已检索文档的相关性/置信度打分（推理时无标注全集、测不了真 recall），低置信时触发纠正检索（web 搜索、重写）
 - 目标：让 RAG 在「检索没用/错」时不盲目据此作答
 
 以为是更好的检索器；其实是加自我评估/纠正回路——Self-RAG 侧重生成时反思，CRAG 侧重评估检索质量并触发纠正检索。
@@ -675,3 +678,10 @@ all RAG / embedding sanity checks passed ✓
 - **HNSW** — Malkov & Yashunin, *Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs*, arXiv 1603.09320 (2016), IEEE TPAMI 2020.
 - **Lost in the Middle** — Liu et al., *Lost in the Middle: How Language Models Use Long Contexts*, arXiv 2307.03172 (2023), TACL 2024.
 - **BM25** — Robertson & Zaragoza, *The Probabilistic Relevance Framework: BM25 and Beyond*, Foundations and Trends in IR (2009).
+- **SPLADE** — Formal et al., *SPLADE: Sparse Lexical and Expansion Model for First Stage Ranking*, arXiv 2107.05720 (2021), SIGIR 2021.
+- **ColBERTv2** — Santhanam et al., *ColBERTv2: Efficient and Effective Retrieval via Lightweight Late Interaction*, arXiv 2112.01488 (2021), NAACL 2022.
+- **PLAID** — Santhanam et al., *PLAID: An Efficient Engine for Late Interaction Retrieval*, arXiv 2205.09707 (2022), CIKM 2022.
+- **Contextual Retrieval** — Anthropic, *Introducing Contextual Retrieval* (engineering blog, 2024).
+- **Late Chunking** — Günther et al., *Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models*, arXiv 2409.04701 (2024).
+- **BEIR** — Thakur et al., *BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models*, arXiv 2104.08663 (2021), NeurIPS 2021 D&B.
+- **MTEB** — Muennighoff et al., *MTEB: Massive Text Embedding Benchmark*, arXiv 2210.07316 (2022), EACL 2023.

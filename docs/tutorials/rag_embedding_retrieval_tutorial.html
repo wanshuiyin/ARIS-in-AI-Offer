@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/rag_embedding_retrieval_tutorial.md">
-<meta name="aris:source-sha256" content="31ed4b8f0aa37b4b5bf1d69f842a12001f8342f71062158e5e762e97dfd02787">
-<meta name="aris:generated-at" content="2026-06-13 18:03 UTC">
+<meta name="aris:source-sha256" content="9534fd9052074c17225bb0396f7dce3be11995ca1bbded691f371271dc495a4b">
+<meta name="aris:generated-at" content="2026-06-15 05:14 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -587,8 +587,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/rag_embedding_retrieval_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>31ed4b8f0aa3</code></span>
-    <span><strong>Rendered:</strong> 2026-06-13 18:03 UTC</span>
+    <span><strong>SHA256:</strong> <code>9534fd905207</code></span>
+    <span><strong>Rendered:</strong> 2026-06-15 05:14 UTC</span>
     
   </div>
 </header>
@@ -675,13 +675,14 @@ def info_nce_with_hard(q, d_pos, d_hard, tau=0.05):
 <p>把 BM25 和稠密各自的排名用 <strong>Reciprocal Rank Fusion</strong> 融合（只用排名、不用分数，免去量纲对齐）：</p>
 <p>$$\boxed{\;\text{RRF}(d) = \sum_{r \in \mathcal{R}} \frac{1}{k + \text{rank}_r(d)}\;}, \qquad k \approx 60$$</p>
 <p>$\text{rank}_r(d)$ 是文档 $d$ 在检索器 $r$ 里的名次（1 起）。常数 $k$ 压低头部名次的过度主导。RRF 简单、稳、无需训练，是混合检索的默认融合法（Cormack 2009）。</p>
+<div class="callout callout-info"><div class="callout-title">learned sparse：SPLADE</div><p>在 BM25（词项）与稠密（语义）之外还有一条中间路线：<strong>SPLADE</strong>（Formal 2021）用 MLM 头把 query/doc 展开成<strong>带学习权重的稀疏词项向量</strong>（含同义/扩展词），既能进倒排索引（快、可解释），又有语义扩展能力，常作为强 baseline 或混合的一路。</p></div>
 <h2 id="6-重排rerank交叉编码器">§6 重排（Rerank）：交叉编码器</h2>
 <p>召回（双塔 + ANN）追求<strong>高 recall、快</strong>，但 top-k 里精排不够。<strong>重排器把召回的 top-k（如 100）重新精确打分、取前几个</strong>。</p>
 <table><thead><tr><th></th><th>双塔 bi-encoder</th><th>交叉编码器 cross-encoder</th><th>ColBERT（late interaction）</th></tr></thead><tbody><tr><td>编码方式</td><td>query、doc <strong>分开</strong>编码</td><td><code>[query; doc]</code> <strong>拼一起</strong>编码</td><td>doc 存<strong>逐 token</strong> 向量</td></tr><tr><td>交互</td><td>仅最后点积（无 token 级交互）</td><td>全程 attention（early，强）</td><td>token 级 late interaction（MaxSim）</td></tr><tr><td>可预计算 doc</td><td>✅（建索引）</td><td>❌（每对都要重算）</td><td>✅（存 token 向量，较大）</td></tr><tr><td>速度 / 规模</td><td>快 / 百万–十亿</td><td>慢 / 只能重排 top-k</td><td>中 / 较大存储</td></tr><tr><td>用途</td><td><strong>召回</strong></td><td><strong>重排</strong></td><td>召回+重排折中</td></tr></tbody></table>
 <p>交叉编码器：$\text{score}(q,d) = \text{MLP}(\text{BERT}([q;d])_{\texttt{[CLS]}})$，query 和 doc 的 token 全程互相 attend，所以准；代价是<strong>无法预计算</strong>（doc 表示依赖 query），只能对召回的少量候选跑。</p>
 <p><strong>ColBERT 的 late interaction</strong>：doc 存每个 token 的向量，打分用 MaxSim——query 每个 token 找 doc 里最相似的 token 再求和：</p>
 <p>$$\text{score}(q,d) = \sum_{i \in q} \max_{j \in d} \mathbf{E}_{q_i}^\top \mathbf{E}_{d_j}$$</p>
-<p>比双塔的单向量更细粒度、又能预计算 doc 端，是召回与重排之间的折中（Khattab &amp; Zaharia 2020）。</p>
+<p>比双塔的单向量更细粒度、又能预计算 doc 端，是召回与重排之间的折中（Khattab &amp; Zaharia 2020）。代价是<strong>存储/延迟</strong>：每个 doc 存逐 token 向量，索引远大于单向量；<strong>ColBERTv2</strong>（量化 + 残差压缩）与 <strong>PLAID</strong>（中心点剪枝加速）是把多向量 late interaction 真正落地到可接受存储/延迟的关键工程（Santhanam 2021/2022）。单向量 vs 多向量是「省存储 vs 高精度」的经典权衡。</p>
 <h2 id="7-rag-管线从-query-到答案">§7 RAG 管线：从 query 到答案</h2>
 <pre class="diagram"><code>query
   │  ① query 改写 / 扩展 (HyDE / multi-query)
@@ -695,7 +696,7 @@ cross-encoder 重排  ③ 取 top-5
 拼 prompt (context + question)  ④ 含来源标注
   ▼
 LLM 生成 + 引用   ⑤ 可选自检: Self-RAG(生成反思) · CRAG(检索质量→纠错回路)</code></pre>
-<ul><li><strong>⓪ Chunking（离线切块）</strong>：文档切成片段再嵌入（属离线预处理，不在上面的在线流程图里）。块太大 → 检索粗、稀释相关信息；块太小 → 上下文断裂。常用 200–500 token + 重叠（overlap），或按语义/标题结构切。<strong>chunk 策略对效果影响极大</strong>，是最该调的旋钮之一。</li><li><strong>① Query 改写</strong>：<strong>HyDE</strong>（Gao 2022）先让 LLM 生成一个「假设答案」再用它的嵌入检索（query 和 doc 分布对齐）；multi-query 生成多个改写并合并召回。</li><li><strong>④ Prompt 拼装</strong>：context 片段 + 原 question + 「只依据 context 回答、给出处」指令；注意 <strong>lost-in-the-middle</strong>（Liu 2023）——放中间的关键片段易被忽略，重要的放头尾。</li><li><strong>⑤ 自检式 RAG</strong>：<strong>Self-RAG</strong>（Asai 2023）训模型输出「要不要检索 / 检索到的有没有用 / 答案有没有依据」的反思 token；<strong>CRAG</strong>（Yan 2024）给检索质量打分，差就触发 web 搜索或纠正。</li></ul>
+<ul><li><strong>⓪ Chunking（离线切块）</strong>：文档切成片段再嵌入（属离线预处理，不在上面的在线流程图里）。块太大 → 检索粗、稀释相关信息；块太小 → 上下文断裂。常用 200–500 token + 重叠（overlap），或按语义/标题结构切。<strong>chunk 策略对效果影响极大</strong>，是最该调的旋钮之一。</li><li><strong>① Query 改写</strong>：<strong>HyDE</strong>（Gao 2022）先让 LLM 生成一个「假设<strong>文档 / 段落</strong>」再用它的嵌入检索（让查询向量分布对齐真实文档；QA 场景这段「伪文档」常像答案，但核心是用伪文档去查真实语料）；multi-query 生成多个改写并合并召回。</li><li><strong>④ Prompt 拼装</strong>：context 片段 + 原 question + 「只依据 context 回答、给出处」指令；注意 <strong>lost-in-the-middle</strong>（Liu 2023）——放中间的关键片段易被忽略，重要的放头尾。</li><li><strong>⑤ 自检式 RAG</strong>：<strong>Self-RAG</strong>（Asai 2023）训模型输出「要不要检索 / 检索到的有没有用 / 答案有没有依据」的反思 token；<strong>CRAG</strong>（Yan 2024）用轻量 evaluator 给<strong>已检索文档</strong>的相关性/置信度打分，低置信或歧义时触发纠正检索（web 搜索 / 重写）。</li></ul>
 <h2 id="8-rag-进阶graphrag--对比--评测">§8 RAG 进阶：GraphRAG · 对比 · 评测</h2>
 <h3 id="81-graphrag">8.1　GraphRAG</h3>
 <p>朴素 RAG 按片段独立召回，回答「跨多文档的全局性问题」（如「整个报告的主题脉络」）很弱。<strong>GraphRAG</strong>（微软，Edge 2024）先用 LLM 把语料抽成<strong>实体-关系知识图 + 社区摘要</strong>，全局问题走「社区摘要」而非散片段。强在 query-focused summarization，代价是建图贵。</p>
@@ -704,7 +705,7 @@ LLM 生成 + 引用   ⑤ 可选自检: Self-RAG(生成反思) · CRAG(检索质
 <p>实务里三者常组合：微调调风格 + RAG 注事实 + 适度长上下文容纳召回片段。</p>
 <h3 id="83-评测别只看生成">8.3　评测（别只看生成）</h3>
 <p>分两层评：</p>
-<ul><li><strong>检索层</strong>：recall@k、nDCG、MRR——召回的片段对不对。</li><li><strong>生成层</strong>：<strong>faithfulness</strong>（答案是否忠于 context，不编）、<strong>context relevance</strong>（召回是否相关）、<strong>answer relevance</strong>（答案是否答到点）。RAGAS（Es 2023）用 LLM 自动算这几项。</li></ul>
+<ul><li><strong>检索层</strong>：recall@k、nDCG、MRR——召回的片段对不对；选嵌入/检索器可参考 <strong>MTEB</strong>（嵌入综合榜，Muennighoff 2022）与 <strong>BEIR</strong>（零样本检索泛化，Thakur 2021）这类标准 benchmark，而非只看端到端分。</li><li><strong>生成层</strong>：<strong>faithfulness</strong>（答案是否忠于 context，不编）、<strong>context relevance</strong>（召回是否相关）、<strong>answer relevance</strong>（答案是否答到点）。RAGAS（Es 2023）用 LLM 自动算这几项。</li></ul>
 <div class="callout callout-bad"><div class="callout-title">经典翻车</div><p>只看「答案读起来对不对」，不分层。检索召回了错片段、LLM 据此「忠实地」给出错答案，端到端看像幻觉，根因却在检索。必须把检索和生成分开归因。</p></div>
 <h2 id="9-从零实现mini-rag-管线">§9 从零实现：mini-RAG 管线</h2>
 <pre><code class="language-python">import re, math
@@ -764,7 +765,7 @@ def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
     return f&quot;基于以下片段回答（标注出处编号）：\n{context}\n\n问题：{query}&quot;</code></pre>
 <p>这段把 §5–§7 串起来：切块 → 稠密 + BM25 双路召回 → RRF 融合 → 拼成带出处的 prompt（真实场景在融合后再加 cross-encoder 重排）。</p>
 <h2 id="10-工程实践与常见-bug">§10 工程实践与常见 bug</h2>
-<ul><li><strong>chunk 大小是头号旋钮</strong>：太大检索粗、太小断上下文；先试 256/512 token + 10–20% overlap，按评测调。</li><li><strong>嵌入模型要对域</strong>：通用嵌入在专业领域（医疗/法律/代码）可能弱，考虑领域微调或选对口模型（BGE-M3 / E5 / 领域模型）。</li><li><strong>别纯稠密</strong>：实体/罕见词/精确匹配场景务必加 BM25 混合，否则「检索不到明明有的那条」。</li><li><strong>难负例 false negative</strong>（§2.3）：挖负例要去重、过滤，否则训歪。</li><li><strong>lost in the middle</strong>（§7）：关键片段放 context 头尾，别堆中间。</li><li><strong>重排别省</strong>：召回 recall 够但精度不足时，cross-encoder 重排 top-k 往往是高 ROI 的一步（是否最高取决于召回质量 / 延迟预算 / 候选规模）。</li><li><strong>索引会过期</strong>：库更新后要增量重嵌入 / 重建索引；陈旧索引 = 陈旧答案。</li><li><strong>评测要分层</strong>（§8.3）：检索和生成分开归因，否则定位不了问题在哪。</li><li><strong>温度 $\tau$ 与 batch</strong>：对比学习里大 batch（更多 in-batch 负例）+ 合适 $\tau$ 很关键，小 batch 效果差。</li></ul>
+<ul><li><strong>chunk 大小是头号旋钮</strong>：太大检索粗、太小断上下文；先试 256/512 token + 10–20% overlap，按评测调。</li><li><strong>比调 chunk size 更高价值的改进</strong>：<strong>Contextual Retrieval</strong>（Anthropic 2024，嵌入前给每个 chunk 补一段 LLM 生成的全文上下文）与 <strong>late chunking</strong>（Jina 2024，先整文过长上下文 encoder、再切块池化）都针对「普通切块丢失文档级上下文」这一根因，往往比单纯调块大小收益更大。</li><li><strong>嵌入模型要对域</strong>：通用嵌入在专业领域（医疗/法律/代码）可能弱，考虑领域微调或选对口模型（BGE-M3 / E5 / 领域模型）。</li><li><strong>别纯稠密</strong>：实体/罕见词/精确匹配场景务必加 BM25 混合，否则「检索不到明明有的那条」。</li><li><strong>难负例 false negative</strong>（§2.3）：挖负例要去重、过滤，否则训歪。</li><li><strong>lost in the middle</strong>（§7）：关键片段放 context 头尾，别堆中间。</li><li><strong>重排别省</strong>：召回 recall 够但精度不足时，cross-encoder 重排 top-k 往往是高 ROI 的一步（是否最高取决于召回质量 / 延迟预算 / 候选规模）。</li><li><strong>索引会过期</strong>：库更新后要增量重嵌入 / 重建索引；陈旧索引 = 陈旧答案。</li><li><strong>评测要分层</strong>（§8.3）：检索和生成分开归因，否则定位不了问题在哪。</li><li><strong>温度 $\tau$ 与 batch</strong>：对比学习里大 batch（更多 in-batch 负例）+ 合适 $\tau$ 很关键，小 batch 效果差。</li></ul>
 <div class="callout callout-warn"><div class="callout-title">「加了 RAG 还是幻觉」</div><p>多半不是 LLM 的锅：检索召回了无关/错误片段，LLM「忠实地」据此作答。先查检索（recall@k、片段对不对），再怀疑生成。</p></div>
 <h2 id="11-复杂度与资源">§11 复杂度与资源</h2>
 <table><thead><tr><th>阶段</th><th>计算</th><th>备注</th></tr></thead><tbody><tr><td>嵌入 doc（离线）</td><td>$O(N \cdot C_{\text{enc}})$</td><td>一次性，可批量；MRL 可省存储</td></tr><tr><td>建 ANN 索引（HNSW）</td><td>$O(N \log N)$ 建图</td><td>内存换查询速度</td></tr><tr><td>稠密召回（线上）</td><td>经验近似对数 / 亚线性 per query</td><td>ANN 近似、非精确、非严格保证</td></tr><tr><td>BM25 召回</td><td>倒排索引 $O(\lvert q\rvert \cdot \text{postings})$</td><td>词项级</td></tr><tr><td>RRF 融合</td><td>$O(R \cdot k_{\text{recall}})$</td><td>只排名，极廉价</td></tr><tr><td>cross-encoder 重排</td><td>$O(k_{\text{recall}} \cdot C_{\text{enc}})$</td><td>每个候选一次前向，<strong>只对 top-k</strong></td></tr><tr><td>LLM 生成</td><td>$O(L_{\text{ctx}}^2)$ prefill</td><td>context 越长越贵（见 attention 篇）</td></tr></tbody></table>
@@ -878,7 +879,7 @@ def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
 <details>
 
 <summary>Q18. HyDE 是什么思路？为什么有用？</summary>
-<ul><li>先让 LLM 生成一个「假设答案」，用它的嵌入去检索</li><li>让 query 分布对齐 doc 分布（答案比问题更像文档）</li><li>零样本稠密检索常因此提升</li></ul>
+<ul><li>先让 LLM 生成一个「假设文档 / 段落」，用它的嵌入去检索</li><li>让查询向量分布对齐真实文档（伪文档比原始问题更像语料里的文档）</li><li>零样本稠密检索常因此提升</li></ul>
 <p>以为 HyDE 是改写 query 关键词（其实是生成假设文档再嵌入）。</p>
 </details>
 <details>
@@ -915,7 +916,7 @@ def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
 <details>
 
 <summary>Q24. Self-RAG / CRAG 这类「自检式 RAG」在做什么？</summary>
-<ul><li>Self-RAG：训模型输出反思 token（要不要检索 / 片段有没有用 / 答案有没有依据）</li><li>CRAG：在<strong>检索层</strong>给召回质量打分，差就触发纠正检索（如 web 搜索、重写）</li><li>目标：让 RAG 在「检索没用/错」时不盲目据此作答</li></ul>
+<ul><li>Self-RAG：训模型输出反思 token（要不要检索 / 片段有没有用 / 答案有没有依据）</li><li>CRAG：在<strong>检索层</strong>用 evaluator 给已检索文档的相关性/置信度打分（推理时无标注全集、测不了真 recall），低置信时触发纠正检索（web 搜索、重写）</li><li>目标：让 RAG 在「检索没用/错」时不盲目据此作答</li></ul>
 <p>以为是更好的检索器；其实是加自我评估/纠正回路——Self-RAG 侧重生成时反思，CRAG 侧重评估检索质量并触发纠正检索。</p>
 </details>
 <details>
@@ -944,13 +945,13 @@ all RAG / embedding sanity checks passed ✓</code></pre>
 <p>纯 PyTorch，CPU 几秒跑完、无需 GPU：<code>python docs/tutorials/code/rag_embedding.py</code>。上方 §A 的输出即该脚本的真实运行结果。</p>
 <hr />
 <h2 id="参考文献">📚 参考文献</h2>
-<ul><li><strong>RAG</strong> — Lewis et al., <em>Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</em>, arXiv 2005.11401 (2020), NeurIPS 2020.</li><li><strong>DPR</strong> — Karpukhin et al., <em>Dense Passage Retrieval for Open-Domain Question Answering</em>, arXiv 2004.04906 (2020), EMNLP 2020.</li><li><strong>InfoNCE / CPC</strong> — van den Oord et al., <em>Representation Learning with Contrastive Predictive Coding</em>, arXiv 1807.03748 (2018).</li><li><strong>SimCSE</strong> — Gao et al., <em>SimCSE: Simple Contrastive Learning of Sentence Embeddings</em>, arXiv 2104.08821 (2021), EMNLP 2021.</li><li><strong>ColBERT</strong> — Khattab &amp; Zaharia, <em>ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT</em>, arXiv 2004.12832 (2020), SIGIR 2020.</li><li><strong>Matryoshka Representation Learning</strong> — Kusupati et al., arXiv 2205.13147 (2022), NeurIPS 2022.</li><li><strong>BGE-M3</strong> — Chen et al., <em>BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation</em>, arXiv 2402.03216 (2024).</li><li><strong>HyDE</strong> — Gao et al., <em>Precise Zero-Shot Dense Retrieval without Relevance Labels</em>, arXiv 2212.10496 (2022), ACL 2023.</li><li><strong>Self-RAG</strong> — Asai et al., <em>Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</em>, arXiv 2310.11511 (2023), ICLR 2024.</li><li><strong>CRAG</strong> — Yan et al., <em>Corrective Retrieval Augmented Generation</em>, arXiv 2401.15884 (2024).</li><li><strong>GraphRAG</strong> — Edge et al., <em>From Local to Global: A Graph RAG Approach to Query-Focused Summarization</em>, arXiv 2404.16130 (2024).</li><li><strong>RAGAS</strong> — Es et al., <em>RAGAS: Automated Evaluation of Retrieval Augmented Generation</em>, arXiv 2309.15217 (2023).</li><li><strong>RRF</strong> — Cormack et al., <em>Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods</em>, SIGIR 2009.</li><li><strong>HNSW</strong> — Malkov &amp; Yashunin, <em>Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</em>, arXiv 1603.09320 (2016), IEEE TPAMI 2020.</li><li><strong>Lost in the Middle</strong> — Liu et al., <em>Lost in the Middle: How Language Models Use Long Contexts</em>, arXiv 2307.03172 (2023), TACL 2024.</li><li><strong>BM25</strong> — Robertson &amp; Zaragoza, <em>The Probabilistic Relevance Framework: BM25 and Beyond</em>, Foundations and Trends in IR (2009).</li></ul>
+<ul><li><strong>RAG</strong> — Lewis et al., <em>Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</em>, arXiv 2005.11401 (2020), NeurIPS 2020.</li><li><strong>DPR</strong> — Karpukhin et al., <em>Dense Passage Retrieval for Open-Domain Question Answering</em>, arXiv 2004.04906 (2020), EMNLP 2020.</li><li><strong>InfoNCE / CPC</strong> — van den Oord et al., <em>Representation Learning with Contrastive Predictive Coding</em>, arXiv 1807.03748 (2018).</li><li><strong>SimCSE</strong> — Gao et al., <em>SimCSE: Simple Contrastive Learning of Sentence Embeddings</em>, arXiv 2104.08821 (2021), EMNLP 2021.</li><li><strong>ColBERT</strong> — Khattab &amp; Zaharia, <em>ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT</em>, arXiv 2004.12832 (2020), SIGIR 2020.</li><li><strong>Matryoshka Representation Learning</strong> — Kusupati et al., arXiv 2205.13147 (2022), NeurIPS 2022.</li><li><strong>BGE-M3</strong> — Chen et al., <em>BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation</em>, arXiv 2402.03216 (2024).</li><li><strong>HyDE</strong> — Gao et al., <em>Precise Zero-Shot Dense Retrieval without Relevance Labels</em>, arXiv 2212.10496 (2022), ACL 2023.</li><li><strong>Self-RAG</strong> — Asai et al., <em>Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</em>, arXiv 2310.11511 (2023), ICLR 2024.</li><li><strong>CRAG</strong> — Yan et al., <em>Corrective Retrieval Augmented Generation</em>, arXiv 2401.15884 (2024).</li><li><strong>GraphRAG</strong> — Edge et al., <em>From Local to Global: A Graph RAG Approach to Query-Focused Summarization</em>, arXiv 2404.16130 (2024).</li><li><strong>RAGAS</strong> — Es et al., <em>RAGAS: Automated Evaluation of Retrieval Augmented Generation</em>, arXiv 2309.15217 (2023).</li><li><strong>RRF</strong> — Cormack et al., <em>Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods</em>, SIGIR 2009.</li><li><strong>HNSW</strong> — Malkov &amp; Yashunin, <em>Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</em>, arXiv 1603.09320 (2016), IEEE TPAMI 2020.</li><li><strong>Lost in the Middle</strong> — Liu et al., <em>Lost in the Middle: How Language Models Use Long Contexts</em>, arXiv 2307.03172 (2023), TACL 2024.</li><li><strong>BM25</strong> — Robertson &amp; Zaragoza, <em>The Probabilistic Relevance Framework: BM25 and Beyond</em>, Foundations and Trends in IR (2009).</li><li><strong>SPLADE</strong> — Formal et al., <em>SPLADE: Sparse Lexical and Expansion Model for First Stage Ranking</em>, arXiv 2107.05720 (2021), SIGIR 2021.</li><li><strong>ColBERTv2</strong> — Santhanam et al., <em>ColBERTv2: Efficient and Effective Retrieval via Lightweight Late Interaction</em>, arXiv 2112.01488 (2021), NAACL 2022.</li><li><strong>PLAID</strong> — Santhanam et al., <em>PLAID: An Efficient Engine for Late Interaction Retrieval</em>, arXiv 2205.09707 (2022), CIKM 2022.</li><li><strong>Contextual Retrieval</strong> — Anthropic, <em>Introducing Contextual Retrieval</em> (engineering blog, 2024).</li><li><strong>Late Chunking</strong> — Günther et al., <em>Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models</em>, arXiv 2409.04701 (2024).</li><li><strong>BEIR</strong> — Thakur et al., <em>BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models</em>, arXiv 2104.08663 (2021), NeurIPS 2021 D&amp;B.</li><li><strong>MTEB</strong> — Muennighoff et al., <em>MTEB: Massive Text Embedding Benchmark</em>, arXiv 2210.07316 (2022), EACL 2023.</li></ul>
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/rag_embedding_retrieval_tutorial.md</code> ·
-  SHA256 <code>31ed4b8f0aa3</code> ·
-  generated at 2026-06-13 18:03 UTC.
+  SHA256 <code>9534fd905207</code> ·
+  generated at 2026-06-15 05:14 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

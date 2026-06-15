@@ -62,7 +62,7 @@ So why not **zero both**? Because it would never learn. Look at the first-step g
 
 $$\frac{\partial L}{\partial B} = \frac{\alpha}{r}\, g\, (A x)^\top, \qquad \frac{\partial L}{\partial A} = \frac{\alpha}{r}\, B^\top g\, x^\top$$
 
-- $A$ nonzero → $Ax \neq 0$ → $\partial L/\partial B \neq 0$: **$B$ can move on step one**;
+- $A$ nonzero → generically $Ax \neq 0$ → $\partial L/\partial B \neq 0$: **$B$ can move on step one** (unless $g=0$ or $x$ happens to lie in $A$'s null space, etc.);
 - $B = 0$ → $\partial L/\partial A = 0$: $A$ doesn't move on step one, but once $B$ becomes nonzero, $A$ gets gradient on the next step.
 
 If $A=B=0$, both gradients are identically zero and $\Delta W$ stays 0 forever. **So it must be "one zero, one nonzero": $A$ nonzero guarantees learnability, $B=0$ guarantees a clean start.** (Symmetrically, $A=0$ with $B$ random also works; both conventions appear in PEFT libraries — the key is exactly one being zero.)
@@ -262,15 +262,17 @@ As in §2.4, the NF4 base cannot losslessly merge the bf16 $\Delta W$. Standard 
 
 DoRA (Weight-Decomposed Low-Rank Adaptation, Liu et al., 2024, arXiv 2402.09353, ICML 2024) observed a systematic difference between full fine-tuning and LoRA in "how the **magnitude** and **direction** of the weights co-evolve," and that LoRA's expressive pattern is limited. DoRA explicitly decomposes the pretrained weight into magnitude and direction, learning them separately.
 
-Decompose the weight **per column** ($\lVert\cdot\rVert_c$ denotes the column-wise 2-norm):
+Decompose the weight **per output neuron (row)** (following weight normalization: each output's weight vector = magnitude × unit direction; $\lVert\cdot\rVert_r$ is the per-row / per-output 2-norm, i.e. over the in dimension `dim=1` for a PyTorch weight $[\text{out},\text{in}]$):
 
-$$W_0 = m \cdot \frac{V}{\lVert V \rVert_c}, \qquad m = \lVert W_0 \rVert_c \in \mathbb{R}^{1\times k}, \quad V = W_0$$
+$$W_0 = m \odot \frac{V}{\lVert V \rVert_r}, \qquad m = \lVert W_0 \rVert_r \in \mathbb{R}^{d\times 1}, \quad V = W_0$$
 
-where $m$ is the per-column magnitude (a row vector) and $V/\lVert V\rVert_c$ is the unit direction. DoRA makes **$m$ trainable** and **updates the direction with LoRA**:
+where $m$ is **one scalar magnitude per output neuron** ($d$-dim) and $V/\lVert V\rVert_r$ is the per-row unit direction. DoRA makes **$m$ trainable** and **updates the direction with LoRA**:
 
-$$\boxed{\;W' = m \cdot \frac{V + \Delta V}{\lVert V + \Delta V \rVert_c}, \qquad \Delta V = BA\;}$$
+$$\boxed{\;W' = m \odot \frac{V + \Delta V}{\lVert V + \Delta V \rVert_r}, \qquad \Delta V = BA\;}$$
 
-Intuition: LoRA couples magnitude and direction inside a single $\Delta W$; DoRA pulls magnitude out into a separate scalar sequence $m$, letting the low-rank bypass focus on learning direction. Empirically DoRA's "magnitude–direction update pattern" is closer to full fine-tuning, often slightly beating LoRA at equal parameter count, especially at low rank (small $r$). The cost: column normalization adds a little compute and implementation complexity; when merging you fold $m$ and the normalization back into $W'$ (still a single matrix after merge, zero inference latency).
+(Axis gotcha: DoRA follows weight normalization, so the magnitude is **per-output** — HF PEFT implements `torch.linalg.norm(weight, dim=1)`; the DoRA paper writes $W\in\mathbb{R}^{\text{in}\times\text{out}}$ with a column-wise norm, equivalent to the per-row / per-output norm on a PyTorch $[\text{out},\text{in}]$ weight here.)
+
+Intuition: LoRA couples magnitude and direction inside a single $\Delta W$; DoRA pulls magnitude out into a separate scalar sequence $m$, letting the low-rank bypass focus on learning direction. Empirically DoRA's "magnitude–direction update pattern" is closer to full fine-tuning, often slightly beating LoRA at equal parameter count, especially at low rank (small $r$). The cost: per-row normalization adds a little compute and implementation complexity; when merging you fold $m$ and the normalization back into $W'$ (still a single matrix after merge, zero inference latency).
 
 ```python
 class DoRALinear(nn.Module):
@@ -284,18 +286,18 @@ class DoRALinear(nn.Module):
         self.lora_A = nn.Parameter(torch.empty(r, in_f))
         self.lora_B = nn.Parameter(torch.zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-        # m init = per-column norm; weight is [out, in], per-column norm = norm over the out dim (dim=0) for each in-column
-        self.m = nn.Parameter(self.base.weight.norm(dim=0, keepdim=True))  # [1, in]
+        # per-output magnitude: weight is [out, in], norm over the in dim (dim=1) -> [out, 1] (same as HF PEFT)
+        self.m = nn.Parameter(self.base.weight.norm(dim=1, keepdim=True))  # [out, 1]
 
     def forward(self, x):
         dW = self.scaling * (self.lora_B @ self.lora_A)       # [out, in]
         V = self.base.weight + dW
-        Vnorm = V.norm(dim=0, keepdim=True) + 1e-8           # [1, in] per-column norm
-        W_eff = self.m * V / Vnorm                            # direction × magnitude
+        Vnorm = V.norm(dim=1, keepdim=True) + 1e-8           # [out, 1] per-output norm
+        W_eff = self.m * V / Vnorm                            # direction × magnitude (per-output)
         return F.linear(x, W_eff, self.base.bias)
 ```
 
-> 💡 **Interview point: what DoRA changes** — LoRA only learns $\Delta W=BA$; DoRA = a trainable magnitude $m$ + learning direction with LoRA. It explains "why LoRA underperforms full FT on some tasks" — LoRA's magnitude/direction updates are tied together, and DoRA unties them.
+> 💡 **Interview point: what DoRA changes** — LoRA only learns $\Delta W=BA$; DoRA = a trainable magnitude $m$ + learning direction with LoRA. It explains "why LoRA underperforms full FT on some tasks" — LoRA's magnitude/direction updates are tied together, and DoRA unties them. DoRA can stack on QLoRA (**QDoRA**) to decompose on a quantized base, balancing memory and quality.
 
 ## §7 The LoRA family at a glance
 
@@ -571,11 +573,11 @@ Thinking gradients are computed directly on 4-bit, or that the base is also upda
 
 <summary>Q17. What does DoRA change vs LoRA? Why might it be better?</summary>
 
-- Decompose $W_0$ into magnitude $m=\lVert W_0\rVert_c$ (per column) and direction $V/\lVert V\rVert_c$
-- $m$ trainable, LoRA only updates direction: $W'=m\cdot\frac{V+\Delta V}{\lVert V+\Delta V\rVert_c}$
+- Decompose $W_0$ into magnitude $m=\lVert W_0\rVert_r$ (**per output row**, over the in dim `dim=1`, same as weight norm / HF PEFT) and direction $V/\lVert V\rVert_r$
+- $m$ trainable, LoRA only updates direction: $W'=m\odot\frac{V+\Delta V}{\lVert V+\Delta V\rVert_r}$
 - Unties magnitude and direction; update pattern closer to full FT, gains notable at low rank
 
-Saying only "DoRA adds a magnitude," not the per-column normalization + direction-via-LoRA.
+Saying only "DoRA adds a magnitude," not the **per-output** normalization + direction-via-LoRA; or getting the magnitude axis wrong (per-input instead of per-output — DoRA is per-output).
 
 </details>
 
@@ -647,7 +649,7 @@ Thinking AdaLoRA "auto-selects a global $r$," missing the SVD parameterization +
 
 - Merge approach: merge an independent full weight per task, zero inference latency, but one full weight copy per task and no dynamic switching
 - Bypass approach: keep the base, add each task's $\frac{\alpha}{r}B(Ax)$ online, hot-swappable / mix different adapters within a batch, at the cost of restoring a bit of inference overhead
-- Industry (e.g. multi-tenant LoRA serving) mostly uses the bypass approach + batching optimizations
+- Industry mostly uses the bypass approach + batching optimizations; dedicated **multi-LoRA serving systems** (S-LoRA, Punica) serve hundreds–thousands of adapters concurrently on one base at high throughput (unified memory paging + custom batched kernels)
 
 Only knowing merge, not "not merging to support dynamic multi-adapter."
 
@@ -671,6 +673,7 @@ Treating (IA)³ as a low-rank matrix too, missing "scaling vector × activations
 
 - The low-rank bypass excels at "adjusting existing capabilities": style / format / task adaptation / alignment
 - Injecting large amounts of **brand-new factual knowledge** may be limited by low rank — needs larger $r$, more layers, or continued pretraining / full FT
+- Biderman et al. (2024, *LoRA Learns Less and Forgets Less*, arXiv 2405.09673) show empirically that on hard tasks (code / math) LoRA often learns less than full FT but **also forgets less** — the low-rank constraint is a double-edged sword
 - This is exactly the motivation behind DoRA / high rank / PiSSA to break the expressiveness limit; rank is a capacity knob, not a free lunch
 
 Absolutely saying "LoRA equals full FT" or "LoRA can't learn anything new" — both overreach; it depends on $r$, the number of adapted layers, and task type.
@@ -694,12 +697,12 @@ Below is the **real run** output of [`code/lora.py`](code/lora.py) ($\text{IN}=3
 [c] merge: |out_merged - out_unmerged| = 3.58e-07; weight += dW = True; unmerge restores base = True  OK
 [d] trainable params = 640 (expect r*(in+out) = 640); base frozen = True  OK
 [e] scaling: standard alpha/r = 2.0000, rsLoRA alpha/sqrt(r) = 5.6569  OK
-[f] DoRA: m.requires_grad = True, base frozen, identity start |Δ| = 2.38e-07  OK
+[f] DoRA: m.requires_grad = True, base frozen, identity start |Δ| = 1.19e-07  OK
 
 all LoRA / DoRA sanity checks passed ✓
 ```
 
-Here $640 = r(\text{IN}+\text{OUT}) = 8\times(32+48)$ verifies the trainable-param formula of §4; the pure-float error of $3.58\text{e-}7$ across merge verifies the numerical equivalence of zero-latency merging; the DoRA identity start $\lvert\Delta\rvert=2.38\text{e-}7$ verifies $W'=W_0$ when $B=0$.
+Here $640 = r(\text{IN}+\text{OUT}) = 8\times(32+48)$ verifies the trainable-param formula of §4; the pure-float error of $3.58\text{e-}7$ across merge verifies the numerical equivalence of zero-latency merging; the DoRA identity start $\lvert\Delta\rvert=1.19\text{e-}7$ verifies $W'=W_0$ when $B=0$.
 
 ---
 
@@ -730,3 +733,5 @@ Pure PyTorch, runs on CPU in seconds with no GPU: `python docs/tutorials/code/lo
 - **Prompt Tuning** — Lester et al., *The Power of Scale for Parameter-Efficient Prompt Tuning*, arXiv 2104.08691 (2021), EMNLP 2021.
 - **P-Tuning v2** — Liu et al., *P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks*, arXiv 2110.07602 (2021).
 - **BitFit** — Ben-Zaken et al., *BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models*, arXiv 2106.10199 (2021), ACL 2022.
+- **S-LoRA** — Sheng et al., *S-LoRA: Serving Thousands of Concurrent LoRA Adapters*, arXiv 2311.03285 (2023).
+- **LoRA Learns Less and Forgets Less** — Biderman et al., arXiv 2405.09673 (2024), TMLR 2024.
