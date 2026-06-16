@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/vae_vqvae_vqgan_tutorial.md">
 <meta name="aris:source-sha256" content="826ba28b7bb7ff38ca137ceebd48b0f4395a58dfb4081bb9f874234f2a61899c">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -619,7 +619,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/vae_vqvae_vqgan_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>826ba28b7bb7</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -639,18 +639,18 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>模型族 $p_\theta(x, z) = p_\theta(x|z)\, p(z)$，先验 $p(z) = \mathcal{N}(0, I)$，似然 $p_\theta(x|z)$ 由 decoder 给出。Marginal likelihood：</p>
 <p>$$\log p_\theta(x) = \log \int p_\theta(x|z) p(z)\, dz$$</p>
 <p>对<strong>任意</strong> distribution $q_\phi(z|x)$（encoder / variational posterior，$q_\phi(z|x) = \mathcal{N}(\mu_\phi(x), \mathrm{diag}(\sigma_\phi^2(x)))$），由 Jensen 不等式 / 直接代入：</p>
-<p>$$ \begin{aligned} \log p_\theta(x) &= \log \int q_\phi(z|x) \frac{p_\theta(x|z) p(z)}{q_\phi(z|x)} dz \\ &\geq \mathbb{E}_{q_\phi(z|x)}\!\left[\log \frac{p_\theta(x|z) p(z)}{q_\phi(z|x)}\right] \quad \text{(Jensen)} \\ &= \underbrace{\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]}_{\text{reconstruction (negative)}} - \underbrace{D_\text{KL}(q_\phi(z|x)\,\|\,p(z))}_{\text{regularization}} \end{aligned} $$</p>
+<p>$$ \begin{aligned} \log p_\theta(x) &amp;= \log \int q_\phi(z|x) \frac{p_\theta(x|z) p(z)}{q_\phi(z|x)} dz \\ &amp;\geq \mathbb{E}_{q_\phi(z|x)}\!\left[\log \frac{p_\theta(x|z) p(z)}{q_\phi(z|x)}\right] \quad \text{(Jensen)} \\ &amp;= \underbrace{\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]}_{\text{reconstruction (negative)}} - \underbrace{D_\text{KL}(q_\phi(z|x)\,\|\,p(z))}_{\text{regularization}} \end{aligned} $$</p>
 <p>故 ELBO：</p>
 <p>$$\boxed{\;\mathcal{L}_\text{ELBO}(\theta, \phi; x) = \mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)] - D_\text{KL}\!\big(q_\phi(z|x)\,\|\,p(z)\big)\;}$$</p>
 <p><strong>Tight 的代价</strong>：ELBO 与真 log-likelihood 的 gap 等于 $D_\text{KL}(q_\phi(z|x)\,\|\,p_\theta(z|x))$。posterior $q_\phi$ 越逼近真后验 $p_\theta(z|x)$，gap 越小。</p>
 <h3 id="22-kl-项闭式推导l3-必推">2.2　KL 项闭式推导（L3 必推）</h3>
 <p>设 $q_\phi(z|x) = \mathcal{N}(\mu, \mathrm{diag}(\sigma^2))$（<strong>对角</strong>协方差，每维 $\sigma_i^2$），$p(z) = \mathcal{N}(0, I)$。</p>
 <p>对每一维 $i$ 独立：</p>
-<p>$$ \begin{aligned} D_\text{KL}(\mathcal{N}(\mu_i, \sigma_i^2) \,\|\, \mathcal{N}(0, 1)) &= \int \mathcal{N}(z; \mu_i, \sigma_i^2) \log \frac{\mathcal{N}(z; \mu_i, \sigma_i^2)}{\mathcal{N}(z; 0, 1)} dz \end{aligned} $$</p>
+<p>$$ \begin{aligned} D_\text{KL}(\mathcal{N}(\mu_i, \sigma_i^2) \,\|\, \mathcal{N}(0, 1)) &amp;= \int \mathcal{N}(z; \mu_i, \sigma_i^2) \log \frac{\mathcal{N}(z; \mu_i, \sigma_i^2)}{\mathcal{N}(z; 0, 1)} dz \end{aligned} $$</p>
 <p>展开两个 Gaussian 密度的 log：</p>
 <p>$$ \log \frac{\mathcal{N}(z; \mu_i, \sigma_i^2)}{\mathcal{N}(z; 0, 1)} = -\tfrac{1}{2}\log \sigma_i^2 - \tfrac{(z-\mu_i)^2}{2\sigma_i^2} + \tfrac{z^2}{2} $$</p>
 <p>求期望（利用 $\mathbb{E}_q[z] = \mu_i$, $\mathbb{E}_q[z^2] = \mu_i^2 + \sigma_i^2$, $\mathbb{E}_q[(z-\mu_i)^2] = \sigma_i^2$）：</p>
-<p>$$ \begin{aligned} D_\text{KL} &= -\tfrac{1}{2}\log \sigma_i^2 - \tfrac{1}{2} + \tfrac{1}{2}(\mu_i^2 + \sigma_i^2) \\ &= \tfrac{1}{2}\big(\mu_i^2 + \sigma_i^2 - \log \sigma_i^2 - 1\big) \end{aligned} $$</p>
+<p>$$ \begin{aligned} D_\text{KL} &amp;= -\tfrac{1}{2}\log \sigma_i^2 - \tfrac{1}{2} + \tfrac{1}{2}(\mu_i^2 + \sigma_i^2) \\ &amp;= \tfrac{1}{2}\big(\mu_i^2 + \sigma_i^2 - \log \sigma_i^2 - 1\big) \end{aligned} $$</p>
 <p>对所有维度求和：</p>
 <p>$$\boxed{\;D_\text{KL}\big(\mathcal{N}(\mu, \mathrm{diag}(\sigma^2)) \,\|\, \mathcal{N}(0, I)\big) = \tfrac{1}{2}\sum_{i=1}^{d}\big(\mu_i^2 + \sigma_i^2 - \log \sigma_i^2 - 1\big)\;}$$</p>
 <div class="callout callout-warn"><div class="callout-title">数值稳定</div><p>实现时让 encoder 输出 $\log \sigma^2$（log-variance）而非 $\sigma$，避免 $\sigma$ 取 exp 后 overflow。代码里写 <code>kl = 0.5 * (mu**2 + logvar.exp() - logvar - 1).sum()</code>。</p></div>
@@ -786,7 +786,7 @@ def vae_loss(x: torch.Tensor, logits: torch.Tensor, mu: torch.Tensor,
 <h3 id="41-beta-vaehiggins-et-al-iclr-2017">4.1　$\beta$-VAE（Higgins et al., ICLR 2017）</h3>
 <p>把 ELBO 的 KL 加权重 $\beta$：</p>
 <p>$$\mathcal{L}_{\beta\text{-VAE}}(\theta, \phi; x) = \mathbb{E}_{q_\phi}[\log p_\theta(x|z)] - \beta \cdot D_\text{KL}(q_\phi(z|x)\,\|\,p(z))$$</p>
-<ul><li>$\beta > 1$：更强地 push posterior → 先验，鼓励 <strong>disentangled</strong> representation（每维 $z$ 控制一个独立因素，如 dSprites 上的位置、形状、旋转）。</li><li>$\beta < 1$：放宽 KL，重建更精但 latent 不够 prior-like（采样质量差）。</li><li>$\beta = 1$ 退化为标准 VAE。</li></ul>
+<ul><li>$\beta &gt; 1$：更强地 push posterior → 先验，鼓励 <strong>disentangled</strong> representation（每维 $z$ 控制一个独立因素，如 dSprites 上的位置、形状、旋转）。</li><li>$\beta &lt; 1$：放宽 KL，重建更精但 latent 不够 prior-like（采样质量差）。</li><li>$\beta = 1$ 退化为标准 VAE。</li></ul>
 <div class="callout callout-warn"><div class="callout-title">disentanglement 争议</div><p>Locatello et al. (ICML 2019, 最佳论文) 证明：<strong>纯 unsupervised disentanglement 在没有归纳偏置 / 监督的前提下是不可能的</strong>。$\beta$-VAE 的"涌现 disentanglement"很大程度依赖架构 + 数据集 bias，而不是 $\beta$ 本身。</p></div>
 <h3 id="42-iwaeimportance-weighted-autoencoderburda-et-al-iclr-2016">4.2　IWAE：Importance Weighted Autoencoder（Burda et al., ICLR 2016）</h3>
 <p>ELBO 是 $\log p(x)$ 的一阶 bound。<strong>用 $K$ 个 importance 样本</strong>得到更紧的 bound：</p>
@@ -796,7 +796,7 @@ def vae_loss(x: torch.Tensor, logits: torch.Tensor, mu: torch.Tensor,
 <div class="callout callout-info"><div class="callout-title">Tradeoff</div><p>IWAE 让 likelihood bound 更紧，但 encoder 学到的 posterior 不再追求"逼近真后验"，转去配合 importance weighting 的几何。对下游 representation learning 不一定更好。</p></div>
 <h3 id="43-nvaehierarchical-vaevahdat--kautz-neurips-2020">4.3　NVAE：Hierarchical VAE（Vahdat &amp; Kautz, NeurIPS 2020）</h3>
 <p>多层 latent $z = (z_1, z_2, \ldots, z_L)$，每层依赖前层：</p>
-<p>$$p(z) = p(z_1)\prod_{l=2}^L p(z_l | z_{<l}), \quad q(z|x) = q(z_1|x)\prod_{l=2}^L q(z_l | z_{<l}, x)$$</p>
+<p>$$p(z) = p(z_1)\prod_{l=2}^L p(z_l | z_{&lt;l}), \quad q(z|x) = q(z_1|x)\prod_{l=2}^L q(z_l | z_{&lt;l}, x)$$</p>
 <p>工程要点：</p>
 <ul><li><strong>Residual normal</strong> 参数化：$q(z_l|\cdot) = \mathcal{N}(\mu_p + \Delta\mu_q, \sigma_p \cdot \Delta\sigma_q)$，让 posterior 偏离 prior 是小量</li><li><strong>Spectral regularization</strong> 控制每层 KL，避免数值不稳</li><li><strong>BN + Swish + depthwise</strong> 等架构调优</li><li>在 CIFAR-10 / CelebA / FFHQ 上<strong>第一个把 VAE 的 NLL 推到接近 SOTA flow / autoregressive</strong></li></ul>
 <p>NVAE 现在的角色：<strong>LDM 之前最强连续 VAE prior 之一</strong>，但被 diffusion 系列在 sample 质量上反超。</p>
@@ -976,7 +976,7 @@ def vqvae_loss(x, x_hat, vq_loss):
         z_q = z_q_flat.view(B, H, W, D).permute(0, 3, 1, 2).contiguous()
         return z_q, indices.view(B, H, W), vq_loss</code></pre>
 <div class="callout callout-good"><div class="callout-title">EMA 的两个好处</div></div>
-<ul><li>更新更稳：EMA 是一种隐式 momentum，相当于 codebook 的 SGD 用了大 batch</li><li>死码自动重启更容易：可周期性把 $\text{cluster\_size} < \tau$ 的 $e_k$ 重置到当前 batch 的某个 $z_e$（<strong>dead-code revival</strong>）</li></ul>
+<ul><li>更新更稳：EMA 是一种隐式 momentum，相当于 codebook 的 SGD 用了大 batch</li><li>死码自动重启更容易：可周期性把 $\text{cluster\_size} &lt; \tau$ 的 $e_k$ 重置到当前 batch 的某个 $z_e$（<strong>dead-code revival</strong>）</li></ul>
 <h3 id="66-vq-vae-2razavi-vinyals-van-den-oord-neurips-2019">6.6　VQ-VAE-2（Razavi, Vinyals, van den Oord, NeurIPS 2019）</h3>
 <p>VQ-VAE 的层次扩展：</p>
 <ul><li><strong>顶层 latent</strong> $z_t$：低分辨率（如 32×32），捕捉 global 结构（人脸的整体姿态、身份）</li><li><strong>底层 latent</strong> $z_b$：高分辨率（如 64×64），捕捉 local 细节（皮肤纹理、发丝）</li><li><strong>PixelCNN prior</strong> 在两层 latent 上分别训练，顶层无条件，底层条件于顶层</li></ul>
@@ -988,7 +988,7 @@ def vqvae_loss(x, x_hat, vq_loss):
 <h3 id="72-loss-公式">7.2　Loss 公式</h3>
 <p>$$\mathcal{L}_\text{VQ-GAN}^\text{stage1} = \mathcal{L}_\text{rec} + \mathcal{L}_\text{VQ} + \lambda \cdot \mathcal{L}_\text{GAN}$$</p>
 <p>其中：</p>
-<p>$$ \begin{aligned} \mathcal{L}_\text{rec} &= \|x - \hat{x}\|_1 + \mathcal{L}_\text{LPIPS}(x, \hat{x}) \\ \mathcal{L}_\text{VQ} &= \|\text{sg}[z_e] - e\|^2 + \beta \|z_e - \text{sg}[e]\|^2 \end{aligned} $$</p>
+<p>$$ \begin{aligned} \mathcal{L}_\text{rec} &amp;= \|x - \hat{x}\|_1 + \mathcal{L}_\text{LPIPS}(x, \hat{x}) \\ \mathcal{L}_\text{VQ} &amp;= \|\text{sg}[z_e] - e\|^2 + \beta \|z_e - \text{sg}[e]\|^2 \end{aligned} $$</p>
 <p><strong>Generator/Tokenizer 阶段的 GAN 项</strong>（只对 generator 的输出反传，discriminator 在另一阶段单独更新）：</p>
 <p>$$\mathcal{L}_\text{GAN}^{(G)} = -\mathbb{E}_{\hat{x}}[\log D(\hat{x})]\quad\text{(non-saturating)}\quad\text{或}\quad \mathcal{L}_\text{GAN}^{(G)} = -\mathbb{E}_{\hat{x}}[D(\hat{x})]\quad\text{(hinge)}$$</p>
 <p><strong>Discriminator 自身的 minimax 项</strong>（独立 step 更新 $D$）：</p>
@@ -999,7 +999,7 @@ def vqvae_loss(x, x_hat, vq_loss):
 <p>$$\mathcal{L}_G = \mathcal{L}_\text{rec} + \mathcal{L}_\text{VQ} + \lambda \cdot \mathcal{L}_\text{GAN}^{(G)}$$</p>
 <h3 id="73-stage-2transformer-prior">7.3　Stage 2：Transformer Prior</h3>
 <p>Stage 1 训好 VQ-GAN，把图像转成 token grid $\mathbf{c} = (c_1, \ldots, c_{HW})$（行扫描展平）。Stage 2 在 token sequence 上训 <strong>decoder-only Transformer</strong>，标准 AR：</p>
-<p>$$p(\mathbf{c}) = \prod_{i=1}^{HW} p(c_i | c_{<i})$$</p>
+<p>$$p(\mathbf{c}) = \prod_{i=1}^{HW} p(c_i | c_{&lt;i})$$</p>
 <p>采样：AR sample tokens → VQ-GAN decoder → image。这是把"图像生成"翻译成"语言模型"的标准范式，DALL·E / Parti / Muse 都是这一思想的进化。</p>
 <div class="callout callout-info"><div class="callout-title">VQ-GAN 在 LDM 中的角色</div><p>Stable Diffusion 的 <strong>VAE tokenizer</strong> 实际是 <strong>KL-regularized VQ-GAN 的连续 latent 变体</strong>（去掉 quantization，留 KL + perceptual + adversarial），output 是 continuous latent map（4 通道，下采样 8×）。diffusion 在这个 latent 上跑，最后 decoder 还原。可以理解为 "VQ-GAN encoder/decoder + continuous latent + KL"。</p></div>
 <h3 id="74-patchgan-discriminator生产架构">7.4　PatchGAN Discriminator（生产架构）</h3>
@@ -1223,7 +1223,7 @@ KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, F
 <details>
 
 <summary>Q3.$\beta$-VAE 的 $\beta$ 控制什么？</summary>
-<ul><li>$\beta > 1$：更强 KL 正则，鼓励 disentangled latent</li><li>$\beta < 1$：放宽 KL，重建更精但 prior 拟合差</li><li>$\beta = 1$：标准 VAE</li><li>但 Locatello 2019 证明：纯无监督 disentanglement 不可行，需要归纳偏置</li></ul>
+<ul><li>$\beta &gt; 1$：更强 KL 正则，鼓励 disentangled latent</li><li>$\beta &lt; 1$：放宽 KL，重建更精但 prior 拟合差</li><li>$\beta = 1$：标准 VAE</li><li>但 Locatello 2019 证明：纯无监督 disentanglement 不可行，需要归纳偏置</li></ul>
 <p>只说 "$\beta$ 越大越 disentangle"——错，<strong>取决于数据 + 架构</strong>。</p>
 </details>
 <details>
@@ -1279,7 +1279,7 @@ KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, F
 
 <summary>Q12.如何缓解 posterior collapse？至少列 4 种。</summary>
 <ul><li><strong>KL annealing</strong>：$\beta(t) = \min(1, t/T)$ 线性增长（Bowman 2016）</li><li><strong>Free bits</strong>：每维 KL 下限 $\lambda$ nats（Kingma 2016）</li><li><strong>Weakened decoder</strong>：限制 decoder 表达力（Chen 2017）</li><li><strong>VQ-VAE / 离散 latent</strong>：结构上无 KL 项，规避</li><li>其他：辅助 loss、word dropout、NF posterior、skip 连接</li></ul>
-<p>只答"KL annealing" 一种；或把 $\beta$-VAE 当成缓解 collapse 的工具（其实 $\beta > 1$ 更易 collapse）。</p>
+<p>只答"KL annealing" 一种；或把 $\beta$-VAE 当成缓解 collapse 的工具（其实 $\beta &gt; 1$ 更易 collapse）。</p>
 </details>
 <details>
 
@@ -1342,7 +1342,7 @@ KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, F
 <summary>Q22.VQ-VAE 的 codebook collapse 怎么诊断 + 缓解？</summary>
 <ul><li><p><strong>诊断</strong>：测 perplexity = $\exp(-\sum_k p_k \log p_k)$，$p_k$ 是 codebook 第 $k$ 个 code 的使用频率</p>
 <ul><li>健康 perplexity 应接近 $K$（uniform 使用上限）</li><li>实际常见 perplexity / K &lt; 50%，部分 codes 几乎不用</li></ul></li><li><p><strong>缓解</strong>：</p>
-<ul><li>EMA codebook update（基本款）</li><li><strong>Dead code revival</strong>：每隔 $T$ 步，把 $N_k < \tau$ 的 $e_k$ 重置到当前 batch 某个随机 $z_e$</li><li><strong>k-means init</strong>：训练前用 first batch 的 $z_e$ 做 k-means 初始化 codebook</li><li><strong>Code dropout</strong>：训练中随机 drop 一部分 codebook，强制后续不依赖单一 code</li><li><strong>换 FSQ / LFQ</strong>：结构上避免（最简单的"缓解"）</li></ul></li></ul>
+<ul><li>EMA codebook update（基本款）</li><li><strong>Dead code revival</strong>：每隔 $T$ 步，把 $N_k &lt; \tau$ 的 $e_k$ 重置到当前 batch 某个随机 $z_e$</li><li><strong>k-means init</strong>：训练前用 first batch 的 $z_e$ 做 k-means 初始化 codebook</li><li><strong>Code dropout</strong>：训练中随机 drop 一部分 codebook，强制后续不依赖单一 code</li><li><strong>换 FSQ / LFQ</strong>：结构上避免（最简单的"缓解"）</li></ul></li></ul>
 <p>只答"用大 codebook"——错，更大 codebook 反而更容易 collapse。</p>
 </details>
 <details>
@@ -1384,7 +1384,7 @@ KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, F
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/vae_vqvae_vqgan_tutorial.md</code> ·
   SHA256 <code>826ba28b7bb7</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

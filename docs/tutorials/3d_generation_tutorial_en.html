@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/3d_generation_tutorial_en.md">
 <meta name="aris:source-sha256" content="61199ba076c02a156b46f844ce6c980c133a645ef3f604ac233f6206f2122297">
-<meta name="aris:generated-at" content="2026-05-31 06:27 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -630,7 +630,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/3d_generation_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>61199ba076c0</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 06:27 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -669,7 +669,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p><strong>Within-segment color contribution</strong> (integral, not a simple rectangle):</p>
 <p>$$\int_{t_i}^{t_{i+1}} T(t)\sigma_i\mathbf{c}_i\,dt = T_i\,\mathbf{c}_i \int_0^{\delta_i} \sigma_i e^{-\sigma_i s}\,ds = T_i\,\mathbf{c}_i\,(1 - e^{-\sigma_i\delta_i})$$</p>
 <p>Let $\alpha_i := 1 - e^{-\sigma_i \delta_i}$ (<strong>segment opacity</strong>). Combining yields the discrete NeRF equation:</p>
-<p>$$\boxed{\;C(\mathbf{r}) \approx \sum_{i=1}^{N} T_i\,\alpha_i\,\mathbf{c}_i,\quad T_i = \prod_{j<i}(1-\alpha_j),\quad \alpha_i = 1 - e^{-\sigma_i\delta_i}\;}$$</p>
+<p>$$\boxed{\;C(\mathbf{r}) \approx \sum_{i=1}^{N} T_i\,\alpha_i\,\mathbf{c}_i,\quad T_i = \prod_{j&lt;i}(1-\alpha_j),\quad \alpha_i = 1 - e^{-\sigma_i\delta_i}\;}$$</p>
 <p>This is exactly the graphics <strong>front-to-back alpha-compositing</strong> formula. <strong>Key point</strong>: $\alpha_i = 1 - e^{-\sigma_i\delta_i}$, not $\sigma_i\delta_i$; they are approximately equal when $\sigma_i\delta_i$ is small (first-order Taylor), but differ noticeably when large (saturating to 1 vs diverging linearly).</p>
 <div class="callout callout-good"><div class="callout-title">Physical consistency</div><p>$\sigma \ge 0$ and $\alpha = 1 - e^{-\sigma\delta} \in [0, 1)$ guarantee that composited color <strong>always lies in [0, 1]</strong>; and regardless of how the ray traverses, $\sum T_i\alpha_i \le 1$ (the remaining $T_{N+1}$ goes to background).</p></div>
 <h3 id="24-positional-encoding-gammap-representing-high-frequency-detail">2.4　Positional encoding $\gamma(p)$: representing high-frequency detail</h3>
@@ -717,7 +717,7 @@ def volume_render(sigma: torch.Tensor, color: torch.Tensor, t_vals: torch.Tensor
 <div class="callout callout-warn"><div class="callout-title">Numerical footgun</div><p><code>1 - alpha</code> underflows to 0 when alpha approaches 1, after cumprod the entire T is zeroed; the <code>+ 1e-10</code> prevents <code>log(0)</code> during backward. The final <code>δ → 1e10</code> forces background transmittance to 0, otherwise rays through unsampled regions pick up color contamination.</p></div>
 <h3 id="27-mip-nerf--mip-nerf-360-anti-aliasing">2.7　Mip-NeRF / Mip-NeRF 360 (anti-aliasing)</h3>
 <p>Vanilla NeRF aliases badly at low resolution / when zoomed (the same pixel corresponds to cones of different scales, but NeRF treats them as rays).</p>
-<ul><li><strong>Mip-NeRF</strong> (Barron 2021 ICCV): treats the ray as a cone (view frustum), uses <strong>Integrated Positional Encoding (IPE)</strong> — closed-form Gaussian expectation of PE over the cone segment $\mathbb{E}_{\mathbf{x}\sim\mathcal{N}(\mu,\Sigma)}[\gamma(\mathbf{x})]$. For frequency vector $\boldsymbol{\omega} = 2^k\pi\,\mathbf{e}$, $\mathbb{E}_{\mathbf{x}\sim\mathcal{N}(\boldsymbol{\mu},\Sigma)}[\sin(\boldsymbol{\omega}^\top\mathbf{x})] = \sin(\boldsymbol{\omega}^\top\boldsymbol{\mu})\,e^{-\frac{1}{2}\boldsymbol{\omega}^\top\Sigma\,\boldsymbol{\omega}}$ (the scalar case is $e^{-\frac{1}{2}\omega^2\sigma^2}$); <strong>high-frequency coefficients are automatically attenuated by the cone covariance $\Sigma$ via $e^{-\frac{1}{2}\boldsymbol{\omega}^\top\Sigma\boldsymbol{\omega}}$</strong>, naturally achieving multi-scale behavior.</li><li><strong>Mip-NeRF 360</strong> (Barron 2022 CVPR): for unbounded scenes, applies contraction $f(x) = (2 - 1/\|x\|)\,x/\|x\|$ for $\|x\| > 1$, squashing infinity into a ball; adds distortion / proposal MLP losses.</li></ul>
+<ul><li><strong>Mip-NeRF</strong> (Barron 2021 ICCV): treats the ray as a cone (view frustum), uses <strong>Integrated Positional Encoding (IPE)</strong> — closed-form Gaussian expectation of PE over the cone segment $\mathbb{E}_{\mathbf{x}\sim\mathcal{N}(\mu,\Sigma)}[\gamma(\mathbf{x})]$. For frequency vector $\boldsymbol{\omega} = 2^k\pi\,\mathbf{e}$, $\mathbb{E}_{\mathbf{x}\sim\mathcal{N}(\boldsymbol{\mu},\Sigma)}[\sin(\boldsymbol{\omega}^\top\mathbf{x})] = \sin(\boldsymbol{\omega}^\top\boldsymbol{\mu})\,e^{-\frac{1}{2}\boldsymbol{\omega}^\top\Sigma\,\boldsymbol{\omega}}$ (the scalar case is $e^{-\frac{1}{2}\omega^2\sigma^2}$); <strong>high-frequency coefficients are automatically attenuated by the cone covariance $\Sigma$ via $e^{-\frac{1}{2}\boldsymbol{\omega}^\top\Sigma\boldsymbol{\omega}}$</strong>, naturally achieving multi-scale behavior.</li><li><strong>Mip-NeRF 360</strong> (Barron 2022 CVPR): for unbounded scenes, applies contraction $f(x) = (2 - 1/\|x\|)\,x/\|x\|$ for $\|x\| &gt; 1$, squashing infinity into a ball; adds distortion / proposal MLP losses.</li></ul>
 <h3 id="28-neus--volsdf-volume-rendering--sdf-key-to-mesh-extraction">2.8　NeuS / VolSDF: volume rendering + SDF (key to mesh extraction)</h3>
 <p>NeRF is density-based; mesh extraction requires choosing a $\sigma$ threshold (unstable). <strong>NeuS</strong> (Wang 2021 NeurIPS) replaces density with <strong>SDF $d(\mathbf{x})$</strong>:</p>
 <p>$$\sigma(t) = \max\!\left(\frac{-\frac{d}{dt}\Phi_s(d(\mathbf{r}(t)))}{\Phi_s(d(\mathbf{r}(t)))},\; 0\right),\quad \Phi_s(d) = (1 + e^{-sd})^{-1}$$</p>
@@ -732,7 +732,7 @@ def volume_render(sigma: torch.Tensor, color: torch.Tensor, t_vals: torch.Tensor
 <p>$$\text{hash}(\mathbf{x}) = \bigg(\bigoplus_{i=1}^{d} x_i \cdot \pi_i\bigg) \bmod T$$</p>
 <p>$\pi_i$ are large coprime constants ($\pi_1 = 1, \pi_2 = 2654435761, \pi_3 = 805459861$ — note $\pi_1 = 1$ is not prime; it is set deliberately in the paper so that the first dimension maps directly without scrambling). $\oplus$ is XOR. This is a <strong>spatial hash</strong>, commonly used in physics-simulation BVHs.</p>
 <h3 id="33-how-are-hash-collisions-disambiguated-l3-high-frequency-follow-up">3.3　How are hash collisions disambiguated? (<strong>L3 high-frequency follow-up</strong>)</h3>
-<p>When $N_\ell^d > T$ (inevitable at fine levels), multiple grid points map to the same entry → collision. Why does it still work?</p>
+<p>When $N_\ell^d &gt; T$ (inevitable at fine levels), multiple grid points map to the same entry → collision. Why does it still work?</p>
 <ol><li><strong>Multi-resolution redundancy</strong>: features at coarse levels are unique ($N_\ell^d \le T$); fine levels add detail. The MLP can recover structure from coarse features, with fine levels only responsible for detail.</li><li><strong>Sparsity prevails</strong>: most of space is empty (most voxels in a NeRF scene are background), and meaningful queries concentrate near surfaces, so "valid colliding grid-point pairs" are rare.</li><li><strong>Gradients auto-disambiguate</strong>: during training only grid points near the surface have non-zero gradients (weighted by ray weights). "Colliding entries" in empty regions receive no gradient signal and do not contaminate surface entries.</li><li><strong>MLP post-processing</strong>: the tiny MLP learns a classification/regression on the $L \times F$ concatenated features; surface points with collisions can be disambiguated via <strong>non-colliding features from other levels</strong>.</li></ol>
 <div class="callout callout-info"><div class="callout-title">Interview gold answer</div><p>"Hash collisions seem to break uniqueness, but the <strong>effective region is actually sparse</strong> (a scene's thin surface occupies a tiny fraction of the voxel total), and colliding regions are mostly unsupervised background; even at colliding surface entries, the non-colliding features from other multi-resolution levels + the tiny MLP can still learn a consistent output. This is <strong>'lazy collision resolution'</strong>: rather than pay the cost of perfect hashing, use redundancy + data-driven disambiguation."</p></div>
 <h3 id="34-instant-ngp-training-equations">3.4　Instant-NGP training equations</h3>
@@ -752,16 +752,16 @@ def volume_render(sigma: torch.Tensor, color: torch.Tensor, t_vals: torch.Tensor
 <p><strong>Step 2</strong>: Camera → Screen: perspective projection is <strong>nonlinear</strong>:</p>
 <p>$$\pi(\mathbf{x}) = \begin{pmatrix} f_x\,x/z \\ f_y\,y/z \end{pmatrix}$$</p>
 <p>The covariance of a nonlinear map is approximated via first-order Taylor. Compute the Jacobian at the mean $\mu_\text{cam} = (x, y, z)$:</p>
-<p>$$J = \frac{\partial \pi}{\partial \mathbf{x}}\bigg|_{\mu_\text{cam}} = \begin{pmatrix}\dfrac{f_x}{z} & 0 & -\dfrac{f_x\,x}{z^2}\\[2pt] 0 & \dfrac{f_y}{z} & -\dfrac{f_y\,y}{z^2}\end{pmatrix} \in \mathbb{R}^{2\times 3}$$</p>
+<p>$$J = \frac{\partial \pi}{\partial \mathbf{x}}\bigg|_{\mu_\text{cam}} = \begin{pmatrix}\dfrac{f_x}{z} &amp; 0 &amp; -\dfrac{f_x\,x}{z^2}\\[2pt] 0 &amp; \dfrac{f_y}{z} &amp; -\dfrac{f_y\,y}{z^2}\end{pmatrix} \in \mathbb{R}^{2\times 3}$$</p>
 <p><strong>Step 3</strong>: 2D covariance (<strong>core formula</strong>):</p>
 <p>$$\boxed{\;\Sigma' = J\,W\,\Sigma\,W^\top\,J^\top \in \mathbb{R}^{2\times 2}\;}$$</p>
 <p>Derivation: if $\mathbf{x} \sim \mathcal{N}(\mu, \Sigma)$, then first-order $\pi(\mathbf{x}) \approx \pi(\mu) + J(\mathbf{x} - \mu)$, so $\text{Cov}[\pi(\mathbf{x})] \approx J\,\Sigma_\text{cam}\,J^\top = J W \Sigma W^\top J^\top$. This is the classic corollary of EWA splatting (Zwicker 2001).</p>
 <h3 id="43-differentiable-rasterization-tile-based-front-to-back-alpha-blending">4.3　Differentiable rasterization: tile-based front-to-back alpha-blending</h3>
 <p>The color at pixel $\mathbf{p}$:</p>
-<p>$$C(\mathbf{p}) = \sum_{i \in \mathcal{N}(\mathbf{p})}\,c_i\,\alpha_i\,G_i'(\mathbf{p}) \prod_{j < i}\big(1 - \alpha_j\,G_j'(\mathbf{p})\big)$$</p>
+<p>$$C(\mathbf{p}) = \sum_{i \in \mathcal{N}(\mathbf{p})}\,c_i\,\alpha_i\,G_i'(\mathbf{p}) \prod_{j &lt; i}\big(1 - \alpha_j\,G_j'(\mathbf{p})\big)$$</p>
 <p>where $G_i'(\mathbf{p}) = \exp\!\big(-\tfrac{1}{2}(\mathbf{p} - \mu_i')^\top \Sigma_i'^{-1} (\mathbf{p} - \mu_i')\big)$ is the value of the 2D Gaussian at the pixel, and $\mathcal{N}(\mathbf{p})$ are the Gaussians covering $\mathbf{p}$ sorted by depth.</p>
 <p><strong>Key engineering</strong>:</p>
-<ol><li><strong>Tile partitioning</strong>: split the screen into $16\times 16$ tiles, sort Gaussians by depth within each tile, render in parallel</li><li><strong>GPU sort</strong>: radix sort, with composite key <code>(tile_id, depth)</code></li><li><strong>Front-to-back early stop</strong>: exit when accumulated $\prod(1 - \alpha G') < 10^{-4}$</li><li><strong>CUDA kernel</strong>: the authors release <code>diff-gaussian-rasterization</code>; both forward and backward are manual derivatives</li></ol>
+<ol><li><strong>Tile partitioning</strong>: split the screen into $16\times 16$ tiles, sort Gaussians by depth within each tile, render in parallel</li><li><strong>GPU sort</strong>: radix sort, with composite key <code>(tile_id, depth)</code></li><li><strong>Front-to-back early stop</strong>: exit when accumulated $\prod(1 - \alpha G') &lt; 10^{-4}$</li><li><strong>CUDA kernel</strong>: the authors release <code>diff-gaussian-rasterization</code>; both forward and backward are manual derivatives</li></ol>
 <h3 id="44-3dgs-forward-pass-pytorch-reference-implementation">4.4　3DGS forward pass (PyTorch reference implementation)</h3>
 <pre><code class="language-python">def quat_to_rot(q: torch.Tensor) -&gt; torch.Tensor:
     &quot;&quot;&quot; q: [N, 4] (w, x, y, z) already normalized; returns R: [N, 3, 3] &quot;&quot;&quot;
@@ -900,7 +900,7 @@ def gaussian_splat_forward(
 <h3 id="51-marching-cubes-classic-must-know">5.1　Marching Cubes (<strong>classic must-know</strong>)</h3>
 <p>Input: 3D scalar field $f(\mathbf{x})$ (density / SDF) + threshold $\tau$. Output: triangle mesh of the level set $\{f = \tau\}$.</p>
 <p><strong>Algorithm skeleton</strong>:</p>
-<ol><li>Voxelize space (8 corners per voxel)</li><li>For each voxel, <strong>binarize the 8 corners</strong> ($f > \tau$ as 1, else 0) → 256 possible configurations</li><li>Look up table: each configuration has predefined isosurface triangle patches + vertex positions on edges</li><li><strong>Linear interpolation</strong> for precise vertices: between edge endpoints $\mathbf{a}, \mathbf{b}$, interpolate $t = (\tau - f(\mathbf{a})) / (f(\mathbf{b}) - f(\mathbf{a}))$, vertex $= \mathbf{a} + t(\mathbf{b} - \mathbf{a})$</li><li>Merge all voxel triangles → full mesh</li></ol>
+<ol><li>Voxelize space (8 corners per voxel)</li><li>For each voxel, <strong>binarize the 8 corners</strong> ($f &gt; \tau$ as 1, else 0) → 256 possible configurations</li><li>Look up table: each configuration has predefined isosurface triangle patches + vertex positions on edges</li><li><strong>Linear interpolation</strong> for precise vertices: between edge endpoints $\mathbf{a}, \mathbf{b}$, interpolate $t = (\tau - f(\mathbf{a})) / (f(\mathbf{b}) - f(\mathbf{a}))$, vertex $= \mathbf{a} + t(\mathbf{b} - \mathbf{a})$</li><li>Merge all voxel triangles → full mesh</li></ol>
 <pre><code class="language-python">def marching_cubes_sketch(density: torch.Tensor, threshold: float):
     &quot;&quot;&quot; Real implementations use mcubes / scikit-image / pytorch3d; this shows the idea &quot;&quot;&quot;
     from skimage.measure import marching_cubes
@@ -1104,13 +1104,13 @@ def gaussian_splat_forward(
 <details>
 
 <summary>Q11. Derive NeRF's continuous integration → discrete $\alpha$-compositing.</summary>
-<ul><li>$T$ satisfies $dT/dt = -\sigma T$; on a segment with constant $\sigma$ → $T(t_{i+1})/T(t_i) = e^{-\sigma_i\delta_i}$</li><li>Within-segment color contribution $\int_0^{\delta_i} T_i e^{-\sigma_i s}\sigma_i \mathbf{c}_i\,ds = T_i\mathbf{c}_i(1 - e^{-\sigma_i\delta_i})$</li><li>Let $\alpha_i = 1 - e^{-\sigma_i\delta_i}$, then $C \approx \sum T_i\alpha_i \mathbf{c}_i$, $T_i = \prod_{j<i}(1 - \alpha_j)$</li></ul>
+<ul><li>$T$ satisfies $dT/dt = -\sigma T$; on a segment with constant $\sigma$ → $T(t_{i+1})/T(t_i) = e^{-\sigma_i\delta_i}$</li><li>Within-segment color contribution $\int_0^{\delta_i} T_i e^{-\sigma_i s}\sigma_i \mathbf{c}_i\,ds = T_i\mathbf{c}_i(1 - e^{-\sigma_i\delta_i})$</li><li>Let $\alpha_i = 1 - e^{-\sigma_i\delta_i}$, then $C \approx \sum T_i\alpha_i \mathbf{c}_i$, $T_i = \prod_{j&lt;i}(1 - \alpha_j)$</li></ul>
 <p>Writing $\alpha_i$ as $\sigma_i\delta_i$ instead of $1 - e^{-\sigma_i\delta_i}$; or skipping the ODE solution.</p>
 </details>
 <details>
 
 <summary>Q12. Derive the 3D→2D projection Jacobian for 3DGS.</summary>
-<ul><li>Perspective projection $\pi(\mathbf{x}) = (f_x x/z, f_y y/z)$ is nonlinear</li><li>First-order Taylor: $\pi(\mathbf{x}) \approx \pi(\mu) + J(\mathbf{x}-\mu)$</li><li>$J = \partial\pi/\partial\mathbf{x}|_\mu = \begin{pmatrix} f_x/z & 0 & -f_x x/z^2 \\ 0 & f_y/z & -f_y y/z^2 \end{pmatrix}$</li><li>$\Sigma' = JW\Sigma W^\top J^\top$ ($W$ is the world→cam rotation)</li></ul>
+<ul><li>Perspective projection $\pi(\mathbf{x}) = (f_x x/z, f_y y/z)$ is nonlinear</li><li>First-order Taylor: $\pi(\mathbf{x}) \approx \pi(\mu) + J(\mathbf{x}-\mu)$</li><li>$J = \partial\pi/\partial\mathbf{x}|_\mu = \begin{pmatrix} f_x/z &amp; 0 &amp; -f_x x/z^2 \\ 0 &amp; f_y/z &amp; -f_y y/z^2 \end{pmatrix}$</li><li>$\Sigma' = JW\Sigma W^\top J^\top$ ($W$ is the world→cam rotation)</li></ul>
 <p>Plugging into the "covariance projection" formula without deriving; or forgetting the $W$ step (World→Cam rotation).</p>
 </details>
 <details>
@@ -1165,19 +1165,19 @@ def gaussian_splat_forward(
 <details>
 
 <summary>Q21. Manually derive NeRF's discrete $\alpha$-compositing.</summary>
-<ul><li>ODE $dT/dt = -\sigma(t) T(t)$, initial value $T(t_n) = 1$ → $T(t) = \exp(-\int_{t_n}^t \sigma\,ds)$</li><li>On segment $[t_i, t_{i+1}]$ $\sigma$ is constant $= \sigma_i$, so $T(t_{i+1}) = T(t_i)e^{-\sigma_i\delta_i}$</li><li>Inter-segment accumulation $T_i = T(t_i) = \prod_{j<i} e^{-\sigma_j\delta_j} = \prod_{j<i}(1 - \alpha_j)$, where $\alpha_j = 1 - e^{-\sigma_j\delta_j}$</li><li>Within-segment color contribution $\int_{t_i}^{t_{i+1}} T(t)\sigma_i\mathbf{c}_i\,dt = \mathbf{c}_i T_i \int_0^{\delta_i}\sigma_i e^{-\sigma_i s}ds = T_i\mathbf{c}_i(1 - e^{-\sigma_i\delta_i}) = T_i\alpha_i\mathbf{c}_i$</li><li>Compositing: $C \approx \sum_i T_i\alpha_i \mathbf{c}_i$</li><li><strong>Key</strong>: $\alpha_i = 1 - e^{-\sigma_i\delta_i}$ exactly, vs $\alpha_i \approx \sigma_i\delta_i$ first-order approximation (consistent when $\sigma\delta \ll 1$)</li></ul>
+<ul><li>ODE $dT/dt = -\sigma(t) T(t)$, initial value $T(t_n) = 1$ → $T(t) = \exp(-\int_{t_n}^t \sigma\,ds)$</li><li>On segment $[t_i, t_{i+1}]$ $\sigma$ is constant $= \sigma_i$, so $T(t_{i+1}) = T(t_i)e^{-\sigma_i\delta_i}$</li><li>Inter-segment accumulation $T_i = T(t_i) = \prod_{j&lt;i} e^{-\sigma_j\delta_j} = \prod_{j&lt;i}(1 - \alpha_j)$, where $\alpha_j = 1 - e^{-\sigma_j\delta_j}$</li><li>Within-segment color contribution $\int_{t_i}^{t_{i+1}} T(t)\sigma_i\mathbf{c}_i\,dt = \mathbf{c}_i T_i \int_0^{\delta_i}\sigma_i e^{-\sigma_i s}ds = T_i\mathbf{c}_i(1 - e^{-\sigma_i\delta_i}) = T_i\alpha_i\mathbf{c}_i$</li><li>Compositing: $C \approx \sum_i T_i\alpha_i \mathbf{c}_i$</li><li><strong>Key</strong>: $\alpha_i = 1 - e^{-\sigma_i\delta_i}$ exactly, vs $\alpha_i \approx \sigma_i\delta_i$ first-order approximation (consistent when $\sigma\delta \ll 1$)</li></ul>
 <p>Skipping the ODE derivation and going straight to the conclusion; or using $\sigma_i\delta_i$ to substitute for $\alpha_i$ when $\sigma\delta$ is large, which is wrong.</p>
 </details>
 <details>
 
 <summary>Q22. How are Instant-NGP hash collisions automatically disambiguated by the MLP?</summary>
-<ul><li><strong>When collisions happen</strong>: at fine levels, grid-point count $N_\ell^d > T$ (hash table size), multiple grid points map to the same entry</li><li><strong>Sparse activation</strong>: most scene voxels are background, <strong>only voxels near the surface have non-zero supervised gradients</strong> — two colliding "background entries" never receive signals and don't pollute each other</li><li><strong>Multi-resolution redundancy</strong>: at coarse levels $N_\ell^d \le T$ guarantees uniqueness; fine levels add detail. Even if a fine level collides, the non-colliding features at coarse levels already uniquely identify the point</li><li><strong>MLP post-processing</strong>: the tiny MLP learns nonlinear fusion over the $L\times F$ concatenated features; on colliding entries, it can use <strong>non-colliding features from other levels to disambiguate</strong></li><li><strong>Auto-regulated gradients</strong>: during training high gradients naturally concentrate at surface entries; if colliding entries are simultaneously on the surface (rare), the loss pushes them to a compromise position (averaging multiple samples)</li><li><strong>Physical intuition</strong>: rather than pay the cost of perfect hashing, allow collisions and use data-driven implicit disambiguation ("lazy collision resolution")</li></ul>
+<ul><li><strong>When collisions happen</strong>: at fine levels, grid-point count $N_\ell^d &gt; T$ (hash table size), multiple grid points map to the same entry</li><li><strong>Sparse activation</strong>: most scene voxels are background, <strong>only voxels near the surface have non-zero supervised gradients</strong> — two colliding "background entries" never receive signals and don't pollute each other</li><li><strong>Multi-resolution redundancy</strong>: at coarse levels $N_\ell^d \le T$ guarantees uniqueness; fine levels add detail. Even if a fine level collides, the non-colliding features at coarse levels already uniquely identify the point</li><li><strong>MLP post-processing</strong>: the tiny MLP learns nonlinear fusion over the $L\times F$ concatenated features; on colliding entries, it can use <strong>non-colliding features from other levels to disambiguate</strong></li><li><strong>Auto-regulated gradients</strong>: during training high gradients naturally concentrate at surface entries; if colliding entries are simultaneously on the surface (rare), the loss pushes them to a compromise position (averaging multiple samples)</li><li><strong>Physical intuition</strong>: rather than pay the cost of perfect hashing, allow collisions and use data-driven implicit disambiguation ("lazy collision resolution")</li></ul>
 <p>Saying "hash collisions are solved by the MLP" without explaining which mechanisms (sparsity + multi-scale + MLP nonlinearity) act together.</p>
 </details>
 <details>
 
 <summary>Q23. Derive the 3DGS 3D→2D covariance projection Jacobian.</summary>
-<ul><li>World → Camera: rigid transform $\mathbf{x}_\text{cam} = W\mathbf{x} + t$; covariance is only affected by rotation, $\Sigma_\text{cam} = W\Sigma W^\top$</li><li>Camera → Screen: perspective projection $\pi(x, y, z) = (f_x x/z, f_y y/z)$ is nonlinear</li><li>First-order Taylor at the mean $\mu_\text{cam}$: $\pi(\mathbf{x}) \approx \pi(\mu_\text{cam}) + J(\mathbf{x} - \mu_\text{cam})$, $J = \partial\pi/\partial\mathbf{x}|_{\mu_\text{cam}}$</li><li>$J = \begin{pmatrix} f_x/z & 0 & -f_x x/z^2 \\ 0 & f_y/z & -f_y y/z^2 \end{pmatrix} \in \mathbb{R}^{2\times 3}$</li><li>$\text{Cov}[\pi(\mathbf{x})] = J\Sigma_\text{cam} J^\top = JW\Sigma W^\top J^\top \in \mathbb{R}^{2\times 2}$</li><li>This is the classic corollary of EWA splatting (Zwicker 2001); 3DGS adopts it directly</li><li>Real implementations also add a $0.3 I$ low-pass filter (anti-aliasing)</li></ul>
+<ul><li>World → Camera: rigid transform $\mathbf{x}_\text{cam} = W\mathbf{x} + t$; covariance is only affected by rotation, $\Sigma_\text{cam} = W\Sigma W^\top$</li><li>Camera → Screen: perspective projection $\pi(x, y, z) = (f_x x/z, f_y y/z)$ is nonlinear</li><li>First-order Taylor at the mean $\mu_\text{cam}$: $\pi(\mathbf{x}) \approx \pi(\mu_\text{cam}) + J(\mathbf{x} - \mu_\text{cam})$, $J = \partial\pi/\partial\mathbf{x}|_{\mu_\text{cam}}$</li><li>$J = \begin{pmatrix} f_x/z &amp; 0 &amp; -f_x x/z^2 \\ 0 &amp; f_y/z &amp; -f_y y/z^2 \end{pmatrix} \in \mathbb{R}^{2\times 3}$</li><li>$\text{Cov}[\pi(\mathbf{x})] = J\Sigma_\text{cam} J^\top = JW\Sigma W^\top J^\top \in \mathbb{R}^{2\times 2}$</li><li>This is the classic corollary of EWA splatting (Zwicker 2001); 3DGS adopts it directly</li><li>Real implementations also add a $0.3 I$ low-pass filter (anti-aliasing)</li></ul>
 <p>Unable to do the first-order Taylor linearization of the nonlinear projection; or missing the World→Cam step.</p>
 </details>
 <details>
@@ -1211,7 +1211,7 @@ def gaussian_splat_forward(
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/3d_generation_tutorial_en.md</code> ·
   SHA256 <code>61199ba076c0</code> ·
-  generated at 2026-05-31 06:27 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

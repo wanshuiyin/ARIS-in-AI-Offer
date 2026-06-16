@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/long_context_rope_yarn_mla_tutorial.md">
 <meta name="aris:source-sha256" content="08d2eab9c93e8801b2518541f3b12b40ffdfc6127d7745b3e3240d4d5b949cdc">
-<meta name="aris:generated-at" content="2026-05-31 06:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -638,7 +638,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/long_context_rope_yarn_mla_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>08d2eab9c93e</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 06:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -661,7 +661,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="callout callout-good"><div class="callout-title">几何直觉</div><p>把每对维度 $(x_{2i}, x_{2i+1})$ 想成 2D 平面上的向量，RoPE 就是在每个 2D 子空间里转一个角度 $m\theta_i$（不同 $i$ 转速不同）。query 和 key 都被旋转后做内积，<strong>相对角度</strong>保留，绝对方向被抵消。</p></div>
 <h3 id="22-实数矩阵形式">2.2 实数矩阵形式</h3>
 <p>每对维度上是 2D 旋转矩阵：</p>
-<p>$$R_{\theta_i, m} = \begin{pmatrix} \cos m\theta_i & -\sin m\theta_i \\ \sin m\theta_i & \cos m\theta_i \end{pmatrix}$$</p>
+<p>$$R_{\theta_i, m} = \begin{pmatrix} \cos m\theta_i &amp; -\sin m\theta_i \\ \sin m\theta_i &amp; \cos m\theta_i \end{pmatrix}$$</p>
 <p>把 $\mathbf{x}$ 视作 $d/2$ 个 2D 向量的拼接，整体 $R_m = \mathrm{blkdiag}(R_{\theta_0, m}, \dots, R_{\theta_{d/2-1}, m})$。则：</p>
 <p>$$\langle R_m \mathbf{q}, R_n \mathbf{k} \rangle = \mathbf{q}^\top R_m^\top R_n \mathbf{k} = \mathbf{q}^\top R_{n-m} \mathbf{k}$$</p>
 <p>最后一步用 $R_m^\top R_n = R_{n-m}$（2D 旋转的可加性）。<strong>相对位置 $n - m$ 被显式编码到内积里</strong>。</p>
@@ -720,7 +720,7 @@ def rope_attention(Q, K, V, cos, sin, mask=None):
 <div class="callout callout-info"><div class="callout-title">为什么社区收敛到 RoPE</div><p>三点合一：(1) 无训练参数（vs learned absolute），(2) 显式相对位置（vs sinusoidal），(3) 实现简单且与 multi-head 兼容（每 head 独立旋转）。ALiBi 外推更好但表达力略弱（只是单调距离衰减），RoPE 让模型自己学复杂的位置-内容耦合。</p></div>
 <h2 id="4-pi--position-interpolation最简单的-rope-外推">§4 PI — Position Interpolation（最简单的 RoPE 外推）</h2>
 <h3 id="41-动机">4.1 动机</h3>
-<p>训练时 $m \in [0, L_\text{train})$；推理给 $m \in [0, L_\text{new})$，$L_\text{new} > L_\text{train}$。<strong>RoPE 直接外推会崩溃</strong>：当 $m \theta_i$ 超过训练见过的相位范围（特别是低频维度上 $m\theta_i$ 已经接近 $2\pi$ 时），相位进入未见区域，attention 行为不可预测。</p>
+<p>训练时 $m \in [0, L_\text{train})$；推理给 $m \in [0, L_\text{new})$，$L_\text{new} &gt; L_\text{train}$。<strong>RoPE 直接外推会崩溃</strong>：当 $m \theta_i$ 超过训练见过的相位范围（特别是低频维度上 $m\theta_i$ 已经接近 $2\pi$ 时），相位进入未见区域，attention 行为不可预测。</p>
 <p>PI 的想法（Chen et al., Meta, 2023, "Extending Context Window of LLMs via Position Interpolation"）：<strong>不外推，去插值</strong>。把 $m \in [0, L_\text{new})$ 线性压缩到 $[0, L_\text{train})$。</p>
 <h3 id="42-形式">4.2 形式</h3>
 <p>设缩放因子 $s = L_\text{new} / L_\text{train}$。把绝对位置 $m$ 替换为 $m / s$：</p>
@@ -787,7 +787,7 @@ def rope_attention(Q, K, V, cos, sin, mask=None):
 <p>设 $L_\text{train}$ 是训练上下文长度。维度 $i$ 的波长 $\lambda_i = 2\pi / \theta_i = 2\pi b^{2i/d}$。定义比值</p>
 <p>$$r_i = \frac{L_\text{train}}{\lambda_i} = \frac{L_\text{train} \cdot \theta_i}{2\pi}$$</p>
 <p>$r_i$ 表示训练长度内维度 $i$ 转了多少圈。把维度分三段：</p>
-<table><thead><tr><th>区间</th><th>条件</th><th>含义</th><th>处理</th></tr></thead><tbody><tr><td><strong>高频</strong></td><td>$r_i \ge \beta$ ($\beta=32$)</td><td>训练内 ≥ 32 圈，相对位置完全采样</td><td><strong>不缩放</strong> ($\theta'_i = \theta_i$)</td></tr><tr><td><strong>中频</strong></td><td>$\alpha < r_i < \beta$ ($\alpha=1$)</td><td>部分采样</td><td><strong>线性插值</strong>（PI 的局部应用）</td></tr><tr><td><strong>低频</strong></td><td>$r_i \le \alpha$</td><td>训练内 &lt; 1 圈，位置编码没见过整周期</td><td><strong>完全缩放到 $1/s$</strong>（PI 行为）</td></tr></tbody></table>
+<table><thead><tr><th>区间</th><th>条件</th><th>含义</th><th>处理</th></tr></thead><tbody><tr><td><strong>高频</strong></td><td>$r_i \ge \beta$ ($\beta=32$)</td><td>训练内 ≥ 32 圈，相对位置完全采样</td><td><strong>不缩放</strong> ($\theta'_i = \theta_i$)</td></tr><tr><td><strong>中频</strong></td><td>$\alpha &lt; r_i &lt; \beta$ ($\alpha=1$)</td><td>部分采样</td><td><strong>线性插值</strong>（PI 的局部应用）</td></tr><tr><td><strong>低频</strong></td><td>$r_i \le \alpha$</td><td>训练内 &lt; 1 圈，位置编码没见过整周期</td><td><strong>完全缩放到 $1/s$</strong>（PI 行为）</td></tr></tbody></table>
 <p>形式化：对维度 $i$，定义 ramp 函数</p>
 <p>$$\gamma(r_i) = \mathrm{clip}\!\left(\frac{r_i - \alpha}{\beta - \alpha},\; 0,\; 1\right) \in [0, 1]$$</p>
 <p>新频率取 NTK-aware 与 PI 的插值：</p>
@@ -796,16 +796,16 @@ def rope_attention(Q, K, V, cos, sin, mask=None):
 <div class="callout callout-info"><div class="callout-title">三段化的理由</div><p>高频维度在训练时已完整旋转过多周期，外推时<strong>只要相位别跳跃</strong>就能继续工作（旋转的周期性）；低频维度在训练时连一圈都没转完，"外推区域"对模型完全是未见数据，必须<strong>插值</strong>进训练见过的相位范围。中频维度居中处理。</p></div>
 <h3 id="63-temperature-scaling--注意力熵补偿">6.3 Temperature Scaling — 注意力熵补偿</h3>
 <p><strong>问题</strong>：扩展上下文后 softmax 输入的有效统计变了——同样的 query 现在面对 $L_\text{new} \gg L_\text{train}$ 个 key，attention 分布更<strong>扁平</strong>（熵更高），有效信号被稀释。</p>
-<p><strong>解决</strong>：在 softmax 前给 logits 除以温度 $t$（$t < 1$ 让分布更尖锐，补偿稀释）：</p>
+<p><strong>解决</strong>：在 softmax 前给 logits 除以温度 $t$（$t &lt; 1$ 让分布更尖锐，补偿稀释）：</p>
 <p>$$\mathrm{Attention} = \mathrm{softmax}\!\left(\frac{QK^\top}{t \sqrt{d_k}}\right) V$$</p>
 <p>YaRN 论文的拟合公式（来自经验性 ablation）：</p>
 <p>$$\boxed{\;\sqrt{1/t} \approx 0.1 \ln s + 1 \quad\Longleftrightarrow\quad t \approx \frac{1}{(0.1 \ln s + 1)^2}\;}$$</p>
 <p>例如 $s = 8$ ($L_\text{new} = 32\text{K}$ from $L_\text{train} = 4\text{K}$)：$\sqrt{1/t} \approx 0.1 \cdot 2.08 + 1 \approx 1.21$，$t \approx 0.68$。</p>
 <h3 id="64-attention-scale--与-temperature-等价的另一实现">6.4 Attention Scale — 与 Temperature 等价的另一实现</h3>
-<p>直接改 softmax 温度需要改 attention kernel。等价做法：把 query 和 key 的范数同时<strong>乘以</strong> $\sqrt{1/t} = (0.1\ln s + 1) > 1$（$t < 1$ 时是放大），这样 $QK^\top$ 自然被放大 $1/t$ 倍，softmax 看到的就是除以 $t$ 后的 logits。</p>
+<p>直接改 softmax 温度需要改 attention kernel。等价做法：把 query 和 key 的范数同时<strong>乘以</strong> $\sqrt{1/t} = (0.1\ln s + 1) &gt; 1$（$t &lt; 1$ 时是放大），这样 $QK^\top$ 自然被放大 $1/t$ 倍，softmax 看到的就是除以 $t$ 后的 logits。</p>
 <p>YaRN 通过把 RoPE cache 直接乘进缩放因子来实现：</p>
 <p>$$\text{cos}'_m = \cos(m \theta'_i) \cdot \sqrt{1/t}, \quad \text{sin}'_m = \sin(m \theta'_i) \cdot \sqrt{1/t}$$</p>
-<p>注意这只对 RoPE 部分起作用，<strong>整体效果等价于把 query/key 范数放大 $\sqrt{1/t}$ 倍</strong>（$t < 1$ 时该因子 $> 1$）——前提是 Q/K 的范数主要由 RoPE 后的部分主导。实践中 YaRN 的 attention scale 实现就是把 cos/sin 缓存里乘上 $\sqrt{1/t}$。<strong>这等价于改温度且不动 attention kernel</strong>。</p>
+<p>注意这只对 RoPE 部分起作用，<strong>整体效果等价于把 query/key 范数放大 $\sqrt{1/t}$ 倍</strong>（$t &lt; 1$ 时该因子 $&gt; 1$）——前提是 Q/K 的范数主要由 RoPE 后的部分主导。实践中 YaRN 的 attention scale 实现就是把 cos/sin 缓存里乘上 $\sqrt{1/t}$。<strong>这等价于改温度且不动 attention kernel</strong>。</p>
 <h3 id="65-yarn-三组件各解决什么l3-必问">6.5 YaRN 三组件各解决什么（L3 必问）</h3>
 <table><thead><tr><th>组件</th><th>解决的问题</th><th>不要它会怎样</th></tr></thead><tbody><tr><td><strong>NTK-by-parts</strong></td><td>高频应保留，低频应插值，中频要平滑过渡</td><td>用 NTK-aware 全局换底，扩展比大时低频压崩</td></tr><tr><td><strong>Temperature scaling</strong></td><td>上下文变长后 softmax 分布被稀释</td><td>注意力熵过高，长程信号被淹没</td></tr><tr><td><strong>Attention scale (实现层面)</strong></td><td>不动 softmax kernel 实现温度</td><td>需要重写 FlashAttention kernel</td></tr></tbody></table>
 <p>YaRN 论文展示：仅 400 步 fine-tune 把 LLaMA-2-7B 从 4K 推到 128K（$s = 32$），优于 PI 和 NTK-aware。</p>
@@ -849,7 +849,7 @@ def precompute_rope_cache_yarn(
     pos = torch.arange(seq_len, device=device).float()
     freqs = torch.outer(pos, inv_freq_yarn)
     return freqs.cos() * attn_scale, freqs.sin() * attn_scale</code></pre>
-<div class="callout callout-warn"><div class="callout-title">YaRN 的 attention scale 副作用</div><p>Q/K 范数被<strong>放大</strong> $\sqrt{1/t} > 1$ 倍（不是缩小），但 V 没有同步放大。在多层 transformer 里这等价于改了每层 attention 的有效温度，反向传播时梯度尺度也会不同。实践中 fine-tune 才能稳定（YaRN 论文用 ≈ 400 步）。</p></div>
+<div class="callout callout-warn"><div class="callout-title">YaRN 的 attention scale 副作用</div><p>Q/K 范数被<strong>放大</strong> $\sqrt{1/t} &gt; 1$ 倍（不是缩小），但 V 没有同步放大。在多层 transformer 里这等价于改了每层 attention 的有效温度，反向传播时梯度尺度也会不同。实践中 fine-tune 才能稳定（YaRN 论文用 ≈ 400 步）。</p></div>
 <h2 id="7-longrope--演化搜索--短上下文-rescue">§7 LongRoPE — 演化搜索 + 短上下文 rescue</h2>
 <p>Ding et al., ICML 2024 (Microsoft) 进一步问：<strong>每个维度的最优缩放因子能否独立搜索</strong>，而不是用同一个 ramp 函数？</p>
 <h3 id="71-关键观察">7.1 关键观察</h3>
@@ -870,7 +870,7 @@ def precompute_rope_cache_yarn(
 <ul><li><strong>优点</strong>：最简单，1 行配置改动。</li><li><strong>缺点</strong>：$\theta_0 = (b')^0 = 1$ 同样不变（与 NTK-aware 一致，最高频被精确保留），但 ABF 的 $b'$ 是凭经验拍出来的（如 $10^6$），<strong>没有按训练长度比例校准</strong>——不像 NTK-aware 那样让最低频精确压到 $1/s$。结果：低频维度的相位压缩力度全凭手感。</li><li><strong>用在哪</strong>：CodeLlama 用 $b = 10^6$ 扩到 16K；Llama-3 / Llama-3.1 沿用大 base 加上更精细的 RoPE scaling。</li></ul>
 <h3 id="82-nope--no-position-encoding">8.2 NoPE — No Position Encoding</h3>
 <p>Kazemnejad et al. 2023 ("The Impact of Positional Encoding on Length Generalization in Transformers")：<strong>decoder-only 模型不加位置编码，仅靠 causal mask 也能学到位置信息</strong>。</p>
-<p>观察：causal attention 的 mask 已经破坏了交换对称性（位置 $i$ 看不到位置 $j > i$ 的 token），这本身就编码了<strong>先后顺序</strong>。在小模型 / 短上下文上 NoPE 甚至外推性更好。</p>
+<p>观察：causal attention 的 mask 已经破坏了交换对称性（位置 $i$ 看不到位置 $j &gt; i$ 的 token），这本身就编码了<strong>先后顺序</strong>。在小模型 / 短上下文上 NoPE 甚至外推性更好。</p>
 <div class="callout callout-warn"><div class="callout-title">NoPE 的局限</div><p>仅适用于 decoder-only + causal mask。Encoder-only (BERT-like) 没有 causal mask，去掉位置编码后会退化为 bag-of-words。大模型上 NoPE 也未广泛验证。<strong>记住它是个有意思的研究结论</strong>，不是工业默认选择。</p></div>
 <h2 id="9-mla--multi-head-latent-attentiondeepseek-v2-may-2024">§9 MLA — Multi-Head Latent Attention（DeepSeek-V2 May 2024）</h2>
 <h3 id="91-动机">9.1 动机</h3>
@@ -898,9 +898,9 @@ def precompute_rope_cache_yarn(
 <p>DeepSeek-V2 的解法：<strong>把 K 拆成两段</strong>：</p>
 <ol><li><strong>Non-RoPE 主体</strong>：从 latent 上投影得到，大小 $d_h$，参与 absorbing。</li><li><strong>RoPE 部分</strong>：单独一份 key，大小 $d_h^R$（一般 64），<strong>所有 head 共享</strong>这一份，独立施加 RoPE，不参与 absorbing。</li></ol>
 <p>形式化（DeepSeek-V2 论文 Eq. 5-11）：</p>
-<p>$$ \begin{aligned} \mathbf{c}_t^{KV} &= W_\text{DKV}\, \mathbf{h}_t \in \mathbb{R}^{d_c} \\ \mathbf{k}_t^{C,(h)} &= W_\text{UK}^{(h)}\, \mathbf{c}_t^{KV} \in \mathbb{R}^{d_h} \quad\text{(non-RoPE 主体, per head)}\\ \mathbf{k}_t^{R} &= \mathrm{RoPE}(W_\text{KR}\, \mathbf{h}_t) \in \mathbb{R}^{d_h^R} \quad\text{(共享 RoPE key, all heads share)}\\ \mathbf{k}_t^{(h)} &= [\mathbf{k}_t^{C,(h)}\; ;\; \mathbf{k}_t^{R}] \in \mathbb{R}^{d_h + d_h^R} \end{aligned} $$</p>
+<p>$$ \begin{aligned} \mathbf{c}_t^{KV} &amp;= W_\text{DKV}\, \mathbf{h}_t \in \mathbb{R}^{d_c} \\ \mathbf{k}_t^{C,(h)} &amp;= W_\text{UK}^{(h)}\, \mathbf{c}_t^{KV} \in \mathbb{R}^{d_h} \quad\text{(non-RoPE 主体, per head)}\\ \mathbf{k}_t^{R} &amp;= \mathrm{RoPE}(W_\text{KR}\, \mathbf{h}_t) \in \mathbb{R}^{d_h^R} \quad\text{(共享 RoPE key, all heads share)}\\ \mathbf{k}_t^{(h)} &amp;= [\mathbf{k}_t^{C,(h)}\; ;\; \mathbf{k}_t^{R}] \in \mathbb{R}^{d_h + d_h^R} \end{aligned} $$</p>
 <p>Query 端也类似分成两半：</p>
-<p>$$ \begin{aligned} \mathbf{c}_t^{Q} &= W_\text{DQ}\, \mathbf{h}_t \in \mathbb{R}^{d_c'} \\ \mathbf{q}_t^{C,(h)} &= W_\text{UQ}^{(h)}\, \mathbf{c}_t^{Q} \in \mathbb{R}^{d_h} \quad\text{(非 RoPE, 与 } \mathbf{k}_t^{C,(h)} \text{ 配对)}\\ \mathbf{q}_t^{R,(h)} &= \mathrm{RoPE}(W_\text{QR}^{(h)}\, \mathbf{c}_t^{Q}) \in \mathbb{R}^{d_h^R} \quad\text{(per head 的 RoPE query, 与 } \mathbf{k}_t^{R} \text{ 配对)}\\ \mathbf{q}_t^{(h)} &= [\mathbf{q}_t^{C,(h)}\; ;\; \mathbf{q}_t^{R,(h)}] \end{aligned} $$</p>
+<p>$$ \begin{aligned} \mathbf{c}_t^{Q} &amp;= W_\text{DQ}\, \mathbf{h}_t \in \mathbb{R}^{d_c'} \\ \mathbf{q}_t^{C,(h)} &amp;= W_\text{UQ}^{(h)}\, \mathbf{c}_t^{Q} \in \mathbb{R}^{d_h} \quad\text{(非 RoPE, 与 } \mathbf{k}_t^{C,(h)} \text{ 配对)}\\ \mathbf{q}_t^{R,(h)} &amp;= \mathrm{RoPE}(W_\text{QR}^{(h)}\, \mathbf{c}_t^{Q}) \in \mathbb{R}^{d_h^R} \quad\text{(per head 的 RoPE query, 与 } \mathbf{k}_t^{R} \text{ 配对)}\\ \mathbf{q}_t^{(h)} &amp;= [\mathbf{q}_t^{C,(h)}\; ;\; \mathbf{q}_t^{R,(h)}] \end{aligned} $$</p>
 <p>Attention 分数（同一 head）：</p>
 <p>$$\mathbf{q}_t^{(h)\top} \mathbf{k}_s^{(h)} = \underbrace{\mathbf{q}_t^{C,(h)\top}\, \mathbf{k}_s^{C,(h)}}_{\text{absorb 进 q 投影}} + \underbrace{\mathbf{q}_t^{R,(h)\top}\, \mathbf{k}_s^{R}}_{\text{RoPE 部分, 直接算}}$$</p>
 <p>第一项中 $\mathbf{k}_s^{C,(h)} = W_\text{UK}^{(h)} \mathbf{c}_s^{KV}$，按 §9.3 absorbing trick 把 $W_\text{UK}^{(h)}$ 吸进 query 侧。第二项 RoPE key 所有 head 共享，cache 只存一份 $\mathbf{k}_s^R$。</p>
@@ -1164,7 +1164,7 @@ Q: Attention 算不动 (L^2 太大)?
 <details>
 
 <summary>Q3. 朴素 RoPE 为什么不能直接外推？</summary>
-<ul><li>训练时 $m \in [0, L_\text{train})$，低频维度 $m\theta_i$ 还远小于 $2\pi$</li><li>推理给 $m > L_\text{train}$，低频维度进入未见相位区</li><li>模型对这些区域的 attention 行为没学过 → PPL 爆炸 / 上下文崩溃</li></ul>
+<ul><li>训练时 $m \in [0, L_\text{train})$，低频维度 $m\theta_i$ 还远小于 $2\pi$</li><li>推理给 $m &gt; L_\text{train}$，低频维度进入未见相位区</li><li>模型对这些区域的 attention 行为没学过 → PPL 爆炸 / 上下文崩溃</li></ul>
 <p>说"RoPE 周期外推自然 OK" — 错。周期性只在维度内成立，跨上下文长度外推的是"位置 → 相位"映射，模型从未见过 $m\theta_i$ 超出训练范围的相位组合。</p>
 </details>
 <details>
@@ -1219,7 +1219,7 @@ Q: Attention 算不动 (L^2 太大)?
 <details>
 
 <summary>Q12. YaRN 的三个组件各解决什么？</summary>
-<ul><li><strong>NTK-by-parts</strong>：高/中/低频分段处理，比 NTK-aware 单参数 ramp 更精细</li><li><strong>Temperature scaling</strong>：上下文变长后 softmax 分布扁平化，加温度 $t < 1$ 让分布更尖锐</li><li><strong>Attention scale (实现层面)</strong>：把温度 $1/t$ 实现为 Q/K 范数缩放（等价于乘到 cos/sin cache），不动 attention kernel</li></ul>
+<ul><li><strong>NTK-by-parts</strong>：高/中/低频分段处理，比 NTK-aware 单参数 ramp 更精细</li><li><strong>Temperature scaling</strong>：上下文变长后 softmax 分布扁平化，加温度 $t &lt; 1$ 让分布更尖锐</li><li><strong>Attention scale (实现层面)</strong>：把温度 $1/t$ 实现为 Q/K 范数缩放（等价于乘到 cos/sin cache），不动 attention kernel</li></ul>
 <p>只说"YaRN 是 NTK-aware 改进版"，不分解。</p>
 </details>
 <details>
@@ -1249,7 +1249,7 @@ Q: Attention 算不动 (L^2 太大)?
 <details>
 
 <summary>Q17. Streaming LLM 中为什么 position id 要用"逻辑位置"而非绝对位置？</summary>
-<ul><li>如果用绝对位置：cache 里 sink 是 [0,4)，最近 window 是 [L-W, L)，新 token 是 L</li><li>但 $L$ 可以无限增长，RoPE 在 $m > L_\text{train}$ 时未见过，PPL 爆炸</li><li><strong>逻辑位置</strong>：sink 用 [0, S)，window 内用 [S, S+W)，新 token 用 S+W</li><li>这样 RoPE 永远在训练见过的范围内 → 流式可无限生成</li></ul>
+<ul><li>如果用绝对位置：cache 里 sink 是 [0,4)，最近 window 是 [L-W, L)，新 token 是 L</li><li>但 $L$ 可以无限增长，RoPE 在 $m &gt; L_\text{train}$ 时未见过，PPL 爆炸</li><li><strong>逻辑位置</strong>：sink 用 [0, S)，window 内用 [S, S+W)，新 token 用 S+W</li><li>这样 RoPE 永远在训练见过的范围内 → 流式可无限生成</li></ul>
 <p>说"用绝对位置才正确" — 错，绝对位置会撞 RoPE 外推上限。</p>
 </details>
 <details>
@@ -1292,7 +1292,7 @@ Q: Attention 算不动 (L^2 太大)?
 <details>
 
 <summary>Q24. YaRN 的 attention scale 和直接改 softmax 温度有什么实现层面的区别？</summary>
-<ul><li><strong>直接改温度</strong>：在 attention kernel 里把 logits 除以 $t$，需要修改 FlashAttention 等 fused kernel</li><li><strong>Attention scale</strong>：把 $\sqrt{1/t}$ 乘进 RoPE cos/sin cache，等价于 Q/K 范数<strong>放大</strong> $\sqrt{1/t}$ 倍（$t < 1$ 时 $\sqrt{1/t} > 1$），$QK^\top$ 自然放大 $1/t$ 倍</li><li>两者<strong>数学等价</strong>（前提：Q/K 范数主要来自 RoPE 后的部分）</li><li>工程优势：<strong>完全不动 attention kernel</strong>，只改 RoPE 预计算</li><li>这是 YaRN "infrastructure-friendly" 的一大卖点</li></ul>
+<ul><li><strong>直接改温度</strong>：在 attention kernel 里把 logits 除以 $t$，需要修改 FlashAttention 等 fused kernel</li><li><strong>Attention scale</strong>：把 $\sqrt{1/t}$ 乘进 RoPE cos/sin cache，等价于 Q/K 范数<strong>放大</strong> $\sqrt{1/t}$ 倍（$t &lt; 1$ 时 $\sqrt{1/t} &gt; 1$），$QK^\top$ 自然放大 $1/t$ 倍</li><li>两者<strong>数学等价</strong>（前提：Q/K 范数主要来自 RoPE 后的部分）</li><li>工程优势：<strong>完全不动 attention kernel</strong>，只改 RoPE 预计算</li><li>这是 YaRN "infrastructure-friendly" 的一大卖点</li></ul>
 <p>说"两个就是同一件事" — 数学等价但工程意义不同。</p>
 </details>
 <details>
@@ -1318,7 +1318,7 @@ Q: Attention 算不动 (L^2 太大)?
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/long_context_rope_yarn_mla_tutorial.md</code> ·
   SHA256 <code>08d2eab9c93e</code> ·
-  generated at 2026-05-31 06:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

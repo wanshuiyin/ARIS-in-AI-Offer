@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/video_generation_tutorial.md">
 <meta name="aris:source-sha256" content="4aaa64ff3f54473df8980186427f4215f75c5d6dbe3e8196316ef72b9a7c4643">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -624,14 +624,14 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/video_generation_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>4aaa64ff3f54</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
 <div class="callout callout-info"><div class="callout-title">7 句话搞定 Video Generation</div><p>2024-2025 视频生成大爆发。一页吃下面试高频要点（详见后文 §1–§11 推导）。</p></div>
-<ol><li><strong>范式</strong>：主流视频生成 = <strong>3D Causal VAE 压缩 + Latent DiT 扩散 / Flow Matching</strong>。Sora（2024-02）首次把 Transformer 推到 60s + 高分辨率；Hunyuan-Video (Tencent 2024-12) / Wan 2.x (Alibaba 2024-2025) / Mochi-1 / CogVideoX / Movie Gen / Kling / Veo 2 都是这一架构家族的变体。</li><li><strong>3D Causal VAE</strong>：把 $H \times W \times T$ 视频压成 $h \times w \times t$ latent（典型空间下采样 $8\times$、时间下采样 $4\times$）。<strong>因果 (causal)</strong> 关键：当前帧 latent <strong>不能看未来帧</strong>——使训练好的 VAE 同时支持图像（$t{=}1$）与视频（$t{>}1$）、并允许后续帧流式 / 自回归生成。</li><li><strong>Spacetime Patches (Sora)</strong>：把视频 latent 切成 $p_t \times p_h \times p_w$ 的 3D patch 当 token；像 ViT 但增加了时间维。支持<strong>变分辨率 / 变时长 / 变长宽比</strong>：直接把不同 shape 的 patch 序列打包到一个 batch（用 mask 区分），无需 resize 到固定尺寸。</li><li><strong>时空 Attention 三大变体</strong>：(a) <strong>Factorized 2+1D</strong>（Latte / OpenSora / AnimateDiff）：先 spatial-only，再 temporal-only，复杂度 $O(T \cdot S^2 + S \cdot T^2)$；(b) <strong>Full 3D</strong>（Sora / Hunyuan-Video / Mochi）：所有 token 互相 attend，复杂度 $O((ST)^2)$，最贵但效果最好；(c) <strong>Window / 稀疏 ST</strong>（Wan 2.x / CogVideoX 部分块）：滑窗 3D，折中。</li><li><strong>MM-DiT for Video (Hunyuan-Video / Mochi)</strong>：text token 与 video token <strong>同序列</strong>做 self-attention（不再用 cross-attn），两个 stream 各自的 QKV 投影 + AdaLN 调制；条件信息在 token-level 直接交互——Hunyuan/Mochi/Wan 把 SD3 image MM-DiT 思路扩展到视频。</li><li><strong>Image-to-Video (I2V)</strong>：主流三招——(i) <strong>First-frame concat</strong>：把 ref image 编码后沿 channel 拼到 latent；(ii) <strong>Cross-attention 注入</strong>：ref image token 作 K/V；(iii) <strong>AnimateDiff</strong> 风格：冻结 T2I 主干，只插入 temporal module。SVD / DynamiCrafter / I2VGen-XL / Wan-I2V 是代表。</li><li><strong>长视频</strong> = keyframe + interpolation / hierarchical / autoregressive chunks。<strong>评测</strong>：VBench (Huang CVPR 2024) 16 维细粒度评分，是当下事实标准；FVD（Unterthiner 2018）仍作辅助；CLIPSim-V 评估 text-video 对齐。</li></ol>
+<ol><li><strong>范式</strong>：主流视频生成 = <strong>3D Causal VAE 压缩 + Latent DiT 扩散 / Flow Matching</strong>。Sora（2024-02）首次把 Transformer 推到 60s + 高分辨率；Hunyuan-Video (Tencent 2024-12) / Wan 2.x (Alibaba 2024-2025) / Mochi-1 / CogVideoX / Movie Gen / Kling / Veo 2 都是这一架构家族的变体。</li><li><strong>3D Causal VAE</strong>：把 $H \times W \times T$ 视频压成 $h \times w \times t$ latent（典型空间下采样 $8\times$、时间下采样 $4\times$）。<strong>因果 (causal)</strong> 关键：当前帧 latent <strong>不能看未来帧</strong>——使训练好的 VAE 同时支持图像（$t{=}1$）与视频（$t{&gt;}1$）、并允许后续帧流式 / 自回归生成。</li><li><strong>Spacetime Patches (Sora)</strong>：把视频 latent 切成 $p_t \times p_h \times p_w$ 的 3D patch 当 token；像 ViT 但增加了时间维。支持<strong>变分辨率 / 变时长 / 变长宽比</strong>：直接把不同 shape 的 patch 序列打包到一个 batch（用 mask 区分），无需 resize 到固定尺寸。</li><li><strong>时空 Attention 三大变体</strong>：(a) <strong>Factorized 2+1D</strong>（Latte / OpenSora / AnimateDiff）：先 spatial-only，再 temporal-only，复杂度 $O(T \cdot S^2 + S \cdot T^2)$；(b) <strong>Full 3D</strong>（Sora / Hunyuan-Video / Mochi）：所有 token 互相 attend，复杂度 $O((ST)^2)$，最贵但效果最好；(c) <strong>Window / 稀疏 ST</strong>（Wan 2.x / CogVideoX 部分块）：滑窗 3D，折中。</li><li><strong>MM-DiT for Video (Hunyuan-Video / Mochi)</strong>：text token 与 video token <strong>同序列</strong>做 self-attention（不再用 cross-attn），两个 stream 各自的 QKV 投影 + AdaLN 调制；条件信息在 token-level 直接交互——Hunyuan/Mochi/Wan 把 SD3 image MM-DiT 思路扩展到视频。</li><li><strong>Image-to-Video (I2V)</strong>：主流三招——(i) <strong>First-frame concat</strong>：把 ref image 编码后沿 channel 拼到 latent；(ii) <strong>Cross-attention 注入</strong>：ref image token 作 K/V；(iii) <strong>AnimateDiff</strong> 风格：冻结 T2I 主干，只插入 temporal module。SVD / DynamiCrafter / I2VGen-XL / Wan-I2V 是代表。</li><li><strong>长视频</strong> = keyframe + interpolation / hierarchical / autoregressive chunks。<strong>评测</strong>：VBench (Huang CVPR 2024) 16 维细粒度评分，是当下事实标准；FVD（Unterthiner 2018）仍作辅助；CLIPSim-V 评估 text-video 对齐。</li></ol>
 <div class="callout callout-warn"><div class="callout-title">Caveat</div><p>本文中 model-specific 数字（参数量、压缩比、attention 类型）均依据各模型公开 paper / tech report；具体训练 hyperparam 与最终架构以原文为准。</p></div>
 <h2 id="1-直觉与全景">§1 直觉与全景</h2>
 <h3 id="11-为什么视频比图像难">1.1 为什么视频比图像难</h3>
@@ -1356,7 +1356,7 @@ def video_gen_sample(model, text, t_lat=12, h_lat=90, w_lat=160, steps=50,
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/video_generation_tutorial.md</code> ·
   SHA256 <code>4aaa64ff3f54</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

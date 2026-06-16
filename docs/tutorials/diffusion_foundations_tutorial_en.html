@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_foundations_tutorial_en.md">
 <meta name="aris:source-sha256" content="5f3b3e8403e8abdc6cbd6ec2c8d893bc9c2919733358f4837062708d53549727">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -653,7 +653,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_foundations_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>5f3b3e8403e8</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -691,7 +691,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1-\bar\alpha_t}\, \epsilon, \quad \epsilon \sim \mathcal{N}(0, I)$$</p>
 <h3 id="22-closed-form-derivation-mandatory-will-keep-coming-up">2.2　Closed-form derivation (mandatory, will keep coming up)</h3>
 <p>From the reparameterization $x_t = \sqrt{\alpha_t} x_{t-1} + \sqrt{\beta_t} z_t$ with independent $z_t \sim \mathcal{N}(0, I)$. Recurse:</p>
-<p>$$ \begin{aligned} x_t &= \sqrt{\alpha_t} x_{t-1} + \sqrt{\beta_t} z_t \\     &= \sqrt{\alpha_t}\left(\sqrt{\alpha_{t-1}} x_{t-2} + \sqrt{\beta_{t-1}} z_{t-1}\right) + \sqrt{\beta_t} z_t \\     &= \sqrt{\alpha_t \alpha_{t-1}}\, x_{t-2} + \underbrace{\sqrt{\alpha_t \beta_{t-1}} z_{t-1} + \sqrt{\beta_t} z_t}_{\text{sum of independent Gaussians}} \end{aligned} $$</p>
+<p>$$ \begin{aligned} x_t &amp;= \sqrt{\alpha_t} x_{t-1} + \sqrt{\beta_t} z_t \\     &amp;= \sqrt{\alpha_t}\left(\sqrt{\alpha_{t-1}} x_{t-2} + \sqrt{\beta_{t-1}} z_{t-1}\right) + \sqrt{\beta_t} z_t \\     &amp;= \sqrt{\alpha_t \alpha_{t-1}}\, x_{t-2} + \underbrace{\sqrt{\alpha_t \beta_{t-1}} z_{t-1} + \sqrt{\beta_t} z_t}_{\text{sum of independent Gaussians}} \end{aligned} $$</p>
 <p>Variance of the sum of two independent Gaussians: $\alpha_t \beta_{t-1} + \beta_t = \alpha_t(1 - \alpha_{t-1}) + (1 - \alpha_t) = 1 - \alpha_t \alpha_{t-1}$. So it merges into a single Gaussian $\sqrt{1 - \alpha_t \alpha_{t-1}}\, \bar z$. Induct to step $t$:</p>
 <p>$$x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1 - \bar\alpha_t}\, \epsilon$$</p>
 <div class="callout callout-info"><div class="callout-title">Variational trick intuition</div><p>the benefit of a Markov chain with Gaussian steps is that the cumulative distribution is still Gaussian; this lets forward sample without a network, and training doesn't need to simulate the whole chain.</p></div>
@@ -704,7 +704,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$p_\theta(x_{t-1} | x_t) = \mathcal{N}\!\left(x_{t-1};\; \mu_\theta(x_t, t),\; \Sigma_\theta(x_t, t)\right)$$</p>
 <h3 id="32-elbo-derivation">3.2　ELBO derivation</h3>
 <p>DDPM optimizes the evidence lower bound (analogous to a VAE):</p>
-<p>$$ \begin{aligned} \log p_\theta(x_0) &\ge \mathbb{E}_{q(x_{1:T}|x_0)}\left[\log \frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}\right] \\ &= -\underbrace{\mathbb{E}_q[\text{KL}(q(x_T|x_0) \,\Vert\, p(x_T))]}_{L_T \text{ (constant, prior matching)}} \\ &\quad - \sum_{t=2}^T \underbrace{\mathbb{E}_q[\text{KL}(q(x_{t-1}|x_t, x_0) \,\Vert\, p_\theta(x_{t-1}|x_t))]}_{L_{t-1}} \\ &\quad + \underbrace{\mathbb{E}_q[\log p_\theta(x_0 | x_1)]}_{L_0 \text{ (decoder log-likelihood)}} \end{aligned} $$</p>
+<p>$$ \begin{aligned} \log p_\theta(x_0) &amp;\ge \mathbb{E}_{q(x_{1:T}|x_0)}\left[\log \frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}\right] \\ &amp;= -\underbrace{\mathbb{E}_q[\text{KL}(q(x_T|x_0) \,\Vert\, p(x_T))]}_{L_T \text{ (constant, prior matching)}} \\ &amp;\quad - \sum_{t=2}^T \underbrace{\mathbb{E}_q[\text{KL}(q(x_{t-1}|x_t, x_0) \,\Vert\, p_\theta(x_{t-1}|x_t))]}_{L_{t-1}} \\ &amp;\quad + \underbrace{\mathbb{E}_q[\log p_\theta(x_0 | x_1)]}_{L_0 \text{ (decoder log-likelihood)}} \end{aligned} $$</p>
 <p><strong>Key</strong>: $q(x_{t-1} | x_t, x_0)$ is a closed-form Gaussian (derived from Bayes):</p>
 <p>$$q(x_{t-1} | x_t, x_0) = \mathcal{N}\!\left(x_{t-1};\; \tilde\mu_t(x_t, x_0),\; \tilde\beta_t I\right)$$</p>
 <p>where:</p>
@@ -721,7 +721,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="callout callout-good"><div class="callout-title">Why does dropping the coefficient still work?</div><p>Ho 2020's empirical observation: the unweighted version effectively <strong>upweights low-SNR (high $t$) loss</strong>, which in turn improves sample quality. The cost: $\log$-likelihood is no longer the ELBO lower bound — so "good FID" ≠ "good likelihood". Improved DDPM (Nichol-Dhariwal 2021) later introduces a hybrid loss $L_\text{hybrid} = L_\text{simple} + \lambda L_\text{vlb}$ ($\lambda = 0.001$), simultaneously learning $\Sigma_\theta$.</p></div>
 <h3 id="34-equivalent-prediction-targets-memorize">3.4　Equivalent prediction targets (memorize)</h3>
 <p>Given $x_t = \sqrt{\bar\alpha_t} x_0 + \sqrt{1-\bar\alpha_t}\epsilon$, the three mainstream parametrizations are linearly invertible:</p>
-<p>$$ \begin{aligned} \epsilon\text{-pred} &:\quad \epsilon_\theta(x_t, t) \approx \epsilon \\ x_0\text{-pred} &:\quad \hat x_0(x_t, t) = \frac{x_t - \sqrt{1-\bar\alpha_t}\, \epsilon_\theta}{\sqrt{\bar\alpha_t}} \\ v\text{-pred (Salimans-Ho 2022)} &:\quad v_\theta = \sqrt{\bar\alpha_t}\, \epsilon - \sqrt{1-\bar\alpha_t}\, x_0 \\ \text{score} &:\quad s_\theta(x_t, t) = -\frac{\epsilon_\theta(x_t, t)}{\sqrt{1-\bar\alpha_t}} \end{aligned} $$</p>
+<p>$$ \begin{aligned} \epsilon\text{-pred} &amp;:\quad \epsilon_\theta(x_t, t) \approx \epsilon \\ x_0\text{-pred} &amp;:\quad \hat x_0(x_t, t) = \frac{x_t - \sqrt{1-\bar\alpha_t}\, \epsilon_\theta}{\sqrt{\bar\alpha_t}} \\ v\text{-pred (Salimans-Ho 2022)} &amp;:\quad v_\theta = \sqrt{\bar\alpha_t}\, \epsilon - \sqrt{1-\bar\alpha_t}\, x_0 \\ \text{score} &amp;:\quad s_\theta(x_t, t) = -\frac{\epsilon_\theta(x_t, t)}{\sqrt{1-\bar\alpha_t}} \end{aligned} $$</p>
 <div class="callout callout-info"><div class="callout-title">Why is v-prediction more stable?</div><p>$\epsilon$-pred degenerates as $t \to 0$ (small noise; loss coefficient explodes); $x_0$-pred degenerates as $t \to T$ (large noise); $v$-pred interpolates between them and has approximately uniform loss magnitude across all $t$ — that's the key choice in Imagen Video / SD2.1-v / Karras EDM.</p></div>
 <h2 id="4-schedule-linear--cosine--edm">§4 Schedule: linear / cosine / EDM</h2>
 <h3 id="41-linear-ho-2020">4.1　Linear (Ho 2020)</h3>
@@ -762,7 +762,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\sigma_t^2 \nabla_{x_t} \log p_t(x_t) = \mathbb{E}[x_0 | x_t] - x_t \quad \Rightarrow \quad \mathbb{E}[x_0 | x_t] = x_t + \sigma_t^2 \nabla_{x_t} \log p_t(x_t) \quad \square$$</p>
 <div class="callout callout-good"><div class="callout-title">Tweedie is the &quot;Rosetta Stone&quot; linking all diffusion parametrizations</div><p>the denoiser network's optimal output (MMSE estimator) is the score plus an identity map. All conversions among $\epsilon$-pred / score-pred / $x_0$-pred / $v$-pred are one-line rearrangements of Tweedie.</p></div>
 <h3 id="54-ncsn--smld-song-ermon-2019">5.4　NCSN / SMLD (Song-Ermon 2019)</h3>
-<p><strong>Noise-Conditional Score Network</strong>: train a shared network $s_\theta(x, \sigma)$ that does DSM at multiple noise levels $\sigma_1 > \sigma_2 > \dots > \sigma_L$ simultaneously. Sampling uses <strong>annealed Langevin dynamics</strong>: first Langevin at large $\sigma_1$ (explore the whole space), then decay to $\sigma_L$ (refine details).</p>
+<p><strong>Noise-Conditional Score Network</strong>: train a shared network $s_\theta(x, \sigma)$ that does DSM at multiple noise levels $\sigma_1 &gt; \sigma_2 &gt; \dots &gt; \sigma_L$ simultaneously. Sampling uses <strong>annealed Langevin dynamics</strong>: first Langevin at large $\sigma_1$ (explore the whole space), then decay to $\sigma_L$ (refine details).</p>
 <p>$$x \leftarrow x + \frac{\epsilon_i}{2} s_\theta(x, \sigma_i) + \sqrt{\epsilon_i}\, z, \quad \epsilon_i = \eta \cdot (\sigma_i / \sigma_L)^2$$</p>
 <p>Run $T$ Langevin steps at each $\sigma_i$, then switch to the next $\sigma_{i+1}$.</p>
 <div class="callout callout-warn"><div class="callout-title">Why doesn&#x27;t a single $\sigma$ work?</div><p>Scores trained at small $\sigma$ are completely wrong in regions far from the data manifold (in the "empty regions" between modes where $p(x) \approx 0$, the score gives no direction). The core of multiple noise levels is using large $\sigma$ to "fill" the space, providing initial positions for small $\sigma$.</p></div>
@@ -808,9 +808,9 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="73-ddim-sampling-formula">7.3　DDIM sampling formula</h3>
 <p>Substitute $x_0 \to \hat x_0 = (x_t - \sqrt{1-\bar\alpha_t}\, \epsilon_\theta(x_t, t)) / \sqrt{\bar\alpha_t}$:</p>
 <p>$$\boxed{\; x_{t-1} = \sqrt{\bar\alpha_{t-1}}\, \hat x_0 + \sqrt{1 - \bar\alpha_{t-1} - \sigma_t^2}\, \epsilon_\theta(x_t, t) + \sigma_t\, z, \quad z \sim \mathcal{N}(0, I) \;}$$</p>
-<ul><li><strong>$\eta = 0$ (DDIM)</strong>: $\sigma_t = 0$, <strong>deterministic</strong> — same $x_T$ gives same $\hat x_0$ (latent-space interpolation friendly)</li><li><strong>$\eta = 1$ (walking the full $T$ steps)</strong>: $\sigma_t = \sqrt{\tilde\beta_t}$, degenerates to standard DDPM ancestral sampling; under fewer skipped steps $S < T$ it only matches DDPM variance order, not a strict 1000-step DDPM equivalent</li><li>Intermediate $\eta \in (0, 1)$: tunable stochasticity</li></ul>
+<ul><li><strong>$\eta = 0$ (DDIM)</strong>: $\sigma_t = 0$, <strong>deterministic</strong> — same $x_T$ gives same $\hat x_0$ (latent-space interpolation friendly)</li><li><strong>$\eta = 1$ (walking the full $T$ steps)</strong>: $\sigma_t = \sqrt{\tilde\beta_t}$, degenerates to standard DDPM ancestral sampling; under fewer skipped steps $S &lt; T$ it only matches DDPM variance order, not a strict 1000-step DDPM equivalent</li><li>Intermediate $\eta \in (0, 1)$: tunable stochasticity</li></ul>
 <h3 id="74-skip-steps-few-step-sampling">7.4　Skip steps (few-step sampling)</h3>
-<p>You don't have to step $t \to t-1$; you can skip: pick a sub-sequence $\tau_0 < \tau_1 < \dots < \tau_S = T$ and do:</p>
+<p>You don't have to step $t \to t-1$; you can skip: pick a sub-sequence $\tau_0 &lt; \tau_1 &lt; \dots &lt; \tau_S = T$ and do:</p>
 <p>$$x_{\tau_{i-1}} = \sqrt{\bar\alpha_{\tau_{i-1}}}\, \hat x_0 + \sqrt{1 - \bar\alpha_{\tau_{i-1}} - \sigma_{\tau_i}^2}\, \epsilon_\theta(x_{\tau_i}, \tau_i) + \sigma_{\tau_i}\, z$$</p>
 <p>Classic baseline: $S = 50$ DDIM steps achieve FID close to 1000-step DDPM on ImageNet 256.</p>
 <div class="callout callout-good"><div class="callout-title">DDIM = discretization of the probability flow ODE</div><p>when $\eta = 0$ and the time grid is taken continuous, DDIM degenerates to the first-order Euler discretization of the probability flow ODE for the VP-SDE — that's why deterministic DDIM lines up with ODE-based samplers (DPM-Solver, EDM Heun).</p></div>
@@ -887,12 +887,12 @@ else:
 <p>$$\boxed{\; \tilde\epsilon = \epsilon_\theta(x_t, t, \emptyset) + (1 + w)\big[\epsilon_\theta(x_t, t, c) - \epsilon_\theta(x_t, t, \emptyset)\big] \;}$$</p>
 <p>Equivalent form (common in Imagen / SD implementations):</p>
 <p>$$\tilde\epsilon = (1 + w)\, \epsilon_\theta(x_t, t, c) - w\, \epsilon_\theta(x_t, t, \emptyset)$$</p>
-<div class="callout callout-warn"><div class="callout-title">Two CFG $w$ conventions</div><p>the original Ho-Salimans 2022 paper has $\tilde\epsilon = \epsilon_\text{uncond} + (1+w)(\epsilon_\text{cond} - \epsilon_\text{uncond})$, so $w = 0$ is unguided and $w > 0$ is amplified. HuggingFace / SD UIs commonly use $w' = w + 1$, so $w' = 1$ is unguided and $w' = 7.5$ is the common amplified value. <strong>State the convention in interview code</strong>.</p></div>
+<div class="callout callout-warn"><div class="callout-title">Two CFG $w$ conventions</div><p>the original Ho-Salimans 2022 paper has $\tilde\epsilon = \epsilon_\text{uncond} + (1+w)(\epsilon_\text{cond} - \epsilon_\text{uncond})$, so $w = 0$ is unguided and $w &gt; 0$ is amplified. HuggingFace / SD UIs commonly use $w' = w + 1$, so $w' = 1$ is unguided and $w' = 7.5$ is the common amplified value. <strong>State the convention in interview code</strong>.</p></div>
 <h3 id="103-geometric-meaning-of-cfg">10.3　Geometric meaning of CFG</h3>
 <p>CFG is equivalent to pulling the sampling trajectory toward the "conditional gradient" direction:</p>
 <p>$$\nabla_{x_t} \log p(x_t | c) \approx \nabla_{x_t} \log p(x_t) + w \nabla_{x_t} \log \frac{p(x_t | c)}{p(x_t)}$$</p>
 <p>The second term is the "conditional score difference", which pushes samples toward regions of high conditional likelihood and relatively low unconditional likelihood — intuitively "amplifying text alignment".</p>
-<div class="callout callout-good"><div class="callout-title">CFG is the core of SD/SDXL/FLUX text-image alignment</div><p>$w \in [3, 7.5]$ is the empirical sweet spot for Stable Diffusion; $w > 10$ tends to over-saturate (color saturation, artifacts). FLUX internalizes CFG into distillation ("guidance-distilled") so a single forward pass yields the CFG effect — one of the keys to its inference speed.</p></div>
+<div class="callout callout-good"><div class="callout-title">CFG is the core of SD/SDXL/FLUX text-image alignment</div><p>$w \in [3, 7.5]$ is the empirical sweet spot for Stable Diffusion; $w &gt; 10$ tends to over-saturate (color saturation, artifacts). FLUX internalizes CFG into distillation ("guidance-distilled") so a single forward pass yields the CFG effect — one of the keys to its inference speed.</p></div>
 <h2 id="11-production-from-ldm-to-flux">§11 Production: from LDM to FLUX</h2>
 <h3 id="111-latent-diffusion-ldm-rombach-2022-cvpr">11.1　Latent Diffusion (LDM, Rombach 2022 CVPR)</h3>
 <p><strong>Core idea</strong>: run diffusion in VAE latent space rather than pixel space.</p>
@@ -1007,7 +1007,7 @@ else:
 <details>
 <summary>Q7. How is CFG (Classifier-Free Guidance) trained and used?</summary>
 <ul><li>Training: with $p_\text{drop}=0.1$ replace $c$ with $\emptyset$ (null embedding); the same net learns conditional/unconditional</li><li><p>Inference: two conventions (must distinguish):</p>
-<ul><li><strong>HF / SD style</strong> (denoted $s$): $\tilde\epsilon = \epsilon_\theta(x,\emptyset) + s\,[\epsilon_\theta(x,c) - \epsilon_\theta(x,\emptyset)]$, $s=1$ is unguided, $s\in[3, 7.5]$ is the common SD amplification</li><li><strong>Ho-Salimans 2022 original</strong> (denoted $w$): $\tilde\epsilon = (1+w)\,\epsilon_\theta(x,c) - w\,\epsilon_\theta(x,\emptyset)$, $w=0$ is unguided; equivalent to $s = w + 1$</li></ul></li><li>Large $s$ → strong text alignment but lower diversity; $s>10$ → over-saturated colors</li></ul>
+<ul><li><strong>HF / SD style</strong> (denoted $s$): $\tilde\epsilon = \epsilon_\theta(x,\emptyset) + s\,[\epsilon_\theta(x,c) - \epsilon_\theta(x,\emptyset)]$, $s=1$ is unguided, $s\in[3, 7.5]$ is the common SD amplification</li><li><strong>Ho-Salimans 2022 original</strong> (denoted $w$): $\tilde\epsilon = (1+w)\,\epsilon_\theta(x,c) - w\,\epsilon_\theta(x,\emptyset)$, $w=0$ is unguided; equivalent to $s = w + 1$</li></ul></li><li>Large $s$ → strong text alignment but lower diversity; $s&gt;10$ → over-saturated colors</li></ul>
 <p>Writing only the formula without knowing the $w$/$s$ convention; not knowing the drop-$c$ training trick; saying CFG needs a separate classifier (that's classifier guidance).</p>
 </details>
 <details>
@@ -1128,7 +1128,7 @@ else:
 <details>
 <summary>Q24. Consistency Distillation training procedure? Why is the EMA target $\theta^-$ needed?</summary>
 <p><strong>Procedure</strong>:</p>
-<ol><li>Take a pretrained teacher diffusion $\epsilon_\phi$ + its PF-ODE solver (e.g., EDM Heun)</li><li>Take a noise schedule $\sigma_1 > \sigma_2 > \dots > \sigma_N = \sigma_\text{min}$ (typically $N = 18$)</li><li>Train student $f_\theta(x_\sigma, \sigma) \to x_0$, initializing $\theta = \phi$ (warm start)</li><li><p>Each batch:</p>
+<ol><li>Take a pretrained teacher diffusion $\epsilon_\phi$ + its PF-ODE solver (e.g., EDM Heun)</li><li>Take a noise schedule $\sigma_1 &gt; \sigma_2 &gt; \dots &gt; \sigma_N = \sigma_\text{min}$ (typically $N = 18$)</li><li>Train student $f_\theta(x_\sigma, \sigma) \to x_0$, initializing $\theta = \phi$ (warm start)</li><li><p>Each batch:</p>
 <ul><li>Sample $x_0$, $\sigma_n$ (uniformly $n \in \{1, \dots, N-1\}$)</li><li>Add noise: $x_{\sigma_{n+1}} = x_0 + \sigma_{n+1} \epsilon$</li><li><strong>Teacher ODE one-step solve</strong>: from $x_{\sigma_{n+1}}$ run one Heun step with teacher $\epsilon_\phi$ to get $\hat x_{\sigma_n}$</li><li>Loss: $d(f_\theta(x_{\sigma_{n+1}}, \sigma_{n+1}), f_{\theta^-}(\hat x_{\sigma_n}, \sigma_n))$</li></ul></li><li>Update $\theta$; EMA-update $\theta^- \leftarrow \mu \theta^- + (1-\mu)\theta$</li></ol>
 <p><strong>Why is the EMA target needed?</strong></p>
 <ul><li>Directly using $\theta = \theta^-$ has a trivial solution: $f_\theta \equiv \text{const}$ also satisfies consistency</li><li>EMA $\theta^-$ lags $\theta$, providing a "stable" target so the student doesn't chase its own moving target</li><li>Analogous to BYOL / MoCo self-supervised setups</li><li>$\mu = 0.999 \sim 0.99995$ (depending on training steps)</li></ul>
@@ -1426,7 +1426,7 @@ def pf_ode_sample_euler(eps_model, sched: DDPMSchedule, shape, device, num_steps
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_foundations_tutorial_en.md</code> ·
   SHA256 <code>5f3b3e8403e8</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

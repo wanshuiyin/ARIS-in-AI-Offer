@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md">
 <meta name="aris:source-sha256" content="67ea410d68e2504164d7d17556f41bf5c4535ebf520c2790b433851a034a78ad">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -611,7 +611,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>67ea410d68e2</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -640,7 +640,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>PPO-Clip 的目标函数：</p>
 <p>$$\boxed{\;L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min\!\Big(r_t(\theta) A_t,\; \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) A_t\Big)\right]\;}$$</p>
 <p>直觉：</p>
-<ul><li>若 $A_t > 0$（这个 action 比 baseline 好），希望提升 $\pi_\theta(a_t|s_t)$，但<strong>最多提升到 $r_t = 1+\epsilon$</strong>（防止一次更新太激进）。</li><li>若 $A_t < 0$（这个 action 比 baseline 差），希望降低 $\pi_\theta(a_t|s_t)$，但<strong>最多压到 $r_t = 1-\epsilon$</strong>。</li><li><code>min</code> 选两者较小者 → <strong>悲观估计</strong>（pessimistic bound）：当我们想"加分"时，clip 上限；想"扣分"时，clip 下限。</li></ul>
+<ul><li>若 $A_t &gt; 0$（这个 action 比 baseline 好），希望提升 $\pi_\theta(a_t|s_t)$，但<strong>最多提升到 $r_t = 1+\epsilon$</strong>（防止一次更新太激进）。</li><li>若 $A_t &lt; 0$（这个 action 比 baseline 差），希望降低 $\pi_\theta(a_t|s_t)$，但<strong>最多压到 $r_t = 1-\epsilon$</strong>。</li><li><code>min</code> 选两者较小者 → <strong>悲观估计</strong>（pessimistic bound）：当我们想"加分"时，clip 上限；想"扣分"时，clip 下限。</li></ul>
 <p>典型 $\epsilon = 0.1 \sim 0.2$。LLM RLHF 实践中通常用 $0.1 \sim 0.2$，过大易爆 KL。</p>
 <div class="callout callout-warn"><div class="callout-title">PPO-Clip vs PPO-Penalty</div><p>原论文还有一种 PPO-Penalty 形式：$L = \mathbb{E}[r_t A_t] - \beta\, \text{KL}(\pi_{\theta_\text{old}} \| \pi_\theta)$，并 adaptively 调 $\beta$。生产中<strong>clipped 形式更常用</strong>（rl4lms / TRL / OpenRLHF 默认）。</p></div>
 <h3 id="23-gaegeneralized-advantage-estimation">2.3　GAE：generalized advantage estimation</h3>
@@ -963,9 +963,9 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <p>记 implicit reward $\hat{r}_\theta(x, y) = \beta \log \tfrac{\pi_\theta(y|x)}{\pi_\text{ref}(y|x)}$，reference point $z_0 = \mathbb{E}_{x',\, y' \sim \pi_\theta(\cdot | x')}\!\big[\beta \cdot \text{KL}\!\big(\pi_\theta(\cdot | x') \,\|\, \pi_\text{ref}(\cdot | x')\big)\big]$（用 batch 内 mismatched pair 估计、且<strong>不参与反传</strong>——只当常数）。KTO 损失为：</p>
 <p>$$\boxed{\;\mathcal{L}_\text{KTO}(\theta) = \mathbb{E}_{(x, y) \sim \mathcal{D}} \big[\, w(y)\big(1 - v(x, y)\big)\,\big]\;}$$</p>
 <p>其中 piecewise 定义（hat r 和 z0 已含 $\beta$，sigmoid 内<strong>不再外乘</strong> $\beta$）：</p>
-<p>$$v(x, y) = \begin{cases}\sigma\!\big(\hat{r}_\theta(x, y) - z_0\big) & y \text{ desirable}\\[2pt] \sigma\!\big(z_0 - \hat{r}_\theta(x, y)\big) & y \text{ undesirable}\end{cases}$$</p>
-<p>$$w(y) = \begin{cases}\lambda_D & y \text{ desirable}\\ \lambda_U & y \text{ undesirable}\end{cases}$$</p>
-<p>直觉：desirable 样本希望 $\hat{r} > z_0$（推上去），undesirable 样本希望 $\hat{r} < z_0$（压下去）；$\sigma$ 给出"距离 reference point 多远"的概率打分。$\lambda_D, \lambda_U$ 是不平衡数据下的权重（如 desirable 多则 $\lambda_U > \lambda_D$）。当数据只有 single thumb up/down 时 KTO 比 DPO 实用。详细形式见 Ethayarajh et al. 2024 ICML、HuggingFace TRL <code>KTOTrainer</code> 实现。</p>
+<p>$$v(x, y) = \begin{cases}\sigma\!\big(\hat{r}_\theta(x, y) - z_0\big) &amp; y \text{ desirable}\\[2pt] \sigma\!\big(z_0 - \hat{r}_\theta(x, y)\big) &amp; y \text{ undesirable}\end{cases}$$</p>
+<p>$$w(y) = \begin{cases}\lambda_D &amp; y \text{ desirable}\\ \lambda_U &amp; y \text{ undesirable}\end{cases}$$</p>
+<p>直觉：desirable 样本希望 $\hat{r} &gt; z_0$（推上去），undesirable 样本希望 $\hat{r} &lt; z_0$（压下去）；$\sigma$ 给出"距离 reference point 多远"的概率打分。$\lambda_D, \lambda_U$ 是不平衡数据下的权重（如 desirable 多则 $\lambda_U &gt; \lambda_D$）。当数据只有 single thumb up/down 时 KTO 比 DPO 实用。详细形式见 Ethayarajh et al. 2024 ICML、HuggingFace TRL <code>KTOTrainer</code> 实现。</p>
 <h3 id="63-simpo去-reference">6.3　SimPO：去 reference</h3>
 <p>Meng et al. 2024 NeurIPS <em>SimPO: Simple Preference Optimization with a Reference-Free Reward</em>。SimPO 观察：<strong>DPO 推理时不用 $\pi_\text{ref}$，但训练时存（占显存）</strong>。SimPO 直接把 implicit reward 改成 length-normalized log-prob：</p>
 <p>$$r_\text{SimPO}(x, y) = \frac{\beta}{|y|}\log\pi(y|x)$$</p>
@@ -1002,7 +1002,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <p>Reward hacking 是 RL post-training 的核心痛点：model 找到 RM 的盲点拿高分，但人类觉得变差。常见症状：</p>
 <table><thead><tr><th>现象</th><th>原因</th><th>缓解</th></tr></thead><tbody><tr><td><strong>答案变长</strong></td><td>长答案在 RM 训练数据里通常分高（信息量、礼貌套话）</td><td>length penalty / length normalize (SimPO) / 长度回归校准</td></tr><tr><td><strong>谄媚 (sycophancy)</strong></td><td>用户喜欢被认同 → RM 学到"agree better"</td><td>sycophancy probe + 对抗数据</td></tr><tr><td><strong>重复 / 套话</strong></td><td>句尾"Hope this helps!" 类型在 RM 数据里高分</td><td>n-gram repetition penalty / 多样性 reward</td></tr><tr><td><strong>拒绝过度</strong></td><td>安全 RM 学到"拒绝就安全"</td><td>helpfulness vs harmlessness 双 RM 平衡</td></tr><tr><td><strong>格式 hack</strong></td><td>用 markdown / bullet / emoji 拿分</td><td>格式 normalization</td></tr><tr><td><strong>数字操作</strong></td><td>数学题硬编码常见答案分布</td><td>rule-based reward 替代 RM</td></tr></tbody></table>
 <h3 id="81-核心缓解机制">8.1　核心缓解机制</h3>
-<ol><li><strong>KL penalty</strong> ($\beta \log\pi/\pi_\text{ref}$)：最基础的 anchor。</li><li><strong>Early stopping by KL budget</strong>：跑到 $\text{KL}(\pi || \pi_\text{ref}) > K_\text{target}$ 时停。</li><li><strong>Reward model ensemble</strong> (Coste 2024 ICLR <em>Reward Model Ensembles Help Mitigate Overoptimization</em>)：多个 RM 取 min 或 mean - std。</li><li><strong>Reward shaping</strong>：把 reward 拆成多个项（helpfulness + length + diversity），单独 cap 每项。</li><li><strong>离线 + 在线混合</strong>：先 DPO / KTO 拿 70 分，再 PPO + 强 RM 跑最后一公里。</li><li><strong>Composite reward</strong>：rule-based + RM-based 加权，rule 部分不能被 hack。</li></ol>
+<ol><li><strong>KL penalty</strong> ($\beta \log\pi/\pi_\text{ref}$)：最基础的 anchor。</li><li><strong>Early stopping by KL budget</strong>：跑到 $\text{KL}(\pi || \pi_\text{ref}) &gt; K_\text{target}$ 时停。</li><li><strong>Reward model ensemble</strong> (Coste 2024 ICLR <em>Reward Model Ensembles Help Mitigate Overoptimization</em>)：多个 RM 取 min 或 mean - std。</li><li><strong>Reward shaping</strong>：把 reward 拆成多个项（helpfulness + length + diversity），单独 cap 每项。</li><li><strong>离线 + 在线混合</strong>：先 DPO / KTO 拿 70 分，再 PPO + 强 RM 跑最后一公里。</li><li><strong>Composite reward</strong>：rule-based + RM-based 加权，rule 部分不能被 hack。</li></ol>
 <h3 id="82-gao-2023-scaling-law">8.2　Gao 2023 scaling law</h3>
 <p>Gao, Schulman, Hilton 2023 ICML <em>Scaling Laws for Reward Model Overoptimization</em>：</p>
 <ul><li>Proxy reward (RM score) 随 KL 单调上升，但 gold reward 先升后降 (<strong>inverted-U</strong>)。</li><li>Best-of-N 的 over-optimization 与 PPO 形式略不同：BoN 的 gold reward 在 $\sqrt{\text{KL}}$ 上接近线性 -减 + 线性，PPO 多了高阶项。</li><li>给出 RM 越大、过优化越慢的 scaling law，论文中也讨论了不同函数形式拟合。</li></ul>
@@ -1141,7 +1141,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <details>
 
 <summary>Q20.DPO 训练崩了（margin 不涨 / loss 不降），怎么诊断？</summary>
-<ul><li>看 <code>chosen_logp</code> 和 <code>rejected_logp</code> 是否同时下降（典型 DPO 退化）</li><li>看 reference policy 是否正确加载（forgot to load → log-ratio 变成 raw log-prob）</li><li>看 $\beta$：太小（&lt; 0.01）loss 几乎 = sigmoid 常数，太大 ($> 1$) 容易 collapse</li><li>看数据：$y_w$ 和 $y_l$ 是否真的差异显著</li><li>看 length：DPO 偏好长 response，若 $y_w$ 系统性比 $y_l$ 短就有 bug</li></ul>
+<ul><li>看 <code>chosen_logp</code> 和 <code>rejected_logp</code> 是否同时下降（典型 DPO 退化）</li><li>看 reference policy 是否正确加载（forgot to load → log-ratio 变成 raw log-prob）</li><li>看 $\beta$：太小（&lt; 0.01）loss 几乎 = sigmoid 常数，太大 ($&gt; 1$) 容易 collapse</li><li>看数据：$y_w$ 和 $y_l$ 是否真的差异显著</li><li>看 length：DPO 偏好长 response，若 $y_w$ 系统性比 $y_l$ 短就有 bug</li></ul>
 <p>只说"调 lr"；或不知道 likelihood-decrease-for-both 问题。</p>
 </details>
 <h3 id="l3-顶级-lab-题5-题">L3 顶级 lab 题（5 题）</h3>
@@ -1202,7 +1202,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md</code> ·
   SHA256 <code>67ea410d68e2</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

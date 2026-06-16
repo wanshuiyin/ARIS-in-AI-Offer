@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/quantization_tutorial.md">
 <meta name="aris:source-sha256" content="f04948e0f203c2972cb16b925ae326b7e46f34e691c037df51dbabe54f88a301">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -634,7 +634,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/quantization_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>f04948e0f203</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -721,7 +721,7 @@ if __name__ == &quot;__main__&quot;:
 <ul><li><strong>稳定性</strong>：同一 channel 在所有 token、所有 sample 上都是 outlier（不是随机出现）。</li><li><strong>集中性</strong>：约 0.1%-1% 的 channel 贡献了几乎所有的最大值。</li><li><strong>后果</strong>：per-tensor INT8 几乎所有 PPL 损失来自这些 channel；per-channel weight + per-tensor activation INT8 在 &lt; 6.7B 模型上 OK，到 OPT-13B / 66B 上崩盘。</li></ul>
 <h3 id="32-llmint8--第一个能落地的-8-bit-llm">3.2 LLM.int8() — 第一个能落地的 8-bit LLM</h3>
 <p>Dettmers 2022 (NeurIPS) 的核心思路：<strong>Mixed-precision decomposition</strong>。在每一层把 activation 拆成两路：</p>
-<ul><li><strong>Outlier path</strong>：选出 outlier channel（threshold $\alpha = 6.0$ 即 channel-max $> 6$），把对应的 weight 列和 activation 列<strong>保留 FP16</strong> 做矩阵乘。</li><li><strong>Normal path</strong>：其余 99% 的 channel 做 INT8 vector-wise（per-row activation × per-column weight）矩阵乘。</li><li><strong>合并</strong>：两路结果相加。</li></ul>
+<ul><li><strong>Outlier path</strong>：选出 outlier channel（threshold $\alpha = 6.0$ 即 channel-max $&gt; 6$），把对应的 weight 列和 activation 列<strong>保留 FP16</strong> 做矩阵乘。</li><li><strong>Normal path</strong>：其余 99% 的 channel 做 INT8 vector-wise（per-row activation × per-column weight）矩阵乘。</li><li><strong>合并</strong>：两路结果相加。</li></ul>
 <p>数学等价于把矩阵分块：</p>
 <p>$$Y = X W = \underbrace{X_O W_O}_{\text{FP16, outlier 列}} + \underbrace{X_N W_N}_{\text{INT8, 其余}}$$</p>
 <p>效果：OPT-175B INT8 推理几乎零 PPL 损失，但 outlier path 的 FP16 GEMM 是 throughput 瓶颈（~10-15% 延迟），且 outlier mask 在每个 forward step 都要 detect。这促使后续工作（SmoothQuant / AWQ）转向"把 outlier 干掉而不是绕开"的思路。</p>
@@ -753,7 +753,7 @@ if __name__ == &quot;__main__&quot;:
 <p>即 $\delta^*$ 的第 $j$ 个分量 = $\dfrac{c_q}{[H^{-1}]_{qq}} \cdot [H^{-1}]_{jq}$。<strong>所有其他坐标的最优补偿全部来自 $H^{-1}$ 的第 $q$ 列</strong>。</p>
 <p>最小损失增量：</p>
 <p>$$\Delta L^* = \frac{1}{2}\delta^{*\top} H \delta^* = \frac{1}{2}\cdot \frac{c_q^2}{[H^{-1}]_{qq}}$$</p>
-<div class="callout callout-good"><div class="callout-title">GPTQ 的最优 weight update（必考）</div><p>量化第 $q$ 列后，剩余未量化的所有列 $j > q$ 按下式更新一次：</p></div>
+<div class="callout callout-good"><div class="callout-title">GPTQ 的最优 weight update（必考）</div><p>量化第 $q$ 列后，剩余未量化的所有列 $j &gt; q$ 按下式更新一次：</p></div>
 <p>$$w_j \leftarrow w_j - \frac{w_q - \mathrm{Quant}(w_q)}{[H^{-1}]_{qq}}\,[H^{-1}]_{jq}$$ 之后再量化 $q+1$ 列。这就是 GPTQ "iterative columnwise quantization" 的数学公式。</p>
 <h3 id="44-工程加速cholesky-解-h-1-子矩阵">4.4 工程加速：Cholesky 解 $H^{-1}$ 子矩阵</h3>
 <p>直接对每个 $q$ 求 $H^{-1}$ 的列代价 $O(K^2)$；GPTQ 用 Cholesky 分解 $H^{-1} = U^\top U$（$U$ 上三角，等价地 $H^{-1} = L L^\top$ 若取下三角 $L = U^\top$），扫到第 $q$ 列时只需 $U$ 的子矩阵，且更新可向量化。</p>
@@ -823,7 +823,7 @@ def gptq_quantize_layer(
 <p>$$\text{salience}(c) = \mathrm{mean}_{x \sim \mathrm{calib}}\,|x_c|$$</p>
 <p>把 channel 按 salience 排序，前 1% 是 "salient channel"，对应 weight 列 $w_{\cdot, c}$ 是 "salient weight"。</p>
 <h3 id="52-per-channel-scale-等价变换数学等价--量化误差等价">5.2 Per-channel scale 等价变换（数学等价 ≠ 量化误差等价）</h3>
-<p>考虑 $Y = X W$，$X \in \mathbb{R}^{B\times K}$，$W \in \mathbb{R}^{K\times N}$。对每个 input channel $c$ 引入正 scale $s_c > 0$：</p>
+<p>考虑 $Y = X W$，$X \in \mathbb{R}^{B\times K}$，$W \in \mathbb{R}^{K\times N}$。对每个 input channel $c$ 引入正 scale $s_c &gt; 0$：</p>
 <p>$$Y = (X / S) (S \cdot W) = \tilde{X} \tilde{W}$$</p>
 <p>其中 $S = \mathrm{diag}(s_1, \ldots, s_K)$，$\tilde{X}_{:, c} = X_{:, c} / s_c$，$\tilde{W}_{c, :} = s_c \cdot W_{c, :}$。<strong>在 FP16 下两者完全相等</strong>。但量化后：</p>
 <ul><li>$\tilde{W} = S W$：salient row $w_{c, :}$ 被乘以 $s_c$（变大），单 channel 量化更精细（per-channel scale 更小）。</li><li>$\tilde{X} = X / S$：activation 没量化（weight-only PTQ 不动 activation），但下游若有 act quant 则误差也降。</li></ul>
@@ -894,7 +894,7 @@ def _group_quant_dequant(W, n_bits, g, dim, q_min, q_max):
 <h2 id="6-smoothquant把-activation-outlier-迁移到-weight-w8a8">§6 SmoothQuant：把 activation outlier 迁移到 weight (W8A8)</h2>
 <p>SmoothQuant (Xiao, Lin, Seznec, Wu, Demouth, Han, ICML 2023) 解决 weight + activation 同时量化（W8A8）的核心痛点：activation outlier 让 per-tensor INT8 崩盘。</p>
 <h3 id="61-核心数学">6.1 核心数学</h3>
-<p>对 $Y = X W$，引入<strong>对角 smoothing matrix</strong> $S = \mathrm{diag}(s_1, \ldots, s_K)$，$s_c > 0$：</p>
+<p>对 $Y = X W$，引入<strong>对角 smoothing matrix</strong> $S = \mathrm{diag}(s_1, \ldots, s_K)$，$s_c &gt; 0$：</p>
 <p>$$Y = (X S^{-1})(S W) = \hat{X} \hat{W}$$</p>
 <ul><li>$\hat{X}_{:,c} = X_{:,c} / s_c$：activation 的 outlier channel 被压平。</li><li>$\hat{W}_{c,:} = s_c \cdot W_{c,:}$：weight 的对应行被放大（吸收 outlier 量级）。</li></ul>
 <p>数学上<strong>完全等价</strong>（FP16 下逐元素相等）；但量化后：</p>
@@ -1304,7 +1304,7 @@ def dequantize_kv(K_q, s_K, V_q, s_V, dtype=torch.float16):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/quantization_tutorial.md</code> ·
   SHA256 <code>f04948e0f203</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/kv_cache_speculative_decoding_tutorial_en.md">
 <meta name="aris:source-sha256" content="3357e2dd8dc0b865cf18f49e60842241679e7af6c296d7d80820b6f6c1ebc292">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -619,7 +619,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/kv_cache_speculative_decoding_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>3357e2dd8dc0</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -644,7 +644,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Per sample (batch=1), fp16:</p>
 <p>$$\boxed{\;\text{KV cache}_\text{bytes} = 2 \cdot L_\text{ctx} \cdot N_\text{layers} \cdot N_\text{kv\_heads} \cdot d_\text{head} \cdot \text{bytes\_per\_elem}\;}$$</p>
 <p>Each factor:</p>
-<ul><li><strong><code>2</code></strong>: one K tensor + one V tensor</li><li><strong>$L_\text{ctx}$</strong>: current context length (prompt + tokens generated so far)</li><li><strong>$N_\text{layers}$</strong>: Transformer layers (each has its own cache)</li><li><strong>$N_\text{kv\_heads}$</strong>: number of K/V heads. <strong>In MHA = $H$; MQA = 1; GQA = $G$ ($1 < G < H$)</strong></li><li><strong>$d_\text{head}$</strong>: head dimension, usually 64 or 128</li><li><strong><code>bytes_per_elem</code></strong>: fp16 = 2, fp8/int8 = 1, int4 = 0.5</li></ul>
+<ul><li><strong><code>2</code></strong>: one K tensor + one V tensor</li><li><strong>$L_\text{ctx}$</strong>: current context length (prompt + tokens generated so far)</li><li><strong>$N_\text{layers}$</strong>: Transformer layers (each has its own cache)</li><li><strong>$N_\text{kv\_heads}$</strong>: number of K/V heads. <strong>In MHA = $H$; MQA = 1; GQA = $G$ ($1 &lt; G &lt; H$)</strong></li><li><strong>$d_\text{head}$</strong>: head dimension, usually 64 or 128</li><li><strong><code>bytes_per_elem</code></strong>: fp16 = 2, fp8/int8 = 1, int4 = 0.5</li></ul>
 <div class="callout callout-warn"><div class="callout-title">Common pitfall: don&#x27;t multiply by $H$ (Q-heads count)</div><p>KV cache scales only with K/V heads, <strong>not with Q heads</strong>. When MQA reduces K/V heads to 1, Q still has $H$ heads, so Q-projection compute is unchanged.</p></div>
 <h3 id="22-cache-size-for-some-concrete-models-fp16-ltextctx4096">2.2　Cache size for some concrete models (fp16, $L_\text{ctx}=4096$)</h3>
 <p>Plug into the §2.1 formula $2 \cdot L_\text{ctx} \cdot N_\text{layers} \cdot N_\text{kv\_heads} \cdot d_\text{head} \cdot 2\text{B}$:</p>
@@ -1001,7 +1001,7 @@ class MLAAttention(nn.Module):
 <p>So <strong>the output distribution at each position equals $p$ exactly</strong> — this is the mathematical basis of spec decoding's "exact" property.</p>
 <h3 id="74-expected-speedup-etau-formula">7.4　Expected speedup: $E[\tau]$ formula</h3>
 <p>Assume each draft position's acceptance is i.i.d. (slightly correlated in practice; the paper uses this approximation). $K$ drafts + 1 bonus:</p>
-<ul><li>If first $j$ accepted, position $j+1$ rejected ($j < K$): output $j$ accepted + 1 resample = $j+1$ tokens</li><li>If all $K$ accepted: output $K$ + 1 bonus = $K+1$ tokens</li></ul>
+<ul><li>If first $j$ accepted, position $j+1$ rejected ($j &lt; K$): output $j$ accepted + 1 resample = $j+1$ tokens</li><li>If all $K$ accepted: output $K$ + 1 bonus = $K+1$ tokens</li></ul>
 <p>Expected token count:</p>
 <p>$$E[\tau] = \sum_{j=0}^{K-1} \alpha^j (1-\alpha) (j+1) + \alpha^K (K+1)$$</p>
 <p>Simplification (standard geometric-series trick):</p>
@@ -1098,7 +1098,7 @@ def speculative_decode(target, draft, prompt_ids, max_new_tokens, K=4, temperatu
 <ol><li>Drop feature regression, <strong>predict tokens directly</strong> (feature error accumulation is the bottleneck)</li><li>Use <strong>multi-layer feature fusion</strong> instead of just the top layer</li><li><strong>Training-Time Test (TTT)</strong>: simulate draft-chain errors during training, avoiding train-test gap</li><li>On Vicuna-7B: 4-5× speedup, ~30% improvement over EAGLE-2</li></ol>
 <div class="callout callout-warn"><div class="callout-title">EAGLE training cost</div><p>although the draft model is small (1-layer transformer, ~tens of M parameters), it must be retrained on the target's features, requiring the target's forward-pass dataset (distillation-style). A single EAGLE-3 training run takes hours to days; it is not free.</p></div>
 <h3 id="84-lookahead-decoding-jacobi-iteration">8.4　Lookahead Decoding: Jacobi iteration</h3>
-<p><strong>Jacobi viewpoint</strong> (Fu et al., ICML 2024): autoregressive generation is equivalent to solving the nonlinear system $x_i = f(x_{<i})$ for $i=1..L$; can use Jacobi iteration to update all positions in parallel.</p>
+<p><strong>Jacobi viewpoint</strong> (Fu et al., ICML 2024): autoregressive generation is equivalent to solving the nonlinear system $x_i = f(x_{&lt;i})$ for $i=1..L$; can use Jacobi iteration to update all positions in parallel.</p>
 <pre><code>Step 0:  x = [&lt;random&gt;, &lt;random&gt;, ..., &lt;random&gt;]
 Step 1:  x&#x27;_i = f(x_{&lt;i})  ∀ i  in parallel
 Step 2:  x = x&#x27;, another round
@@ -1114,7 +1114,7 @@ Step 2:  x = x&#x27;, another round
 <p><strong>MagicDec</strong> (Sadhukhan et al., 2024, arxiv 2408.11049, ICLR 2025): observes that the KV cache is the bottleneck in long context, so the draft uses <strong>StreamingLLM-style sparse cache</strong> (attention sink + sliding window) and the target uses full cache for verify.</p>
 <h3 id="86-self-speculative-decoding">8.6　Self-Speculative Decoding</h3>
 <div class="callout callout-info"><div class="callout-title">An extreme version without an external draft model</div><p>Zhang et al. 2024 propose "self-speculative": use the <strong>target model itself with some layers skipped</strong> as the draft.</p></div>
-<ul><li>Take logits from layer $L_d < L$ in target as draft (early exit)</li><li>Use the full target for verify</li><li>Fully backwards-compatible: no new model to train, no fine-tuning</li><li>Typical speedup 1.5-2× (not as fast as EAGLE, but zero extra training)</li></ul>
+<ul><li>Take logits from layer $L_d &lt; L$ in target as draft (early exit)</li><li>Use the full target for verify</li><li>Fully backwards-compatible: no new model to train, no fine-tuning</li><li>Typical speedup 1.5-2× (not as fast as EAGLE, but zero extra training)</li></ul>
 <h2 id="9-complexity--resource-accounting">§9 Complexity / Resource Accounting</h2>
 <h3 id="91-kv-cache-memory-summary">9.1　KV cache memory (summary)</h3>
 <p>Using LLaMA-2/3-70B architecture ($N_\text{layers}=80, d_\text{head}=128$, MHA $H=64$) as baseline, $L_\text{ctx}=4096$, fp16:</p>
@@ -1151,7 +1151,7 @@ Step 2:  x = x&#x27;, another round
 <details>
 
 <summary>Q4. Difference between MQA / GQA / MHA?</summary>
-<ul><li>MHA: $H$ K/V heads (same as Q)</li><li>MQA: all Q heads share <strong>1</strong> set of K/V</li><li>GQA: $H$ Q heads divided into $G$ groups ($1<G<H$), each group shares K/V</li><li>Mainly saves <strong>KV cache memory + memory bandwidth</strong>, not Q projection</li></ul>
+<ul><li>MHA: $H$ K/V heads (same as Q)</li><li>MQA: all Q heads share <strong>1</strong> set of K/V</li><li>GQA: $H$ Q heads divided into $G$ groups ($1&lt;G&lt;H$), each group shares K/V</li><li>Mainly saves <strong>KV cache memory + memory bandwidth</strong>, not Q projection</li></ul>
 <p>Pitfall: thinking MQA saves Q compute; saying GQA quality "doesn't drop at all" too absolutely.</p>
 </details>
 <details>
@@ -1305,7 +1305,7 @@ Step 2:  x = x&#x27;, another round
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/kv_cache_speculative_decoding_tutorial_en.md</code> ·
   SHA256 <code>3357e2dd8dc0</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

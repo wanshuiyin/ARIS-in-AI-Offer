@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/multi_agent_long_horizon_tutorial_en.md">
 <meta name="aris:source-sha256" content="aa11d2b3cce743673d7b9b1a00331f3c5ca5f489982bee8bfed5381e4b8db68f">
-<meta name="aris:generated-at" content="2026-05-31 06:48 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -644,7 +644,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/multi_agent_long_horizon_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>aa11d2b3cce7</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 06:48 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -1395,8 +1395,8 @@ Final: majority vote</code></pre>
 <summary>Q11. Derive sufficient conditions for debate convergence, and explain the marginal-return gap between N=3 and N=5.</summary>
 <p><strong>Convergence proof</strong>:</p>
 <p>View each agent's update as an operator $T_i : \mathcal{A}^N \to \mathcal{A}$ mapping the current answers of N peers to its new answer. The joint update is $T = (T_1, \dots, T_N) : \mathcal{A}^N \to \mathcal{A}^N$.</p>
-<p>If there exists a metric $d$ such that $d(T(x), T(y)) \le \beta \cdot d(x, y)$ ($\beta < 1$), then by the <strong>Banach fixed-point theorem</strong>, the iteration $x_{k+1} = T(x_k)$ converges from any $x_0$ to the unique fixed point $x^*$, with rate $d(x_k, x^*) \le \beta^k d(x_0, x^*)$.</p>
-<p><strong>Conditions for $\beta < 1$ to hold</strong>:</p>
+<p>If there exists a metric $d$ such that $d(T(x), T(y)) \le \beta \cdot d(x, y)$ ($\beta &lt; 1$), then by the <strong>Banach fixed-point theorem</strong>, the iteration $x_{k+1} = T(x_k)$ converges from any $x_0$ to the unique fixed point $x^*$, with rate $d(x_k, x^*) \le \beta^k d(x_0, x^*)$.</p>
+<p><strong>Conditions for $\beta &lt; 1$ to hold</strong>:</p>
 <ul><li>The agent leans toward majority pull (when peers agree, it is easily swayed → strong pull)</li><li>Moderate temperature (too high is random and doesn't converge; too low locks in)</li><li>Same-source agents (heterogeneous agents make contraction harder because biases differ)</li></ul>
 <p><strong>N=3 vs N=5 (empirical observation from Du 2023 / Liang 2024)</strong>:</p>
 <table><thead><tr><th>N</th><th>Improvement over baseline (reasoning tasks, task-dependent)</th><th>cost</th></tr></thead><tbody><tr><td>1</td><td>baseline</td><td>1×</td></tr><tr><td>3</td><td>+5-10pp</td><td>~9× (N × R)</td></tr><tr><td>5</td><td>+1-2pp on top of N=3</td><td>~15×</td></tr></tbody></table>
@@ -1500,7 +1500,7 @@ Agent: calls old endpoint → 403 forbidden → confused → keeps retrying</cod
 <p><strong>Setup</strong>: $N$ agents; at round $k$, each gives an answer $x_i^{(k)} \in \mathcal{A}$. Round-update operator:</p>
 <p>$$x_i^{(k+1)} = T_i\!\left(x_1^{(k)}, \dots, x_N^{(k)}\right)$$</p>
 <p>Joint operator $T : \mathcal{A}^N \to \mathcal{A}^N, \; (T(x))_i = T_i(x)$.</p>
-<p><strong>Important caveat</strong>: saying "Banach contraction → unique fixed point" directly is <strong>wrong</strong>. Debate's averaging operators (majority + softmax) are typically <strong>doubly-stochastic</strong>, corresponding to $A \mathbf{1} = \mathbf{1}$ — eigenvalue 1 always exists — strict $\beta < 1$ generally fails. The correct convergence framework is <strong>consensus dynamics</strong> (multi-agent consensus theory); the conclusion is convergence to a <strong>fixed-point set</strong> (consensus cluster) rather than a unique fixed point.</p>
+<p><strong>Important caveat</strong>: saying "Banach contraction → unique fixed point" directly is <strong>wrong</strong>. Debate's averaging operators (majority + softmax) are typically <strong>doubly-stochastic</strong>, corresponding to $A \mathbf{1} = \mathbf{1}$ — eigenvalue 1 always exists — strict $\beta &lt; 1$ generally fails. The correct convergence framework is <strong>consensus dynamics</strong> (multi-agent consensus theory); the conclusion is convergence to a <strong>fixed-point set</strong> (consensus cluster) rather than a unique fixed point.</p>
 <p><strong>Linear averaging case (formal)</strong>:</p>
 <p>$$x_i^{(k+1)} = \sum_{j} A_{ij}\, x_j^{(k)},\quad A \in \mathbb{R}^{N \times N}\text{ doubly-stochastic}$$</p>
 <p>By Perron-Frobenius, $\lim_{k \to \infty} A^k = \mathbf{1} \pi^\top$ ($\pi$ is the stationary distribution), so $x_i^{(k)} \to \pi^\top x^{(0)}$, i.e. <strong>all agents agree on the stationary mean</strong>. The fixed-point set is $\{c \mathbf{1} : c \in \mathbb{R}\}$ (a consensus line parameterized by $c$); different starts give different $c$ — so it is not a Banach unique fixed point.</p>
@@ -1511,7 +1511,7 @@ Agent: calls old endpoint → 403 forbidden → confused → keeps retrying</cod
 <p>Liang splits agents into two groups (affirmative / negative): affirmative tends to confirm the current majority; negative tends to negate it. They push each other — <strong>the fixed-point set is empty</strong> or disjoint, so there is no common consensus.</p>
 <p>Adding a <strong>judge</strong>:</p>
 <p>$$x^{(k+1)} = J(x_\text{aff}^{(k)}, x_\text{neg}^{(k)})$$</p>
-<p>$J$ is an <strong>external contractive operator</strong> (not based on internal affirmative/negative updates, but on an independent judge LLM), mapping the whole iteration into a new contractive system. <strong>The judge introduces artificial contraction</strong> — this is the essence of Liang 2024 adding the judge: design-injected external signal that yields $\beta < 1$.</p>
+<p>$J$ is an <strong>external contractive operator</strong> (not based on internal affirmative/negative updates, but on an independent judge LLM), mapping the whole iteration into a new contractive system. <strong>The judge introduces artificial contraction</strong> — this is the essence of Liang 2024 adding the judge: design-injected external signal that yields $\beta &lt; 1$.</p>
 <p><strong>Empirical calibration</strong>:</p>
 <p>Du 2023 experiments on GSM8K-class reasoning tasks observed: N=1 baseline → N=3 R=2-3 already yields large gains (+5-10pp), while N=5 gives only a marginal lift over N=3. This is consistent with $\beta \approx 0.5$, yielding a geometric rate $\beta^3 \approx 0.125$ (i.e. saturation at ~ 12.5% residual disagreement). Liang 2024's affirmative/negative + judge design gives a comparable +5-8pp on translation / counter-intuitive reasoning.</p>
 </details>
@@ -1530,7 +1530,7 @@ Agent: calls old endpoint → 403 forbidden → confused → keeps retrying</cod
 <p><strong>Amortization methods</strong>:</p>
 <ol><li><strong>Prefetch</strong>: from the current conversation, <strong>predict what memory the next turn will need</strong> and <strong>retrieve in parallel</strong> while the user is typing / the LLM is thinking</li><li><strong>Batch faults</strong>: merge several small faults into one big retrieval (cache locality)</li><li><strong>Hierarchical paging</strong>: cache hot facts in an "L2 working memory" (not in main context but quickly accessible); cold data in archival</li><li><strong>Speculative archival</strong>: retrieve a few extra candidates that may be useful (avoiding a next-turn re-fault)</li><li><strong>Streaming response</strong>: start streaming "I'm checking my notes..." when the search starts, hiding latency</li><li><strong>Session warmup</strong>: at session start, pre-pull high-frequency archival items into working memory</li></ol>
 <p><strong>Theoretical amortized complexity</strong> (OS page-replacement analogy):</p>
-<p>Let working-set size be $W$ and main-context capacity be $C$. $W \le C$ → 0 page faults (cache hit). $W > C$ → fault rate $\sim (W - C) / W$. In production, monitoring fault rate &lt; 30% is healthy.</p>
+<p>Let working-set size be $W$ and main-context capacity be $C$. $W \le C$ → 0 page faults (cache hit). $W &gt; C$ → fault rate $\sim (W - C) / W$. In production, monitoring fault rate &lt; 30% is healthy.</p>
 </details>
 <details>
 
@@ -1541,7 +1541,7 @@ Agent: calls old endpoint → 403 forbidden → confused → keeps retrying</cod
 <ul><li>$\tau \to 0$: argmax (top-1)</li><li>$\tau \to \infty$: uniform</li><li>In practice retrieval uses top-k threshold rather than softmax sampling; but the softmax view is useful for <strong>theoretical analysis</strong></li></ul>
 <p><strong>Why long retrieval breaks down</strong>:</p>
 <p>Let ground-truth doc $d^*$ have similarity $s^* = e(q)^\top e(d^*)$, and other docs have similarity $s_j$ i.i.d. ~ $\mathcal{N}(\mu, \sigma^2)$.</p>
-<p>$$P(d^* = \arg\max_i s_i) = P(s^* > s_j, \forall j \ne d^*) = \prod_{j \ne d^*} P(s^* > s_j) \approx \Phi\!\left(\frac{s^* - \mu}{\sigma}\right)^{M-1}$$</p>
+<p>$$P(d^* = \arg\max_i s_i) = P(s^* &gt; s_j, \forall j \ne d^*) = \prod_{j \ne d^*} P(s^* &gt; s_j) \approx \Phi\!\left(\frac{s^* - \mu}{\sigma}\right)^{M-1}$$</p>
 <p>When $M$ is large:</p>
 <p>$$\log P \approx (M - 1) \log \Phi\!\left(\frac{s^* - \mu}{\sigma}\right)$$</p>
 <p>→ <strong>$P$ decays exponentially in $M$</strong>: doubling M means squaring P.</p>
@@ -1563,7 +1563,7 @@ Agent: calls old endpoint → 403 forbidden → confused → keeps retrying</cod
 <p>For each state $s$:</p>
 <ul><li>$a^+$ = argmax visit count (the action MCTS explored to be "good")</li><li>$a^-$ = argmin visit count among visited (the action MCTS explored to be "bad")</li></ul>
 <p>Yielding the preference: $(s, a^+) \succ (s, a^-)$.</p>
-<p>You can also filter by <strong>value gap</strong>: keep only pairs with $Q(s, a^+) - Q(s, a^-) > \delta$ (high-confidence preferences).</p>
+<p>You can also filter by <strong>value gap</strong>: keep only pairs with $Q(s, a^+) - Q(s, a^-) &gt; \delta$ (high-confidence preferences).</p>
 <p><strong>DPO loss</strong>:</p>
 <p>$$\mathcal{L}_\text{DPO} = -\log \sigma\!\left( \beta \log\frac{\pi_\theta(a^+ | s)}{\pi_\text{ref}(a^+ | s)} - \beta \log\frac{\pi_\theta(a^- | s)}{\pi_\text{ref}(a^- | s)} \right)$$</p>
 <p>Fine-tunes the base LLM directly.</p>
@@ -1600,7 +1600,7 @@ Agent: calls old endpoint → 403 forbidden → confused → keeps retrying</cod
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/multi_agent_long_horizon_tutorial_en.md</code> ·
   SHA256 <code>aa11d2b3cce7</code> ·
-  generated at 2026-05-31 06:48 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

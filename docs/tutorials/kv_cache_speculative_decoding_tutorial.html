@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/kv_cache_speculative_decoding_tutorial.md">
 <meta name="aris:source-sha256" content="688b47c5bdc93b69a749ced6c2c6139c00a0f1b08b091aea38463c16e5ab94db">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -619,7 +619,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/kv_cache_speculative_decoding_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>688b47c5bdc9</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -644,7 +644,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>单 sample（batch=1），fp16：</p>
 <p>$$\boxed{\;\text{KV cache}_\text{bytes} = 2 \cdot L_\text{ctx} \cdot N_\text{layers} \cdot N_\text{kv\_heads} \cdot d_\text{head} \cdot \text{bytes\_per\_elem}\;}$$</p>
 <p>各因子含义：</p>
-<ul><li><strong><code>2</code></strong>：一个 K 张量 + 一个 V 张量</li><li><strong>$L_\text{ctx}$</strong>：当前上下文长度（prompt + 已生成 token 数）</li><li><strong>$N_\text{layers}$</strong>：Transformer 层数（每层独立 cache）</li><li><strong>$N_\text{kv\_heads}$</strong>：K/V 头数。<strong>MHA 下 = $H$；MQA 下 = 1；GQA 下 = $G$（$1 < G < H$）</strong></li><li><strong>$d_\text{head}$</strong>：每 head 维度，一般 64 或 128</li><li><strong><code>bytes_per_elem</code></strong>：fp16 = 2, fp8/int8 = 1, int4 = 0.5</li></ul>
+<ul><li><strong><code>2</code></strong>：一个 K 张量 + 一个 V 张量</li><li><strong>$L_\text{ctx}$</strong>：当前上下文长度（prompt + 已生成 token 数）</li><li><strong>$N_\text{layers}$</strong>：Transformer 层数（每层独立 cache）</li><li><strong>$N_\text{kv\_heads}$</strong>：K/V 头数。<strong>MHA 下 = $H$；MQA 下 = 1；GQA 下 = $G$（$1 &lt; G &lt; H$）</strong></li><li><strong>$d_\text{head}$</strong>：每 head 维度，一般 64 或 128</li><li><strong><code>bytes_per_elem</code></strong>：fp16 = 2, fp8/int8 = 1, int4 = 0.5</li></ul>
 <div class="callout callout-warn"><div class="callout-title">常踩坑：不要乘 $H$（Q heads 数量）</div><p>KV cache 只跟 K/V heads 走，<strong>不跟 Q heads 走</strong>。MQA 把 K/V heads 砍成 1 时，Q 仍是 $H$ 个 head，所以 Q projection 计算量不变。</p></div>
 <h3 id="22-几个具体模型的-cache-大小fp16-ltextctx4096">2.2　几个具体模型的 cache 大小（fp16, $L_\text{ctx}=4096$）</h3>
 <p>代入 §2.1 公式 $2 \cdot L_\text{ctx} \cdot N_\text{layers} \cdot N_\text{kv\_heads} \cdot d_\text{head} \cdot 2\text{B}$ 直接算：</p>
@@ -1001,7 +1001,7 @@ class MLAAttention(nn.Module):
 <p>所以<strong>每个位置的输出分布严格等于 $p$</strong>——这是 spec decoding "exact" 的数学根据。</p>
 <h3 id="74-期望加速etau-公式">7.4　期望加速：$E[\tau]$ 公式</h3>
 <p>设每个 draft 位置接受概率独立同分布（实际略相关，但论文常用此近似）。$K$ 个 draft + 1 个 bonus：</p>
-<ul><li>若前 $j$ 个全接受、第 $j+1$ 个拒（$j < K$）：输出 $j$ 个接受 + 1 个重采 = $j+1$ 个 token</li><li>若全部 $K$ 个接受：输出 $K$ 个 + 1 个 bonus = $K+1$ 个 token</li></ul>
+<ul><li>若前 $j$ 个全接受、第 $j+1$ 个拒（$j &lt; K$）：输出 $j$ 个接受 + 1 个重采 = $j+1$ 个 token</li><li>若全部 $K$ 个接受：输出 $K$ 个 + 1 个 bonus = $K+1$ 个 token</li></ul>
 <p>期望 token 数：</p>
 <p>$$E[\tau] = \sum_{j=0}^{K-1} \alpha^j (1-\alpha) (j+1) + \alpha^K (K+1)$$</p>
 <p>化简（几何级数标准技巧）：</p>
@@ -1098,7 +1098,7 @@ def speculative_decode(target, draft, prompt_ids, max_new_tokens, K=4, temperatu
 <ol><li>抛弃 feature regression，<strong>直接 token prediction</strong>（feature 误差累积是瓶颈）</li><li>用 <strong>多层 feature fusion</strong> 而非只用 top layer</li><li><strong>Training-Time Test</strong>（TTT）：训练时模拟 inference 时的 draft chain 误差，避免 train-test gap</li><li>在 Vicuna-7B 上 4-5× 加速，比 EAGLE-2 进一步提升 ~30%</li></ol>
 <div class="callout callout-warn"><div class="callout-title">EAGLE 系列的训练成本</div><p>虽然 draft 模型很小（1 层 transformer，参数量约几十 M），但要在 target 模型的特征上重新训练，需要 target 模型的 forward pass dataset（蒸馏式）。一次 EAGLE-3 训练几小时到几天，不是免费的。</p></div>
 <h3 id="84-lookahead-decodingjacobi-迭代">8.4　Lookahead Decoding：Jacobi 迭代</h3>
-<p><strong>Jacobi 视角</strong>（Fu et al., ICML 2024）：自回归生成等价于解非线性方程组 $x_i = f(x_{<i})$ for $i=1..L$；可以用 Jacobi 迭代并行更新所有位置。</p>
+<p><strong>Jacobi 视角</strong>（Fu et al., ICML 2024）：自回归生成等价于解非线性方程组 $x_i = f(x_{&lt;i})$ for $i=1..L$；可以用 Jacobi 迭代并行更新所有位置。</p>
 <pre><code>Step 0:  x = [&lt;random&gt;, &lt;random&gt;, ..., &lt;random&gt;]
 Step 1:  x&#x27;_i = f(x_{&lt;i})  ∀ i  并行
 Step 2:  x = x&#x27;，再来一轮
@@ -1114,7 +1114,7 @@ Step 2:  x = x&#x27;，再来一轮
 <p><strong>MagicDec</strong>（Sadhukhan et al., 2024, arxiv 2408.11049, ICLR 2025）：观察到长 context 下 KV cache 才是瓶颈，所以 draft 用 <strong>StreamingLLM 风格 sparse cache</strong>（attention sink + sliding window），target 用 full cache verify。</p>
 <h3 id="86-self-speculative-decoding">8.6　Self-Speculative Decoding</h3>
 <div class="callout callout-info"><div class="callout-title">不需要外部 draft model 的极端版</div><p>Zhang et al. 2024 提出 "self-speculative"：用 <strong>target 模型本身跳层（skip a subset of layers）</strong> 作为 draft。</p></div>
-<ul><li>在 target 第 $L_d < L$ 层取 logits 作为 draft（早期 exit）</li><li>用完整 target 做 verify</li><li>完全 backwards-compatible：不需要训新模型，不需要 finetune</li><li>加速一般 1.5-2×（不如 EAGLE，但零额外训练）</li></ul>
+<ul><li>在 target 第 $L_d &lt; L$ 层取 logits 作为 draft（早期 exit）</li><li>用完整 target 做 verify</li><li>完全 backwards-compatible：不需要训新模型，不需要 finetune</li><li>加速一般 1.5-2×（不如 EAGLE，但零额外训练）</li></ul>
 <h2 id="9-复杂度--资源核算">§9 复杂度 / 资源核算</h2>
 <h3 id="91-kv-cache-显存汇总">9.1　KV cache 显存（汇总）</h3>
 <p>以 LLaMA-2/3-70B 架构（$N_\text{layers}=80, d_\text{head}=128$, MHA $H=64$）为基准，$L_\text{ctx}=4096$, fp16：</p>
@@ -1151,7 +1151,7 @@ Step 2:  x = x&#x27;，再来一轮
 <details>
 
 <summary>Q4.MQA / GQA / MHA 区别？</summary>
-<ul><li>MHA：$H$ 个 K/V head（同 Q）</li><li>MQA：所有 Q head 共享 <strong>1</strong> 组 K/V</li><li>GQA：$H$ 个 Q head 分 $G$ 组（$1<G<H$），每组共享 K/V</li><li>主要省的是 <strong>KV cache 显存 + 显存带宽</strong>，不省 Q projection</li></ul>
+<ul><li>MHA：$H$ 个 K/V head（同 Q）</li><li>MQA：所有 Q head 共享 <strong>1</strong> 组 K/V</li><li>GQA：$H$ 个 Q head 分 $G$ 组（$1&lt;G&lt;H$），每组共享 K/V</li><li>主要省的是 <strong>KV cache 显存 + 显存带宽</strong>，不省 Q projection</li></ul>
 <p>以为 MQA 省的是 Q 计算；说 GQA 质量"基本不掉"过于绝对。</p>
 </details>
 <details>
@@ -1305,7 +1305,7 @@ Step 2:  x = x&#x27;，再来一轮
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/kv_cache_speculative_decoding_tutorial.md</code> ·
   SHA256 <code>688b47c5bdc9</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

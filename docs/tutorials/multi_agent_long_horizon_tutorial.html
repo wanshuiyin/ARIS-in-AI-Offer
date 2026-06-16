@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/multi_agent_long_horizon_tutorial.md">
 <meta name="aris:source-sha256" content="b0be93d29409b81e5bf5e3e896e8ee3b9ae84d0c1a17e72e5ca46476f1d5c065">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -644,7 +644,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/multi_agent_long_horizon_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>b0be93d29409</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -1391,8 +1391,8 @@ Round 2: 再修订
 <summary>Q11. 推 debate 收敛性的充分条件，并解释 N=3 vs N=5 的边际收益差。</summary>
 <p><strong>收敛性证明</strong>：</p>
 <p>把每个 agent 的更新看成 operator $T_i : \mathcal{A}^N \to \mathcal{A}$，把 N 个 peer 的当前答案映到自己新答案。联合 update $T = (T_1, \dots, T_N) : \mathcal{A}^N \to \mathcal{A}^N$。</p>
-<p>若存在度量 $d$ 使 $d(T(x), T(y)) \le \beta \cdot d(x, y)$ ($\beta < 1$)，则按 <strong>Banach 不动点定理</strong>，迭代 $x_{k+1} = T(x_k)$ 从任意 $x_0$ 收敛到唯一不动点 $x^*$，收敛速度 $d(x_k, x^*) \le \beta^k d(x_0, x^*)$。</p>
-<p><strong>$\beta < 1$ 的实现条件</strong>：</p>
+<p>若存在度量 $d$ 使 $d(T(x), T(y)) \le \beta \cdot d(x, y)$ ($\beta &lt; 1$)，则按 <strong>Banach 不动点定理</strong>，迭代 $x_{k+1} = T(x_k)$ 从任意 $x_0$ 收敛到唯一不动点 $x^*$，收敛速度 $d(x_k, x^*) \le \beta^k d(x_0, x^*)$。</p>
+<p><strong>$\beta &lt; 1$ 的实现条件</strong>：</p>
 <ul><li>agent 倾向 majority pull（peer 一致时容易动摇 → 拉力强）</li><li>temperature 适中（太高随机不收敛，太低固化）</li><li>同源 agent（heterogeneous 之间偏置不同会增加 contraction 难度）</li></ul>
 <p><strong>N=3 vs N=5（Du 2023 / Liang 2024 经验观察）</strong>：</p>
 <table><thead><tr><th>N</th><th>相对 baseline 提升（推理类任务，依 task 而变）</th><th>cost</th></tr></thead><tbody><tr><td>1</td><td>baseline</td><td>1×</td></tr><tr><td>3</td><td>+5-10pp</td><td>~9× (N × R)</td></tr><tr><td>5</td><td>+1-2pp 在 N=3 之上</td><td>~15×</td></tr></tbody></table>
@@ -1496,7 +1496,7 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
 <p><strong>Setup</strong>：$N$ agent，每个在 round $k$ 给出 answer $x_i^{(k)} \in \mathcal{A}$。Round-update operator：</p>
 <p>$$x_i^{(k+1)} = T_i\!\left(x_1^{(k)}, \dots, x_N^{(k)}\right)$$</p>
 <p>Joint operator $T : \mathcal{A}^N \to \mathcal{A}^N, \; (T(x))_i = T_i(x)$。</p>
-<p><strong>重要前置</strong>：直接说 "Banach contraction → 唯一不动点" 是 <strong>错的</strong>。Debate 的 averaging 算子（majority + softmax）通常是 <strong>doubly-stochastic</strong> 形，对应 $A \mathbf{1} = \mathbf{1}$，特征值 1 总是存在 —— 严格 $\beta < 1$ 通常不成立。正确的收敛性 framework 是 <strong>consensus dynamics</strong>（多智能体一致性理论），结论是收敛到 <strong>fixed-point set</strong>（一致 cluster）而非唯一不动点。</p>
+<p><strong>重要前置</strong>：直接说 "Banach contraction → 唯一不动点" 是 <strong>错的</strong>。Debate 的 averaging 算子（majority + softmax）通常是 <strong>doubly-stochastic</strong> 形，对应 $A \mathbf{1} = \mathbf{1}$，特征值 1 总是存在 —— 严格 $\beta &lt; 1$ 通常不成立。正确的收敛性 framework 是 <strong>consensus dynamics</strong>（多智能体一致性理论），结论是收敛到 <strong>fixed-point set</strong>（一致 cluster）而非唯一不动点。</p>
 <p><strong>线性 averaging 情形（formal）</strong>：</p>
 <p>$$x_i^{(k+1)} = \sum_{j} A_{ij}\, x_j^{(k)},\quad A \in \mathbb{R}^{N \times N}\text{ doubly-stochastic}$$</p>
 <p>由 Perron-Frobenius，$\lim_{k \to \infty} A^k = \mathbf{1} \pi^\top$（$\pi$ 是 stationary distribution），故 $x_i^{(k)} \to \pi^\top x^{(0)}$，<strong>所有 agent 同意 stationary mean</strong>。fixed-point set 是 $\{c \mathbf{1} : c \in \mathbb{R}\}$（参数化的 consensus 直线），起点不同 $c$ 不同——所以不是 Banach 唯一不动点。</p>
@@ -1507,7 +1507,7 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
 <p>Liang 把 agent 分两组 (affirmative / negative)，affirmative 倾向 confirm 当前 majority，negative 倾向 否定 majority。两组互推 —— <strong>fixed-point set 为空</strong>或者 disjoint，没有公共 consensus。</p>
 <p>加 <strong>judge</strong>：</p>
 <p>$$x^{(k+1)} = J(x_\text{aff}^{(k)}, x_\text{neg}^{(k)})$$</p>
-<p>$J$ 是 <strong>外部 contractive operator</strong>（不基于 affirmative/negative 内部 update，由独立 judge LLM 决策），把整个迭代映射到一个新的 contractive 系统。<strong>Judge 引入了人工 contraction</strong>——这是 Liang 2024 加 judge 的本质：用 design 引入 $\beta < 1$ 的外部信号。</p>
+<p>$J$ 是 <strong>外部 contractive operator</strong>（不基于 affirmative/negative 内部 update，由独立 judge LLM 决策），把整个迭代映射到一个新的 contractive 系统。<strong>Judge 引入了人工 contraction</strong>——这是 Liang 2024 加 judge 的本质：用 design 引入 $\beta &lt; 1$ 的外部信号。</p>
 <p><strong>经验校准</strong>：</p>
 <p>Du 2023 实验观察到 GSM8K 类推理任务上：N=1 baseline → N=3 R=2-3 即可大幅提升 (+5-10pp)，N=5 在 N=3 之上仅边际提升。这与 $\beta \approx 0.5$ 的几何收敛速度 $\beta^3 \approx 0.125$ 匹配（即 ~12.5% 的剩余不一致后就达到饱和）。Liang 2024 的 affirmative/negative + judge 设计在翻译 / counter-intuitive 推理上有类似 +5-8pp 的提升。</p>
 </details>
@@ -1526,7 +1526,7 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
 <p><strong>Amortize 方法</strong>：</p>
 <ol><li><strong>prefetch</strong>：基于当前 conversation <strong>predict 下一个 turn 需要什么 memory</strong>，在 user 输入 / LLM 思考时<strong>并行</strong> retrieve</li><li><strong>batch fault</strong>：把多个 small fault 合并成一次大 retrieval（cache locality）</li><li><strong>hierarchical paging</strong>：常用 fact 缓存在 "L2 working memory"（不进 main context 但快速可取），冷数据在 archival</li><li><strong>speculative archival</strong>：retrieve 时多拿 k+ 几条候选，可能用上（避免 next-turn re-fault）</li><li><strong>streaming response</strong>：开始 search 时就开始 stream "I'm checking my notes..."，掩盖延迟</li><li><strong>session warmup</strong>：session 开始时预先把高频 archival 拉到 working memory</li></ol>
 <p><strong>理论 amortized 复杂度</strong>（OS page replacement 类比）：</p>
-<p>若 working set 大小 $W$，main context 容量 $C$, $W \le C$ → 0 page fault（cache hit）。$W > C$ → fault rate $\sim (W - C) / W$ 。production 监控 fault rate &lt; 30% 是健康。</p>
+<p>若 working set 大小 $W$，main context 容量 $C$, $W \le C$ → 0 page fault（cache hit）。$W &gt; C$ → fault rate $\sim (W - C) / W$ 。production 监控 fault rate &lt; 30% 是健康。</p>
 </details>
 <details>
 
@@ -1537,7 +1537,7 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
 <ul><li>$\tau \to 0$：argmax（top-1）</li><li>$\tau \to \infty$：uniform</li><li>实际 retrieval 用 top-k threshold 而非 softmax sample；但 softmax 视角对<strong>理论分析</strong>有用</li></ul>
 <p><strong>长 retrieval 上为什么崩</strong>：</p>
 <p>设 ground-truth doc $d^*$ 相似度 $s^* = e(q)^\top e(d^*)$, 其他 doc 相似度 $s_j$ i.i.d. ~ $\mathcal{N}(\mu, \sigma^2)$。</p>
-<p>$$P(d^* = \arg\max_i s_i) = P(s^* > s_j, \forall j \ne d^*) = \prod_{j \ne d^*} P(s^* > s_j) \approx \Phi\!\left(\frac{s^* - \mu}{\sigma}\right)^{M-1}$$</p>
+<p>$$P(d^* = \arg\max_i s_i) = P(s^* &gt; s_j, \forall j \ne d^*) = \prod_{j \ne d^*} P(s^* &gt; s_j) \approx \Phi\!\left(\frac{s^* - \mu}{\sigma}\right)^{M-1}$$</p>
 <p>当 $M$ 大：</p>
 <p>$$\log P \approx (M - 1) \log \Phi\!\left(\frac{s^* - \mu}{\sigma}\right)$$</p>
 <p>→ <strong>$P$ 关于 $M$ 是指数衰减</strong>：M 翻倍时 P 平方衰减。</p>
@@ -1559,7 +1559,7 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
 <p>对每个 state $s$：</p>
 <ul><li>$a^+$ = argmax visit count (MCTS 探索后认为"好"的)</li><li>$a^-$ = argmin visit count among visited (MCTS 探索后认为"差"的)</li></ul>
 <p>直接得 preference: $(s, a^+) \succ (s, a^-)$。</p>
-<p>也可用 <strong>value gap</strong> 筛：只保留 $Q(s, a^+) - Q(s, a^-) > \delta$ 的对（高置信度 preference）。</p>
+<p>也可用 <strong>value gap</strong> 筛：只保留 $Q(s, a^+) - Q(s, a^-) &gt; \delta$ 的对（高置信度 preference）。</p>
 <p><strong>DPO loss</strong>：</p>
 <p>$$\mathcal{L}_\text{DPO} = -\log \sigma\!\left( \beta \log\frac{\pi_\theta(a^+ | s)}{\pi_\text{ref}(a^+ | s)} - \beta \log\frac{\pi_\theta(a^- | s)}{\pi_\text{ref}(a^- | s)} \right)$$</p>
 <p>直接 fine-tune base LLM。</p>
@@ -1596,7 +1596,7 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/multi_agent_long_horizon_tutorial.md</code> ·
   SHA256 <code>b0be93d29409</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

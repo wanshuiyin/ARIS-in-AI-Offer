@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/quantization_tutorial_en.md">
 <meta name="aris:source-sha256" content="75722c1b91c79f67a6c0d7df40469fbc1938f574601a6e4b02f9a3b9c1f9cb65">
-<meta name="aris:generated-at" content="2026-05-31 06:48 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -634,7 +634,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/quantization_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>75722c1b91c7</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 06:48 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -721,7 +721,7 @@ if __name__ == &quot;__main__&quot;:
 <ul><li><strong>Stability</strong>: the same channel is an outlier in all tokens and all samples (not random).</li><li><strong>Concentration</strong>: about 0.1%-1% of channels contribute almost all the maximums.</li><li><strong>Consequence</strong>: nearly all PPL loss from per-tensor INT8 comes from these channels; per-channel weight + per-tensor activation INT8 works for &lt; 6.7B models but collapses on OPT-13B / 66B.</li></ul>
 <h3 id="32-llmint8--the-first-deployable-8-bit-llm">3.2 LLM.int8() — the first deployable 8-bit LLM</h3>
 <p>Dettmers 2022 (NeurIPS) core idea: <strong>Mixed-precision decomposition</strong>. At each layer, split the activation into two paths:</p>
-<ul><li><strong>Outlier path</strong>: pick outlier channels (threshold $\alpha = 6.0$, i.e., channel-max $> 6$); keep the corresponding weight columns and activation columns <strong>in FP16</strong> for matmul.</li><li><strong>Normal path</strong>: the remaining 99% of channels use INT8 vector-wise (per-row activation × per-column weight) matmul.</li><li><strong>Combine</strong>: sum results of both paths.</li></ul>
+<ul><li><strong>Outlier path</strong>: pick outlier channels (threshold $\alpha = 6.0$, i.e., channel-max $&gt; 6$); keep the corresponding weight columns and activation columns <strong>in FP16</strong> for matmul.</li><li><strong>Normal path</strong>: the remaining 99% of channels use INT8 vector-wise (per-row activation × per-column weight) matmul.</li><li><strong>Combine</strong>: sum results of both paths.</li></ul>
 <p>Mathematically equivalent to splitting the matrix:</p>
 <p>$$Y = X W = \underbrace{X_O W_O}_{\text{FP16, outlier cols}} + \underbrace{X_N W_N}_{\text{INT8, rest}}$$</p>
 <p>Result: OPT-175B INT8 inference is nearly lossless in PPL, but the outlier path's FP16 GEMM is a throughput bottleneck (~10-15% latency), and the outlier mask must be detected every forward step. This motivated subsequent work (SmoothQuant / AWQ) to switch to "kill the outliers instead of bypassing them".</p>
@@ -753,7 +753,7 @@ if __name__ == &quot;__main__&quot;:
 <p>i.e., the $j$-th component of $\delta^*$ = $\dfrac{c_q}{[H^{-1}]_{qq}} \cdot [H^{-1}]_{jq}$. <strong>All other coordinates' optimal compensation comes from $H^{-1}$'s $q$-th column</strong>.</p>
 <p>Minimum loss increment:</p>
 <p>$$\Delta L^* = \frac{1}{2}\delta^{*\top} H \delta^* = \frac{1}{2}\cdot \frac{c_q^2}{[H^{-1}]_{qq}}$$</p>
-<div class="callout callout-good"><div class="callout-title">GPTQ&#x27;s optimal weight update (must know)</div><p>after quantizing the $q$-th column, all remaining unquantized columns $j > q$ are updated once by:</p></div>
+<div class="callout callout-good"><div class="callout-title">GPTQ&#x27;s optimal weight update (must know)</div><p>after quantizing the $q$-th column, all remaining unquantized columns $j &gt; q$ are updated once by:</p></div>
 <p>$$w_j \leftarrow w_j - \frac{w_q - \mathrm{Quant}(w_q)}{[H^{-1}]_{qq}}\,[H^{-1}]_{jq}$$ then quantize column $q+1$. This is the mathematical formula for GPTQ "iterative columnwise quantization".</p>
 <h3 id="44-engineering-acceleration-cholesky-solves-h-1-submatrix">4.4 Engineering acceleration: Cholesky solves $H^{-1}$ submatrix</h3>
 <p>Directly computing $H^{-1}$'s column per $q$ costs $O(K^2)$; GPTQ uses Cholesky decomposition $H^{-1} = U^\top U$ ($U$ upper triangular, equivalently $H^{-1} = L L^\top$ if taking lower triangular $L = U^\top$); when sweeping to column $q$, only the $U$ submatrix is needed, and updates can be vectorized.</p>
@@ -823,7 +823,7 @@ def gptq_quantize_layer(
 <p>$$\text{salience}(c) = \mathrm{mean}_{x \sim \mathrm{calib}}\,|x_c|$$</p>
 <p>Sort channels by salience; top 1% are "salient channels"; corresponding weight columns $w_{\cdot, c}$ are "salient weights".</p>
 <h3 id="52-per-channel-scale-equivalent-transform-math-equivalence--quantization-error-equivalence">5.2 Per-channel scale equivalent transform (math equivalence ≠ quantization error equivalence)</h3>
-<p>Consider $Y = X W$, $X \in \mathbb{R}^{B\times K}$, $W \in \mathbb{R}^{K\times N}$. For each input channel $c$, introduce positive scale $s_c > 0$:</p>
+<p>Consider $Y = X W$, $X \in \mathbb{R}^{B\times K}$, $W \in \mathbb{R}^{K\times N}$. For each input channel $c$, introduce positive scale $s_c &gt; 0$:</p>
 <p>$$Y = (X / S) (S \cdot W) = \tilde{X} \tilde{W}$$</p>
 <p>where $S = \mathrm{diag}(s_1, \ldots, s_K)$, $\tilde{X}_{:, c} = X_{:, c} / s_c$, $\tilde{W}_{c, :} = s_c \cdot W_{c, :}$. <strong>Exactly equal under FP16</strong>. But after quantization:</p>
 <ul><li>$\tilde{W} = S W$: salient rows $w_{c, :}$ are multiplied by $s_c$ (grow); single-channel quantization is finer (per-channel scale is smaller).</li><li>$\tilde{X} = X / S$: activation is not quantized (weight-only PTQ doesn't touch activation); but if downstream has activation quant, its error also drops.</li></ul>
@@ -894,7 +894,7 @@ def _group_quant_dequant(W, n_bits, g, dim, q_min, q_max):
 <h2 id="6-smoothquant-migrating-activation-outliers-to-weights-w8a8">§6 SmoothQuant: Migrating Activation Outliers to Weights (W8A8)</h2>
 <p>SmoothQuant (Xiao, Lin, Seznec, Wu, Demouth, Han, ICML 2023) solves the core pain point of quantizing weights + activations together (W8A8): activation outliers cause per-tensor INT8 to collapse.</p>
 <h3 id="61-core-math">6.1 Core math</h3>
-<p>For $Y = X W$, introduce a <strong>diagonal smoothing matrix</strong> $S = \mathrm{diag}(s_1, \ldots, s_K)$, $s_c > 0$:</p>
+<p>For $Y = X W$, introduce a <strong>diagonal smoothing matrix</strong> $S = \mathrm{diag}(s_1, \ldots, s_K)$, $s_c &gt; 0$:</p>
 <p>$$Y = (X S^{-1})(S W) = \hat{X} \hat{W}$$</p>
 <ul><li>$\hat{X}_{:,c} = X_{:,c} / s_c$: activation's outlier channels are flattened.</li><li>$\hat{W}_{c,:} = s_c \cdot W_{c,:}$: weight's corresponding rows are amplified (absorbing outlier magnitudes).</li></ul>
 <p>Mathematically <strong>exactly equivalent</strong> (elementwise equal under FP16); but after quantization:</p>
@@ -1304,7 +1304,7 @@ def dequantize_kv(K_q, s_K, V_q, s_V, dtype=torch.float16):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/quantization_tutorial_en.md</code> ·
   SHA256 <code>75722c1b91c7</code> ·
-  generated at 2026-05-31 06:48 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

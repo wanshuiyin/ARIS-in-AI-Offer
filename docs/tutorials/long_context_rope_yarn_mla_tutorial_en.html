@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/long_context_rope_yarn_mla_tutorial_en.md">
 <meta name="aris:source-sha256" content="f80832985b1a590971f76dd90a49245ace59e3f95d56132aca12551bfc9ef315">
-<meta name="aris:generated-at" content="2026-05-31 06:48 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -638,7 +638,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/long_context_rope_yarn_mla_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>f80832985b1a</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 06:48 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -661,7 +661,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="callout callout-good"><div class="callout-title">Geometric intuition</div><p>think of each pair of dimensions $(x_{2i}, x_{2i+1})$ as a vector in a 2D plane; RoPE rotates each 2D subspace by angle $m\theta_i$ (different $i$ rotate at different rates). After rotating both query and key and taking the inner product, the <strong>relative angle</strong> is preserved, the absolute direction cancels.</p></div>
 <h3 id="22-real-matrix-form">2.2 Real-matrix form</h3>
 <p>On each pair of dimensions, this is a 2D rotation matrix:</p>
-<p>$$R_{\theta_i, m} = \begin{pmatrix} \cos m\theta_i & -\sin m\theta_i \\ \sin m\theta_i & \cos m\theta_i \end{pmatrix}$$</p>
+<p>$$R_{\theta_i, m} = \begin{pmatrix} \cos m\theta_i &amp; -\sin m\theta_i \\ \sin m\theta_i &amp; \cos m\theta_i \end{pmatrix}$$</p>
 <p>Viewing $\mathbf{x}$ as a concatenation of $d/2$ 2D vectors, the overall $R_m = \mathrm{blkdiag}(R_{\theta_0, m}, \dots, R_{\theta_{d/2-1}, m})$. Then:</p>
 <p>$$\langle R_m \mathbf{q}, R_n \mathbf{k} \rangle = \mathbf{q}^\top R_m^\top R_n \mathbf{k} = \mathbf{q}^\top R_{n-m} \mathbf{k}$$</p>
 <p>The last step uses $R_m^\top R_n = R_{n-m}$ (additivity of 2D rotations). <strong>The relative position $n - m$ is explicitly encoded into the inner product</strong>.</p>
@@ -721,7 +721,7 @@ def rope_attention(Q, K, V, cos, sin, mask=None):
 <div class="callout callout-info"><div class="callout-title">Why the community converged on RoPE</div><p>three points in one: (1) no trainable parameters (vs learned absolute), (2) explicit relative position (vs sinusoidal), (3) simple implementation and multi-head compatible (each head rotates independently). ALiBi extrapolates better but is slightly less expressive (only monotonic distance decay); RoPE lets the model learn complex position-content coupling itself.</p></div>
 <h2 id="4-pi--position-interpolation-the-simplest-rope-extrapolation">§4 PI — Position Interpolation (the simplest RoPE extrapolation)</h2>
 <h3 id="41-motivation">4.1 Motivation</h3>
-<p>In training, $m \in [0, L_\text{train})$; at inference, $m \in [0, L_\text{new})$ with $L_\text{new} > L_\text{train}$. <strong>RoPE naively extrapolating crashes</strong>: when $m \theta_i$ exceeds the phase range seen during training (in particular when $m\theta_i$ on low-frequency dimensions approaches $2\pi$), the phase enters an unseen region and attention behavior becomes unpredictable.</p>
+<p>In training, $m \in [0, L_\text{train})$; at inference, $m \in [0, L_\text{new})$ with $L_\text{new} &gt; L_\text{train}$. <strong>RoPE naively extrapolating crashes</strong>: when $m \theta_i$ exceeds the phase range seen during training (in particular when $m\theta_i$ on low-frequency dimensions approaches $2\pi$), the phase enters an unseen region and attention behavior becomes unpredictable.</p>
 <p>PI (Chen et al., Meta, 2023, "Extending Context Window of LLMs via Position Interpolation"): <strong>don't extrapolate, interpolate</strong>. Linearly compress $m \in [0, L_\text{new})$ to $[0, L_\text{train})$.</p>
 <h3 id="42-form">4.2 Form</h3>
 <p>Let the scaling factor $s = L_\text{new} / L_\text{train}$. Replace the absolute position $m$ with $m / s$:</p>
@@ -788,7 +788,7 @@ def rope_attention(Q, K, V, cos, sin, mask=None):
 <p>Let $L_\text{train}$ be the training context length. The wavelength of dimension $i$ is $\lambda_i = 2\pi / \theta_i = 2\pi b^{2i/d}$. Define the ratio</p>
 <p>$$r_i = \frac{L_\text{train}}{\lambda_i} = \frac{L_\text{train} \cdot \theta_i}{2\pi}$$</p>
 <p>$r_i$ is the number of revolutions dimension $i$ makes within the training length. Split dimensions into three bands:</p>
-<table><thead><tr><th>Band</th><th>Condition</th><th>Meaning</th><th>Treatment</th></tr></thead><tbody><tr><td><strong>High frequency</strong></td><td>$r_i \ge \beta$ ($\beta=32$)</td><td>Within training, $\ge 32$ revolutions, relative positions fully sampled</td><td><strong>No scaling</strong> ($\theta'_i = \theta_i$)</td></tr><tr><td><strong>Mid frequency</strong></td><td>$\alpha < r_i < \beta$ ($\alpha=1$)</td><td>Partial sampling</td><td><strong>Linear interpolation</strong> (PI applied locally)</td></tr><tr><td><strong>Low frequency</strong></td><td>$r_i \le \alpha$</td><td>Within training, &lt; 1 revolution; position encoding has not seen a full period</td><td><strong>Fully scaled to $1/s$</strong> (PI behavior)</td></tr></tbody></table>
+<table><thead><tr><th>Band</th><th>Condition</th><th>Meaning</th><th>Treatment</th></tr></thead><tbody><tr><td><strong>High frequency</strong></td><td>$r_i \ge \beta$ ($\beta=32$)</td><td>Within training, $\ge 32$ revolutions, relative positions fully sampled</td><td><strong>No scaling</strong> ($\theta'_i = \theta_i$)</td></tr><tr><td><strong>Mid frequency</strong></td><td>$\alpha &lt; r_i &lt; \beta$ ($\alpha=1$)</td><td>Partial sampling</td><td><strong>Linear interpolation</strong> (PI applied locally)</td></tr><tr><td><strong>Low frequency</strong></td><td>$r_i \le \alpha$</td><td>Within training, &lt; 1 revolution; position encoding has not seen a full period</td><td><strong>Fully scaled to $1/s$</strong> (PI behavior)</td></tr></tbody></table>
 <p>Formally: for dimension $i$, define a ramp function</p>
 <p>$$\gamma(r_i) = \mathrm{clip}\!\left(\frac{r_i - \alpha}{\beta - \alpha},\; 0,\; 1\right) \in [0, 1]$$</p>
 <p>The new frequency is an interpolation between NTK-aware and PI:</p>
@@ -797,16 +797,16 @@ def rope_attention(Q, K, V, cos, sin, mask=None):
 <div class="callout callout-info"><div class="callout-title">Reason for the three-band split</div><p>high-frequency dimensions have completed many revolutions during training, so during extrapolation, <strong>as long as the phase doesn't jump</strong>, they can keep working (periodicity of rotations); low-frequency dimensions have not completed one revolution during training, so the "extrapolation region" is fully unseen data for the model, and we must <strong>interpolate</strong> into the training-seen phase range. Middle frequencies get in-between handling.</p></div>
 <h3 id="63-temperature-scaling--attention-entropy-compensation">6.3 Temperature Scaling — attention entropy compensation</h3>
 <p><strong>Problem</strong>: after extending context, the effective statistics of softmax input change — the same query now faces $L_\text{new} \gg L_\text{train}$ keys, making the attention distribution <strong>flatter</strong> (higher entropy) and the effective signal diluted.</p>
-<p><strong>Solution</strong>: divide logits by temperature $t$ before softmax ($t < 1$ sharpens the distribution to compensate for dilution):</p>
+<p><strong>Solution</strong>: divide logits by temperature $t$ before softmax ($t &lt; 1$ sharpens the distribution to compensate for dilution):</p>
 <p>$$\mathrm{Attention} = \mathrm{softmax}\!\left(\frac{QK^\top}{t \sqrt{d_k}}\right) V$$</p>
 <p>The YaRN paper's fitted formula (from empirical ablations):</p>
 <p>$$\boxed{\;\sqrt{1/t} \approx 0.1 \ln s + 1 \quad\Longleftrightarrow\quad t \approx \frac{1}{(0.1 \ln s + 1)^2}\;}$$</p>
 <p>For example, $s = 8$ ($L_\text{new} = 32\text{K}$ from $L_\text{train} = 4\text{K}$): $\sqrt{1/t} \approx 0.1 \cdot 2.08 + 1 \approx 1.21$, $t \approx 0.68$.</p>
 <h3 id="64-attention-scale--equivalent-alternative-implementation-of-temperature">6.4 Attention Scale — equivalent alternative implementation of Temperature</h3>
-<p>Directly modifying softmax temperature requires changing the attention kernel. Equivalent practice: <strong>multiply</strong> the norms of query and key by $\sqrt{1/t} = (0.1\ln s + 1) > 1$ (when $t < 1$ this is an amplification), so $QK^\top$ is naturally amplified by factor $1/t$, and softmax sees the same logits as if divided by $t$.</p>
+<p>Directly modifying softmax temperature requires changing the attention kernel. Equivalent practice: <strong>multiply</strong> the norms of query and key by $\sqrt{1/t} = (0.1\ln s + 1) &gt; 1$ (when $t &lt; 1$ this is an amplification), so $QK^\top$ is naturally amplified by factor $1/t$, and softmax sees the same logits as if divided by $t$.</p>
 <p>YaRN implements this by multiplying the scaling factor directly into the RoPE cache:</p>
 <p>$$\text{cos}'_m = \cos(m \theta'_i) \cdot \sqrt{1/t}, \quad \text{sin}'_m = \sin(m \theta'_i) \cdot \sqrt{1/t}$$</p>
-<p>Note this only affects the RoPE part, but <strong>the overall effect is equivalent to amplifying query/key norms by $\sqrt{1/t}$</strong> (when $t < 1$ this factor $> 1$) — provided the Q/K norms are dominated by the post-RoPE part. In practice YaRN's attention scale implementation simply multiplies the cos/sin cache by $\sqrt{1/t}$. <strong>This is equivalent to changing the temperature without modifying the attention kernel</strong>.</p>
+<p>Note this only affects the RoPE part, but <strong>the overall effect is equivalent to amplifying query/key norms by $\sqrt{1/t}$</strong> (when $t &lt; 1$ this factor $&gt; 1$) — provided the Q/K norms are dominated by the post-RoPE part. In practice YaRN's attention scale implementation simply multiplies the cos/sin cache by $\sqrt{1/t}$. <strong>This is equivalent to changing the temperature without modifying the attention kernel</strong>.</p>
 <h3 id="65-what-does-each-of-yarns-three-components-solve-a-must-ask-l3-question">6.5 What does each of YaRN's three components solve (a must-ask L3 question)</h3>
 <table><thead><tr><th>Component</th><th>Problem solved</th><th>What happens without it</th></tr></thead><tbody><tr><td><strong>NTK-by-parts</strong></td><td>High frequencies should be preserved, low frequencies should be interpolated, mid frequencies need a smooth transition</td><td>Using NTK-aware globally, large expansion ratios cause low-frequency collapse</td></tr><tr><td><strong>Temperature scaling</strong></td><td>After context lengthens, softmax distribution is diluted</td><td>Attention entropy too high, long-range signal drowned</td></tr><tr><td><strong>Attention scale (implementation-layer)</strong></td><td>Realize temperature without modifying softmax kernel</td><td>Need to rewrite the FlashAttention kernel</td></tr></tbody></table>
 <p>YaRN paper shows: just 400 fine-tuning steps push LLaMA-2-7B from 4K to 128K ($s = 32$), outperforming PI and NTK-aware.</p>
@@ -850,7 +850,7 @@ def precompute_rope_cache_yarn(
     pos = torch.arange(seq_len, device=device).float()
     freqs = torch.outer(pos, inv_freq_yarn)
     return freqs.cos() * attn_scale, freqs.sin() * attn_scale</code></pre>
-<div class="callout callout-warn"><div class="callout-title">YaRN attention scale side effect</div><p>Q/K norms are <strong>amplified</strong> by $\sqrt{1/t} > 1$ (not shrunk), but V is not amplified in sync. In a multi-layer transformer, this is equivalent to changing the effective temperature of each layer's attention, and gradient scales in backprop also differ. In practice, fine-tuning is needed to stabilize (YaRN paper uses ≈ 400 steps).</p></div>
+<div class="callout callout-warn"><div class="callout-title">YaRN attention scale side effect</div><p>Q/K norms are <strong>amplified</strong> by $\sqrt{1/t} &gt; 1$ (not shrunk), but V is not amplified in sync. In a multi-layer transformer, this is equivalent to changing the effective temperature of each layer's attention, and gradient scales in backprop also differ. In practice, fine-tuning is needed to stabilize (YaRN paper uses ≈ 400 steps).</p></div>
 <h2 id="7-longrope--evolutionary-search--short-context-rescue">§7 LongRoPE — Evolutionary Search + Short-Context Rescue</h2>
 <p>Ding et al., ICML 2024 (Microsoft) asks further: <strong>can the optimal scaling factor of each dimension be searched independently</strong>, rather than using a single ramp function?</p>
 <h3 id="71-key-observations">7.1 Key observations</h3>
@@ -871,7 +871,7 @@ def precompute_rope_cache_yarn(
 <ul><li><strong>Pros</strong>: simplest, a 1-line config change.</li><li><strong>Cons</strong>: $\theta_0 = (b')^0 = 1$ is also unchanged (consistent with NTK-aware, highest frequency is precisely preserved), but ABF's $b'$ is picked by empirical guess (e.g., $10^6$), <strong>not calibrated to the training length ratio</strong> — unlike NTK-aware where the lowest frequency is precisely compressed to $1/s$. Result: the compression strength on low-frequency dimensions is entirely by feel.</li><li><strong>Where used</strong>: CodeLlama uses $b = 10^6$ to extend to 16K; Llama-3 / Llama-3.1 continue using large bases combined with more refined RoPE scaling.</li></ul>
 <h3 id="82-nope--no-position-encoding">8.2 NoPE — No Position Encoding</h3>
 <p>Kazemnejad et al. 2023 ("The Impact of Positional Encoding on Length Generalization in Transformers"): <strong>decoder-only models without position encoding can still learn position information via the causal mask alone</strong>.</p>
-<p>Observation: the causal attention mask already breaks symmetry under permutation (position $i$ cannot see position $j > i$), which itself encodes <strong>order</strong>. On small models / short context, NoPE even extrapolates better.</p>
+<p>Observation: the causal attention mask already breaks symmetry under permutation (position $i$ cannot see position $j &gt; i$), which itself encodes <strong>order</strong>. On small models / short context, NoPE even extrapolates better.</p>
 <div class="callout callout-warn"><div class="callout-title">NoPE limitation</div><p>only applies to decoder-only + causal mask. Encoder-only (BERT-like) without causal mask degenerates to bag-of-words after removing position encoding. NoPE has not been broadly validated on large models. <strong>Remember it as an interesting research finding</strong>, not an industry default.</p></div>
 <h2 id="9-mla--multi-head-latent-attention-deepseek-v2-may-2024">§9 MLA — Multi-Head Latent Attention (DeepSeek-V2 May 2024)</h2>
 <h3 id="91-motivation">9.1 Motivation</h3>
@@ -899,9 +899,9 @@ def precompute_rope_cache_yarn(
 <p>DeepSeek-V2's solution: <strong>split K into two parts</strong>:</p>
 <ol><li><strong>Non-RoPE main body</strong>: obtained via up-projection from the latent, dimension $d_h$, participates in absorbing.</li><li><strong>RoPE part</strong>: a separate key of dimension $d_h^R$ (usually 64), <strong>shared across all heads</strong>, with RoPE applied independently, not participating in absorbing.</li></ol>
 <p>Formally (DeepSeek-V2 paper Eq. 5-11):</p>
-<p>$$ \begin{aligned} \mathbf{c}_t^{KV} &= W_\text{DKV}\, \mathbf{h}_t \in \mathbb{R}^{d_c} \\ \mathbf{k}_t^{C,(h)} &= W_\text{UK}^{(h)}\, \mathbf{c}_t^{KV} \in \mathbb{R}^{d_h} \quad\text{(non-RoPE main body, per head)}\\ \mathbf{k}_t^{R} &= \mathrm{RoPE}(W_\text{KR}\, \mathbf{h}_t) \in \mathbb{R}^{d_h^R} \quad\text{(shared RoPE key, all heads share)}\\ \mathbf{k}_t^{(h)} &= [\mathbf{k}_t^{C,(h)}\; ;\; \mathbf{k}_t^{R}] \in \mathbb{R}^{d_h + d_h^R} \end{aligned} $$</p>
+<p>$$ \begin{aligned} \mathbf{c}_t^{KV} &amp;= W_\text{DKV}\, \mathbf{h}_t \in \mathbb{R}^{d_c} \\ \mathbf{k}_t^{C,(h)} &amp;= W_\text{UK}^{(h)}\, \mathbf{c}_t^{KV} \in \mathbb{R}^{d_h} \quad\text{(non-RoPE main body, per head)}\\ \mathbf{k}_t^{R} &amp;= \mathrm{RoPE}(W_\text{KR}\, \mathbf{h}_t) \in \mathbb{R}^{d_h^R} \quad\text{(shared RoPE key, all heads share)}\\ \mathbf{k}_t^{(h)} &amp;= [\mathbf{k}_t^{C,(h)}\; ;\; \mathbf{k}_t^{R}] \in \mathbb{R}^{d_h + d_h^R} \end{aligned} $$</p>
 <p>The query side is similarly split into two halves:</p>
-<p>$$ \begin{aligned} \mathbf{c}_t^{Q} &= W_\text{DQ}\, \mathbf{h}_t \in \mathbb{R}^{d_c'} \\ \mathbf{q}_t^{C,(h)} &= W_\text{UQ}^{(h)}\, \mathbf{c}_t^{Q} \in \mathbb{R}^{d_h} \quad\text{(non-RoPE, paired with } \mathbf{k}_t^{C,(h)} \text{)}\\ \mathbf{q}_t^{R,(h)} &= \mathrm{RoPE}(W_\text{QR}^{(h)}\, \mathbf{c}_t^{Q}) \in \mathbb{R}^{d_h^R} \quad\text{(per-head RoPE query, paired with } \mathbf{k}_t^{R} \text{)}\\ \mathbf{q}_t^{(h)} &= [\mathbf{q}_t^{C,(h)}\; ;\; \mathbf{q}_t^{R,(h)}] \end{aligned} $$</p>
+<p>$$ \begin{aligned} \mathbf{c}_t^{Q} &amp;= W_\text{DQ}\, \mathbf{h}_t \in \mathbb{R}^{d_c'} \\ \mathbf{q}_t^{C,(h)} &amp;= W_\text{UQ}^{(h)}\, \mathbf{c}_t^{Q} \in \mathbb{R}^{d_h} \quad\text{(non-RoPE, paired with } \mathbf{k}_t^{C,(h)} \text{)}\\ \mathbf{q}_t^{R,(h)} &amp;= \mathrm{RoPE}(W_\text{QR}^{(h)}\, \mathbf{c}_t^{Q}) \in \mathbb{R}^{d_h^R} \quad\text{(per-head RoPE query, paired with } \mathbf{k}_t^{R} \text{)}\\ \mathbf{q}_t^{(h)} &amp;= [\mathbf{q}_t^{C,(h)}\; ;\; \mathbf{q}_t^{R,(h)}] \end{aligned} $$</p>
 <p>Attention score (same head):</p>
 <p>$$\mathbf{q}_t^{(h)\top} \mathbf{k}_s^{(h)} = \underbrace{\mathbf{q}_t^{C,(h)\top}\, \mathbf{k}_s^{C,(h)}}_{\text{absorbed into q projection}} + \underbrace{\mathbf{q}_t^{R,(h)\top}\, \mathbf{k}_s^{R}}_{\text{RoPE part, computed directly}}$$</p>
 <p>In the first term, $\mathbf{k}_s^{C,(h)} = W_\text{UK}^{(h)} \mathbf{c}_s^{KV}$, and per §9.3 absorbing trick, $W_\text{UK}^{(h)}$ is absorbed into the query side. In the second term, the RoPE key is shared across all heads, and the cache stores only one copy of $\mathbf{k}_s^R$.</p>
@@ -1165,7 +1165,7 @@ Q: Attention infeasible (L^2 too large)?
 <details>
 
 <summary>Q3. Why can naive RoPE not extrapolate directly?</summary>
-<ul><li>Training has $m \in [0, L_\text{train})$, and on low-frequency dimensions $m\theta_i$ is far less than $2\pi$</li><li>Inference with $m > L_\text{train}$, low-frequency dimensions enter unseen phase regions</li><li>The model has not learned attention behavior for these regions → PPL blows up / context collapses</li></ul>
+<ul><li>Training has $m \in [0, L_\text{train})$, and on low-frequency dimensions $m\theta_i$ is far less than $2\pi$</li><li>Inference with $m &gt; L_\text{train}$, low-frequency dimensions enter unseen phase regions</li><li>The model has not learned attention behavior for these regions → PPL blows up / context collapses</li></ul>
 <p>Pitfall: saying "RoPE periodicity makes extrapolation OK" — wrong. Periodicity only holds within a dimension; what's being extrapolated across context length is the "position → phase" mapping, and the model has never seen $m\theta_i$ outside the training range combinations.</p>
 </details>
 <details>
@@ -1220,7 +1220,7 @@ Q: Attention infeasible (L^2 too large)?
 <details>
 
 <summary>Q12. What does each of YaRN's three components solve?</summary>
-<ul><li><strong>NTK-by-parts</strong>: handle high/mid/low frequencies in separate bands; finer than NTK-aware's single-parameter ramp</li><li><strong>Temperature scaling</strong>: after context lengthens, softmax distribution flattens; lower temperature $t < 1$ sharpens it</li><li><strong>Attention scale (implementation-layer)</strong>: implement temperature $1/t$ as Q/K norm scaling (equivalent to multiplying into cos/sin cache), without modifying the attention kernel</li></ul>
+<ul><li><strong>NTK-by-parts</strong>: handle high/mid/low frequencies in separate bands; finer than NTK-aware's single-parameter ramp</li><li><strong>Temperature scaling</strong>: after context lengthens, softmax distribution flattens; lower temperature $t &lt; 1$ sharpens it</li><li><strong>Attention scale (implementation-layer)</strong>: implement temperature $1/t$ as Q/K norm scaling (equivalent to multiplying into cos/sin cache), without modifying the attention kernel</li></ul>
 <p>Pitfall: just saying "YaRN is an improved NTK-aware" without decomposing.</p>
 </details>
 <details>
@@ -1250,7 +1250,7 @@ Q: Attention infeasible (L^2 too large)?
 <details>
 
 <summary>Q17. Why does StreamingLLM use "logical positions" rather than absolute positions for position ids?</summary>
-<ul><li>If using absolute positions: in the cache, sink is at [0,4), the most recent window is at [L-W, L), and the new token is at L</li><li>But $L$ can grow infinitely; RoPE hasn't seen $m > L_\text{train}$, so PPL blows up</li><li><strong>Logical positions</strong>: sink uses [0, S), within window uses [S, S+W), new token uses S+W</li><li>This way RoPE is always within the training-seen range → streaming generation can be unlimited</li></ul>
+<ul><li>If using absolute positions: in the cache, sink is at [0,4), the most recent window is at [L-W, L), and the new token is at L</li><li>But $L$ can grow infinitely; RoPE hasn't seen $m &gt; L_\text{train}$, so PPL blows up</li><li><strong>Logical positions</strong>: sink uses [0, S), within window uses [S, S+W), new token uses S+W</li><li>This way RoPE is always within the training-seen range → streaming generation can be unlimited</li></ul>
 <p>Pitfall: saying "absolute position is correct" — wrong; absolute positions hit RoPE's extrapolation upper bound.</p>
 </details>
 <details>
@@ -1293,7 +1293,7 @@ Q: Attention infeasible (L^2 too large)?
 <details>
 
 <summary>Q24. What is the implementation-layer difference between YaRN's attention scale and directly changing the softmax temperature?</summary>
-<ul><li><strong>Direct temperature change</strong>: divide logits by $t$ in the attention kernel, requiring modification of fused kernels like FlashAttention</li><li><strong>Attention scale</strong>: multiply $\sqrt{1/t}$ into the RoPE cos/sin cache, equivalent to <strong>amplifying</strong> Q/K norms by $\sqrt{1/t}$ ($\sqrt{1/t} > 1$ when $t < 1$); $QK^\top$ naturally amplified by $1/t$</li><li>The two are <strong>mathematically equivalent</strong> (provided Q/K norms come mainly from the post-RoPE part)</li><li>Engineering advantage: <strong>no attention kernel modification at all</strong>, only the RoPE precomputation</li><li>This is a major selling point of YaRN being "infrastructure-friendly"</li></ul>
+<ul><li><strong>Direct temperature change</strong>: divide logits by $t$ in the attention kernel, requiring modification of fused kernels like FlashAttention</li><li><strong>Attention scale</strong>: multiply $\sqrt{1/t}$ into the RoPE cos/sin cache, equivalent to <strong>amplifying</strong> Q/K norms by $\sqrt{1/t}$ ($\sqrt{1/t} &gt; 1$ when $t &lt; 1$); $QK^\top$ naturally amplified by $1/t$</li><li>The two are <strong>mathematically equivalent</strong> (provided Q/K norms come mainly from the post-RoPE part)</li><li>Engineering advantage: <strong>no attention kernel modification at all</strong>, only the RoPE precomputation</li><li>This is a major selling point of YaRN being "infrastructure-friendly"</li></ul>
 <p>Pitfall: saying "the two are the same thing" — mathematically equivalent but engineering significance differs.</p>
 </details>
 <details>
@@ -1320,7 +1320,7 @@ Q: Attention infeasible (L^2 too large)?
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/long_context_rope_yarn_mla_tutorial_en.md</code> ·
   SHA256 <code>f80832985b1a</code> ·
-  generated at 2026-05-31 06:48 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

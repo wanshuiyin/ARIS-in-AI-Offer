@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_post_training_tutorial_en.md">
 <meta name="aris:source-sha256" content="4acda0876d2900c44973128db77327d336b1cbe5b701c5ec486c11faf51016e9">
-<meta name="aris:generated-at" content="2026-05-31 06:48 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -630,7 +630,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_post_training_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>4acda0876d29</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 06:48 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -666,7 +666,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="21-treating-denoising-as-an-mdp-ddpo-viewpoint">2.1 Treating denoising as an MDP (DDPO viewpoint)</h3>
 <p>Black et al. 2024 ICLR <em>Training Diffusion Models with Reinforcement Learning</em> (arXiv 2305.13301) key observation: the DDPM/DDIM reverse process is itself a <strong>finite-horizon MDP</strong>.</p>
 <p>Definitions:</p>
-<ul><li><strong>State</strong>: $s_t = (x_t, t, c)$, with time reversed $t = T, T-1, \dots, 1$</li><li><strong>Action</strong>: $a_t = x_{t-1}$ (sampled from $p_\theta(\cdot \mid x_t, c)$)</li><li><strong>Transition</strong>: deterministic — $s_{t-1} = (x_{t-1}, t-1, c)$</li><li><strong>Reward</strong>: $r_t = 0$ for $t > 1$, $r_1 = R(x_0, c)$ (terminal-only)</li><li><strong>Policy</strong>: $\pi_\theta(a_t \mid s_t) = p_\theta(x_{t-1} \mid x_t, c)$</li></ul>
+<ul><li><strong>State</strong>: $s_t = (x_t, t, c)$, with time reversed $t = T, T-1, \dots, 1$</li><li><strong>Action</strong>: $a_t = x_{t-1}$ (sampled from $p_\theta(\cdot \mid x_t, c)$)</li><li><strong>Transition</strong>: deterministic — $s_{t-1} = (x_{t-1}, t-1, c)$</li><li><strong>Reward</strong>: $r_t = 0$ for $t &gt; 1$, $r_1 = R(x_0, c)$ (terminal-only)</li><li><strong>Policy</strong>: $\pi_\theta(a_t \mid s_t) = p_\theta(x_{t-1} \mid x_t, c)$</li></ul>
 <p>Policy gradient theorem:</p>
 <p>$$\nabla_\theta J(\theta) = \mathbb{E}_{\tau \sim p_\theta}\!\left[\sum_{t=1}^{T} \nabla_\theta \log p_\theta(x_{t-1} \mid x_t, c)\, R(x_0, c)\right]$$</p>
 <p><strong>Key</strong>: $\log p_\theta(x_{t-1} \mid x_t, c)$ is Gaussian in DDPM, so the log-prob is analytical and the gradient can be computed directly.</p>
@@ -826,7 +826,7 @@ optimizer.step()</code></pre>
 <p>KL still uses the K3 estimator (same as GRPO for LLM).</p>
 <h3 id="55-geometric-meaning-of-advantage-on-the-vector-field">5.5 Geometric meaning of advantage on the vector field</h3>
 <div class="callout callout-good"><div class="callout-title">L3 understanding</div></div>
-<ul><li>LLM GRPO's advantage reweights in the token logit space;</li><li>Flow-GRPO's advantage directly reweights the <strong>direction correction</strong> of $v_\theta$ — specifically, when $\hat A_i > 0$, push $v_\theta(t, x_t, c)$ toward the direction $(x_{t-1}^{(i)} - x_t^{(i)})/dt$ that trajectory $\tau_i$ actually took.</li><li>This is a "directional gradient" on the $v_\theta$ space, equivalent to importance-weighted $\epsilon$-prediction reweighting under a Gaussian path.</li></ul>
+<ul><li>LLM GRPO's advantage reweights in the token logit space;</li><li>Flow-GRPO's advantage directly reweights the <strong>direction correction</strong> of $v_\theta$ — specifically, when $\hat A_i &gt; 0$, push $v_\theta(t, x_t, c)$ toward the direction $(x_{t-1}^{(i)} - x_t^{(i)})/dt$ that trajectory $\tau_i$ actually took.</li><li>This is a "directional gradient" on the $v_\theta$ space, equivalent to importance-weighted $\epsilon$-prediction reweighting under a Gaussian path.</li></ul>
 <h3 id="56-flow-grpo-empirical-results">5.6 Flow-GRPO empirical results</h3>
 <p>The paper reports for SD3.5-M:</p>
 <table><thead><tr><th>Benchmark</th><th>SD3.5-M base</th><th>Flow-GRPO</th></tr></thead><tbody><tr><td>GenEval overall</td><td>63%</td><td><strong>95%</strong></td></tr><tr><td>Visual text rendering</td><td>59%</td><td><strong>92%</strong></td></tr><tr><td>Aesthetic (Schuhmann)</td><td>5.8</td><td>6.1</td></tr></tbody></table>
@@ -1160,7 +1160,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 </details>
 <details>
 <summary>Q2. What MDP does DDPO treat diffusion as? State/action/reward definitions?</summary>
-<ul><li><strong>State</strong>: $s_t = (x_t, t, c)$</li><li><strong>Action</strong>: $a_t = x_{t-1}$ (sampled from $p_\theta(\cdot \mid x_t, c)$)</li><li><strong>Transition</strong>: deterministic $s_{t-1} = (x_{t-1}, t-1, c)$</li><li><strong>Reward</strong>: $r_t = 0$ for $t > 1$, $r_1 = R(x_0, c)$ (terminal-only)</li></ul>
+<ul><li><strong>State</strong>: $s_t = (x_t, t, c)$</li><li><strong>Action</strong>: $a_t = x_{t-1}$ (sampled from $p_\theta(\cdot \mid x_t, c)$)</li><li><strong>Transition</strong>: deterministic $s_{t-1} = (x_{t-1}, t-1, c)$</li><li><strong>Reward</strong>: $r_t = 0$ for $t &gt; 1$, $r_1 = R(x_0, c)$ (terminal-only)</li></ul>
 <p>Saying "per-step reward" (wrong, only at the terminal); or not knowing the transition is deterministic (noise is built into the action).</p>
 </details>
 <details>
@@ -1279,7 +1279,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <details>
 <summary>Q23. Geometric meaning of advantage on the vector field $v_\theta$ in Flow-GRPO?</summary>
 <p>GRPO's advantage acts on the vector field space as follows:</p>
-<ol><li><strong>Group statistics</strong>: for the same prompt $c$, sample $G$ SDE trajectories; each yields a different $x_0^{(i)}$; the reward $r_i$ gives the entire trajectory a single advantage $\hat A_i = (r_i - \bar r)/\sigma_r$.</li><li><strong>Gradient along trajectory</strong>: $\nabla_\theta L = \sum_t \nabla_\theta \log p_\theta(x_{t-1}^{(i)} \mid x_t^{(i)}) \cdot \hat A_i$. Under a Gaussian transition, $\log p \propto -(x_{t-1} - \mu_\theta)^2/(2\sigma^2)$, so $\nabla_\theta \log p \propto (x_{t-1} - \mu_\theta)\nabla_\theta \mu_\theta / \sigma^2$.</li><li><strong>Physical meaning of $\mu_\theta$</strong>: under the Flow Matching SDE, $\mu_\theta = x_t + (v_\theta + \frac{1}{2}\sigma^2 s_\theta) dt$; $\nabla_\theta \mu_\theta \approx dt \cdot \nabla_\theta v_\theta$ (ignoring the score term).</li><li><strong>Geometric meaning</strong>: when $\hat A_i > 0$, push $v_\theta(t, x_t^{(i)})$ toward the direction $(x_{t-1}^{(i)} - x_t^{(i)})/dt$ (the direction the trajectory actually took); when advantage $< 0$, push the opposite way.</li><li><strong>vs ODE perspective</strong>: equivalent to "group-relative direction reweighting" in vector field space — good trajectories make $v_\theta$ point along their direction at that $(t, x_t)$, bad ones the opposite.</li></ol>
+<ol><li><strong>Group statistics</strong>: for the same prompt $c$, sample $G$ SDE trajectories; each yields a different $x_0^{(i)}$; the reward $r_i$ gives the entire trajectory a single advantage $\hat A_i = (r_i - \bar r)/\sigma_r$.</li><li><strong>Gradient along trajectory</strong>: $\nabla_\theta L = \sum_t \nabla_\theta \log p_\theta(x_{t-1}^{(i)} \mid x_t^{(i)}) \cdot \hat A_i$. Under a Gaussian transition, $\log p \propto -(x_{t-1} - \mu_\theta)^2/(2\sigma^2)$, so $\nabla_\theta \log p \propto (x_{t-1} - \mu_\theta)\nabla_\theta \mu_\theta / \sigma^2$.</li><li><strong>Physical meaning of $\mu_\theta$</strong>: under the Flow Matching SDE, $\mu_\theta = x_t + (v_\theta + \frac{1}{2}\sigma^2 s_\theta) dt$; $\nabla_\theta \mu_\theta \approx dt \cdot \nabla_\theta v_\theta$ (ignoring the score term).</li><li><strong>Geometric meaning</strong>: when $\hat A_i &gt; 0$, push $v_\theta(t, x_t^{(i)})$ toward the direction $(x_{t-1}^{(i)} - x_t^{(i)})/dt$ (the direction the trajectory actually took); when advantage $&lt; 0$, push the opposite way.</li><li><strong>vs ODE perspective</strong>: equivalent to "group-relative direction reweighting" in vector field space — good trajectories make $v_\theta$ point along their direction at that $(t, x_t)$, bad ones the opposite.</li></ol>
 <p>This is "reward-weighted importance sampling" in vector field space: each SDE trajectory is one "proposal direction" for $v_\theta$, and the advantage decides whether to follow it.</p>
 <p>Failing to articulate any geometry is 0 points; saying "reweighting" without specifying the space is half credit.</p>
 </details>
@@ -1302,7 +1302,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <p><strong>Phase 3: reward design</strong></p>
 <ul><li><strong>Multi-RM ensemble</strong> (min or mean - k·std): HPSv2 + PickScore + ImageReward.</li><li><strong>Add rule-based safety</strong>: NSFW detector hard penalty.</li><li><strong>Add rule-based alignment</strong>: GenEval automated verifier (object count, OCR).</li><li><strong>Z-score each RM separately</strong>.</li></ul>
 <p><strong>Phase 4: monitoring and early stop</strong></p>
-<ul><li>Compute reward + FID-100k every N steps; reward up + FID up = hacking signal.</li><li>KL budget monitoring: stop if $\text{KL}(p_\theta \Vert p_\text{ref}) > K_\text{target}$.</li><li>Human blind A/B (base vs RL) every 1000 steps.</li></ul>
+<ul><li>Compute reward + FID-100k every N steps; reward up + FID up = hacking signal.</li><li>KL budget monitoring: stop if $\text{KL}(p_\theta \Vert p_\text{ref}) &gt; K_\text{target}$.</li><li>Human blind A/B (base vs RL) every 1000 steps.</li></ul>
 <p><strong>Phase 5: distillation handoff</strong></p>
 <ul><li>After post-training, do ADD / LCM distillation to 4-step / 1-step.</li><li>Note: distillation can eliminate some RL gains; consider distill-aware post-training.</li></ul>
 <p>Just answering "use Diffusion-DPO" is shallow; the answer should articulate "phase decomposition + multi-reward + monitoring + distill handoff".</p>
@@ -1315,7 +1315,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <h3 id="a3-open-source-training-code">A.3 Open-source training code</h3>
 <ul><li><strong>TRL (HuggingFace)</strong>: <code>diffusers</code> + <code>DPO Trainer</code> for Diffusion-DPO (most mature)</li><li><strong>DDPO original repo</strong>: https://github.com/kvablack/ddpo-pytorch</li><li><strong>AlignProp</strong>: https://github.com/mihirp1998/AlignProp</li><li><strong>DRaFT (Google research)</strong>: https://github.com/clarkjkr/draft (Clark et al. 2024 ICLR)</li><li><strong>MaPO</strong>: https://github.com/mapo-t2i/mapo</li><li><strong>Flow-GRPO</strong>: see paper arXiv 2505.05470 for the official implementation</li></ul>
 <h3 id="a4-engineering-footgun-checklist">A.4 Engineering footgun checklist</h3>
-<table><thead><tr><th>Footgun</th><th>Fix</th></tr></thead><tbody><tr><td>Diffusion-DPO without paired noise</td><td>$\epsilon$ for $x_t^w$ and $x_t^l$ must be shared</td></tr><tr><td>DDPO with DDIM-eta=0</td><td>must use eta&gt;0 or DDPM, otherwise gradient is zero</td></tr><tr><td>AlignProp memory explosion</td><td>$K=1$ + gradient checkpoint + LoRA</td></tr><tr><td>Reward scales not normalized</td><td>z-score each RM separately</td></tr><tr><td>FID crashes after RL</td><td>add KL anchor or reward ensemble</td></tr><tr><td>$\beta$ won't move</td><td>Diffusion-DPO uses $\beta \in [2000, 5000]$, not the LLM 0.1</td></tr><tr><td>Flow-GRPO trains slowly</td><td>use denoising reduction ($T_\text{train} < T_\text{infer}$)</td></tr><tr><td>MaPO blows up</td><td>the $\alpha\hat\ell_w$ term must be large enough to prevent likelihood collapse</td></tr><tr><td>Step-RM won't train</td><td>use rollout-based auto-labeling (Math-Shepherd-style)</td></tr><tr><td>Reward hacking undetected</td><td>simultaneously monitor reward + FID + human blind A/B</td></tr></tbody></table>
+<table><thead><tr><th>Footgun</th><th>Fix</th></tr></thead><tbody><tr><td>Diffusion-DPO without paired noise</td><td>$\epsilon$ for $x_t^w$ and $x_t^l$ must be shared</td></tr><tr><td>DDPO with DDIM-eta=0</td><td>must use eta&gt;0 or DDPM, otherwise gradient is zero</td></tr><tr><td>AlignProp memory explosion</td><td>$K=1$ + gradient checkpoint + LoRA</td></tr><tr><td>Reward scales not normalized</td><td>z-score each RM separately</td></tr><tr><td>FID crashes after RL</td><td>add KL anchor or reward ensemble</td></tr><tr><td>$\beta$ won't move</td><td>Diffusion-DPO uses $\beta \in [2000, 5000]$, not the LLM 0.1</td></tr><tr><td>Flow-GRPO trains slowly</td><td>use denoising reduction ($T_\text{train} &lt; T_\text{infer}$)</td></tr><tr><td>MaPO blows up</td><td>the $\alpha\hat\ell_w$ term must be large enough to prevent likelihood collapse</td></tr><tr><td>Step-RM won't train</td><td>use rollout-based auto-labeling (Math-Shepherd-style)</td></tr><tr><td>Reward hacking undetected</td><td>simultaneously monitor reward + FID + human blind A/B</td></tr></tbody></table>
 <h3 id="a5-mapping-back-to-0-tldr">A.5 Mapping back to §0 TL;DR</h3>
 <table><thead><tr><th>TL;DR point</th><th>See section</th></tr></thead><tbody><tr><td>1. Why it's hard</td><td>§1</td></tr><tr><td>2. Three main lines</td><td>§1.2</td></tr><tr><td>3. DDPO</td><td>§2.1–2.4</td></tr><tr><td>4. DRaFT / AlignProp</td><td>§3.2–3.3</td></tr><tr><td>5. Diffusion-DPO</td><td>§4.1</td></tr><tr><td>6. D3PO</td><td>§4.2</td></tr><tr><td>7. SPO</td><td>§4.3</td></tr><tr><td>8. Flow-GRPO</td><td>§5</td></tr><tr><td>9. Reward hacking</td><td>§3.6 + §7</td></tr></tbody></table>
 <div class="callout callout-good"><div class="callout-title">Learning checkpoint</div></div>
@@ -1325,7 +1325,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_post_training_tutorial_en.md</code> ·
   SHA256 <code>4acda0876d29</code> ·
-  generated at 2026-05-31 06:48 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

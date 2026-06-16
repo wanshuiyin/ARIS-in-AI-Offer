@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/attention_tutorial.md">
 <meta name="aris:source-sha256" content="970e8a0a0538e0022a8bf1ec44765f3d6a12987ed2d4c322b034e10eb1c3817e">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -591,7 +591,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/attention_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>970e8a0a0538</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -680,7 +680,7 @@ heads [B, H, L_q, d_k]
    ↓
 W_o ∈ R^{D×D}    →    Output [B, L_q, D]</code></pre>
 <h3 id="32-为什么要-multi-head不是单-head-也行吗">3.2　为什么要 multi-head（不是单 head 也行吗？）</h3>
-<ul><li><strong>不同 subspace</strong>：每个 head 在自己的 $d_k$ 维子空间里学一种关系模式（语法、共指、远距依赖、局部 n-gram...）</li><li><strong>表达力</strong>：单 head 只能学一种 attention 模式；H 个 head 在 inference 时<strong>并行</strong>给出 H 种不同的 weighted sum 结果</li><li><strong>参数效率</strong>：$d_k = D/H$ 而不是 $D$，所以参数量不会随 H 线性增加</li><li>面试常问：head 越多越好吗？<strong>不</strong>。$d_k = D/H$ 太小（如 $d_k < 16$）会让每个 head 表达力受限；Mistral / LLaMA 用 head_dim ≈ 64-128 是 sweet spot</li></ul>
+<ul><li><strong>不同 subspace</strong>：每个 head 在自己的 $d_k$ 维子空间里学一种关系模式（语法、共指、远距依赖、局部 n-gram...）</li><li><strong>表达力</strong>：单 head 只能学一种 attention 模式；H 个 head 在 inference 时<strong>并行</strong>给出 H 种不同的 weighted sum 结果</li><li><strong>参数效率</strong>：$d_k = D/H$ 而不是 $D$，所以参数量不会随 H 线性增加</li><li>面试常问：head 越多越好吗？<strong>不</strong>。$d_k = D/H$ 太小（如 $d_k &lt; 16$）会让每个 head 表达力受限；Mistral / LLaMA 用 head_dim ≈ 64-128 是 sweet spot</li></ul>
 <h3 id="33-参数量与-flops">3.3　参数量与 FLOPs</h3>
 <table><thead><tr><th>组件</th><th>形状</th><th>参数量</th></tr></thead><tbody><tr><td>$W_q$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_k$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_v$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_o$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td><strong>总计</strong></td><td></td><td><strong>$4D^2$</strong>（不随 $H$ 变）</td></tr></tbody></table>
 <p>FLOPs（单次 self-attention forward，$L_q = L_k = L$）：</p>
@@ -756,7 +756,7 @@ out, _ = mha(x, x, x, mask=pmask)</code></pre>
 <p>$$\text{KV cache} = L_\text{ctx} \cdot n_\text{layers} \cdot \underbrace{2}_{K, V} \cdot H_\text{kv} \cdot d_\text{head} \cdot \text{bytes\_per\_elem}$$</p>
 <p>注意：MQA/GQA 下 $H_\text{kv} \ll H$，cache 显著缩减。对 LLaMA-2-70B（GQA, $H_\text{kv}=8$）、$L_\text{ctx}=4096$、80 层、fp16：约 <strong>1.25 GB / sample</strong>——这就是 LLaMA-2 用 GQA 不用 MHA 的原因（vanilla MHA 会到 10 GB / sample）。</p>
 <h3 id="62-mqa--gqaattack-kv-cache-显存">6.2　MQA / GQA（attack KV cache 显存）</h3>
-<table><thead><tr><th>变体</th><th>Q heads</th><th>K/V heads</th><th>KV cache 缩减</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>MHA</strong> (Vanilla)</td><td>$H$</td><td>$H$</td><td>1×</td><td>原始 Transformer</td></tr><tr><td><strong>MQA</strong> (Multi-Query)</td><td>$H$</td><td><strong>1</strong></td><td>$H \times$</td><td>PaLM, Falcon</td></tr><tr><td><strong>GQA</strong> (Grouped-Query)</td><td>$H$</td><td>$G$（$1 < G < H$）</td><td>$H/G \times$</td><td>LLaMA-2/3, Mistral</td></tr></tbody></table>
+<table><thead><tr><th>变体</th><th>Q heads</th><th>K/V heads</th><th>KV cache 缩减</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>MHA</strong> (Vanilla)</td><td>$H$</td><td>$H$</td><td>1×</td><td>原始 Transformer</td></tr><tr><td><strong>MQA</strong> (Multi-Query)</td><td>$H$</td><td><strong>1</strong></td><td>$H \times$</td><td>PaLM, Falcon</td></tr><tr><td><strong>GQA</strong> (Grouped-Query)</td><td>$H$</td><td>$G$（$1 &lt; G &lt; H$）</td><td>$H/G \times$</td><td>LLaMA-2/3, Mistral</td></tr></tbody></table>
 <p>核心：<strong>多个 Q head 共享一组 K/V</strong>。MQA 极端但质量略降；GQA 是折中（如 H=32, G=8），显存 / 带宽降 4 倍，质量基本不掉。</p>
 <div class="callout callout-bad"><div class="callout-title">易踩坑</div><p>MQA/GQA 减少的是 <strong>KV cache 显存 + 显存带宽</strong>，<strong>不是 Q projection 计算</strong>（Q 头数不变）。面试常被反问"减了什么"。</p></div>
 <h2 id="7-flashattention-核心-trick">§7 FlashAttention 核心 Trick</h2>
@@ -819,7 +819,7 @@ FFN → next layer</code></pre>
 <details>
 
 <summary>Q5.MHA 参数量随 head 数怎么变？</summary>
-<ul><li>固定 $D$ 且 $d_k = D/H$（标准 MHA）</li><li>$W_q + W_k + W_v + W_o$ 共 $4D^2$，<strong>不随 $H$ 变</strong></li><li>但若用 MQA/GQA，K/V 投影矩阵会变小（$H_\text{kv} < H$ 个 head）</li><li>这就是为什么"head 数是免费的"在标准 MHA 下成立，但在 MQA/GQA 下有显存收益</li></ul>
+<ul><li>固定 $D$ 且 $d_k = D/H$（标准 MHA）</li><li>$W_q + W_k + W_v + W_o$ 共 $4D^2$，<strong>不随 $H$ 变</strong></li><li>但若用 MQA/GQA，K/V 投影矩阵会变小（$H_\text{kv} &lt; H$ 个 head）</li><li>这就是为什么"head 数是免费的"在标准 MHA 下成立，但在 MQA/GQA 下有显存收益</li></ul>
 <p>误以为 head 多参数也线性多 H 倍；或忘了 MQA/GQA 改变了 K/V 投影维度。</p>
 </details>
 <details>
@@ -923,7 +923,7 @@ FFN → next layer</code></pre>
 <details>
 
 <summary>Q22.MQA 和 GQA 解决什么？</summary>
-<ul><li>MQA：多个 Q head 共享一组 K/V（K/V 只有 1 个 head）</li><li>GQA：折中，K/V 有 $G$ 组（$1 < G < H$）</li><li>主要收益：<strong>decode 时 KV cache 显存 + 显存带宽</strong>（大幅降低）</li><li>同时也减少 K/V projection 的参数和计算（K/V 投影矩阵变小），<strong>但不减少 Q / O projection</strong></li><li>质量影响：通常 <strong>GQA 质量损失小于 MQA</strong>，具体取决于模型规模和训练方式（LLaMA-2 70B / LLaMA-3 / Mistral / Qwen-2 都用 GQA）</li></ul>
+<ul><li>MQA：多个 Q head 共享一组 K/V（K/V 只有 1 个 head）</li><li>GQA：折中，K/V 有 $G$ 组（$1 &lt; G &lt; H$）</li><li>主要收益：<strong>decode 时 KV cache 显存 + 显存带宽</strong>（大幅降低）</li><li>同时也减少 K/V projection 的参数和计算（K/V 投影矩阵变小），<strong>但不减少 Q / O projection</strong></li><li>质量影响：通常 <strong>GQA 质量损失小于 MQA</strong>，具体取决于模型规模和训练方式（LLaMA-2 70B / LLaMA-3 / Mistral / Qwen-2 都用 GQA）</li></ul>
 <p>以为减少了 Q projection；或说"GQA 质量基本不掉"过于绝对。</p>
 </details>
 <details>
@@ -968,7 +968,7 @@ FFN → next layer</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/attention_tutorial.md</code> ·
   SHA256 <code>970e8a0a0538</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

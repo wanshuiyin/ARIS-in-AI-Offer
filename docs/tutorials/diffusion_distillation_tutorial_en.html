@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_distillation_tutorial_en.md">
 <meta name="aris:source-sha256" content="cceb6c61f1f5be01eacd4f25cf2ef79067c1093da76e75e4a92df0a3e3c84877">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -622,7 +622,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_distillation_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>cceb6c61f1f5</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -652,7 +652,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$f_\theta(x, \sigma) = c_\text{skip}(\sigma)\, x + c_\text{out}(\sigma)\, F_\theta(x, \sigma)$$</p>
 <p>with $c_\text{skip}(\sigma_\min) = 1$, $c_\text{out}(\sigma_\min) = 0$. Song 2023's specific values (same form as EDM Karras):</p>
 <p>$$c_\text{skip}(\sigma) = \frac{\sigma_\text{data}^2}{(\sigma - \sigma_\min)^2 + \sigma_\text{data}^2},\quad c_\text{out}(\sigma) = \frac{\sigma_\text{data}\,(\sigma - \sigma_\min)}{\sqrt{\sigma_\text{data}^2 + \sigma^2}}$$</p>
-<p><strong>Consistency Loss (core)</strong>: take adjacent noise levels $t_n < t_{n+1}$, and require the student's outputs at $(x_{t_n}, t_n)$ and $(x_{t_{n+1}}, t_{n+1})$ to agree —</p>
+<p><strong>Consistency Loss (core)</strong>: take adjacent noise levels $t_n &lt; t_{n+1}$, and require the student's outputs at $(x_{t_n}, t_n)$ and $(x_{t_{n+1}}, t_{n+1})$ to agree —</p>
 <p>$$\boxed{\;\mathcal{L}_\text{CD}(\theta) = \mathbb{E}\left[\lambda(t_n)\, d\!\Big(f_\theta(x_{t_{n+1}}, t_{n+1}),\; f_{\theta^-}(\hat x_{t_n}, t_n)\Big)\right]\;}$$</p>
 <ul><li>$\theta^-$: EMA target (like BYOL, prevents representation collapse)</li><li>$\hat x_{t_n} = x_{t_{n+1}} - (t_{n+1} - t_n) \cdot v_\phi(x_{t_{n+1}}, t_{n+1})$: teacher one-step ODE reverse</li><li>$d$: L2 or LPIPS (CM paper uses LPIPS for ImageNet 64)</li><li>$\lambda(t_n)$: weight, CM paper takes 1</li></ul>
 <div class="callout callout-info"><div class="callout-title">Key difference CD vs CT</div><p>CD (Consistency <strong>Distillation</strong>) uses a pretrained teacher $v_\phi$ to compute $\hat x_{t_n}$; CT (Consistency <strong>Training</strong>) has no teacher and uses $\hat x_{t_n} = x_0 + t_n \epsilon$ (the same noise sample with different noise levels). CD with LPIPS + EMA reaches FID 3.55 on CIFAR-10; CT only reaches 8.7 — until iCT caught up.</p></div>
@@ -687,7 +687,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p><strong>Results</strong>: 1.5B parameters, ImageNet 512×512 <strong>2-step FID 1.88</strong>, within 10% of the best diffusion baseline — first time CM hits top-tier numbers at large-scale high-res.</p>
 <h3 id="25-ctm--consistency-trajectory-models-kim-et-al-2024-iclr-arxiv231002279">2.5　CTM / Consistency Trajectory Models (Kim et al. 2024 ICLR, arXiv:2310.02279)</h3>
 <p><strong>Problem</strong>: CM can only map $(x_t, t) \to x_{\sigma_\min}$ (trajectory endpoint); cannot jump to intermediate points; step count is fixed.</p>
-<p><strong>CTM's extension</strong>: learn $G(x_t, t, s)$ — jump from $(x_t, t)$ to <strong>any $s < t$</strong>:</p>
+<p><strong>CTM's extension</strong>: learn $G(x_t, t, s)$ — jump from $(x_t, t)$ to <strong>any $s &lt; t$</strong>:</p>
 <p>$$G_\theta(x_t, t, s) \approx \text{ODE-solver}(x_t, t \to s)$$</p>
 <ul><li>$s = \sigma_\min$ degenerates to CM</li><li>$s = t$ degenerates to identity</li><li>Intermediate $s$ lets the user freely choose NFE: 3-step = $G(z, T, t_1) \to G(\cdot, t_1, t_2) \to G(\cdot, t_2, 0)$</li></ul>
 <p><strong>Loss</strong>: trajectory matching —</p>
@@ -718,7 +718,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\nabla_\theta \text{KL}(p_\text{fake}^\theta \| p_\text{real}) = -\mathbb{E}_{x \sim p_\text{fake}^\theta}\!\left[\big(\nabla_x \log p_\text{real}(x) - \nabla_x \log p_\text{fake}(x)\big) \cdot \frac{\partial G_\theta}{\partial \theta}\right]$$</p>
 <p><strong>Key observation</strong>: $\nabla_x \log p_\text{real}$ is the teacher score $s_\text{real}$ (teacher diffusion model is off-the-shelf); $\nabla_x \log p_\text{fake}$ uses a <strong>fake score model</strong> $s_\text{fake}$ (a small diffusion trained on the student's current outputs).</p>
 <p><strong>DMD Loss</strong> (two losses trained jointly; <strong>strict notation</strong>: $\mu$ is the denoiser / mean predictor, $s_\mu(x_t,t) = (\alpha_t \mu(x_t,t) - x_t)/\sigma_t^2$ is the score derived from the denoiser; the DMD paper uses the denoiser, not the raw score):</p>
-<p>$$ \boxed{\; \begin{aligned} \nabla_\theta \mathcal{L}_\text{DMD}^G &= \mathbb{E}_{z, t, \epsilon}\!\left[w_t\,\alpha_t\,(s_\text{fake}(x_t, t) - s_\text{real}(x_t, t))^\top\,\tfrac{\partial G_\theta(z)}{\partial\theta}\right] \quad\text{// student, surrogate} \\ \mathcal{L}_\text{fake}(\phi_f) &= \mathbb{E}\!\left[\lambda_t\,\|\mu_{\phi_f}(x_t, t) - \operatorname{sg}(G_\theta(z))\|_2^2\right] \quad\text{// fake denoiser DSM target is the student's current output} \end{aligned} \;} $$</p>
+<p>$$ \boxed{\; \begin{aligned} \nabla_\theta \mathcal{L}_\text{DMD}^G &amp;= \mathbb{E}_{z, t, \epsilon}\!\left[w_t\,\alpha_t\,(s_\text{fake}(x_t, t) - s_\text{real}(x_t, t))^\top\,\tfrac{\partial G_\theta(z)}{\partial\theta}\right] \quad\text{// student, surrogate} \\ \mathcal{L}_\text{fake}(\phi_f) &amp;= \mathbb{E}\!\left[\lambda_t\,\|\mu_{\phi_f}(x_t, t) - \operatorname{sg}(G_\theta(z))\|_2^2\right] \quad\text{// fake denoiser DSM target is the student's current output} \end{aligned} \;} $$</p>
 <p>where $x_t = \alpha_t G_\theta(z) + \sigma_t \epsilon$. <strong>Auxiliary regression loss</strong>: DMD v1 also adds $\mathbb{E}\|G_\theta(z) - \text{ODE-solver}^\text{teacher}(z)\|^2$ (teacher-pair supervision) to keep the student from drifting — but this requires pre-generating a large pool of teacher pairs, <strong>expensive and mode-limited</strong>; DMD2 drops this term.</p>
 <h3 id="32-deriving-the-dmd-gradient-from-reverse-kl-mandatory-derivation">3.2　Deriving the DMD gradient from reverse-KL (mandatory derivation)</h3>
 <p>Let student $G_\theta(z) \mapsto x$ with $z \sim \mathcal{N}(0, I)$. The fake distribution is $p_\text{fake}^\theta(x) = G_\theta \# \mathcal{N}(0, I)$ (push-forward).</p>
@@ -1507,7 +1507,7 @@ Q4: Does it need diversity?
 </details>
 <details>
 <summary>Q18. What capabilities does CTM add vs CM?</summary>
-<ul><li>CM: only learns $f(x_t, t) \to x_0$ (trajectory endpoint)</li><li>CTM: learns $G(x_t, t, s)$, <strong>any $s < t$ can be jumped to</strong></li><li><p>Practical benefits:</p>
+<ul><li>CM: only learns $f(x_t, t) \to x_0$ (trajectory endpoint)</li><li>CTM: learns $G(x_t, t, s)$, <strong>any $s &lt; t$ can be jumped to</strong></li><li><p>Practical benefits:</p>
 <ul><li>Runtime-selectable inference step count (CM is fixed)</li><li>Controllable intermediate states (suitable for image-to-image / inpainting)</li><li>Training + score-matching auxiliary loss to prevent triviality</li></ul></li><li>FID: CIFAR 1-step 1.73 / ImageNet 64 1.92 (SOTA)</li></ul>
 <p>Saying only "CTM is the trajectory version of CM" without why "any s" is useful; confusing CTM and TCD (the latter is an LCM improvement).</p>
 </details>
@@ -1608,7 +1608,7 @@ Q4: Does it need diversity?
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_distillation_tutorial_en.md</code> ·
   SHA256 <code>cceb6c61f1f5</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

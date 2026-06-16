@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/vae_vqvae_vqgan_tutorial_en.md">
 <meta name="aris:source-sha256" content="30ec2764cc2c896ea77751d2f8ba1ad40c2e2fbf40f4c4d69865993dd46fe51a">
-<meta name="aris:generated-at" content="2026-05-31 06:48 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -619,7 +619,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/vae_vqvae_vqgan_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>30ec2764cc2c</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 06:48 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -639,18 +639,18 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Model family $p_\theta(x, z) = p_\theta(x|z)\, p(z)$, prior $p(z) = \mathcal{N}(0, I)$, likelihood $p_\theta(x|z)$ given by decoder. Marginal likelihood:</p>
 <p>$$\log p_\theta(x) = \log \int p_\theta(x|z) p(z)\, dz$$</p>
 <p>For <strong>any</strong> distribution $q_\phi(z|x)$ (encoder / variational posterior, $q_\phi(z|x) = \mathcal{N}(\mu_\phi(x), \mathrm{diag}(\sigma_\phi^2(x)))$), by Jensen's inequality / direct substitution:</p>
-<p>$$ \begin{aligned} \log p_\theta(x) &= \log \int q_\phi(z|x) \frac{p_\theta(x|z) p(z)}{q_\phi(z|x)} dz \\ &\geq \mathbb{E}_{q_\phi(z|x)}\!\left[\log \frac{p_\theta(x|z) p(z)}{q_\phi(z|x)}\right] \quad \text{(Jensen)} \\ &= \underbrace{\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]}_{\text{reconstruction (negative)}} - \underbrace{D_\text{KL}(q_\phi(z|x)\,\|\,p(z))}_{\text{regularization}} \end{aligned} $$</p>
+<p>$$ \begin{aligned} \log p_\theta(x) &amp;= \log \int q_\phi(z|x) \frac{p_\theta(x|z) p(z)}{q_\phi(z|x)} dz \\ &amp;\geq \mathbb{E}_{q_\phi(z|x)}\!\left[\log \frac{p_\theta(x|z) p(z)}{q_\phi(z|x)}\right] \quad \text{(Jensen)} \\ &amp;= \underbrace{\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]}_{\text{reconstruction (negative)}} - \underbrace{D_\text{KL}(q_\phi(z|x)\,\|\,p(z))}_{\text{regularization}} \end{aligned} $$</p>
 <p>So ELBO:</p>
 <p>$$\boxed{\;\mathcal{L}_\text{ELBO}(\theta, \phi; x) = \mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)] - D_\text{KL}\!\big(q_\phi(z|x)\,\|\,p(z)\big)\;}$$</p>
 <p><strong>Tightness cost</strong>: the gap between ELBO and the true log-likelihood is $D_\text{KL}(q_\phi(z|x)\,\|\,p_\theta(z|x))$. The closer $q_\phi$ approximates the true posterior $p_\theta(z|x)$, the smaller the gap.</p>
 <h3 id="22-kl-term-closed-form-derivation-l3-must-derive">2.2　KL term closed-form derivation (L3 must derive)</h3>
 <p>Let $q_\phi(z|x) = \mathcal{N}(\mu, \mathrm{diag}(\sigma^2))$ (<strong>diagonal</strong> covariance, per-dim $\sigma_i^2$), $p(z) = \mathcal{N}(0, I)$.</p>
 <p>For each dimension $i$ independently:</p>
-<p>$$ \begin{aligned} D_\text{KL}(\mathcal{N}(\mu_i, \sigma_i^2) \,\|\, \mathcal{N}(0, 1)) &= \int \mathcal{N}(z; \mu_i, \sigma_i^2) \log \frac{\mathcal{N}(z; \mu_i, \sigma_i^2)}{\mathcal{N}(z; 0, 1)} dz \end{aligned} $$</p>
+<p>$$ \begin{aligned} D_\text{KL}(\mathcal{N}(\mu_i, \sigma_i^2) \,\|\, \mathcal{N}(0, 1)) &amp;= \int \mathcal{N}(z; \mu_i, \sigma_i^2) \log \frac{\mathcal{N}(z; \mu_i, \sigma_i^2)}{\mathcal{N}(z; 0, 1)} dz \end{aligned} $$</p>
 <p>Expanding the log of two Gaussian densities:</p>
 <p>$$ \log \frac{\mathcal{N}(z; \mu_i, \sigma_i^2)}{\mathcal{N}(z; 0, 1)} = -\tfrac{1}{2}\log \sigma_i^2 - \tfrac{(z-\mu_i)^2}{2\sigma_i^2} + \tfrac{z^2}{2} $$</p>
 <p>Taking expectation (using $\mathbb{E}_q[z] = \mu_i$, $\mathbb{E}_q[z^2] = \mu_i^2 + \sigma_i^2$, $\mathbb{E}_q[(z-\mu_i)^2] = \sigma_i^2$):</p>
-<p>$$ \begin{aligned} D_\text{KL} &= -\tfrac{1}{2}\log \sigma_i^2 - \tfrac{1}{2} + \tfrac{1}{2}(\mu_i^2 + \sigma_i^2) \\ &= \tfrac{1}{2}\big(\mu_i^2 + \sigma_i^2 - \log \sigma_i^2 - 1\big) \end{aligned} $$</p>
+<p>$$ \begin{aligned} D_\text{KL} &amp;= -\tfrac{1}{2}\log \sigma_i^2 - \tfrac{1}{2} + \tfrac{1}{2}(\mu_i^2 + \sigma_i^2) \\ &amp;= \tfrac{1}{2}\big(\mu_i^2 + \sigma_i^2 - \log \sigma_i^2 - 1\big) \end{aligned} $$</p>
 <p>Sum over all dimensions:</p>
 <p>$$\boxed{\;D_\text{KL}\big(\mathcal{N}(\mu, \mathrm{diag}(\sigma^2)) \,\|\, \mathcal{N}(0, I)\big) = \tfrac{1}{2}\sum_{i=1}^{d}\big(\mu_i^2 + \sigma_i^2 - \log \sigma_i^2 - 1\big)\;}$$</p>
 <div class="callout callout-warn"><div class="callout-title">Numerical stability</div><p>In implementation have the encoder output $\log \sigma^2$ (log-variance) rather than $\sigma$, to avoid overflow when taking exp on $\sigma$. In code: <code>kl = 0.5 * (mu**2 + logvar.exp() - logvar - 1).sum()</code>.</p></div>
@@ -786,7 +786,7 @@ def vae_loss(x: torch.Tensor, logits: torch.Tensor, mu: torch.Tensor,
 <h3 id="41-beta-vae-higgins-et-al-iclr-2017">4.1　$\beta$-VAE (Higgins et al., ICLR 2017)</h3>
 <p>Weight the KL of ELBO by $\beta$:</p>
 <p>$$\mathcal{L}_{\beta\text{-VAE}}(\theta, \phi; x) = \mathbb{E}_{q_\phi}[\log p_\theta(x|z)] - \beta \cdot D_\text{KL}(q_\phi(z|x)\,\|\,p(z))$$</p>
-<ul><li>$\beta > 1$: stronger push of posterior → prior, encouraging <strong>disentangled</strong> representation (each dim of $z$ controls an independent factor, e.g. position, shape, rotation on dSprites).</li><li>$\beta < 1$: relax KL, reconstruction more precise but latent less prior-like (sampling quality worse).</li><li>$\beta = 1$ degenerates to standard VAE.</li></ul>
+<ul><li>$\beta &gt; 1$: stronger push of posterior → prior, encouraging <strong>disentangled</strong> representation (each dim of $z$ controls an independent factor, e.g. position, shape, rotation on dSprites).</li><li>$\beta &lt; 1$: relax KL, reconstruction more precise but latent less prior-like (sampling quality worse).</li><li>$\beta = 1$ degenerates to standard VAE.</li></ul>
 <div class="callout callout-warn"><div class="callout-title">Disentanglement controversy</div><p>Locatello et al. (ICML 2019, best paper) proved: <strong>pure unsupervised disentanglement is impossible without inductive bias / supervision</strong>. $\beta$-VAE's "emergent disentanglement" largely depends on architecture + dataset bias, not $\beta$ itself.</p></div>
 <h3 id="42-iwae-importance-weighted-autoencoder-burda-et-al-iclr-2016">4.2　IWAE: Importance Weighted Autoencoder (Burda et al., ICLR 2016)</h3>
 <p>ELBO is a first-order bound on $\log p(x)$. <strong>With $K$ importance samples</strong> get a tighter bound:</p>
@@ -796,7 +796,7 @@ def vae_loss(x: torch.Tensor, logits: torch.Tensor, mu: torch.Tensor,
 <div class="callout callout-info"><div class="callout-title">Tradeoff</div><p>IWAE makes the likelihood bound tighter, but the encoder's learned posterior no longer pursues "approximating the true posterior," instead aligning with the geometry of importance weighting. Not necessarily better for downstream representation learning.</p></div>
 <h3 id="43-nvae-hierarchical-vae-vahdat--kautz-neurips-2020">4.3　NVAE: Hierarchical VAE (Vahdat &amp; Kautz, NeurIPS 2020)</h3>
 <p>Multi-layer latent $z = (z_1, z_2, \ldots, z_L)$, each layer depends on the previous:</p>
-<p>$$p(z) = p(z_1)\prod_{l=2}^L p(z_l | z_{<l}), \quad q(z|x) = q(z_1|x)\prod_{l=2}^L q(z_l | z_{<l}, x)$$</p>
+<p>$$p(z) = p(z_1)\prod_{l=2}^L p(z_l | z_{&lt;l}), \quad q(z|x) = q(z_1|x)\prod_{l=2}^L q(z_l | z_{&lt;l}, x)$$</p>
 <p>Engineering essentials:</p>
 <ul><li><strong>Residual normal</strong> parameterization: $q(z_l|\cdot) = \mathcal{N}(\mu_p + \Delta\mu_q, \sigma_p \cdot \Delta\sigma_q)$, letting posterior be a small perturbation from prior</li><li><strong>Spectral regularization</strong> to control per-layer KL, avoiding numerical instability</li><li>Architecture tuning with <strong>BN + Swish + depthwise</strong> etc.</li><li>On CIFAR-10 / CelebA / FFHQ <strong>first push VAE's NLL close to SOTA flow / autoregressive</strong></li></ul>
 <p>NVAE's current role: <strong>one of the strongest continuous VAE priors before LDM</strong>, but surpassed in sample quality by diffusion series.</p>
@@ -976,7 +976,7 @@ def vqvae_loss(x, x_hat, vq_loss):
         z_q = z_q_flat.view(B, H, W, D).permute(0, 3, 1, 2).contiguous()
         return z_q, indices.view(B, H, W), vq_loss</code></pre>
 <div class="callout callout-good"><div class="callout-title">Two benefits of EMA</div></div>
-<ul><li>Updates more stable: EMA is an implicit momentum, equivalent to codebook's SGD using a large batch</li><li>Dead-code automatic restart is easier: can periodically reset $e_k$ with $\text{cluster\_size} < \tau$ to some $z_e$ in the current batch (<strong>dead-code revival</strong>)</li></ul>
+<ul><li>Updates more stable: EMA is an implicit momentum, equivalent to codebook's SGD using a large batch</li><li>Dead-code automatic restart is easier: can periodically reset $e_k$ with $\text{cluster\_size} &lt; \tau$ to some $z_e$ in the current batch (<strong>dead-code revival</strong>)</li></ul>
 <h3 id="66-vq-vae-2-razavi-vinyals-van-den-oord-neurips-2019">6.6　VQ-VAE-2 (Razavi, Vinyals, van den Oord, NeurIPS 2019)</h3>
 <p>Hierarchical extension of VQ-VAE:</p>
 <ul><li><strong>Top-level latent</strong> $z_t$: low resolution (e.g. 32×32), capturing global structure (overall face pose, identity)</li><li><strong>Bottom-level latent</strong> $z_b$: high resolution (e.g. 64×64), capturing local details (skin texture, hair strands)</li><li><strong>PixelCNN prior</strong> trained on both layers, top-level unconditional, bottom-level conditioned on top</li></ul>
@@ -988,7 +988,7 @@ def vqvae_loss(x, x_hat, vq_loss):
 <h3 id="72-loss-formula">7.2　Loss formula</h3>
 <p>$$\mathcal{L}_\text{VQ-GAN}^\text{stage1} = \mathcal{L}_\text{rec} + \mathcal{L}_\text{VQ} + \lambda \cdot \mathcal{L}_\text{GAN}$$</p>
 <p>where:</p>
-<p>$$ \begin{aligned} \mathcal{L}_\text{rec} &= \|x - \hat{x}\|_1 + \mathcal{L}_\text{LPIPS}(x, \hat{x}) \\ \mathcal{L}_\text{VQ} &= \|\text{sg}[z_e] - e\|^2 + \beta \|z_e - \text{sg}[e]\|^2 \end{aligned} $$</p>
+<p>$$ \begin{aligned} \mathcal{L}_\text{rec} &amp;= \|x - \hat{x}\|_1 + \mathcal{L}_\text{LPIPS}(x, \hat{x}) \\ \mathcal{L}_\text{VQ} &amp;= \|\text{sg}[z_e] - e\|^2 + \beta \|z_e - \text{sg}[e]\|^2 \end{aligned} $$</p>
 <p><strong>GAN term in generator/tokenizer stage</strong> (only backprops to generator's output, discriminator is updated separately in another stage):</p>
 <p>$$\mathcal{L}_\text{GAN}^{(G)} = -\mathbb{E}_{\hat{x}}[\log D(\hat{x})]\quad\text{(non-saturating)}\quad\text{or}\quad \mathcal{L}_\text{GAN}^{(G)} = -\mathbb{E}_{\hat{x}}[D(\hat{x})]\quad\text{(hinge)}$$</p>
 <p><strong>Discriminator's own minimax term</strong> (independent step updating $D$):</p>
@@ -999,7 +999,7 @@ def vqvae_loss(x, x_hat, vq_loss):
 <p>$$\mathcal{L}_G = \mathcal{L}_\text{rec} + \mathcal{L}_\text{VQ} + \lambda \cdot \mathcal{L}_\text{GAN}^{(G)}$$</p>
 <h3 id="73-stage-2-transformer-prior">7.3　Stage 2: Transformer Prior</h3>
 <p>Stage 1 trains the VQ-GAN, converting the image into a token grid $\mathbf{c} = (c_1, \ldots, c_{HW})$ (raster-scan flattened). Stage 2 trains a <strong>decoder-only Transformer</strong> on the token sequence, standard AR:</p>
-<p>$$p(\mathbf{c}) = \prod_{i=1}^{HW} p(c_i | c_{<i})$$</p>
+<p>$$p(\mathbf{c}) = \prod_{i=1}^{HW} p(c_i | c_{&lt;i})$$</p>
 <p>Sampling: AR sample tokens → VQ-GAN decoder → image. This is the standard paradigm of translating "image generation" into "language model"; DALL·E / Parti / Muse all evolve from this idea.</p>
 <div class="callout callout-info"><div class="callout-title">VQ-GAN&#x27;s role in LDM</div><p>Stable Diffusion's <strong>VAE tokenizer</strong> is actually the <strong>continuous-latent variant of a KL-regularized VQ-GAN</strong> (drops quantization, keeps KL + perceptual + adversarial), output is a continuous latent map (4 channels, downsampled 8×). Diffusion runs in this latent, and finally decoder restores it. Can be understood as "VQ-GAN encoder/decoder + continuous latent + KL."</p></div>
 <h3 id="74-patchgan-discriminator-production-architecture">7.4　PatchGAN Discriminator (production architecture)</h3>
@@ -1223,7 +1223,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 <details>
 
 <summary>Q3. What does $\beta$-VAE's $\beta$ control?</summary>
-<ul><li>$\beta > 1$: stronger KL regularization, encourages disentangled latent</li><li>$\beta < 1$: relaxes KL, more precise recon but worse prior fit</li><li>$\beta = 1$: standard VAE</li><li>But Locatello 2019 proved: pure unsupervised disentanglement is infeasible, needs inductive bias</li></ul>
+<ul><li>$\beta &gt; 1$: stronger KL regularization, encourages disentangled latent</li><li>$\beta &lt; 1$: relaxes KL, more precise recon but worse prior fit</li><li>$\beta = 1$: standard VAE</li><li>But Locatello 2019 proved: pure unsupervised disentanglement is infeasible, needs inductive bias</li></ul>
 <p>Pitfalls: only saying "larger $\beta$ → more disentanglement" — wrong, <strong>depends on data + architecture</strong>.</p>
 </details>
 <details>
@@ -1279,7 +1279,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 
 <summary>Q12. How to mitigate posterior collapse? List at least 4.</summary>
 <ul><li><strong>KL annealing</strong>: $\beta(t) = \min(1, t/T)$ linear growth (Bowman 2016)</li><li><strong>Free bits</strong>: per-dim KL lower bound $\lambda$ nats (Kingma 2016)</li><li><strong>Weakened decoder</strong>: restrict decoder expressiveness (Chen 2017)</li><li><strong>VQ-VAE / discrete latent</strong>: structurally no KL term, bypass</li><li>Others: auxiliary loss, word dropout, NF posterior, skip connections</li></ul>
-<p>Pitfalls: only answering "KL annealing" alone; or treating $\beta$-VAE as a collapse mitigation tool (actually $\beta > 1$ makes collapse easier).</p>
+<p>Pitfalls: only answering "KL annealing" alone; or treating $\beta$-VAE as a collapse mitigation tool (actually $\beta &gt; 1$ makes collapse easier).</p>
 </details>
 <details>
 
@@ -1341,7 +1341,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 <summary>Q22. How to diagnose + mitigate codebook collapse in VQ-VAE?</summary>
 <ul><li><p><strong>Diagnose</strong>: measure perplexity = $\exp(-\sum_k p_k \log p_k)$, where $p_k$ is the usage frequency of the $k$-th code in codebook</p>
 <ul><li>Healthy perplexity should approach $K$ (uniform usage upper bound)</li><li>In practice perplexity / K &lt; 50% is common, with some codes nearly unused</li></ul></li><li><p><strong>Mitigate</strong>:</p>
-<ul><li>EMA codebook update (basic)</li><li><strong>Dead code revival</strong>: every $T$ steps, reset $e_k$ with $N_k < \tau$ to some random $z_e$ from the current batch</li><li><strong>k-means init</strong>: before training do k-means initialization of codebook using $z_e$ from the first batch</li><li><strong>Code dropout</strong>: during training randomly drop a portion of the codebook, forcing the following stages to not depend on single codes</li><li><strong>Switch to FSQ / LFQ</strong>: structurally avoid (the simplest "mitigation")</li></ul></li></ul>
+<ul><li>EMA codebook update (basic)</li><li><strong>Dead code revival</strong>: every $T$ steps, reset $e_k$ with $N_k &lt; \tau$ to some random $z_e$ from the current batch</li><li><strong>k-means init</strong>: before training do k-means initialization of codebook using $z_e$ from the first batch</li><li><strong>Code dropout</strong>: during training randomly drop a portion of the codebook, forcing the following stages to not depend on single codes</li><li><strong>Switch to FSQ / LFQ</strong>: structurally avoid (the simplest "mitigation")</li></ul></li></ul>
 <p>Pitfalls: only answering "use a larger codebook" — wrong, larger codebook is actually more prone to collapse.</p>
 </details>
 <details>
@@ -1383,7 +1383,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/vae_vqvae_vqgan_tutorial_en.md</code> ·
   SHA256 <code>30ec2764cc2c</code> ·
-  generated at 2026-05-31 06:48 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

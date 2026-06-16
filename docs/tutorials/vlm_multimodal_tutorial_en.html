@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/vlm_multimodal_tutorial_en.md">
 <meta name="aris:source-sha256" content="6472f6d9202d3190c9d00f0c1433ad10b099f9c07bdbaa1e59cf94b71c4f4a85">
-<meta name="aris:generated-at" content="2026-05-31 06:27 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -649,7 +649,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/vlm_multimodal_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>6472f6d9202d</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 06:27 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -750,7 +750,7 @@ class ViT(nn.Module):
 <p>$$\mathbf{u}_i = \frac{f_\theta(I_i)}{\|f_\theta(I_i)\|_2}, \quad \mathbf{v}_j = \frac{g_\phi(T_j)}{\|g_\phi(T_j)\|_2}, \quad \mathbf{u}_i, \mathbf{v}_j \in S^{D-1}$$</p>
 <p>Define the similarity matrix $\mathbf{S} \in \mathbb{R}^{N\times N}$ (the "logit"):</p>
 <p>$$S_{ij} = \frac{\mathbf{u}_i^\top \mathbf{v}_j}{\tau}$$</p>
-<p>where $\tau > 0$ is the learnable temperature (engineered as <code>logit_scale = log(1/τ)</code>, which is more stable in backprop, clamped in $[\log 1, \log 100]$).</p>
+<p>where $\tau &gt; 0$ is the learnable temperature (engineered as <code>logit_scale = log(1/τ)</code>, which is more stable in backprop, clamped in $[\log 1, \log 100]$).</p>
 <h3 id="32-symmetric-infonce-loss-average-of-row--column-softmax">3.2　Symmetric InfoNCE loss (average of row + column softmax)</h3>
 <p><strong>Image → Text direction</strong> (for each image $i$, positive sample is $T_i$, negatives are $\{T_j\}_{j\neq i}$):</p>
 <p>$$\mathcal{L}_{i\to t} = -\frac{1}{N}\sum_{i=1}^{N} \log \frac{\exp(S_{ii})}{\sum_{j=1}^{N} \exp(S_{ij})}$$</p>
@@ -762,7 +762,7 @@ class ViT(nn.Module):
 <h3 id="33-gradient-derivation-why-symmetry-matters">3.3　Gradient derivation (why symmetry matters)</h3>
 <p>Fix $\tau=1$. For the row logits $\mathbf{s}_i = (S_{i1},\dots,S_{iN})^\top$ inside $\mathcal{L}_{i\to t}$, apply softmax and let $p_{ij} = \text{softmax}(\mathbf{s}_i)_j$. Then:</p>
 <p>$$\frac{\partial \mathcal{L}_{i\to t}}{\partial S_{ij}} = \frac{1}{N}\left(p_{ij} - \mathbb{1}[j=i]\right)$$</p>
-<ul><li>$j=i$ (positive): gradient $\propto p_{ii} - 1 < 0$, <strong>pulls</strong> $\mathbf{u}_i, \mathbf{v}_i$ closer</li><li>$j \neq i$ (negative): gradient $\propto p_{ij} > 0$, <strong>pushes</strong> $\mathbf{u}_i, \mathbf{v}_j$ apart</li></ul>
+<ul><li>$j=i$ (positive): gradient $\propto p_{ii} - 1 &lt; 0$, <strong>pulls</strong> $\mathbf{u}_i, \mathbf{v}_i$ closer</li><li>$j \neq i$ (negative): gradient $\propto p_{ij} &gt; 0$, <strong>pushes</strong> $\mathbf{u}_i, \mathbf{v}_j$ apart</li></ul>
 <p>With only one direction $\mathcal{L}_{i\to t}$, $\mathbf{v}_j$ receives gradient from all $\mathbf{u}_i$, but <strong>cannot in turn constrain how $\mathbf{u}_i$ behaves when retrieved by other $\mathbf{v}_k$</strong>. Symmetrization adds the text→image retrieval constraint, <strong>preventing one-sided collapse</strong> in the embedding space (where image-side clusters tightly but text-side drifts).</p>
 <h3 id="34-role-of-temperature">3.4　Role of temperature</h3>
 <p>$$\mathcal{L}_{i\to t} = -\frac{1}{N}\sum_i \log\frac{\exp(\mathbf{u}_i^\top \mathbf{v}_i / \tau)}{\sum_j \exp(\mathbf{u}_i^\top \mathbf{v}_j / \tau)}$$</p>
@@ -1074,7 +1074,7 @@ class QFormer(nn.Module):
 <ul><li><strong>Preserve original aspect ratio</strong>: resize images to the largest size near the original that is an integer multiple of patch_size</li><li><strong>Dynamic patch count</strong>: a $1024 \times 768$ image at $P=14$ slices into $73 \times 54 \approx 3942$ patches</li><li><strong>No fixed pos embed table</strong>: must use an <strong>extensible positional encoding</strong> (RoPE or 2D ALiBi-like)</li></ul>
 <h3 id="102-m-rope-multimodal-rope">10.2　M-RoPE (Multimodal RoPE)</h3>
 <p>Qwen2-VL's core innovation. <strong>Recap of ordinary 1D RoPE</strong>: treat each pair $(2k, 2k+1)$ of query / key dimensions as a complex number, multiplied by a position-dependent rotation:</p>
-<p>$$\mathbf{R}_{m,k} = \begin{pmatrix} \cos(m\theta_k) & -\sin(m\theta_k) \\ \sin(m\theta_k) & \cos(m\theta_k) \end{pmatrix}, \quad \theta_k = 10000^{-2k/d}$$</p>
+<p>$$\mathbf{R}_{m,k} = \begin{pmatrix} \cos(m\theta_k) &amp; -\sin(m\theta_k) \\ \sin(m\theta_k) &amp; \cos(m\theta_k) \end{pmatrix}, \quad \theta_k = 10000^{-2k/d}$$</p>
 <p>After applying to $\mathbf{q}_m$, $\mathbf{q}_m^\top \mathbf{k}_n$ depends only on $m - n$ (relative position).</p>
 <p><strong>M-RoPE's extension</strong>: a visual token has three position dimensions (t, h, w). <strong>All head_dim dimensions rotate</strong> — but each pair $(2k, 2k+1)$ uses one of the three position ids (t / h / w) for its rotation angle, depending on which segment it falls into:</p>
 <p>$$(\cos(m_\text{axis}\,\theta_k),\ \sin(m_\text{axis}\,\theta_k)), \quad \text{axis} \in \{t, h, w\}$$</p>
@@ -1395,7 +1395,7 @@ def apply_mrope(q, k, cos, sin):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/vlm_multimodal_tutorial_en.md</code> ·
   SHA256 <code>6472f6d9202d</code> ·
-  generated at 2026-05-31 06:27 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

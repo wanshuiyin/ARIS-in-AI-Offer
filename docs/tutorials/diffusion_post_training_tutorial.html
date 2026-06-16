@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_post_training_tutorial.md">
 <meta name="aris:source-sha256" content="95b47c84420904cb38b68b156d25372d305084281e28fec71d19c405801efef8">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -630,7 +630,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_post_training_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>95b47c844209</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -666,7 +666,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="21-把-denoising-当-mdpddpo-视角">2.1 把 denoising 当 MDP（DDPO 视角）</h3>
 <p>Black et al. 2024 ICLR <em>Training Diffusion Models with Reinforcement Learning</em>（arXiv 2305.13301）的关键观察：DDPM/DDIM 的 reverse process 本身就是一个<strong>有限 horizon MDP</strong>。</p>
 <p>定义：</p>
-<ul><li><strong>State</strong>: $s_t = (x_t, t, c)$，时间反向 $t = T, T-1, \dots, 1$</li><li><strong>Action</strong>: $a_t = x_{t-1}$（从 $p_\theta(\cdot \mid x_t, c)$ 采样得到）</li><li><strong>Transition</strong>: 确定性——$s_{t-1} = (x_{t-1}, t-1, c)$</li><li><strong>Reward</strong>: $r_t = 0$ for $t > 1$，$r_1 = R(x_0, c)$（terminal-only）</li><li><strong>Policy</strong>: $\pi_\theta(a_t \mid s_t) = p_\theta(x_{t-1} \mid x_t, c)$</li></ul>
+<ul><li><strong>State</strong>: $s_t = (x_t, t, c)$，时间反向 $t = T, T-1, \dots, 1$</li><li><strong>Action</strong>: $a_t = x_{t-1}$（从 $p_\theta(\cdot \mid x_t, c)$ 采样得到）</li><li><strong>Transition</strong>: 确定性——$s_{t-1} = (x_{t-1}, t-1, c)$</li><li><strong>Reward</strong>: $r_t = 0$ for $t &gt; 1$，$r_1 = R(x_0, c)$（terminal-only）</li><li><strong>Policy</strong>: $\pi_\theta(a_t \mid s_t) = p_\theta(x_{t-1} \mid x_t, c)$</li></ul>
 <p>策略梯度定理：</p>
 <p>$$\nabla_\theta J(\theta) = \mathbb{E}_{\tau \sim p_\theta}\!\left[\sum_{t=1}^{T} \nabla_\theta \log p_\theta(x_{t-1} \mid x_t, c)\, R(x_0, c)\right]$$</p>
 <p><strong>核心</strong>：$\log p_\theta(x_{t-1} \mid x_t, c)$ 在 DDPM 中是 Gaussian，log-prob 可解析写出，所以梯度可直接算。</p>
@@ -734,7 +734,7 @@ optimizer.step()</code></pre>
 <p><strong>关键差异</strong>：ReFL 是"单步反传 + $L_\text{simple}$ 同时训"，DRaFT/AlignProp 是"多步反传 + 纯 reward loss"。ReFL 训练更稳但 reward 涨幅小，因为只看了 $x_0$ 的一步估计而非真实采样轨迹。</p>
 <h3 id="35-三者对比">3.5 三者对比</h3>
 <table><thead><tr><th>算法</th><th>反传策略</th><th>显存</th><th>reward 涨幅</th><th>稳定性</th></tr></thead><tbody><tr><td><strong>ReFL</strong> (Xu 2023)</td><td>单步 $\hat{x}_0$ + $L_\text{simple}$ 混合</td><td>$\mathcal{O}(1)$</td><td>小</td><td>高</td></tr><tr><td><strong>DRaFT-K</strong> (Clark 2024)</td><td>最后 $K$ 步 BPTT</td><td>$\mathcal{O}(K)$</td><td>大</td><td>中（$K$ 大易过优化）</td></tr><tr><td><strong>AlignProp</strong> (Prabhudesai 2024)</td><td>随机选 $K$ 步 BPTT</td><td>$\mathcal{O}(K)$</td><td>大</td><td>中</td></tr></tbody></table>
-<div class="callout callout-info"><div class="callout-title">显存粗算</div><p>SDXL UNet 约 2.6B 参数，单 forward 在 fp16 下需要约 6–8 GB activation；$K = 5$ 时 $\sim$30–40 GB；$K = T = 50$ 时 $>$300 GB，<strong>只能多机分片</strong>。这就是为什么 $K=1$ 实测最常用——精度损失可忽略但工程友好。</p></div>
+<div class="callout callout-info"><div class="callout-title">显存粗算</div><p>SDXL UNet 约 2.6B 参数，单 forward 在 fp16 下需要约 6–8 GB activation；$K = 5$ 时 $\sim$30–40 GB；$K = T = 50$ 时 $&gt;$300 GB，<strong>只能多机分片</strong>。这就是为什么 $K=1$ 实测最常用——精度损失可忽略但工程友好。</p></div>
 <h3 id="36-reward-hacking-in-direct-reward-backprop">3.6 Reward hacking in direct reward backprop</h3>
 <p>直接反传比 RL 更容易 hacking，因为梯度信号"太精确"：</p>
 <table><thead><tr><th>现象</th><th>例子</th></tr></thead><tbody><tr><td><strong>Over-saturation</strong></td><td>HPSv2 偏好高对比度 → 训练后图像饱和度爆表</td></tr><tr><td><strong>Style monotonicity</strong></td><td>ImageReward 训练数据有偏 → 所有 prompt 输出同一风格</td></tr><tr><td><strong>Trypophobia patterns</strong></td><td>某些 RM 偏好"细密纹理"，model 学到密恐图案</td></tr><tr><td><strong>Mode collapse</strong></td><td>同一 prompt 的多次采样几乎一样</td></tr></tbody></table>
@@ -826,7 +826,7 @@ optimizer.step()</code></pre>
 <p>KL 仍用 K3 estimator（同 GRPO for LLM）。</p>
 <h3 id="55-vector-field-的-advantage-几何意义">5.5 vector field 的 advantage 几何意义</h3>
 <div class="callout callout-good"><div class="callout-title">L3 级理解</div></div>
-<ul><li>LLM GRPO 的 advantage 在 token logit 空间上做 reweight；</li><li>Flow-GRPO 的 advantage 直接 reweight $v_\theta$ 的<strong>方向修正</strong>——具体地，$\hat A_i > 0$ 时把 $v_\theta(t, x_t, c)$ 推向 trajectory $\tau_i$ 实际经过的方向 $(x_{t-1}^{(i)} - x_t^{(i)})/dt$。</li><li>这是 $v_\theta$ 空间的"方向梯度"，等价于在 Gaussian path 下的 $\epsilon$-prediction 重要性加权。</li></ul>
+<ul><li>LLM GRPO 的 advantage 在 token logit 空间上做 reweight；</li><li>Flow-GRPO 的 advantage 直接 reweight $v_\theta$ 的<strong>方向修正</strong>——具体地，$\hat A_i &gt; 0$ 时把 $v_\theta(t, x_t, c)$ 推向 trajectory $\tau_i$ 实际经过的方向 $(x_{t-1}^{(i)} - x_t^{(i)})/dt$。</li><li>这是 $v_\theta$ 空间的"方向梯度"，等价于在 Gaussian path 下的 $\epsilon$-prediction 重要性加权。</li></ul>
 <h3 id="56-flow-grpo-实测结果">5.6 Flow-GRPO 实测结果</h3>
 <p>论文报告 SD3.5-M 上：</p>
 <table><thead><tr><th>Benchmark</th><th>SD3.5-M base</th><th>Flow-GRPO</th></tr></thead><tbody><tr><td>GenEval overall</td><td>63%</td><td><strong>95%</strong></td></tr><tr><td>Visual text rendering</td><td>59%</td><td><strong>92%</strong></td></tr><tr><td>Aesthetic (Schuhmann)</td><td>5.8</td><td>6.1</td></tr></tbody></table>
@@ -1157,7 +1157,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 </details>
 <details>
 <summary>Q2. DDPO 把 diffusion 当成什么 MDP？state/action/reward 怎么定义？</summary>
-<ul><li><strong>State</strong>: $s_t = (x_t, t, c)$</li><li><strong>Action</strong>: $a_t = x_{t-1}$（从 $p_\theta(\cdot \mid x_t, c)$ 采）</li><li><strong>Transition</strong>: 确定性 $s_{t-1} = (x_{t-1}, t-1, c)$</li><li><strong>Reward</strong>: $r_t = 0$ for $t > 1$，$r_1 = R(x_0, c)$（terminal-only）</li></ul>
+<ul><li><strong>State</strong>: $s_t = (x_t, t, c)$</li><li><strong>Action</strong>: $a_t = x_{t-1}$（从 $p_\theta(\cdot \mid x_t, c)$ 采）</li><li><strong>Transition</strong>: 确定性 $s_{t-1} = (x_{t-1}, t-1, c)$</li><li><strong>Reward</strong>: $r_t = 0$ for $t &gt; 1$，$r_1 = R(x_0, c)$（terminal-only）</li></ul>
 <p>说成"per-step reward"（错，只在终态）；或不知道 transition 是确定性的（noise 是 action 自带的）。</p>
 </details>
 <details>
@@ -1276,7 +1276,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <details>
 <summary>Q23. Flow-GRPO 中 vector field $v_\theta$ 的 advantage 几何意义？</summary>
 <p>GRPO 的 advantage 在 vector field 空间作用如下：</p>
-<ol><li><strong>Group statistics</strong>：对同一 prompt $c$ sample $G$ 条 SDE trajectory，每条得到不同 $x_0^{(i)}$；reward $r_i$ 给整条 trajectory 同一 advantage $\hat A_i = (r_i - \bar r)/\sigma_r$。</li><li><strong>沿 trajectory 的梯度</strong>：$\nabla_\theta L = \sum_t \nabla_\theta \log p_\theta(x_{t-1}^{(i)} \mid x_t^{(i)}) \cdot \hat A_i$。在 Gaussian transition 下，$\log p \propto -(x_{t-1} - \mu_\theta)^2/(2\sigma^2)$，所以 $\nabla_\theta \log p \propto (x_{t-1} - \mu_\theta)\nabla_\theta \mu_\theta / \sigma^2$。</li><li><strong>$\mu_\theta$ 的物理含义</strong>：在 Flow Matching SDE 下，$\mu_\theta = x_t + (v_\theta + \frac{1}{2}\sigma^2 s_\theta) dt$；$\nabla_\theta \mu_\theta \approx dt \cdot \nabla_\theta v_\theta$（忽略 score 项）。</li><li><strong>几何意义</strong>：advantage $\hat A_i > 0$ 时，把 $v_\theta(t, x_t^{(i)})$ 朝 $(x_{t-1}^{(i)} - x_t^{(i)})/dt$ 方向推（即 trajectory 实际经过的方向）；advantage $<0$ 时，朝相反方向推。</li><li><strong>vs ODE 视角</strong>：等价于在 vector field 空间做"组相对方向 reweight"——好的 trajectory 让 $v_\theta$ 在那个 $(t, x_t)$ 上指向它经过的方向，坏的反之。</li></ol>
+<ol><li><strong>Group statistics</strong>：对同一 prompt $c$ sample $G$ 条 SDE trajectory，每条得到不同 $x_0^{(i)}$；reward $r_i$ 给整条 trajectory 同一 advantage $\hat A_i = (r_i - \bar r)/\sigma_r$。</li><li><strong>沿 trajectory 的梯度</strong>：$\nabla_\theta L = \sum_t \nabla_\theta \log p_\theta(x_{t-1}^{(i)} \mid x_t^{(i)}) \cdot \hat A_i$。在 Gaussian transition 下，$\log p \propto -(x_{t-1} - \mu_\theta)^2/(2\sigma^2)$，所以 $\nabla_\theta \log p \propto (x_{t-1} - \mu_\theta)\nabla_\theta \mu_\theta / \sigma^2$。</li><li><strong>$\mu_\theta$ 的物理含义</strong>：在 Flow Matching SDE 下，$\mu_\theta = x_t + (v_\theta + \frac{1}{2}\sigma^2 s_\theta) dt$；$\nabla_\theta \mu_\theta \approx dt \cdot \nabla_\theta v_\theta$（忽略 score 项）。</li><li><strong>几何意义</strong>：advantage $\hat A_i &gt; 0$ 时，把 $v_\theta(t, x_t^{(i)})$ 朝 $(x_{t-1}^{(i)} - x_t^{(i)})/dt$ 方向推（即 trajectory 实际经过的方向）；advantage $&lt;0$ 时，朝相反方向推。</li><li><strong>vs ODE 视角</strong>：等价于在 vector field 空间做"组相对方向 reweight"——好的 trajectory 让 $v_\theta$ 在那个 $(t, x_t)$ 上指向它经过的方向，坏的反之。</li></ol>
 <p>这是 vector field 上的 "reward-weighted importance sampling"：每条 SDE trajectory 是 $v_\theta$ 的一次"提议方向"，advantage 决定要不要 follow。</p>
 <p>完全说不出几何就 0 分；说"reweighting"但不能说清在哪个空间也只值半分。</p>
 </details>
@@ -1299,7 +1299,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <p><strong>Phase 3: Reward 设计</strong></p>
 <ul><li><strong>Multi-RM ensemble</strong>（min 或 mean - k·std）：HPSv2 + PickScore + ImageReward。</li><li><strong>加 rule-based safety</strong>：NSFW detector hard penalty。</li><li><strong>加 rule-based alignment</strong>：GenEval 自动 verifier（object count, OCR）。</li><li><strong>每个 RM 独立 z-score 归一化</strong>。</li></ul>
 <p><strong>Phase 4: 监控与 early stop</strong></p>
-<ul><li>每 N 步算 reward + FID-100k；reward 涨 + FID 涨 = hacking 信号。</li><li>KL budget 监控：$\text{KL}(p_\theta \Vert p_\text{ref}) > K_\text{target}$ 时 stop。</li><li>Human eval blind A/B (base vs RL) 每 1000 steps。</li></ul>
+<ul><li>每 N 步算 reward + FID-100k；reward 涨 + FID 涨 = hacking 信号。</li><li>KL budget 监控：$\text{KL}(p_\theta \Vert p_\text{ref}) &gt; K_\text{target}$ 时 stop。</li><li>Human eval blind A/B (base vs RL) 每 1000 steps。</li></ul>
 <p><strong>Phase 5: distill 衔接</strong></p>
 <ul><li>Post-training 完后做 ADD / LCM 蒸馏到 4-step / 1-step。</li><li>注意 distill 可能消除部分 RL 增益，需要 distill-aware 后训。</li></ul>
 <p>只答"用 Diffusion-DPO" 是浅；要答出"phase 分解 + 多 reward + 监控 + distill 衔接"才完整。</p>
@@ -1312,7 +1312,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <h3 id="a3-开源训练代码">A.3 开源训练代码</h3>
 <ul><li><strong>TRL (HuggingFace)</strong>：<code>diffusers</code> + <code>DPO Trainer</code> for Diffusion-DPO（最成熟）</li><li><strong>DDPO 原始仓库</strong>：https://github.com/kvablack/ddpo-pytorch</li><li><strong>AlignProp</strong>：https://github.com/mihirp1998/AlignProp</li><li><strong>DRaFT (Google research)</strong>：https://github.com/clarkjkr/draft（Clark et al. 2024 ICLR）</li><li><strong>MaPO</strong>：https://github.com/mapo-t2i/mapo</li><li><strong>Flow-GRPO</strong>：通过论文 arXiv 2505.05470 找官方实现</li></ul>
 <h3 id="a4-工程踩坑清单">A.4 工程踩坑清单</h3>
-<table><thead><tr><th>坑</th><th>解</th></tr></thead><tbody><tr><td>Diffusion-DPO 没 paired noise</td><td>$\epsilon$ for $x_t^w$ 和 $x_t^l$ 必须共享</td></tr><tr><td>DDPO 用 DDIM-eta=0</td><td>必须 eta&gt;0 或 DDPM，否则梯度为 0</td></tr><tr><td>AlignProp 显存爆炸</td><td>$K=1$ + gradient checkpoint + LoRA</td></tr><tr><td>Reward scale 不归一化</td><td>每个 RM 单独 z-score</td></tr><tr><td>RL 后 FID 暴跌</td><td>加 KL anchor 或 reward ensemble</td></tr><tr><td>$\beta$ 调不动</td><td>Diffusion-DPO 用 $\beta \in [2000, 5000]$，不是 LLM 的 0.1</td></tr><tr><td>Flow-GRPO 训练慢</td><td>用 denoising reduction ($T_\text{train} < T_\text{infer}$)</td></tr><tr><td>MaPO 训崩</td><td>$\alpha\hat\ell_w$ 项必须够大防 likelihood 一起降</td></tr><tr><td>Step-RM 训不起来</td><td>用 rollout-based 自动标注（类 Math-Shepherd）</td></tr><tr><td>reward hacking 检测不到</td><td>同时监控 reward + FID + human blind A/B</td></tr></tbody></table>
+<table><thead><tr><th>坑</th><th>解</th></tr></thead><tbody><tr><td>Diffusion-DPO 没 paired noise</td><td>$\epsilon$ for $x_t^w$ 和 $x_t^l$ 必须共享</td></tr><tr><td>DDPO 用 DDIM-eta=0</td><td>必须 eta&gt;0 或 DDPM，否则梯度为 0</td></tr><tr><td>AlignProp 显存爆炸</td><td>$K=1$ + gradient checkpoint + LoRA</td></tr><tr><td>Reward scale 不归一化</td><td>每个 RM 单独 z-score</td></tr><tr><td>RL 后 FID 暴跌</td><td>加 KL anchor 或 reward ensemble</td></tr><tr><td>$\beta$ 调不动</td><td>Diffusion-DPO 用 $\beta \in [2000, 5000]$，不是 LLM 的 0.1</td></tr><tr><td>Flow-GRPO 训练慢</td><td>用 denoising reduction ($T_\text{train} &lt; T_\text{infer}$)</td></tr><tr><td>MaPO 训崩</td><td>$\alpha\hat\ell_w$ 项必须够大防 likelihood 一起降</td></tr><tr><td>Step-RM 训不起来</td><td>用 rollout-based 自动标注（类 Math-Shepherd）</td></tr><tr><td>reward hacking 检测不到</td><td>同时监控 reward + FID + human blind A/B</td></tr></tbody></table>
 <h3 id="a5-与-0-tldr-的呼应">A.5 与 §0 TL;DR 的呼应</h3>
 <table><thead><tr><th>TL;DR 条</th><th>详见章节</th></tr></thead><tbody><tr><td>1. 为什么难</td><td>§1</td></tr><tr><td>2. 三条主线</td><td>§1.2</td></tr><tr><td>3. DDPO</td><td>§2.1–2.4</td></tr><tr><td>4. DRaFT / AlignProp</td><td>§3.2–3.3</td></tr><tr><td>5. Diffusion-DPO</td><td>§4.1</td></tr><tr><td>6. D3PO</td><td>§4.2</td></tr><tr><td>7. SPO</td><td>§4.3</td></tr><tr><td>8. Flow-GRPO</td><td>§5</td></tr><tr><td>9. Reward hacking</td><td>§3.6 + §7</td></tr></tbody></table>
 <div class="callout callout-good"><div class="callout-title">学完 checkpoint</div></div>
@@ -1322,7 +1322,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_post_training_tutorial.md</code> ·
   SHA256 <code>95b47c844209</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

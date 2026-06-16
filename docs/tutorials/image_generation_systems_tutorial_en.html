@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/image_generation_systems_tutorial_en.md">
 <meta name="aris:source-sha256" content="b2253581ba198fd353cb3714c3dc26e0f5aa3bd77e50f1693fcad96bb5cb733b">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -632,7 +632,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/image_generation_systems_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>b2253581ba19</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -670,7 +670,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <ul><li><strong>U-Net 860M parameters</strong>: cross-attention is placed at three downsample levels of latent resolution 64 / 32 / 16 + corresponding upsample blocks + middle block (SD v1 config <code>attention_resolutions = [4, 2, 1]</code>, DS=1/2/4 i.e. 64/32/16; the deepest DS=8 i.e. 8×8 downsample/upsample block only has ResBlocks without transformer, but the middle block at 8×8 does have transformer); text comes from CLIP-L (<code>openai/clip-vit-large-patch14</code>, 768-d), providing 77 token embeddings</li><li><strong>Objective</strong>: $\epsilon$-prediction (DDPM Ho et al. 2020 NeurIPS)</li><li><strong>Training resolution</strong>: 512², 1B+ LAION images</li><li>2.x switches to OpenCLIP-H/14 (stronger and cleaner license) and fine-tunes at 768²</li></ul>
 <h3 id="32-sdxl-podell-et-al-2024-iclr">3.2　SDXL (Podell et al. 2024 ICLR)</h3>
 <p>Three key upgrades:</p>
-<table><thead><tr><th>Change</th><th>Detail</th></tr></thead><tbody><tr><td><strong>2.6B U-Net</strong></td><td>Wider and deeper; 3× the 1.x parameters</td></tr><tr><td><strong>Dual text encoders</strong></td><td>OpenCLIP-G (1280-d) + CLIP-L (768-d); concat then do cross-attn</td></tr><tr><td><strong>Size &amp; crop conditioning</strong></td><td>At training, $(h_\text{orig}, w_\text{orig})$ and $(h_\text{crop}, w_\text{crop})$ are Fourier-embedded and <strong>added to the timestep embedding</strong>, so the model explicitly knows "this image's original size and crop region", preventing low-resolution / crop artifacts from leaking into inference</td></tr><tr><td><strong>Refiner</strong></td><td>A separate latent diffusion model dedicated to the last ~20% of the noise level ($t < 0.2$) for detail refinement; optional</td></tr><tr><td><strong>Training resolution</strong></td><td>1024² (final), with bucketing across aspect ratios</td></tr></tbody></table>
+<table><thead><tr><th>Change</th><th>Detail</th></tr></thead><tbody><tr><td><strong>2.6B U-Net</strong></td><td>Wider and deeper; 3× the 1.x parameters</td></tr><tr><td><strong>Dual text encoders</strong></td><td>OpenCLIP-G (1280-d) + CLIP-L (768-d); concat then do cross-attn</td></tr><tr><td><strong>Size &amp; crop conditioning</strong></td><td>At training, $(h_\text{orig}, w_\text{orig})$ and $(h_\text{crop}, w_\text{crop})$ are Fourier-embedded and <strong>added to the timestep embedding</strong>, so the model explicitly knows "this image's original size and crop region", preventing low-resolution / crop artifacts from leaking into inference</td></tr><tr><td><strong>Refiner</strong></td><td>A separate latent diffusion model dedicated to the last ~20% of the noise level ($t &lt; 0.2$) for detail refinement; optional</td></tr><tr><td><strong>Training resolution</strong></td><td>1024² (final), with bucketing across aspect ratios</td></tr></tbody></table>
 <div class="callout callout-good"><div class="callout-title">Size conditioning training effect</div><p>SDXL Table 1: without size conditioning, the model sees 512² LAION images and treats "low-res feel" as a data prior, producing blurry outputs at 1024² inference; with size conditioning, filling <code>(1024, 1024)</code> at inference tells the model "I want 1024 quality", <strong>significantly reducing blur / blocky artifacts</strong>. Crop conditioning analogously fixes LAION's center-crop bias.</p></div>
 <h3 id="33-sd3-esser-et-al-2024-icml">3.3　SD3 (Esser et al. 2024 ICML)</h3>
 <p>Two core changes:</p>
@@ -1285,7 +1285,7 @@ def sdedit_sample(unet, vae, text_encoder, tokenizer, scheduler,
 <details>
 
 <summary>Q20. Is the SDXL Refiner required? When to use?</summary>
-<ul><li>Not required; the Refiner is a separate latent diffusion model dedicated to the last ~20% noise level</li><li>Mainly refines details (skin / hair / texture)</li><li>When the base U-Net hits $t < 0.2$, switch to the Refiner to continue</li><li>In practice the Refiner's gain is small but adds time; the community often <strong>skips</strong> it</li></ul>
+<ul><li>Not required; the Refiner is a separate latent diffusion model dedicated to the last ~20% noise level</li><li>Mainly refines details (skin / hair / texture)</li><li>When the base U-Net hits $t &lt; 0.2$, switch to the Refiner to continue</li><li>In practice the Refiner's gain is small but adds time; the community often <strong>skips</strong> it</li></ul>
 <p>Common pitfall: assuming Refiner is mandatory; saying it's "trained jointly" (actually two-stage independent training).</p>
 </details>
 <h3 id="l3-top-lab--deep-questions-research-lead-perspective">L3 top-lab / deep questions (research-lead perspective)</h3>
@@ -1375,7 +1375,7 @@ text K/V (frozen)  ──┘──► attended_out → added to image latent res
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/image_generation_systems_tutorial_en.md</code> ·
   SHA256 <code>b2253581ba19</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

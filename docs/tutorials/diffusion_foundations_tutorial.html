@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_foundations_tutorial.md">
 <meta name="aris:source-sha256" content="95c1efc6f929678361bb3b54ef684da7def546002107412458fd14673ebbef67">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -653,7 +653,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_foundations_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>95c1efc6f929</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -691,7 +691,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1-\bar\alpha_t}\, \epsilon, \quad \epsilon \sim \mathcal{N}(0, I)$$</p>
 <h3 id="22-闭式推导必考会反复出现">2.2　闭式推导（必考，会反复出现）</h3>
 <p>由 reparameterization $x_t = \sqrt{\alpha_t} x_{t-1} + \sqrt{\beta_t} z_t$，$z_t \sim \mathcal{N}(0, I)$ 独立。递推：</p>
-<p>$$ \begin{aligned} x_t &= \sqrt{\alpha_t} x_{t-1} + \sqrt{\beta_t} z_t \\     &= \sqrt{\alpha_t}\left(\sqrt{\alpha_{t-1}} x_{t-2} + \sqrt{\beta_{t-1}} z_{t-1}\right) + \sqrt{\beta_t} z_t \\     &= \sqrt{\alpha_t \alpha_{t-1}}\, x_{t-2} + \underbrace{\sqrt{\alpha_t \beta_{t-1}} z_{t-1} + \sqrt{\beta_t} z_t}_{\text{独立 Gaussian 之和}} \end{aligned} $$</p>
+<p>$$ \begin{aligned} x_t &amp;= \sqrt{\alpha_t} x_{t-1} + \sqrt{\beta_t} z_t \\     &amp;= \sqrt{\alpha_t}\left(\sqrt{\alpha_{t-1}} x_{t-2} + \sqrt{\beta_{t-1}} z_{t-1}\right) + \sqrt{\beta_t} z_t \\     &amp;= \sqrt{\alpha_t \alpha_{t-1}}\, x_{t-2} + \underbrace{\sqrt{\alpha_t \beta_{t-1}} z_{t-1} + \sqrt{\beta_t} z_t}_{\text{独立 Gaussian 之和}} \end{aligned} $$</p>
 <p>两个独立 Gaussian 之和的方差：$\alpha_t \beta_{t-1} + \beta_t = \alpha_t(1 - \alpha_{t-1}) + (1 - \alpha_t) = 1 - \alpha_t \alpha_{t-1}$。所以可以合并成单个 Gaussian $\sqrt{1 - \alpha_t \alpha_{t-1}}\, \bar z$。归纳到 $t$ 步：</p>
 <p>$$x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1 - \bar\alpha_t}\, \epsilon$$</p>
 <div class="callout callout-info"><div class="callout-title">变分 trick 直觉</div><p>Markov chain 的好处是每一步都是 Gaussian，所以累积仍是 Gaussian；这让 forward 不用网络就能采样、训练时不用模拟整条链。</p></div>
@@ -704,7 +704,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$p_\theta(x_{t-1} | x_t) = \mathcal{N}\!\left(x_{t-1};\; \mu_\theta(x_t, t),\; \Sigma_\theta(x_t, t)\right)$$</p>
 <h3 id="32-elbo-推导">3.2　ELBO 推导</h3>
 <p>DDPM 优化 evidence lower bound（与 VAE 类似）：</p>
-<p>$$ \begin{aligned} \log p_\theta(x_0) &\ge \mathbb{E}_{q(x_{1:T}|x_0)}\left[\log \frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}\right] \\ &= -\underbrace{\mathbb{E}_q[\text{KL}(q(x_T|x_0) \,\Vert\, p(x_T))]}_{L_T \text{（常数，prior 匹配）}} \\ &\quad - \sum_{t=2}^T \underbrace{\mathbb{E}_q[\text{KL}(q(x_{t-1}|x_t, x_0) \,\Vert\, p_\theta(x_{t-1}|x_t))]}_{L_{t-1}} \\ &\quad + \underbrace{\mathbb{E}_q[\log p_\theta(x_0 | x_1)]}_{L_0 \text{（decoder log-likelihood）}} \end{aligned} $$</p>
+<p>$$ \begin{aligned} \log p_\theta(x_0) &amp;\ge \mathbb{E}_{q(x_{1:T}|x_0)}\left[\log \frac{p_\theta(x_{0:T})}{q(x_{1:T}|x_0)}\right] \\ &amp;= -\underbrace{\mathbb{E}_q[\text{KL}(q(x_T|x_0) \,\Vert\, p(x_T))]}_{L_T \text{（常数，prior 匹配）}} \\ &amp;\quad - \sum_{t=2}^T \underbrace{\mathbb{E}_q[\text{KL}(q(x_{t-1}|x_t, x_0) \,\Vert\, p_\theta(x_{t-1}|x_t))]}_{L_{t-1}} \\ &amp;\quad + \underbrace{\mathbb{E}_q[\log p_\theta(x_0 | x_1)]}_{L_0 \text{（decoder log-likelihood）}} \end{aligned} $$</p>
 <p><strong>核心</strong>：$q(x_{t-1} | x_t, x_0)$ 是闭式 Gaussian（由 Bayes 推得）：</p>
 <p>$$q(x_{t-1} | x_t, x_0) = \mathcal{N}\!\left(x_{t-1};\; \tilde\mu_t(x_t, x_0),\; \tilde\beta_t I\right)$$</p>
 <p>其中：</p>
@@ -721,7 +721,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="callout callout-good"><div class="callout-title">为什么扔系数也能 work？</div><p>Ho 2020 经验观察：unweighted 版本相当于<strong>给低 SNR（高 $t$）loss 更大权重</strong>，反而提升 sample 质量。但代价是 $\log$-likelihood 不再是 ELBO 下界——所以"FID 好"≠"likelihood 好"。后续 Improved DDPM (Nichol-Dhariwal 2021) 引入 hybrid loss $L_\text{hybrid} = L_\text{simple} + \lambda L_\text{vlb}$（$\lambda = 0.001$），同时学 $\Sigma_\theta$。</p></div>
 <h3 id="34-预测目标的等价转换必背">3.4　预测目标的等价转换（必背）</h3>
 <p>给定 $x_t = \sqrt{\bar\alpha_t} x_0 + \sqrt{1-\bar\alpha_t}\epsilon$，三种主流参数化线性可逆：</p>
-<p>$$ \begin{aligned} \epsilon\text{-pred} &:\quad \epsilon_\theta(x_t, t) \approx \epsilon \\ x_0\text{-pred} &:\quad \hat x_0(x_t, t) = \frac{x_t - \sqrt{1-\bar\alpha_t}\, \epsilon_\theta}{\sqrt{\bar\alpha_t}} \\ v\text{-pred (Salimans-Ho 2022)} &:\quad v_\theta = \sqrt{\bar\alpha_t}\, \epsilon - \sqrt{1-\bar\alpha_t}\, x_0 \\ \text{score} &:\quad s_\theta(x_t, t) = -\frac{\epsilon_\theta(x_t, t)}{\sqrt{1-\bar\alpha_t}} \end{aligned} $$</p>
+<p>$$ \begin{aligned} \epsilon\text{-pred} &amp;:\quad \epsilon_\theta(x_t, t) \approx \epsilon \\ x_0\text{-pred} &amp;:\quad \hat x_0(x_t, t) = \frac{x_t - \sqrt{1-\bar\alpha_t}\, \epsilon_\theta}{\sqrt{\bar\alpha_t}} \\ v\text{-pred (Salimans-Ho 2022)} &amp;:\quad v_\theta = \sqrt{\bar\alpha_t}\, \epsilon - \sqrt{1-\bar\alpha_t}\, x_0 \\ \text{score} &amp;:\quad s_\theta(x_t, t) = -\frac{\epsilon_\theta(x_t, t)}{\sqrt{1-\bar\alpha_t}} \end{aligned} $$</p>
 <div class="callout callout-info"><div class="callout-title">v-prediction 为何更稳？</div><p>$\epsilon$-pred 在 $t \to 0$（小噪声）时退化（loss 系数爆炸）；$x_0$-pred 在 $t \to T$（大噪声）时退化；$v$-pred 是两者插值，在所有 $t$ 上 loss 数值范围近似一致——是 Imagen Video / SD2.1-v / Karras EDM 选用的关键。</p></div>
 <h2 id="4-schedulelinear--cosine--edm">§4 Schedule：linear / cosine / EDM</h2>
 <h3 id="41-linear-ho-2020">4.1　Linear (Ho 2020)</h3>
@@ -762,7 +762,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\sigma_t^2 \nabla_{x_t} \log p_t(x_t) = \mathbb{E}[x_0 | x_t] - x_t \quad \Rightarrow \quad \mathbb{E}[x_0 | x_t] = x_t + \sigma_t^2 \nabla_{x_t} \log p_t(x_t) \quad \square$$</p>
 <div class="callout callout-good"><div class="callout-title">Tweedie 是连接所有 diffusion 参数化的&quot;罗塞塔石碑&quot;</div><p>denoiser 网络的最优输出（MMSE estimator）就是 score 加上恒等映射。所有 $\epsilon$-pred / score-pred / $x_0$-pred / $v$-pred 之间的转换都是 Tweedie 的一行式重排。</p></div>
 <h3 id="54-ncsn--smld-song-ermon-2019">5.4　NCSN / SMLD (Song-Ermon 2019)</h3>
-<p><strong>Noise-Conditional Score Network</strong>：训练一个共享网络 $s_\theta(x, \sigma)$，对一组噪声水平 $\sigma_1 > \sigma_2 > \dots > \sigma_L$ 同时做 DSM。采样时做 <strong>annealed Langevin dynamics</strong>：先在大 $\sigma_1$ 上 Langevin（探索全空间），逐步降到 $\sigma_L$（精修细节）。</p>
+<p><strong>Noise-Conditional Score Network</strong>：训练一个共享网络 $s_\theta(x, \sigma)$，对一组噪声水平 $\sigma_1 &gt; \sigma_2 &gt; \dots &gt; \sigma_L$ 同时做 DSM。采样时做 <strong>annealed Langevin dynamics</strong>：先在大 $\sigma_1$ 上 Langevin（探索全空间），逐步降到 $\sigma_L$（精修细节）。</p>
 <p>$$x \leftarrow x + \frac{\epsilon_i}{2} s_\theta(x, \sigma_i) + \sqrt{\epsilon_i}\, z, \quad \epsilon_i = \eta \cdot (\sigma_i / \sigma_L)^2$$</p>
 <p>每个 $\sigma_i$ 跑 $T$ 步 Langevin，然后切到下一个 $\sigma_{i+1}$。</p>
 <div class="callout callout-warn"><div class="callout-title">为什么单一 $\sigma$ 不行？</div><p>小 $\sigma$ 训出来的 score 在远离数据流形的地方完全错（mode 之间的"空地带" $p(x) \approx 0$，score 给不出方向）。多 noise level 的核心是用大 $\sigma$ 把空间"填满"，给小 $\sigma$ 提供初始位置。</p></div>
@@ -808,9 +808,9 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="73-ddim-采样公式">7.3　DDIM 采样公式</h3>
 <p>把 $x_0 \to \hat x_0 = (x_t - \sqrt{1-\bar\alpha_t}\, \epsilon_\theta(x_t, t)) / \sqrt{\bar\alpha_t}$ 代入：</p>
 <p>$$\boxed{\; x_{t-1} = \sqrt{\bar\alpha_{t-1}}\, \hat x_0 + \sqrt{1 - \bar\alpha_{t-1} - \sigma_t^2}\, \epsilon_\theta(x_t, t) + \sigma_t\, z, \quad z \sim \mathcal{N}(0, I) \;}$$</p>
-<ul><li><strong>$\eta = 0$（DDIM）</strong>：$\sigma_t = 0$，<strong>确定性</strong>——同 $x_T$ 同 $\hat x_0$（latent space interpolation 友好）</li><li><strong>$\eta = 1$（走完整 $T$ 步）</strong>：$\sigma_t = \sqrt{\tilde\beta_t}$，退化为标准 DDPM ancestral sampler；skip 步数 $S < T$ 时只是匹配方差量级，不严格等价 1000 步 DDPM</li><li>中间 $\eta \in (0, 1)$：随机性可调</li></ul>
+<ul><li><strong>$\eta = 0$（DDIM）</strong>：$\sigma_t = 0$，<strong>确定性</strong>——同 $x_T$ 同 $\hat x_0$（latent space interpolation 友好）</li><li><strong>$\eta = 1$（走完整 $T$ 步）</strong>：$\sigma_t = \sqrt{\tilde\beta_t}$，退化为标准 DDPM ancestral sampler；skip 步数 $S &lt; T$ 时只是匹配方差量级，不严格等价 1000 步 DDPM</li><li>中间 $\eta \in (0, 1)$：随机性可调</li></ul>
 <h3 id="74-skip-steps少步数采样">7.4　Skip steps（少步数采样）</h3>
-<p>不必逐步 $t \to t-1$，可以跳：选 sub-sequence $\tau_0 < \tau_1 < \dots < \tau_S = T$，做：</p>
+<p>不必逐步 $t \to t-1$，可以跳：选 sub-sequence $\tau_0 &lt; \tau_1 &lt; \dots &lt; \tau_S = T$，做：</p>
 <p>$$x_{\tau_{i-1}} = \sqrt{\bar\alpha_{\tau_{i-1}}}\, \hat x_0 + \sqrt{1 - \bar\alpha_{\tau_{i-1}} - \sigma_{\tau_i}^2}\, \epsilon_\theta(x_{\tau_i}, \tau_i) + \sigma_{\tau_i}\, z$$</p>
 <p>经典 baseline：$S = 50$ 步 DDIM 在 ImageNet 256 上 FID 接近 DDPM 1000 步。</p>
 <div class="callout callout-good"><div class="callout-title">DDIM = probability flow ODE 的离散化</div><p>当 $\eta = 0$ 且时间网格连续化时，DDIM 退化为 VP-SDE 对应的 probability flow ODE 的一阶 Euler 离散——这是为什么 deterministic DDIM 与 ODE-based 采样（DPM-Solver、EDM Heun）连成一线。</p></div>
@@ -887,12 +887,12 @@ else:
 <p>$$\boxed{\; \tilde\epsilon = \epsilon_\theta(x_t, t, \emptyset) + (1 + w)\big[\epsilon_\theta(x_t, t, c) - \epsilon_\theta(x_t, t, \emptyset)\big] \;}$$</p>
 <p>等价形式（Imagen / SD 实现常用）：</p>
 <p>$$\tilde\epsilon = (1 + w)\, \epsilon_\theta(x_t, t, c) - w\, \epsilon_\theta(x_t, t, \emptyset)$$</p>
-<div class="callout callout-warn"><div class="callout-title">CFG $w$ 的两种 convention</div><p>论文 Ho-Salimans 2022 原文 $\tilde\epsilon = \epsilon_\text{uncond} + (1+w)(\epsilon_\text{cond} - \epsilon_\text{uncond})$，即 $w = 0$ 是 unguided、$w > 0$ 增强。但 HuggingFace / SD UI 常用 $w' = w + 1$，即 $w' = 1$ 是 unguided、$w' = 7.5$ 是常用强度。<strong>面试代码记得标明 convention</strong>。</p></div>
+<div class="callout callout-warn"><div class="callout-title">CFG $w$ 的两种 convention</div><p>论文 Ho-Salimans 2022 原文 $\tilde\epsilon = \epsilon_\text{uncond} + (1+w)(\epsilon_\text{cond} - \epsilon_\text{uncond})$，即 $w = 0$ 是 unguided、$w &gt; 0$ 增强。但 HuggingFace / SD UI 常用 $w' = w + 1$，即 $w' = 1$ 是 unguided、$w' = 7.5$ 是常用强度。<strong>面试代码记得标明 convention</strong>。</p></div>
 <h3 id="103-cfg-的几何意义">10.3　CFG 的几何意义</h3>
 <p>CFG 等价于把采样轨迹拉向"条件梯度"方向：</p>
 <p>$$\nabla_{x_t} \log p(x_t | c) \approx \nabla_{x_t} \log p(x_t) + w \nabla_{x_t} \log \frac{p(x_t | c)}{p(x_t)}$$</p>
 <p>第二项是"条件性 score 差"，把样本推向 conditional likelihood 高、unconditional likelihood 相对低的区域——直觉上"放大文本对齐"。</p>
-<div class="callout callout-good"><div class="callout-title">CFG 是 SD/SDXL/FLUX 文图对齐的核心</div><p>$w \in [3, 7.5]$ 是 Stable Diffusion 的实验 sweet spot；$w > 10$ 容易 over-saturated（颜色饱和、artifact）。FLUX 把 CFG 内化进 distillation（"guidance-distilled"），单 forward 就实现 CFG 效果——这是它推理速度的关键之一。</p></div>
+<div class="callout callout-good"><div class="callout-title">CFG 是 SD/SDXL/FLUX 文图对齐的核心</div><p>$w \in [3, 7.5]$ 是 Stable Diffusion 的实验 sweet spot；$w &gt; 10$ 容易 over-saturated（颜色饱和、artifact）。FLUX 把 CFG 内化进 distillation（"guidance-distilled"），单 forward 就实现 CFG 效果——这是它推理速度的关键之一。</p></div>
 <h2 id="11-production从-ldm-到-flux">§11 Production：从 LDM 到 FLUX</h2>
 <h3 id="111-latent-diffusion-ldm-rombach-2022-cvpr">11.1　Latent Diffusion (LDM, Rombach 2022 CVPR)</h3>
 <p><strong>核心 idea</strong>：在 VAE latent space 而非 pixel space 跑 diffusion。</p>
@@ -1007,7 +1007,7 @@ else:
 <details>
 <summary>Q7.CFG (Classifier-Free Guidance) 怎么训怎么用？</summary>
 <ul><li>训练：以 $p_\text{drop}=0.1$ 概率把 $c$ 替换为 $\emptyset$（null embedding），同一 net 学 conditional/uncond</li><li><p>推理两种 convention（务必区分）：</p>
-<ul><li><strong>HF / SD 风格</strong>（记为 $s$）：$\tilde\epsilon = \epsilon_\theta(x,\emptyset) + s\,[\epsilon_\theta(x,c) - \epsilon_\theta(x,\emptyset)]$，$s=1$ 即无 guidance，$s\in[3, 7.5]$ 为 SD 常用强度</li><li><strong>Ho-Salimans 2022 原文</strong>（记为 $w$）：$\tilde\epsilon = (1+w)\,\epsilon_\theta(x,c) - w\,\epsilon_\theta(x,\emptyset)$，$w=0$ 即无 guidance，等价 $s = w + 1$</li></ul></li><li>$s$ 大 → 文本对齐强 但多样性下降；$s>10$ → 色彩过饱和</li></ul>
+<ul><li><strong>HF / SD 风格</strong>（记为 $s$）：$\tilde\epsilon = \epsilon_\theta(x,\emptyset) + s\,[\epsilon_\theta(x,c) - \epsilon_\theta(x,\emptyset)]$，$s=1$ 即无 guidance，$s\in[3, 7.5]$ 为 SD 常用强度</li><li><strong>Ho-Salimans 2022 原文</strong>（记为 $w$）：$\tilde\epsilon = (1+w)\,\epsilon_\theta(x,c) - w\,\epsilon_\theta(x,\emptyset)$，$w=0$ 即无 guidance，等价 $s = w + 1$</li></ul></li><li>$s$ 大 → 文本对齐强 但多样性下降；$s&gt;10$ → 色彩过饱和</li></ul>
 <p>只写公式不知 $w$/$s$ convention；不知道 drop $c$ 的训练 trick；说 CFG 需要单独训 classifier（那是 classifier guidance）。</p>
 </details>
 <details>
@@ -1128,7 +1128,7 @@ else:
 <details>
 <summary>Q24.Consistency Distillation 的训练流程？为什么需要 EMA target $\theta^-$？</summary>
 <p><strong>流程</strong>：</p>
-<ol><li>取 pretrained teacher diffusion $\epsilon_\phi$ + 其 PF-ODE solver（如 EDM Heun）</li><li>取 noise schedule $\sigma_1 > \sigma_2 > \dots > \sigma_N = \sigma_\text{min}$（典型 $N = 18$）</li><li>训练 student $f_\theta(x_\sigma, \sigma) \to x_0$，初始化 $\theta = \phi$ (warm start)</li><li><p>每个 batch：</p>
+<ol><li>取 pretrained teacher diffusion $\epsilon_\phi$ + 其 PF-ODE solver（如 EDM Heun）</li><li>取 noise schedule $\sigma_1 &gt; \sigma_2 &gt; \dots &gt; \sigma_N = \sigma_\text{min}$（典型 $N = 18$）</li><li>训练 student $f_\theta(x_\sigma, \sigma) \to x_0$，初始化 $\theta = \phi$ (warm start)</li><li><p>每个 batch：</p>
 <ul><li>采样 $x_0$，$\sigma_n$（uniformly $n \in \{1, \dots, N-1\}$）</li><li>加噪：$x_{\sigma_{n+1}} = x_0 + \sigma_{n+1} \epsilon$</li><li><strong>Teacher ODE solve 一步</strong>：从 $x_{\sigma_{n+1}}$ 用 teacher $\epsilon_\phi$ 做 Heun step 到 $\hat x_{\sigma_n}$</li><li>Loss: $d(f_\theta(x_{\sigma_{n+1}}, \sigma_{n+1}), f_{\theta^-}(\hat x_{\sigma_n}, \sigma_n))$</li></ul></li><li>更新 $\theta$，EMA 更新 $\theta^- \leftarrow \mu \theta^- + (1-\mu)\theta$</li></ol>
 <p><strong>为什么需要 EMA target？</strong></p>
 <ul><li>直接用 $\theta = \theta^-$ 会有 trivial solution：$f_\theta \equiv \text{const}$ 也满足 consistency</li><li>EMA $\theta^-$ 比 $\theta$ 滞后，提供"stable" target，避免 student 跟着自己变</li><li>类似 BYOL / MoCo 的 self-supervised setup</li><li>$\mu = 0.999 \sim 0.99995$（与训练步数相关）</li></ul>
@@ -1426,7 +1426,7 @@ def pf_ode_sample_euler(eps_model, sched: DDPMSchedule, shape, device, num_steps
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_foundations_tutorial.md</code> ·
   SHA256 <code>95c1efc6f929</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

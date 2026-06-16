@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/flow_matching_tutorial.md">
 <meta name="aris:source-sha256" content="435d9a5281b792c9796dffb814c5dd474e15a4173d514405fe3589e22e4b3982">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -578,7 +578,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/flow_matching_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>435d9a5281b7</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -613,7 +613,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\boxed{\;\mathcal{L}_\text{CFM}(\theta) = \mathbb{E}_{t,\; z \sim q,\; x \sim p_t(\cdot|z)} \left\| v_\theta(t, x) - u_t(x|z) \right\|^2\;}$$</p>
 <p>每一项都<strong>可采样、可计算</strong>。$x \sim p_t(\cdot|z)$ 一般是闭式可采样（如下面的线性插值）。</p>
 <h3 id="23-关键定理lipman-et-al-2023-theorem-2">2.3　关键定理（Lipman et al. 2023, Theorem 2）</h3>
-<div class="callout callout-good"><div class="callout-title">梯度等价定理</div><p>在 $p_t$ 与 $u_t$ 适当正则、$p_t > 0$ 等假设下：</p></div>
+<div class="callout callout-good"><div class="callout-title">梯度等价定理</div><p>在 $p_t$ 与 $u_t$ 适当正则、$p_t &gt; 0$ 等假设下：</p></div>
 <p>$$\nabla_\theta \mathcal{L}_\text{FM}(\theta) = \nabla_\theta \mathcal{L}_\text{CFM}(\theta)$$ 所以 <strong>minimize CFM ≡ minimize FM</strong>。两个 loss 在以上前提下相差一个不依赖 $\theta$ 的常数。</p>
 <p><strong>证明草图</strong>：展开二范数 $\|v_\theta\|^2 - 2 v_\theta^\top u_t + \|u_t\|^2$，前两项在两种 loss 下相等（用 $u_t$ 的定义把 marginal 写成 conditional 的加权期望），第三项不依赖 $\theta$，求梯度时消掉。</p>
 <div class="callout callout-info"><div class="callout-title">面试加分：marginal vector field 非唯一</div><p>给定 $p_t$，满足连续性方程 $\partial_t p_t + \nabla\cdot(p_t u_t) = 0$ 的 $u_t$ <strong>不唯一</strong>——任意 divergence-free 向量场加上去仍是合法的。CFM 通过 conditional path 自动选了一个"自然的" $u_t$（通常对应 OT map 或 score-based ODE）。这点常被追问 "marginal $u_t$ 唯一吗？"。</p></div>
@@ -862,11 +862,11 @@ def rk4_sampler(model, x0, steps=25, t_start=0.0, t_end=1.0):
 <p>对任意 SDE $dx = f(x, t) dt + g(t) dW$（forward），存在对应的 <strong>probability flow ODE</strong>（Song et al. 2021）：</p>
 <p>$$dx = \underbrace{\left[ f(x, t) - \frac{1}{2} g^2(t)\, \nabla_x \log p_t(x) \right]}_{\text{vector field } u_t(x)} dt$$</p>
 <p>这个 ODE 在每一时刻的边缘分布 $p_t$ 与 SDE 完全一样。</p>
-<div class="callout callout-good"><div class="callout-title">FM ↔ Score Matching 的桥梁（带前提）</div><p>当 FM 的概率路径源自一个非退化的 noising SDE ($g(t) > 0$) 时，学 score $s_\theta \approx \nabla \log p_t$ 与学 vector field $v_\theta \approx u_t$ 是<strong>同一信息的两种参数化</strong>：</p></div>
+<div class="callout callout-good"><div class="callout-title">FM ↔ Score Matching 的桥梁（带前提）</div><p>当 FM 的概率路径源自一个非退化的 noising SDE ($g(t) &gt; 0$) 时，学 score $s_\theta \approx \nabla \log p_t$ 与学 vector field $v_\theta \approx u_t$ 是<strong>同一信息的两种参数化</strong>：</p></div>
 <p>$$v_\theta(t, x) = f(x, t) - \tfrac{1}{2} g^2(t)\, s_\theta(t, x)$$ 所以在 VP/VE path 下，FM 可被视为 score matching 在 ODE 视角下的等价参数化。<strong>但对 Rectified Flow / OT-CFM 不成立</strong>（没有标准 SDE 对应），那里 FM 是更一般的 vector-field regression。</p>
 <h3 id="61-velocity--score--noise-prediction-互换必考">6.1　Velocity ↔ Score ↔ Noise prediction 互换（必考）</h3>
 <p>VP/VE path 下，假设 $x_t = \alpha(t) x_1 + \sigma(t) x_0$（$x_0 \sim \mathcal{N}(0, I)$ 是噪声方向），三种主流 prediction target 之间是线性可逆转换：</p>
-<p>$$ \begin{aligned} \epsilon\text{-prediction} &:\quad \epsilon_\theta(t, x_t) \approx x_0 \\ x_0\text{-prediction} &:\quad x^0_\theta(t, x_t) \approx x_1 \\ v\text{-prediction (Salimans-Ho)} &:\quad v_\theta(t, x_t) \approx \alpha'(t) x_1 + \sigma'(t) x_0 \\ \text{score} &:\quad s_\theta(t, x_t) \approx -x_0 / \sigma(t) \end{aligned} $$</p>
+<p>$$ \begin{aligned} \epsilon\text{-prediction} &amp;:\quad \epsilon_\theta(t, x_t) \approx x_0 \\ x_0\text{-prediction} &amp;:\quad x^0_\theta(t, x_t) \approx x_1 \\ v\text{-prediction (Salimans-Ho)} &amp;:\quad v_\theta(t, x_t) \approx \alpha'(t) x_1 + \sigma'(t) x_0 \\ \text{score} &amp;:\quad s_\theta(t, x_t) \approx -x_0 / \sigma(t) \end{aligned} $$</p>
 <p>已知 $x_t$ 和任一 prediction，可代数恢复其他三种。例如 VP 下 $\epsilon$ 与 score 关系：</p>
 <p>$$s_\theta(t, x_t) = -\epsilon_\theta(t, x_t) / \sigma(t)$$</p>
 <p>这就是为什么 DDPM (学 $\epsilon$) 与 score-based (学 $\nabla \log p_t$) 是<strong>等价参数化</strong>。Flow matching 学 $v = \alpha' x_1 + \sigma' x_0$ 也是其中一种，且在 RF (linear) 下退化为 $v = x_1 - x_0$。</p>
@@ -885,7 +885,7 @@ def rk4_sampler(model, x0, steps=25, t_start=0.0, t_end=1.0):
 <p>训练时以概率 $p_\text{drop}$（一般 0.1）把 $c$ 替换成空（如 null embedding），得到 <strong>无条件 head</strong>。</p>
 <p>采样时用 <strong>Classifier-Free Guidance</strong>：</p>
 <p>$$v_\text{CFG}(t, x, c) = v_\theta(t, x, \emptyset) + s \cdot \left[v_\theta(t, x, c) - v_\theta(t, x, \emptyset)\right]$$</p>
-<p>$s$ 是 guidance scale（一般 1.5-7.5）。$s > 1$ 时放大 conditional 信号，提升文本对齐但损失多样性。</p>
+<p>$s$ 是 guidance scale（一般 1.5-7.5）。$s &gt; 1$ 时放大 conditional 信号，提升文本对齐但损失多样性。</p>
 <h3 id="73-logit-normal-tsd3-默认">7.3　Logit-normal $t$（SD3 默认）</h3>
 <p>SD3 (Esser et al. 2024) 发现，<strong>$t \sim \mathcal{U}[0, 1]$ 不是最优</strong>。中间区域（$t \approx 0.5$）的 target 噪声-信号比最难学。改成：</p>
 <p>$$t = \sigma(\tau), \quad \tau \sim \mathcal{N}(m, s^2)$$</p>
@@ -949,7 +949,7 @@ def rk4_sampler(model, x0, steps=25, t_start=0.0, t_end=1.0):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/flow_matching_tutorial.md</code> ·
   SHA256 <code>435d9a5281b7</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/kl_divergence_rlhf_tutorial.md">
 <meta name="aris:source-sha256" content="f0b8b5e62023c40790eecc3c8e2e1afdf9fceea26ffa5b9859d0d4382cb7ea4a">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -616,7 +616,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/kl_divergence_rlhf_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>f0b8b5e62023</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -637,7 +637,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="callout callout-good"><div class="callout-title">链式法则在 RLHF 里 = per-token KL 加总</div><p>Sequence-level KL 是 trajectory log-ratio 之和的<strong>期望</strong>：$\text{KL}_\text{seq} = \mathbb{E}_{y\sim\pi_\theta}[\sum_t \log\pi_\theta(y_t|s_t)/\pi_\text{ref}(y_t|s_t)]$。实际实现里对每条 rollout 做 $\sum_t \log r_t$ 是<strong>单条 MC estimator</strong>（k1 的 sequence 形式）；要得到 true expected KL 需对 batch 内 rollout 平均。<strong>真实的 token-level KL</strong> $D_\text{KL}(\pi_\theta(\cdot|s_t)\|\pi_\text{ref}(\cdot|s_t))$ 还需对该 prefix 上整个 vocab 求和（full-vocab KL），而非只在 sampled token 上算 log-ratio。这两者<strong>期望相等</strong>但 estimator 形式不同：sum-over-rollout 的 sampled log-ratio 是 cheap-but-noisy estimator。</p></div>
 <h3 id="12-forward-kl-vs-reverse-klmass-covering-还是-mode-seeking">1.2　Forward KL vs Reverse KL：mass-covering 还是 mode-seeking？</h3>
 <p>记 $p$ 是数据/真实分布，$q_\theta$ 是参数化模型。两种 KL 在拟合策略上行为完全不同：</p>
-<table><thead><tr><th>方向</th><th>形式（见下方 display）</th><th>期望对谁取</th><th>行为</th><th>经典用途</th></tr></thead><tbody><tr><td><strong>Forward KL</strong></td><td>$\text{KL}(p\,\</td><td>\,q_\theta) = \mathbb{E}<em>{p}[\log(p/q</em>\theta)]$</td><td>$p$（数据/目标）</td><td><strong>mass-covering / mean-seeking</strong>：哪里 $p > 0$，$q_\theta$ 必须 &gt; 0，否则 $\log(p/q) \to \infty$</td><td>MLE / 蒸馏（学生覆盖老师）</td></tr><tr><td><strong>Reverse KL</strong></td><td>$\text{KL}(q_\theta\,\</td><td>\,p) = \mathbb{E}<em>{q</em>\theta}[\log(q_\theta/p)]$</td><td>$q_\theta$（变分/优化分布）</td><td><strong>mode-seeking / minorization</strong>：哪里 $q_\theta > 0$，$p$ 必须 &gt; 0；$q_\theta$ 倾向找单一 mode 缩进去</td><td>VI、RLHF、GAN-like 训练</td></tr></tbody></table>
+<table><thead><tr><th>方向</th><th>形式（见下方 display）</th><th>期望对谁取</th><th>行为</th><th>经典用途</th></tr></thead><tbody><tr><td><strong>Forward KL</strong></td><td>$\text{KL}(p\,\</td><td>\,q_\theta) = \mathbb{E}<em>{p}[\log(p/q</em>\theta)]$</td><td>$p$（数据/目标）</td><td><strong>mass-covering / mean-seeking</strong>：哪里 $p &gt; 0$，$q_\theta$ 必须 &gt; 0，否则 $\log(p/q) \to \infty$</td><td>MLE / 蒸馏（学生覆盖老师）</td></tr><tr><td><strong>Reverse KL</strong></td><td>$\text{KL}(q_\theta\,\</td><td>\,p) = \mathbb{E}<em>{q</em>\theta}[\log(q_\theta/p)]$</td><td>$q_\theta$（变分/优化分布）</td><td><strong>mode-seeking / minorization</strong>：哪里 $q_\theta &gt; 0$，$p$ 必须 &gt; 0；$q_\theta$ 倾向找单一 mode 缩进去</td><td>VI、RLHF、GAN-like 训练</td></tr></tbody></table>
 <p>记号约定：</p>
 <p>$$\text{Forward KL}: \text{KL}(p \,\|\, q_\theta) = \mathbb{E}_{p}\!\left[\log\frac{p}{q_\theta}\right],\qquad \text{Reverse KL}: \text{KL}(q_\theta \,\|\, p) = \mathbb{E}_{q_\theta}\!\left[\log\frac{q_\theta}{p}\right]$$</p>
 <p>经典图（双峰 $p$，单峰 $q_\theta$）：</p>
@@ -758,7 +758,7 @@ def compare_kl_estimators(n_samples=10_000, seed=0):
 <h2 id="3-kl-在-rlhf-中的两种放置">§3 KL 在 RLHF 中的两种放置</h2>
 <h3 id="31-option-ain-reward-shapingppo-rlhf--instructgpt-标准做法">3.1　Option A：In-reward shaping（PPO RLHF / InstructGPT 标准做法）</h3>
 <p>把 KL <strong>塞进 per-token reward</strong>，再正常跑 PPO + GAE：</p>
-<p>$$\boxed{\;\tilde{r}_t = \underbrace{\mathbb{1}[t = T] \cdot R(x, y)}_{\text{terminal RM reward}} - \beta \cdot \underbrace{\log\frac{\pi_\theta(y_t \mid x, y_{<t})}{\pi_\text{ref}(y_t \mid x, y_{<t})}}_{\text{per-token KL (k1)}}\;}$$</p>
+<p>$$\boxed{\;\tilde{r}_t = \underbrace{\mathbb{1}[t = T] \cdot R(x, y)}_{\text{terminal RM reward}} - \beta \cdot \underbrace{\log\frac{\pi_\theta(y_t \mid x, y_{&lt;t})}{\pi_\text{ref}(y_t \mid x, y_{&lt;t})}}_{\text{per-token KL (k1)}}\;}$$</p>
 <p>注意细节：</p>
 <ul><li><strong>per-token</strong>：每生成一个 token，就计算这个 token 的 log-prob ratio，作为该步 reward 的一部分。</li><li><strong>k1 estimator</strong>：这里直接用 $\log(\pi_\theta/\pi_\text{ref})$（k1）。注意它<strong>单 token 可为负</strong>，但作为 reward shaping 只要均值/总和符合 KL 期望即可。</li><li><strong>terminal RM reward</strong>：RM 给整段答案的 scalar，只放在最后一个 token 上（其余 token RM reward = 0）。</li></ul>
 <p>放完后跑 GAE：</p>
@@ -777,7 +777,7 @@ def compare_kl_estimators(n_samples=10_000, seed=0):
 <ul><li>Option A：KL 作为 reward 一部分 → 经 GAE → 进入 advantage → 进入 PPO surrogate 梯度。</li><li>Option B：KL 作为独立 loss → 直接对 $\theta$ 求梯度。</li></ul>
 <p><strong>工程差异</strong>：</p>
 <table><thead><tr><th>维度</th><th>In-reward (Option A)</th><th>In-loss (Option B)</th></tr></thead><tbody><tr><td>KL 估计器</td><td>k1（单 token 可负，作为 reward 接受）</td><td>k3（无偏 + 非负，更稳）</td></tr><tr><td>与 PPO clip 的关系</td><td>KL 被 clip 截断（importance ratio 截断把 KL 一并截了）</td><td>KL 独立，不被 clip 影响</td></tr><tr><td>Advantage 解释</td><td>advantage 内含 KL → "净 advantage"</td><td>advantage 仅 reward-based → "纯 advantage"</td></tr><tr><td>调参敏感度</td><td>β 直接影响 reward scale → 需要和 RM scale 协调</td><td>β 与 reward 独立，但 KL 与 PG 比重要平衡</td></tr><tr><td>监控指标</td><td>看 token-level KL 进了 reward</td><td>看 KL loss 独立曲线</td></tr></tbody></table>
-<div class="callout callout-warn"><div class="callout-title">PPO clip 抹掉 KL 信号的细节</div><p>在 Option A 中，当 importance ratio $\rho_t$ 落在 clip 之外（$\rho_t > 1+\epsilon$ 且 $\tilde A_t > 0$ 或 $\rho_t < 1-\epsilon$ 且 $\tilde A_t < 0$），PPO 把 surrogate 截断为常数（对 θ 梯度为 0），此时该 step 的 $\tilde r_t$ 里的 KL 项也一并失效。这意味着<strong>当 policy 偏离过大时，PPO clip 反而让 KL anchor 失效</strong>——这是 Option B 把 KL 放 loss 的部分动机（KL 永远生效）。</p></div>
+<div class="callout callout-warn"><div class="callout-title">PPO clip 抹掉 KL 信号的细节</div><p>在 Option A 中，当 importance ratio $\rho_t$ 落在 clip 之外（$\rho_t &gt; 1+\epsilon$ 且 $\tilde A_t &gt; 0$ 或 $\rho_t &lt; 1-\epsilon$ 且 $\tilde A_t &lt; 0$），PPO 把 surrogate 截断为常数（对 θ 梯度为 0），此时该 step 的 $\tilde r_t$ 里的 KL 项也一并失效。这意味着<strong>当 policy 偏离过大时，PPO clip 反而让 KL anchor 失效</strong>——这是 Option B 把 KL 放 loss 的部分动机（KL 永远生效）。</p></div>
 <h3 id="34-实操哪一种用在哪">3.4　实操：哪一种用在哪？</h3>
 <table><thead><tr><th>算法</th><th>KL 放置</th><th>估计器</th><th>来源</th></tr></thead><tbody><tr><td>InstructGPT PPO</td><td><strong>In-reward</strong></td><td>k1</td><td>Ouyang 2022 NeurIPS</td></tr><tr><td>Anthropic RLHF</td><td><strong>In-reward</strong></td><td>k1 + adaptive β</td><td>Bai 2022 arXiv 2204.05862</td></tr><tr><td>GRPO / DeepSeekMath</td><td><strong>In-loss</strong></td><td>k3</td><td>Shao 2024 arXiv 2402.03300</td></tr><tr><td>DAPO</td><td><strong>In-loss</strong>（实际配置中 KL 项常被关掉或权重很低）</td><td>k3</td><td>Yu 2025 arXiv 2503.14476</td></tr><tr><td>DPO</td><td><strong>隐式 in-loss</strong>（通过 $\pi_\text{ref}$ 在 log-ratio 分母）</td><td>—</td><td>Rafailov 2023 NeurIPS</td></tr><tr><td>SimPO</td><td><strong>去掉 reference, 无 KL</strong></td><td>—</td><td>Meng 2024 NeurIPS</td></tr></tbody></table>
 <div class="callout callout-info"><div class="callout-title">DAPO 实战经验</div><p>字节 verl 团队的工程报告里多次提到，KL 项在大规模数学/代码 RL 训练中<strong>经常关掉或设很小</strong> β（$10^{-4}$ 量级），原因：reward 已经是 rule-based（接近 ground truth），不存在 RM hacking，KL anchor 反而拖训练。这是"Option B + β ≈ 0"的极端版本。</p></div>
@@ -801,14 +801,14 @@ def compare_kl_estimators(n_samples=10_000, seed=0):
 <p>PPO 论文（Schulman 2017 arXiv 1707.06347）原本提了两个版本：<strong>Clip</strong>（现在主流）和 <strong>Penalty</strong>（adaptive KL）。Penalty 形式：</p>
 <p>$$\mathcal{L} = \mathbb{E}[r_t A_t] - \beta_k \cdot \text{KL}(\pi_{\theta_\text{old}} \| \pi_\theta)$$</p>
 <p><strong>β 自适应规则</strong>（每 epoch 之后看 measured KL $d$）：</p>
-<ul><li>若 $d < d_\text{target} / 1.5$：$\beta \leftarrow \beta / 2$（KL 比目标低，放松）</li><li>若 $d > d_\text{target} \times 1.5$：$\beta \leftarrow \beta \times 2$（KL 比目标高，加压）</li><li>否则 β 不变</li></ul>
+<ul><li>若 $d &lt; d_\text{target} / 1.5$：$\beta \leftarrow \beta / 2$（KL 比目标低，放松）</li><li>若 $d &gt; d_\text{target} \times 1.5$：$\beta \leftarrow \beta \times 2$（KL 比目标高，加压）</li><li>否则 β 不变</li></ul>
 <p>直觉：把 β 当 PID controller 的 P term，target 是预期 KL（比如 $d_\text{target} = 0.01$）。这条思路在 InstructGPT 和后续 Anthropic 工作里也出现过（Anthropic 论文 1707.06347 之后的 helpfulness/harmlessness 报告里有类似 adaptive β 描述）。</p>
 <h3 id="43--annealing-schedule--类似-learning-rate-schedule">4.3　β annealing schedule —— 类似 learning rate schedule</h3>
 <p>把 β 看作时间函数 $\beta(t)$：</p>
 <ul><li><strong>早期紧后期松</strong>：$\beta(t) = \beta_0 \cdot \exp(-t / \tau)$。直觉：训练初期 policy 离 ref 近，加强 anchor 防 instability；后期 policy 学到了，放松让它 explore reward。</li><li><strong>早期松后期紧</strong>：相反方向，初期 explore RM 信号，后期 anchor。少见。</li><li><strong>Cosine / linear decay</strong>：参考 lr schedule。</li></ul>
 <p>在 RLHF 工程实践中 annealing 用得不多——adaptive β 比 schedule 更鲁棒（不需调 schedule shape）。</p>
 <h3 id="44--失败模式">4.4　β 失败模式</h3>
-<table><thead><tr><th>β 设置</th><th>现象</th><th>诊断</th></tr></thead><tbody><tr><td><strong>β 太大</strong> ($> 1$)</td><td>KL ≈ 0，policy 卡在 ref 附近，RM reward 不涨</td><td>看 reward curve 是平的 / <code>chosen_logp - rejected_logp</code> 不分离</td></tr><tr><td><strong>β 太小</strong> ($< 0.001$)</td><td>KL 爆炸（runaway），policy 越来越长 / 谄媚 / 重复</td><td>看 KL 曲线持续上升、generation length 上升、人工评测下降</td></tr><tr><td><strong>β 突变</strong></td><td>训练 loss 跳跃</td><td>adaptive 频率太高 / target_kl 太严</td></tr></tbody></table>
+<table><thead><tr><th>β 设置</th><th>现象</th><th>诊断</th></tr></thead><tbody><tr><td><strong>β 太大</strong> ($&gt; 1$)</td><td>KL ≈ 0，policy 卡在 ref 附近，RM reward 不涨</td><td>看 reward curve 是平的 / <code>chosen_logp - rejected_logp</code> 不分离</td></tr><tr><td><strong>β 太小</strong> ($&lt; 0.001$)</td><td>KL 爆炸（runaway），policy 越来越长 / 谄媚 / 重复</td><td>看 KL 曲线持续上升、generation length 上升、人工评测下降</td></tr><tr><td><strong>β 突变</strong></td><td>训练 loss 跳跃</td><td>adaptive 频率太高 / target_kl 太严</td></tr></tbody></table>
 <div class="callout callout-warn"><div class="callout-title">InstructGPT 论文 β = 0.02 真的合适吗？</div><p>答案因任务而异。<strong>Math/code RL</strong> 通常需要更小 β（DeepSeekMath 报告 β ≈ 0.04，DAPO 的 β 经常更小或为 0），因为 reward 接近 ground truth。<strong>Helpfulness/safety RL</strong> 需要更大 β（≥ 0.1）防 reward hacking，因为 neural RM 容易被 hack。这是为什么"β 不是 universal hyperparameter"。</p></div>
 <h3 id="45-adaptive--代码示例">4.5　Adaptive β 代码示例</h3>
 <pre><code class="language-python">class AdaptiveKLController:
@@ -841,7 +841,7 @@ for epoch in range(num_epochs):
 <h2 id="5-kl-与-dpo--grpo--simpo--kto--ipo-的关系">§5 KL 与 DPO / GRPO / SimPO / KTO / IPO 的关系</h2>
 <h3 id="51-dpoimplicit-reward----sequence-log-density-ratio">5.1　DPO：implicit reward = β × sequence log-density ratio</h3>
 <p>DPO 的 implicit reward 是 $\hat{r}_\theta(x, y) = \beta \log(\pi_\theta(y|x) / \pi_\text{ref}(y|x))$，即整段 $y$ 的 sequence-level log-density ratio：</p>
-<p>$$\hat{r}_\theta(x, y) = \beta \sum_t \log\frac{\pi_\theta(y_t | x, y_{<t})}{\pi_\text{ref}(y_t | x, y_{<t})}$$</p>
+<p>$$\hat{r}_\theta(x, y) = \beta \sum_t \log\frac{\pi_\theta(y_t | x, y_{&lt;t})}{\pi_\text{ref}(y_t | x, y_{&lt;t})}$$</p>
 <div class="callout callout-warn"><div class="callout-title">注意区分：implicit reward 不是 KL 本身</div><p>$\hat{r}_\theta$ 是<strong>单条 sequence 的 pointwise log-ratio</strong>，<strong>不是</strong> KL。只有当对 $y\sim\pi_\theta$ 取期望时，$\mathbb{E}_{y\sim\pi_\theta}[\hat{r}_\theta(x,y)] = \beta\cdot\text{KL}(\pi_\theta(\cdot|x)\,\|\,\pi_\text{ref}(\cdot|x))$（这是 k1 KL estimator 的 sequence-level 形式）。但 <strong>DPO 训练时 $y_w, y_l$ 不是从 $\pi_\theta$ 采的，而是来自固定 preference 数据</strong>，所以训练阶段的 $\hat{r}_\theta$ 不能直接读作 KL；它只是 pairwise log-ratio 差异。</p>
 <p><strong>正确表述</strong>：DPO loss 的对偶 RLHF 解释是把 $\hat{r}_\theta$ 当 reward，BT model 给概率 $\sigma(\hat{r}_w - \hat{r}_l)$；它对应"KL-regularized RL 闭式最优 policy $\pi^* \propto \pi_\text{ref}\exp(r/\beta)$"反解出的 reward 表达式。$\pi_\theta$ 在 implicit RLHF 视角下隐式被 KL 约束（因为 $\hat r_\theta$ 形式里 $\pi_\theta/\pi_\text{ref}$ 出现），但 DPO 优化的是 pairwise margin 而非显式 KL margin。</p></div>
 <h4 id="511-dpo-闭式推导回顾">5.1.1　DPO 闭式推导回顾</h4>
@@ -882,7 +882,7 @@ for epoch in range(num_epochs):
 <p><strong>定理</strong>（KL-regularized policy optimization 的闭式解）：</p>
 <p>考虑：</p>
 <p>$$\max_\pi J(\pi) = \mathbb{E}_{y \sim \pi(\cdot|x)}[r(x, y)] - \beta\, \text{KL}\!\big(\pi(\cdot|x) \| \pi_\text{ref}(\cdot|x)\big)$$</p>
-<p>其中 $\pi$ 是对任意 $x$ 的分布，$\pi_\text{ref}$ 严格正（$\pi_\text{ref}(y|x) > 0$ 对所有 $y$）。</p>
+<p>其中 $\pi$ 是对任意 $x$ 的分布，$\pi_\text{ref}$ 严格正（$\pi_\text{ref}(y|x) &gt; 0$ 对所有 $y$）。</p>
 <p><strong>唯一最优解</strong>：</p>
 <p>$$\boxed{\;\pi^*(y|x) = \frac{1}{Z(x)}\, \pi_\text{ref}(y|x)\, \exp\!\left(\frac{r(x, y)}{\beta}\right),\quad Z(x) = \sum_{y'} \pi_\text{ref}(y'|x) \exp\!\left(\frac{r(x, y')}{\beta}\right)\;}$$</p>
 <p><strong>证明</strong>（Lagrangian）：</p>
@@ -934,7 +934,7 @@ for epoch in range(num_epochs):
 <p>在 RLHF 里 $\chi^2$ 偶尔被作为 KL 的"敏感"上界使用：<strong>当 $\chi^2$ 大但 KL 小，意味着 $\pi_\theta$ 有重 tail 偏离 $\pi_\text{ref}$</strong>（高方差但低 mean）。某些工作（Yu et al. 2024 / others）在监控 reward hacking 时同时画 KL 和 $\chi^2$，看 tail 行为。</p>
 <h3 id="66-sequence-level-vs-token-level-kl">6.6　Sequence-level vs Token-level KL</h3>
 <p>由 §1.1 的<strong>链式法则</strong>：</p>
-<p>$$\text{KL}(\pi_\theta(\cdot|x) \| \pi_\text{ref}(\cdot|x)) = \mathbb{E}_{y \sim \pi_\theta}\!\left[\sum_t \log\frac{\pi_\theta(y_t | x, y_{<t})}{\pi_\text{ref}(y_t | x, y_{<t})}\right]$$</p>
+<p>$$\text{KL}(\pi_\theta(\cdot|x) \| \pi_\text{ref}(\cdot|x)) = \mathbb{E}_{y \sim \pi_\theta}\!\left[\sum_t \log\frac{\pi_\theta(y_t | x, y_{&lt;t})}{\pi_\text{ref}(y_t | x, y_{&lt;t})}\right]$$</p>
 <p>即 <strong>sequence-level KL = token-level KL 之和的期望</strong>（自回归 chain rule）。注意：单条 rollout 上把 $\sum_t \log\pi_\theta(y_t)/\pi_\text{ref}(y_t)$ 直接当 KL 是 <strong>k1 estimator</strong>（unbiased 但 per-rollout 方差大）；若要 true token-level KL $D(\pi_\theta(\cdot|s_t)\|\pi_\text{ref}(\cdot|s_t))$ 还需 full-vocab forward。<strong>两者期望相等</strong>，工程上选 sampled log-ratio 是因为 vocab 求和昂贵。</p>
 <p>但有两个<strong>implementation trick</strong> 与 token-level 相关：</p>
 <ol><li><strong>Per-token clipping</strong>：单 token KL 偶尔很大（罕见 token、长 tail），可以对每 token KL 做 clip 防止单 token 拖飞 batch 总 KL。</li><li><strong>Mask on assistant tokens only</strong>：在 chat / agent setting 下，prompt token 不应该参与 KL 计算（prompt 是同一的，policy 和 ref 在 prompt 上完全一致，KL = 0；但浮点误差会污染）。所以 KL mask 与 PPO action_mask 重合，<strong>只在 assistant generation token 上算 KL</strong>。</li></ol>
@@ -1294,13 +1294,13 @@ def ppo_reward_with_kl(rewards_terminal, rollout_logp_theta, logp_ref,
 <details>
 
 <summary>Q19.SimPO 没有 reference model，为什么还能 work？没了 KL anchor 不是会 reward hack 吗？</summary>
-<ul><li>SimPO 用 <strong>length-normalization</strong> $r = (\beta/|y|)\log\pi(y)$ + <strong>target reward margin</strong> $\gamma$</li><li>没有 KL anchor，但 length-norm 阻止 "$y_w$ 越长越优" 的退化</li><li>Margin $\gamma$ 让 loss 在 $r_w - r_l > \gamma$ 时 saturate，避免 implicit reward 无界</li><li>实测某些 benchmark（AlpacaEval-2 / Arena-Hard）SimPO 优于 DPO</li><li>但<strong>没有 KL anchor 的代价</strong>：OOD 鲁棒性差、对 $\beta, \gamma$ 调参敏感、生成长度可能仍然偏大</li><li>实际生产中 DPO + small β 仍然主流，SimPO 是 "在某些 benchmark 上更强但 trade off 不同" 的选择</li></ul>
+<ul><li>SimPO 用 <strong>length-normalization</strong> $r = (\beta/|y|)\log\pi(y)$ + <strong>target reward margin</strong> $\gamma$</li><li>没有 KL anchor，但 length-norm 阻止 "$y_w$ 越长越优" 的退化</li><li>Margin $\gamma$ 让 loss 在 $r_w - r_l &gt; \gamma$ 时 saturate，避免 implicit reward 无界</li><li>实测某些 benchmark（AlpacaEval-2 / Arena-Hard）SimPO 优于 DPO</li><li>但<strong>没有 KL anchor 的代价</strong>：OOD 鲁棒性差、对 $\beta, \gamma$ 调参敏感、生成长度可能仍然偏大</li><li>实际生产中 DPO + small β 仍然主流，SimPO 是 "在某些 benchmark 上更强但 trade off 不同" 的选择</li></ul>
 <p>说 SimPO 一定更好；或不知道 length-norm + margin 是 KL 的替代。</p>
 </details>
 <details>
 
 <summary>Q20.Per-token KL 和 sequence-level KL 是什么关系？</summary>
-<ul><li>由 KL 的<strong>链式法则</strong>（条件分解）： $\text{KL}(\pi_\theta(\cdot|x) \| \pi_\text{ref}(\cdot|x)) = \mathbb{E}_{y\sim\pi_\theta}[\sum_t \log(\pi_\theta(y_t|x,y_{<t})/\pi_\text{ref}(y_t|x,y_{<t}))]$</li><li>即 <strong>sequence-level KL = token-level KL 之和的期望</strong></li><li>工程上只能 token-level 算（vocab 维度求和 OK，sequence 维度组合爆炸）</li><li>实际写 RLHF loss：per-token KL → mask assistant tokens → sum → average per sequence</li><li>注意：prompt token 上 policy 和 ref 输入相同，KL 应 = 0，但 floating-point 噪声会污染 → 必须 mask</li></ul>
+<ul><li>由 KL 的<strong>链式法则</strong>（条件分解）： $\text{KL}(\pi_\theta(\cdot|x) \| \pi_\text{ref}(\cdot|x)) = \mathbb{E}_{y\sim\pi_\theta}[\sum_t \log(\pi_\theta(y_t|x,y_{&lt;t})/\pi_\text{ref}(y_t|x,y_{&lt;t}))]$</li><li>即 <strong>sequence-level KL = token-level KL 之和的期望</strong></li><li>工程上只能 token-level 算（vocab 维度求和 OK，sequence 维度组合爆炸）</li><li>实际写 RLHF loss：per-token KL → mask assistant tokens → sum → average per sequence</li><li>注意：prompt token 上 policy 和 ref 输入相同，KL 应 = 0，但 floating-point 噪声会污染 → 必须 mask</li></ul>
 <p>混淆两者；或不知道 mask only assistant tokens 的必要性。</p>
 </details>
 <h3 id="l3-顶级-lab-题5-题">L3 顶级 lab 题（5 题）</h3>
@@ -1308,7 +1308,7 @@ def ppo_reward_with_kl(rewards_terminal, rollout_logp_theta, logp_ref,
 
 <summary>Q21.证明 $f(x) = e^x - x - 1 \ge 0$ 对所有 $x \in \mathbb{R}$。从该不等式出发，推导 k3 的非负性、无偏性。哪个性质对 "KL 作为 loss 加项" 更关键，为什么？</summary>
 <p><strong>非负证明</strong>：</p>
-<p>$f(x) = e^x - x - 1$。$f'(x) = e^x - 1$，$f'(x) = 0$ ⟺ $x = 0$。$f''(x) = e^x > 0$，$f$ 严格凸，$x = 0$ 是全局最小，$f(0) = 0$。所以 $f(x) \ge 0$ 对所有 $x$。✓</p>
+<p>$f(x) = e^x - x - 1$。$f'(x) = e^x - 1$，$f'(x) = 0$ ⟺ $x = 0$。$f''(x) = e^x &gt; 0$，$f$ 严格凸，$x = 0$ 是全局最小，$f(0) = 0$。所以 $f(x) \ge 0$ 对所有 $x$。✓</p>
 <p><strong>k3 非负性</strong>：取 $x = \log(\pi_\text{ref}/\pi_\theta) = -\log r$，则 $\widehat{\text{KL}}_3 = f(-\log r) \ge 0$ 总成立。✓</p>
 <p><strong>k3 无偏性</strong>：</p>
 <p>$\mathbb{E}_{\pi_\theta}[\widehat{\text{KL}}_3] = \mathbb{E}_{\pi_\theta}[e^{-\log r}] + \mathbb{E}_{\pi_\theta}[\log r] - 1 = 1 + \text{KL} - 1 = \text{KL}$ ✓</p>
@@ -1397,7 +1397,7 @@ def ppo_reward_with_kl(rewards_terminal, rollout_logp_theta, logp_ref,
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/kl_divergence_rlhf_tutorial.md</code> ·
   SHA256 <code>f0b8b5e62023</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

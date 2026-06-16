@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/rlhf_dpo_grpo_ppo_tutorial_en.md">
 <meta name="aris:source-sha256" content="8bb9e76ac3dcac46b409bdc418c8ca576d110346f956265d0a7620386427d5b6">
-<meta name="aris:generated-at" content="2026-05-31 06:49 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -611,7 +611,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/rlhf_dpo_grpo_ppo_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>8bb9e76ac3dc</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 06:49 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -640,7 +640,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>PPO-Clip objective:</p>
 <p>$$\boxed{\;L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min\!\Big(r_t(\theta) A_t,\; \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) A_t\Big)\right]\;}$$</p>
 <p>Intuition:</p>
-<ul><li>If $A_t > 0$ (this action beats baseline), we want to increase $\pi_\theta(a_t|s_t)$, but <strong>only up to $r_t = 1+\epsilon$</strong> (preventing too aggressive a single update).</li><li>If $A_t < 0$ (this action is worse than baseline), we want to decrease $\pi_\theta(a_t|s_t)$, but <strong>only down to $r_t = 1-\epsilon$</strong>.</li><li><code>min</code> picks the smaller of the two → <strong>pessimistic estimate</strong> (pessimistic bound): when we want to "add points," clip the upper bound; when we want to "subtract points," clip the lower bound.</li></ul>
+<ul><li>If $A_t &gt; 0$ (this action beats baseline), we want to increase $\pi_\theta(a_t|s_t)$, but <strong>only up to $r_t = 1+\epsilon$</strong> (preventing too aggressive a single update).</li><li>If $A_t &lt; 0$ (this action is worse than baseline), we want to decrease $\pi_\theta(a_t|s_t)$, but <strong>only down to $r_t = 1-\epsilon$</strong>.</li><li><code>min</code> picks the smaller of the two → <strong>pessimistic estimate</strong> (pessimistic bound): when we want to "add points," clip the upper bound; when we want to "subtract points," clip the lower bound.</li></ul>
 <p>Typical $\epsilon = 0.1 \sim 0.2$. In LLM RLHF practice, $0.1 \sim 0.2$ is common; too large easily blows up the KL.</p>
 <div class="callout callout-warn"><div class="callout-title">PPO-Clip vs PPO-Penalty</div><p>The original paper also has a PPO-Penalty form: $L = \mathbb{E}[r_t A_t] - \beta\, \text{KL}(\pi_{\theta_\text{old}} \| \pi_\theta)$, with $\beta$ adaptively tuned. In production, the <strong>clipped form is more common</strong> (rl4lms / TRL / OpenRLHF defaults).</p></div>
 <h3 id="23-gae-generalized-advantage-estimation">2.3　GAE: generalized advantage estimation</h3>
@@ -963,9 +963,9 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <p>Let implicit reward $\hat{r}_\theta(x, y) = \beta \log \tfrac{\pi_\theta(y|x)}{\pi_\text{ref}(y|x)}$, reference point $z_0 = \mathbb{E}_{x',\, y' \sim \pi_\theta(\cdot | x')}\!\big[\beta \cdot \text{KL}\!\big(\pi_\theta(\cdot | x') \,\|\, \pi_\text{ref}(\cdot | x')\big)\big]$ (estimated via mismatched pairs within the batch, <strong>does not participate in backprop</strong> — treated as a constant). The KTO loss is:</p>
 <p>$$\boxed{\;\mathcal{L}_\text{KTO}(\theta) = \mathbb{E}_{(x, y) \sim \mathcal{D}} \big[\, w(y)\big(1 - v(x, y)\big)\,\big]\;}$$</p>
 <p>where piecewise definitions ($\hat r$ and $z_0$ already contain $\beta$, <strong>no additional $\beta$</strong> in the sigmoid):</p>
-<p>$$v(x, y) = \begin{cases}\sigma\!\big(\hat{r}_\theta(x, y) - z_0\big) & y \text{ desirable}\\[2pt] \sigma\!\big(z_0 - \hat{r}_\theta(x, y)\big) & y \text{ undesirable}\end{cases}$$</p>
-<p>$$w(y) = \begin{cases}\lambda_D & y \text{ desirable}\\ \lambda_U & y \text{ undesirable}\end{cases}$$</p>
-<p>Intuition: desirable samples want $\hat{r} > z_0$ (push up), undesirable samples want $\hat{r} < z_0$ (push down); $\sigma$ gives a probability score of "how far from the reference point." $\lambda_D, \lambda_U$ are weights for imbalanced data (e.g. if desirable is more, $\lambda_U > \lambda_D$). When data only has single thumbs up/down, KTO is more practical than DPO. See Ethayarajh et al. 2024 ICML, HuggingFace TRL <code>KTOTrainer</code> for details.</p>
+<p>$$v(x, y) = \begin{cases}\sigma\!\big(\hat{r}_\theta(x, y) - z_0\big) &amp; y \text{ desirable}\\[2pt] \sigma\!\big(z_0 - \hat{r}_\theta(x, y)\big) &amp; y \text{ undesirable}\end{cases}$$</p>
+<p>$$w(y) = \begin{cases}\lambda_D &amp; y \text{ desirable}\\ \lambda_U &amp; y \text{ undesirable}\end{cases}$$</p>
+<p>Intuition: desirable samples want $\hat{r} &gt; z_0$ (push up), undesirable samples want $\hat{r} &lt; z_0$ (push down); $\sigma$ gives a probability score of "how far from the reference point." $\lambda_D, \lambda_U$ are weights for imbalanced data (e.g. if desirable is more, $\lambda_U &gt; \lambda_D$). When data only has single thumbs up/down, KTO is more practical than DPO. See Ethayarajh et al. 2024 ICML, HuggingFace TRL <code>KTOTrainer</code> for details.</p>
 <h3 id="63-simpo-drop-the-reference">6.3　SimPO: drop the reference</h3>
 <p>Meng et al. 2024 NeurIPS <em>SimPO: Simple Preference Optimization with a Reference-Free Reward</em>. SimPO observes: <strong>DPO does not use $\pi_\text{ref}$ at inference, but stores it during training (occupies memory)</strong>. SimPO directly changes the implicit reward to length-normalized log-prob:</p>
 <p>$$r_\text{SimPO}(x, y) = \frac{\beta}{|y|}\log\pi(y|x)$$</p>
@@ -1002,7 +1002,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <p>Reward hacking is the central pain point of RL post-training: the model finds blind spots in the RM to get high scores, but humans find the result worse. Common symptoms:</p>
 <table><thead><tr><th>Phenomenon</th><th>Cause</th><th>Mitigation</th></tr></thead><tbody><tr><td><strong>Answers get longer</strong></td><td>Long answers typically score higher in RM training data (information content, polite filler)</td><td>length penalty / length normalize (SimPO) / length-regression calibration</td></tr><tr><td><strong>Sycophancy</strong></td><td>Users prefer agreement → RM learns "agree better"</td><td>sycophancy probe + adversarial data</td></tr><tr><td><strong>Repetition / boilerplate</strong></td><td>Closing phrases like "Hope this helps!" score high in RM data</td><td>n-gram repetition penalty / diversity reward</td></tr><tr><td><strong>Over-refusal</strong></td><td>Safety RM learns "refuse = safe"</td><td>helpfulness vs harmlessness dual RM balance</td></tr><tr><td><strong>Format hacks</strong></td><td>Using markdown / bullets / emoji to score</td><td>format normalization</td></tr><tr><td><strong>Number manipulation</strong></td><td>Hard-coding common answer distributions in math problems</td><td>rule-based reward replaces RM</td></tr></tbody></table>
 <h3 id="81-core-mitigation-mechanisms">8.1　Core mitigation mechanisms</h3>
-<ol><li><strong>KL penalty</strong> ($\beta \log\pi/\pi_\text{ref}$): the most basic anchor.</li><li><strong>Early stopping by KL budget</strong>: stop when $\text{KL}(\pi || \pi_\text{ref}) > K_\text{target}$.</li><li><strong>Reward model ensemble</strong> (Coste 2024 ICLR <em>Reward Model Ensembles Help Mitigate Overoptimization</em>): take min or mean - std of multiple RMs.</li><li><strong>Reward shaping</strong>: decompose reward into multiple terms (helpfulness + length + diversity), capping each individually.</li><li><strong>Offline + online mix</strong>: first DPO / KTO to get to 70 points, then PPO + strong RM for the last mile.</li><li><strong>Composite reward</strong>: weighted combination of rule-based + RM-based, the rule part cannot be hacked.</li></ol>
+<ol><li><strong>KL penalty</strong> ($\beta \log\pi/\pi_\text{ref}$): the most basic anchor.</li><li><strong>Early stopping by KL budget</strong>: stop when $\text{KL}(\pi || \pi_\text{ref}) &gt; K_\text{target}$.</li><li><strong>Reward model ensemble</strong> (Coste 2024 ICLR <em>Reward Model Ensembles Help Mitigate Overoptimization</em>): take min or mean - std of multiple RMs.</li><li><strong>Reward shaping</strong>: decompose reward into multiple terms (helpfulness + length + diversity), capping each individually.</li><li><strong>Offline + online mix</strong>: first DPO / KTO to get to 70 points, then PPO + strong RM for the last mile.</li><li><strong>Composite reward</strong>: weighted combination of rule-based + RM-based, the rule part cannot be hacked.</li></ol>
 <h3 id="82-gao-2023-scaling-law">8.2　Gao 2023 scaling law</h3>
 <p>Gao, Schulman, Hilton 2023 ICML <em>Scaling Laws for Reward Model Overoptimization</em>:</p>
 <ul><li>Proxy reward (RM score) monotonically rises with KL, but gold reward rises then falls (<strong>inverted-U</strong>).</li><li>Best-of-N's over-optimization differs slightly in form from PPO: BoN's gold reward is close to linear-minus-plus-linear in $\sqrt{\text{KL}}$, PPO has more higher-order terms.</li><li>Provides a scaling law that larger RM → slower over-optimization, also discussing different functional forms for fitting.</li></ul>
@@ -1202,7 +1202,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/rlhf_dpo_grpo_ppo_tutorial_en.md</code> ·
   SHA256 <code>8bb9e76ac3dc</code> ·
-  generated at 2026-05-31 06:49 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

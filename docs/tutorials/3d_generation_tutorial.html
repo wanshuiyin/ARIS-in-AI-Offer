@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/3d_generation_tutorial.md">
 <meta name="aris:source-sha256" content="279221f16647dd2f61d80d5aa546d6e6da41c209574392cdc36b776944a0f65d">
-<meta name="aris:generated-at" content="2026-05-31 06:15 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -630,7 +630,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/3d_generation_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>279221f16647</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 06:15 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -669,7 +669,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p><strong>段内颜色贡献</strong>（积分而非简单矩形）：</p>
 <p>$$\int_{t_i}^{t_{i+1}} T(t)\sigma_i\mathbf{c}_i\,dt = T_i\,\mathbf{c}_i \int_0^{\delta_i} \sigma_i e^{-\sigma_i s}\,ds = T_i\,\mathbf{c}_i\,(1 - e^{-\sigma_i\delta_i})$$</p>
 <p>记 $\alpha_i := 1 - e^{-\sigma_i \delta_i}$（<strong>段不透明度</strong>），合并得 NeRF 离散公式：</p>
-<p>$$\boxed{\;C(\mathbf{r}) \approx \sum_{i=1}^{N} T_i\,\alpha_i\,\mathbf{c}_i,\quad T_i = \prod_{j<i}(1-\alpha_j),\quad \alpha_i = 1 - e^{-\sigma_i\delta_i}\;}$$</p>
+<p>$$\boxed{\;C(\mathbf{r}) \approx \sum_{i=1}^{N} T_i\,\alpha_i\,\mathbf{c}_i,\quad T_i = \prod_{j&lt;i}(1-\alpha_j),\quad \alpha_i = 1 - e^{-\sigma_i\delta_i}\;}$$</p>
 <p>这正是图形学 <strong>front-to-back alpha-compositing</strong> 公式。<strong>关键</strong>：$\alpha_i = 1 - e^{-\sigma_i\delta_i}$ 而非 $\sigma_i\delta_i$；当 $\sigma_i\delta_i$ 小时近似相等（一阶 Taylor），但大时差异显著（饱和到 1 vs 线性发散）。</p>
 <div class="callout callout-good"><div class="callout-title">物理一致性</div><p>$\sigma \ge 0$ 与 $\alpha = 1 - e^{-\sigma\delta} \in [0, 1)$ 保证颜色合成 <strong>永远在 [0, 1] 内</strong>；且无论 ray 怎么穿，$\sum T_i\alpha_i \le 1$（剩余 $T_{N+1}$ 给背景）。</p></div>
 <h3 id="24-位置编码-gammap表示高频细节">2.4　位置编码 $\gamma(p)$：表示高频细节</h3>
@@ -717,7 +717,7 @@ def volume_render(sigma: torch.Tensor, color: torch.Tensor, t_vals: torch.Tensor
 <div class="callout callout-warn"><div class="callout-title">数值陷阱</div><p><code>1 - alpha</code> 在 alpha 接近 1 时会下溢到 0，连乘后 T 整体被 zeroed；加 <code>+ 1e-10</code> 防止 backward 时 <code>log(0)</code>。最后一段 <code>δ → 1e10</code> 强行把背景的 transmittance 推到 0，否则不可见区域的 ray 颜色会受未采样段污染。</p></div>
 <h3 id="27-mip-nerf--mip-nerf-360抗锯齿">2.7　Mip-NeRF / Mip-NeRF 360（抗锯齿）</h3>
 <p>vanilla NeRF 在低分辨率 / 缩放下走样严重（同一像素对应不同尺度的 cone，但 NeRF 当作 ray 处理）。</p>
-<ul><li><strong>Mip-NeRF</strong> (Barron 2021 ICCV)：把 ray 视为 cone（视锥），用 <strong>Integrated Positional Encoding (IPE)</strong>——对 cone 段内的 PE 做闭式 Gaussian 期望 $\mathbb{E}_{\mathbf{x}\sim\mathcal{N}(\mu,\Sigma)}[\gamma(\mathbf{x})]$。对频率向量 $\boldsymbol{\omega} = 2^k\pi\,\mathbf{e}$ 而言，$\mathbb{E}_{\mathbf{x}\sim\mathcal{N}(\boldsymbol{\mu},\Sigma)}[\sin(\boldsymbol{\omega}^\top\mathbf{x})] = \sin(\boldsymbol{\omega}^\top\boldsymbol{\mu})\,e^{-\frac{1}{2}\boldsymbol{\omega}^\top\Sigma\,\boldsymbol{\omega}}$（标量情形即 $e^{-\frac{1}{2}\omega^2\sigma^2}$）；<strong>高频系数被 cone 协方差 $\Sigma$ 通过 $e^{-\frac{1}{2}\boldsymbol{\omega}^\top\Sigma\boldsymbol{\omega}}$ 自动衰减</strong>，自然实现 multi-scale。</li><li><strong>Mip-NeRF 360</strong> (Barron 2022 CVPR)：unbounded scene 用 contraction $f(x) = (2 - 1/\|x\|)\,x/\|x\|$ for $\|x\| > 1$，把无穷远压缩到 ball；加 distortion / proposal MLP 损失。</li></ul>
+<ul><li><strong>Mip-NeRF</strong> (Barron 2021 ICCV)：把 ray 视为 cone（视锥），用 <strong>Integrated Positional Encoding (IPE)</strong>——对 cone 段内的 PE 做闭式 Gaussian 期望 $\mathbb{E}_{\mathbf{x}\sim\mathcal{N}(\mu,\Sigma)}[\gamma(\mathbf{x})]$。对频率向量 $\boldsymbol{\omega} = 2^k\pi\,\mathbf{e}$ 而言，$\mathbb{E}_{\mathbf{x}\sim\mathcal{N}(\boldsymbol{\mu},\Sigma)}[\sin(\boldsymbol{\omega}^\top\mathbf{x})] = \sin(\boldsymbol{\omega}^\top\boldsymbol{\mu})\,e^{-\frac{1}{2}\boldsymbol{\omega}^\top\Sigma\,\boldsymbol{\omega}}$（标量情形即 $e^{-\frac{1}{2}\omega^2\sigma^2}$）；<strong>高频系数被 cone 协方差 $\Sigma$ 通过 $e^{-\frac{1}{2}\boldsymbol{\omega}^\top\Sigma\boldsymbol{\omega}}$ 自动衰减</strong>，自然实现 multi-scale。</li><li><strong>Mip-NeRF 360</strong> (Barron 2022 CVPR)：unbounded scene 用 contraction $f(x) = (2 - 1/\|x\|)\,x/\|x\|$ for $\|x\| &gt; 1$，把无穷远压缩到 ball；加 distortion / proposal MLP 损失。</li></ul>
 <h3 id="28-neus--volsdf体渲染--sdf导出-mesh-的关键">2.8　NeuS / VolSDF：体渲染 + SDF（导出 mesh 的关键）</h3>
 <p>NeRF 是 density-based，提取 mesh 需选 $\sigma$ 阈值（不稳）。<strong>NeuS</strong> (Wang 2021 NeurIPS) 用 <strong>SDF $d(\mathbf{x})$</strong> 替换 density：</p>
 <p>$$\sigma(t) = \max\!\left(\frac{-\frac{d}{dt}\Phi_s(d(\mathbf{r}(t)))}{\Phi_s(d(\mathbf{r}(t)))},\; 0\right),\quad \Phi_s(d) = (1 + e^{-sd})^{-1}$$</p>
@@ -732,7 +732,7 @@ def volume_render(sigma: torch.Tensor, color: torch.Tensor, t_vals: torch.Tensor
 <p>$$\text{hash}(\mathbf{x}) = \bigg(\bigoplus_{i=1}^{d} x_i \cdot \pi_i\bigg) \bmod T$$</p>
 <p>$\pi_i$ 是互质的大常数（论文取 $\pi_1 = 1, \pi_2 = 2654435761, \pi_3 = 805459861$——注意 $\pi_1 = 1$ 并非质数，是论文有意设的，使第一维直接映射不打散）。 $\oplus$ 是 XOR。这是一种 <strong>spatial hash</strong>：常用于物理仿真的 BVH。</p>
 <h3 id="33-hash-collision-怎么消歧l3-高频追问">3.3　Hash collision 怎么消歧？（<strong>L3 高频追问</strong>）</h3>
-<p>当 $N_\ell^d > T$（fine level 必然发生），多个格点映到同一表项 → 冲突。Why does it still work?</p>
+<p>当 $N_\ell^d &gt; T$（fine level 必然发生），多个格点映到同一表项 → 冲突。Why does it still work?</p>
 <ol><li><strong>Multi-resolution 冗余</strong>：粗 level 的特征 unique（$N_\ell^d \le T$），细 level 提供补充。MLP 可从粗特征恢复结构，细 level 只负责 detail。</li><li><strong>稀疏性优先</strong>：大部分空间是空（NeRF 场景多数 voxel 是 background），有意义的 query 集中在表面附近，冲突的"有效格点对"很少。</li><li><strong>梯度自动消歧</strong>：训练时只有表面附近格点会有非零梯度（被 ray weights 加权）。空白区的"冲突 entry"得不到梯度信号，不污染表面 entry。</li><li><strong>MLP 后处理</strong>：tiny MLP 在 $L \times F$ 拼接特征上学一个分类/回归，遇到冲突的表面点可用 <strong>其他 level 不冲突的特征</strong> disambiguate。</li></ol>
 <div class="callout callout-info"><div class="callout-title">面试高分回答</div><p>"Hash collision 看似破坏 unique 性，但<strong>实际生效区域是稀疏的</strong>（场景的 thin surface 仅占 voxel 总数极小比例），冲突区域大概率是无监督信号的 background；即便表面也有冲突，多分辨率层的非冲突特征 + tiny MLP 也能学到一致输出。这是个 <strong>'lazy collision resolution'</strong>：与其代价昂贵地搞 perfect hash，不如用冗余 + 数据驱动消歧。"</p></div>
 <h3 id="34-instant-ngp-训练公式">3.4　Instant-NGP 训练公式</h3>
@@ -752,16 +752,16 @@ def volume_render(sigma: torch.Tensor, color: torch.Tensor, t_vals: torch.Tensor
 <p><strong>Step 2</strong>：Camera → Screen：透视投影<strong>非线性</strong>：</p>
 <p>$$\pi(\mathbf{x}) = \begin{pmatrix} f_x\,x/z \\ f_y\,y/z \end{pmatrix}$$</p>
 <p>非线性映射的协方差近似用一阶 Taylor。在均值 $\mu_\text{cam} = (x, y, z)$ 处求 Jacobian：</p>
-<p>$$J = \frac{\partial \pi}{\partial \mathbf{x}}\bigg|_{\mu_\text{cam}} = \begin{pmatrix}\dfrac{f_x}{z} & 0 & -\dfrac{f_x\,x}{z^2}\\[2pt] 0 & \dfrac{f_y}{z} & -\dfrac{f_y\,y}{z^2}\end{pmatrix} \in \mathbb{R}^{2\times 3}$$</p>
+<p>$$J = \frac{\partial \pi}{\partial \mathbf{x}}\bigg|_{\mu_\text{cam}} = \begin{pmatrix}\dfrac{f_x}{z} &amp; 0 &amp; -\dfrac{f_x\,x}{z^2}\\[2pt] 0 &amp; \dfrac{f_y}{z} &amp; -\dfrac{f_y\,y}{z^2}\end{pmatrix} \in \mathbb{R}^{2\times 3}$$</p>
 <p><strong>Step 3</strong>：2D 协方差（<strong>核心公式</strong>）：</p>
 <p>$$\boxed{\;\Sigma' = J\,W\,\Sigma\,W^\top\,J^\top \in \mathbb{R}^{2\times 2}\;}$$</p>
 <p>推导：若 $\mathbf{x} \sim \mathcal{N}(\mu, \Sigma)$，则一阶近似 $\pi(\mathbf{x}) \approx \pi(\mu) + J(\mathbf{x} - \mu)$，所以 $\text{Cov}[\pi(\mathbf{x})] \approx J\,\Sigma_\text{cam}\,J^\top = J W \Sigma W^\top J^\top$。这就是 EWA splatting (Zwicker 2001) 的经典推论。</p>
 <h3 id="43-可微光栅化tile-based-front-to-back-alpha-blending">4.3　可微光栅化：tile-based front-to-back alpha-blending</h3>
 <p>像素 $\mathbf{p}$ 的颜色：</p>
-<p>$$C(\mathbf{p}) = \sum_{i \in \mathcal{N}(\mathbf{p})}\,c_i\,\alpha_i\,G_i'(\mathbf{p}) \prod_{j < i}\big(1 - \alpha_j\,G_j'(\mathbf{p})\big)$$</p>
+<p>$$C(\mathbf{p}) = \sum_{i \in \mathcal{N}(\mathbf{p})}\,c_i\,\alpha_i\,G_i'(\mathbf{p}) \prod_{j &lt; i}\big(1 - \alpha_j\,G_j'(\mathbf{p})\big)$$</p>
 <p>其中 $G_i'(\mathbf{p}) = \exp\!\big(-\tfrac{1}{2}(\mathbf{p} - \mu_i')^\top \Sigma_i'^{-1} (\mathbf{p} - \mu_i')\big)$ 是 2D Gaussian 在像素的值，$\mathcal{N}(\mathbf{p})$ 是覆盖 $\mathbf{p}$ 的 Gaussian 按深度排序。</p>
 <p><strong>关键工程</strong>：</p>
-<ol><li><strong>Tile 划分</strong>：屏幕分成 $16\times 16$ tile，每 tile 内 Gaussian 按深度排序，并行渲染</li><li><strong>GPU sort</strong>：用 radix sort，按 <code>(tile_id, depth)</code> 复合键</li><li><strong>Front-to-back early stop</strong>：当累计 $\prod(1 - \alpha G') < 10^{-4}$ 时退出</li><li><strong>CUDA kernel</strong>：作者公开 <code>diff-gaussian-rasterization</code>，前向 + 反向都是 manual derivative</li></ol>
+<ol><li><strong>Tile 划分</strong>：屏幕分成 $16\times 16$ tile，每 tile 内 Gaussian 按深度排序，并行渲染</li><li><strong>GPU sort</strong>：用 radix sort，按 <code>(tile_id, depth)</code> 复合键</li><li><strong>Front-to-back early stop</strong>：当累计 $\prod(1 - \alpha G') &lt; 10^{-4}$ 时退出</li><li><strong>CUDA kernel</strong>：作者公开 <code>diff-gaussian-rasterization</code>，前向 + 反向都是 manual derivative</li></ol>
 <h3 id="44-3dgs-前向pytorch-reference-实现">4.4　3DGS 前向（PyTorch reference 实现）</h3>
 <pre><code class="language-python">def quat_to_rot(q: torch.Tensor) -&gt; torch.Tensor:
     &quot;&quot;&quot; q: [N, 4] (w, x, y, z) already normalized;  返回 R: [N, 3, 3] &quot;&quot;&quot;
@@ -899,7 +899,7 @@ def gaussian_splat_forward(
 <h3 id="51-marching-cubes经典必考">5.1　Marching Cubes（<strong>经典必考</strong>）</h3>
 <p>输入：3D 标量场 $f(\mathbf{x})$（density / SDF）+ 阈值 $\tau$。输出：水平集 $\{f = \tau\}$ 的三角网格。</p>
 <p><strong>算法骨架</strong>：</p>
-<ol><li>把空间 voxel 化（每 voxel 8 角点）</li><li>对每个 voxel，<strong>8 角点二值化</strong>（$f > \tau$ 为 1, 否则 0）→ 256 种可能配置</li><li>查 lookup table：每个配置预定义了几条等值面三角片 + edge 上的顶点位置</li><li><strong>线性插值</strong> 找精确顶点：在 edge 两端 $\mathbf{a}, \mathbf{b}$ 之间，插值 $t = (\tau - f(\mathbf{a})) / (f(\mathbf{b}) - f(\mathbf{a}))$，顶点 $= \mathbf{a} + t(\mathbf{b} - \mathbf{a})$</li><li>合并所有 voxel 三角片 → 完整 mesh</li></ol>
+<ol><li>把空间 voxel 化（每 voxel 8 角点）</li><li>对每个 voxel，<strong>8 角点二值化</strong>（$f &gt; \tau$ 为 1, 否则 0）→ 256 种可能配置</li><li>查 lookup table：每个配置预定义了几条等值面三角片 + edge 上的顶点位置</li><li><strong>线性插值</strong> 找精确顶点：在 edge 两端 $\mathbf{a}, \mathbf{b}$ 之间，插值 $t = (\tau - f(\mathbf{a})) / (f(\mathbf{b}) - f(\mathbf{a}))$，顶点 $= \mathbf{a} + t(\mathbf{b} - \mathbf{a})$</li><li>合并所有 voxel 三角片 → 完整 mesh</li></ol>
 <pre><code class="language-python">def marching_cubes_sketch(density: torch.Tensor, threshold: float):
     &quot;&quot;&quot; 真实实现用 mcubes / scikit-image / pytorch3d；这里写思路 &quot;&quot;&quot;
     from skimage.measure import marching_cubes
@@ -1103,13 +1103,13 @@ def gaussian_splat_forward(
 <details>
 
 <summary>Q11.推导 NeRF 连续积分 → 离散 $\alpha$-compositing。</summary>
-<ul><li>$T$ 满足 $dT/dt = -\sigma T$，段内 $\sigma$ 常数 → $T(t_{i+1})/T(t_i) = e^{-\sigma_i\delta_i}$</li><li>段内颜色贡献 $\int_0^{\delta_i} T_i e^{-\sigma_i s}\sigma_i \mathbf{c}_i\,ds = T_i\mathbf{c}_i(1 - e^{-\sigma_i\delta_i})$</li><li>记 $\alpha_i = 1 - e^{-\sigma_i\delta_i}$，则 $C \approx \sum T_i\alpha_i \mathbf{c}_i$，$T_i = \prod_{j<i}(1 - \alpha_j)$</li></ul>
+<ul><li>$T$ 满足 $dT/dt = -\sigma T$，段内 $\sigma$ 常数 → $T(t_{i+1})/T(t_i) = e^{-\sigma_i\delta_i}$</li><li>段内颜色贡献 $\int_0^{\delta_i} T_i e^{-\sigma_i s}\sigma_i \mathbf{c}_i\,ds = T_i\mathbf{c}_i(1 - e^{-\sigma_i\delta_i})$</li><li>记 $\alpha_i = 1 - e^{-\sigma_i\delta_i}$，则 $C \approx \sum T_i\alpha_i \mathbf{c}_i$，$T_i = \prod_{j&lt;i}(1 - \alpha_j)$</li></ul>
 <p>把 $\alpha_i$ 写成 $\sigma_i\delta_i$ 而非 $1 - e^{-\sigma_i\delta_i}$；或省了 ODE 求解过程。</p>
 </details>
 <details>
 
 <summary>Q12.推导 3DGS 的 3D→2D 投影 Jacobian。</summary>
-<ul><li>透视投影 $\pi(\mathbf{x}) = (f_x x/z, f_y y/z)$ 非线性</li><li>一阶 Taylor：$\pi(\mathbf{x}) \approx \pi(\mu) + J(\mathbf{x}-\mu)$</li><li>$J = \partial\pi/\partial\mathbf{x}|_\mu = \begin{pmatrix} f_x/z & 0 & -f_x x/z^2 \\ 0 & f_y/z & -f_y y/z^2 \end{pmatrix}$</li><li>$\Sigma' = JW\Sigma W^\top J^\top$（$W$ 是 world→cam 旋转）</li></ul>
+<ul><li>透视投影 $\pi(\mathbf{x}) = (f_x x/z, f_y y/z)$ 非线性</li><li>一阶 Taylor：$\pi(\mathbf{x}) \approx \pi(\mu) + J(\mathbf{x}-\mu)$</li><li>$J = \partial\pi/\partial\mathbf{x}|_\mu = \begin{pmatrix} f_x/z &amp; 0 &amp; -f_x x/z^2 \\ 0 &amp; f_y/z &amp; -f_y y/z^2 \end{pmatrix}$</li><li>$\Sigma' = JW\Sigma W^\top J^\top$（$W$ 是 world→cam 旋转）</li></ul>
 <p>直接套 "covariance projection" 公式不推；或忘了 $W$ 这步（World→Cam 旋转）。</p>
 </details>
 <details>
@@ -1164,19 +1164,19 @@ def gaussian_splat_forward(
 <details>
 
 <summary>Q21.手推 NeRF 离散 $\alpha$-compositing。</summary>
-<ul><li>ODE $dT/dt = -\sigma(t) T(t)$，初值 $T(t_n) = 1$ → $T(t) = \exp(-\int_{t_n}^t \sigma\,ds)$</li><li>段内 $[t_i, t_{i+1}]$ 上 $\sigma$ 常数 $= \sigma_i$，所以 $T(t_{i+1}) = T(t_i)e^{-\sigma_i\delta_i}$</li><li>段间累积 $T_i = T(t_i) = \prod_{j<i} e^{-\sigma_j\delta_j} = \prod_{j<i}(1 - \alpha_j)$，其中 $\alpha_j = 1 - e^{-\sigma_j\delta_j}$</li><li>段内颜色贡献 $\int_{t_i}^{t_{i+1}} T(t)\sigma_i\mathbf{c}_i\,dt = \mathbf{c}_i T_i \int_0^{\delta_i}\sigma_i e^{-\sigma_i s}ds = T_i\mathbf{c}_i(1 - e^{-\sigma_i\delta_i}) = T_i\alpha_i\mathbf{c}_i$</li><li>合成 $C \approx \sum_i T_i\alpha_i \mathbf{c}_i$</li><li><strong>关键</strong>：$\alpha_i = 1 - e^{-\sigma_i\delta_i}$ 严格 vs $\alpha_i \approx \sigma_i\delta_i$ 一阶近似（在 $\sigma\delta \ll 1$ 时一致）</li></ul>
+<ul><li>ODE $dT/dt = -\sigma(t) T(t)$，初值 $T(t_n) = 1$ → $T(t) = \exp(-\int_{t_n}^t \sigma\,ds)$</li><li>段内 $[t_i, t_{i+1}]$ 上 $\sigma$ 常数 $= \sigma_i$，所以 $T(t_{i+1}) = T(t_i)e^{-\sigma_i\delta_i}$</li><li>段间累积 $T_i = T(t_i) = \prod_{j&lt;i} e^{-\sigma_j\delta_j} = \prod_{j&lt;i}(1 - \alpha_j)$，其中 $\alpha_j = 1 - e^{-\sigma_j\delta_j}$</li><li>段内颜色贡献 $\int_{t_i}^{t_{i+1}} T(t)\sigma_i\mathbf{c}_i\,dt = \mathbf{c}_i T_i \int_0^{\delta_i}\sigma_i e^{-\sigma_i s}ds = T_i\mathbf{c}_i(1 - e^{-\sigma_i\delta_i}) = T_i\alpha_i\mathbf{c}_i$</li><li>合成 $C \approx \sum_i T_i\alpha_i \mathbf{c}_i$</li><li><strong>关键</strong>：$\alpha_i = 1 - e^{-\sigma_i\delta_i}$ 严格 vs $\alpha_i \approx \sigma_i\delta_i$ 一阶近似（在 $\sigma\delta \ll 1$ 时一致）</li></ul>
 <p>省略 ODE 推导直接套结论；或在 $\sigma\delta$ 大时用 $\sigma_i\delta_i$ 替 $\alpha_i$ 出错。</p>
 </details>
 <details>
 
 <summary>Q22.Instant-NGP hash collision 如何被 MLP 自动消歧？</summary>
-<ul><li><strong>冲突发生场景</strong>：fine level 的格点数 $N_\ell^d > T$（hash 表大小），多个格点映到同一 entry</li><li><strong>稀疏激活</strong>：场景大部分 voxel 是 background，<strong>仅 surface 附近 voxel 有非零监督梯度</strong>——冲突的"两个 background entry"得不到信号，互不污染</li><li><strong>多分辨率冗余</strong>：粗 level $N_\ell^d \le T$ 保证 unique；细 level 提供 detail。即使细 level 冲突，粗 level 的非冲突特征已唯一识别该点</li><li><strong>MLP 后处理</strong>：tiny MLP 在 $L\times F$ 拼接特征上学非线性融合，遇到冲突 entry 时可以用<strong>其他 level 的非冲突特征 disambiguate</strong></li><li><strong>梯度自动调节</strong>：训练时高梯度自然集中在 surface entry；冲突 entry 若同时在表面（罕见）会被 loss 推到妥协位置（取多次采样平均）</li><li><strong>物理直觉</strong>：与其代价昂贵地搞 perfect hash，不如允许冲突 + 用数据驱动 implicit 消歧（"lazy collision resolution"）</li></ul>
+<ul><li><strong>冲突发生场景</strong>：fine level 的格点数 $N_\ell^d &gt; T$（hash 表大小），多个格点映到同一 entry</li><li><strong>稀疏激活</strong>：场景大部分 voxel 是 background，<strong>仅 surface 附近 voxel 有非零监督梯度</strong>——冲突的"两个 background entry"得不到信号，互不污染</li><li><strong>多分辨率冗余</strong>：粗 level $N_\ell^d \le T$ 保证 unique；细 level 提供 detail。即使细 level 冲突，粗 level 的非冲突特征已唯一识别该点</li><li><strong>MLP 后处理</strong>：tiny MLP 在 $L\times F$ 拼接特征上学非线性融合，遇到冲突 entry 时可以用<strong>其他 level 的非冲突特征 disambiguate</strong></li><li><strong>梯度自动调节</strong>：训练时高梯度自然集中在 surface entry；冲突 entry 若同时在表面（罕见）会被 loss 推到妥协位置（取多次采样平均）</li><li><strong>物理直觉</strong>：与其代价昂贵地搞 perfect hash，不如允许冲突 + 用数据驱动 implicit 消歧（"lazy collision resolution"）</li></ul>
 <p>说"哈希冲突由 MLP 解决"但讲不清是哪些 mechanism（稀疏性 + 多尺度 + MLP 非线性）共同作用。</p>
 </details>
 <details>
 
 <summary>Q23.推导 3DGS 3D→2D 协方差投影 Jacobian。</summary>
-<ul><li>World → Camera：刚体变换 $\mathbf{x}_\text{cam} = W\mathbf{x} + t$；协方差只受旋转影响，$\Sigma_\text{cam} = W\Sigma W^\top$</li><li>Camera → Screen：透视投影 $\pi(x, y, z) = (f_x x/z, f_y y/z)$ 非线性</li><li>在均值 $\mu_\text{cam}$ 处一阶 Taylor：$\pi(\mathbf{x}) \approx \pi(\mu_\text{cam}) + J(\mathbf{x} - \mu_\text{cam})$，$J = \partial\pi/\partial\mathbf{x}|_{\mu_\text{cam}}$</li><li>$J = \begin{pmatrix} f_x/z & 0 & -f_x x/z^2 \\ 0 & f_y/z & -f_y y/z^2 \end{pmatrix} \in \mathbb{R}^{2\times 3}$</li><li>$\text{Cov}[\pi(\mathbf{x})] = J\Sigma_\text{cam} J^\top = JW\Sigma W^\top J^\top \in \mathbb{R}^{2\times 2}$</li><li>这是 EWA splatting (Zwicker 2001) 的经典推论；3DGS 直接沿用</li><li>实际实现还加 $0.3 I$ low-pass filter（anti-aliasing）</li></ul>
+<ul><li>World → Camera：刚体变换 $\mathbf{x}_\text{cam} = W\mathbf{x} + t$；协方差只受旋转影响，$\Sigma_\text{cam} = W\Sigma W^\top$</li><li>Camera → Screen：透视投影 $\pi(x, y, z) = (f_x x/z, f_y y/z)$ 非线性</li><li>在均值 $\mu_\text{cam}$ 处一阶 Taylor：$\pi(\mathbf{x}) \approx \pi(\mu_\text{cam}) + J(\mathbf{x} - \mu_\text{cam})$，$J = \partial\pi/\partial\mathbf{x}|_{\mu_\text{cam}}$</li><li>$J = \begin{pmatrix} f_x/z &amp; 0 &amp; -f_x x/z^2 \\ 0 &amp; f_y/z &amp; -f_y y/z^2 \end{pmatrix} \in \mathbb{R}^{2\times 3}$</li><li>$\text{Cov}[\pi(\mathbf{x})] = J\Sigma_\text{cam} J^\top = JW\Sigma W^\top J^\top \in \mathbb{R}^{2\times 2}$</li><li>这是 EWA splatting (Zwicker 2001) 的经典推论；3DGS 直接沿用</li><li>实际实现还加 $0.3 I$ low-pass filter（anti-aliasing）</li></ul>
 <p>不会做一阶 Taylor 把非线性投影线性化；或漏了 World→Cam 那步。</p>
 </details>
 <details>
@@ -1210,7 +1210,7 @@ def gaussian_splat_forward(
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/3d_generation_tutorial.md</code> ·
   SHA256 <code>279221f16647</code> ·
-  generated at 2026-05-31 06:15 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

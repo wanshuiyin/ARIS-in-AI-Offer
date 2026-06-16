@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_distillation_tutorial.md">
 <meta name="aris:source-sha256" content="cdf8cbf0098fd69e5a36cbd5b787d6415815106fdc3159de14661b50323e5b7c">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -622,7 +622,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_distillation_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>cdf8cbf0098f</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -652,7 +652,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$f_\theta(x, \sigma) = c_\text{skip}(\sigma)\, x + c_\text{out}(\sigma)\, F_\theta(x, \sigma)$$</p>
 <p>其中 $c_\text{skip}(\sigma_\min) = 1$, $c_\text{out}(\sigma_\min) = 0$。Song 2023 的具体取值（与 EDM Karras 同形式）：</p>
 <p>$$c_\text{skip}(\sigma) = \frac{\sigma_\text{data}^2}{(\sigma - \sigma_\min)^2 + \sigma_\text{data}^2},\quad c_\text{out}(\sigma) = \frac{\sigma_\text{data}\,(\sigma - \sigma_\min)}{\sqrt{\sigma_\text{data}^2 + \sigma^2}}$$</p>
-<p><strong>Consistency Loss（核心）</strong>：取相邻噪声级 $t_n < t_{n+1}$，要求 student 对 $(x_{t_n}, t_n)$ 和 $(x_{t_{n+1}}, t_{n+1})$ 输出一致——</p>
+<p><strong>Consistency Loss（核心）</strong>：取相邻噪声级 $t_n &lt; t_{n+1}$，要求 student 对 $(x_{t_n}, t_n)$ 和 $(x_{t_{n+1}}, t_{n+1})$ 输出一致——</p>
 <p>$$\boxed{\;\mathcal{L}_\text{CD}(\theta) = \mathbb{E}\left[\lambda(t_n)\, d\!\Big(f_\theta(x_{t_{n+1}}, t_{n+1}),\; f_{\theta^-}(\hat x_{t_n}, t_n)\Big)\right]\;}$$</p>
 <ul><li>$\theta^-$：EMA target（类似 BYOL，防止 representation collapse）</li><li>$\hat x_{t_n} = x_{t_{n+1}} - (t_{n+1} - t_n) \cdot v_\phi(x_{t_{n+1}}, t_{n+1})$：teacher 一步 ODE 反向</li><li>$d$：L2 或 LPIPS（CM 原文 ImageNet 64 用 LPIPS）</li><li>$\lambda(t_n)$：权重，CM 原文取 1</li></ul>
 <div class="callout callout-info"><div class="callout-title">CD vs CT 的关键区别</div><p>CD (Consistency <strong>Distillation</strong>) 用 pretrained teacher $v_\phi$ 算 $\hat x_{t_n}$；CT (Consistency <strong>Training</strong>) 完全无 teacher，用 $\hat x_{t_n} = x_0 + t_n \epsilon$（同一 noise sample 加不同噪声水平）。CD 用 LPIPS + EMA 可达 FID 3.55（CIFAR-10），CT 只能到 8.7——直到 iCT 才追平。</p></div>
@@ -687,7 +687,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p><strong>结果</strong>：1.5B 参数，ImageNet 512×512 <strong>2-step FID 1.88</strong>，与最强 diffusion baseline 差 &lt;10%——首次让 CM 在大规模 high-res 上拿到顶级数字。</p>
 <h3 id="25-ctm--consistency-trajectory-models-kim-et-al-2024-iclr-arxiv231002279">2.5　CTM / Consistency Trajectory Models (Kim et al. 2024 ICLR, arXiv:2310.02279)</h3>
 <p><strong>问题</strong>：CM 只能映 $(x_t, t) \to x_{\sigma_\min}$（轨迹终点），无法做中间点跳跃；step 数固定。</p>
-<p><strong>CTM 的扩展</strong>：学一个 $G(x_t, t, s)$——从 $(x_t, t)$ <strong>跳到任意 $s < t$</strong>：</p>
+<p><strong>CTM 的扩展</strong>：学一个 $G(x_t, t, s)$——从 $(x_t, t)$ <strong>跳到任意 $s &lt; t$</strong>：</p>
 <p>$$G_\theta(x_t, t, s) \approx \text{ODE-solver}(x_t, t \to s)$$</p>
 <ul><li>$s = \sigma_\min$ 时退化为 CM</li><li>$s = t$ 时退化为 identity</li><li>中间 $s$ 让 user 自由选 NFE：3-step = $G(z, T, t_1) \to G(\cdot, t_1, t_2) \to G(\cdot, t_2, 0)$</li></ul>
 <p><strong>Loss</strong>：trajectory matching——</p>
@@ -718,7 +718,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\nabla_\theta \text{KL}(p_\text{fake}^\theta \| p_\text{real}) = -\mathbb{E}_{x \sim p_\text{fake}^\theta}\!\left[\big(\nabla_x \log p_\text{real}(x) - \nabla_x \log p_\text{fake}(x)\big) \cdot \frac{\partial G_\theta}{\partial \theta}\right]$$</p>
 <p><strong>关键观察</strong>：$\nabla_x \log p_\text{real}$ 就是 teacher score $s_\text{real}$（teacher diffusion 模型现成），$\nabla_x \log p_\text{fake}$ 用一个<strong>fake score model</strong> $s_\text{fake}$（在 student 当前输出上训出来的小 diffusion）。</p>
 <p><strong>DMD Loss</strong>（两个 loss 联训，<strong>记号严格</strong>：$\mu$ 是 denoiser/mean predictor，$s_\mu(x_t,t) = (\alpha_t \mu(x_t,t) - x_t)/\sigma_t^2$ 是从 denoiser 转出的 score；DMD 论文用 denoiser，而非裸 score）：</p>
-<p>$$ \boxed{\; \begin{aligned} \nabla_\theta \mathcal{L}_\text{DMD}^G &= \mathbb{E}_{z, t, \epsilon}\!\left[w_t\,\alpha_t\,(s_\text{fake}(x_t, t) - s_\text{real}(x_t, t))^\top\,\tfrac{\partial G_\theta(z)}{\partial\theta}\right] \quad\text{// student, surrogate} \\ \mathcal{L}_\text{fake}(\phi_f) &= \mathbb{E}\!\left[\lambda_t\,\|\mu_{\phi_f}(x_t, t) - \operatorname{sg}(G_\theta(z))\|_2^2\right] \quad\text{// fake denoiser DSM target 是 student 当前输出} \end{aligned} \;} $$</p>
+<p>$$ \boxed{\; \begin{aligned} \nabla_\theta \mathcal{L}_\text{DMD}^G &amp;= \mathbb{E}_{z, t, \epsilon}\!\left[w_t\,\alpha_t\,(s_\text{fake}(x_t, t) - s_\text{real}(x_t, t))^\top\,\tfrac{\partial G_\theta(z)}{\partial\theta}\right] \quad\text{// student, surrogate} \\ \mathcal{L}_\text{fake}(\phi_f) &amp;= \mathbb{E}\!\left[\lambda_t\,\|\mu_{\phi_f}(x_t, t) - \operatorname{sg}(G_\theta(z))\|_2^2\right] \quad\text{// fake denoiser DSM target 是 student 当前输出} \end{aligned} \;} $$</p>
 <p>其中 $x_t = \alpha_t G_\theta(z) + \sigma_t \epsilon$。<strong>辅助 regression loss</strong>：DMD v1 还加一项 $\mathbb{E}\|G_\theta(z) - \text{ODE-solver}^\text{teacher}(z)\|^2$（teacher pair 监督）防止 student 跑偏——但这要预生成大批 teacher pair，<strong>贵且 mode 受限</strong>；DMD2 去掉了这项。</p>
 <h3 id="32-从-reverse-kl-推-dmd-梯度必考推导">3.2　从 reverse-KL 推 DMD 梯度（必考推导）</h3>
 <p>设 student $G_\theta(z) \mapsto x$，$z \sim \mathcal{N}(0, I)$。fake 分布 $p_\text{fake}^\theta(x) = G_\theta \# \mathcal{N}(0, I)$（push-forward）。</p>
@@ -1507,7 +1507,7 @@ Q4: 是否需要多样性?
 </details>
 <details>
 <summary>Q18. CTM 比 CM 多了什么能力？</summary>
-<ul><li>CM：只学 $f(x_t, t) \to x_0$（轨迹终点）</li><li>CTM：学 $G(x_t, t, s)$，<strong>任意 $s < t$ 都可跳</strong></li><li><p>实际收益：</p>
+<ul><li>CM：只学 $f(x_t, t) \to x_0$（轨迹终点）</li><li>CTM：学 $G(x_t, t, s)$，<strong>任意 $s &lt; t$ 都可跳</strong></li><li><p>实际收益：</p>
 <ul><li>inference step 数 runtime 可选（CM 固定）</li><li>中间状态可控（适合做 image-to-image / inpainting）</li><li>训练 + score matching auxiliary loss 防 trivial</li></ul></li><li>FID：CIFAR 1-step 1.73 / ImageNet 64 1.92（SOTA）</li></ul>
 <p>只说"CTM 是 CM 的 trajectory 版" 不说为什么"任意 s"有用；混淆 CTM 和 TCD（后者是 LCM 改进）。</p>
 </details>
@@ -1608,7 +1608,7 @@ Q4: 是否需要多样性?
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_distillation_tutorial.md</code> ·
   SHA256 <code>cdf8cbf0098f</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

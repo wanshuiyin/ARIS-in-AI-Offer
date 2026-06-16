@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/llm_opd_tutorial.md">
 <meta name="aris:source-sha256" content="621b0792bede0b06654b0341b652bb5055eeac2b24c258e58c2f63ace770bed7">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -624,14 +624,14 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/llm_opd_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>621b0792bede</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
 <div class="callout callout-info"><div class="callout-title">8 句话搞定 LLM OPD (On-Policy Distillation)</div><p>2025-2026 post-training 最热门的"便宜版 RL"范式，一页拿下面试核心要点（详见 §1-§9 推导 + §10 25 高频题）。</p></div>
-<ol><li><strong>OPD = On-Policy Distillation</strong>：student 用自己当前 policy <strong>采 trajectory</strong>，teacher 在 student 自己访问到的状态上给 <strong>per-token 监督信号</strong>（KL / log-prob / soft label）。它<strong>不是</strong> DPO 的笔误，也<strong>不是</strong> Online Preference Distillation——这一术语在 LLM 上下文专指 "on-policy distillation"。代表 paper：MiniLLM (Gu 2024 ICLR, arXiv 2306.08543)、GKD (Agarwal 2024 ICLR, arXiv 2306.13649)、Thinking Machines blog (Lu 2025-10-27)、Qwen3 Technical Report (May 2025, arXiv 2505.09388)、Survey (Song &amp; Zheng 2026, arXiv 2604.00626)。</li><li><strong>核心 loss（一行能写下来）</strong>：sample $y \sim \pi_\theta(\cdot|x)$，对每个 token 算 reverse KL，定义为 $L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D,\, y \sim \pi_\theta}[\sum_t D_{\text{KL}}(\pi_\theta(\cdot|x, y_{<t})\,\|\,\pi_T(\cdot|x, y_{<t}))]$。注意期望下标是 $y \sim \pi_\theta$（<strong>student 自己采</strong>），KL 方向是 $\pi_\theta \| \pi_T$（<strong>reverse / mode-seeking</strong>）——这两点是 OPD 与 vanilla KD 的本质区别。完整公式：  $$L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D,\, y \sim \pi_\theta}\!\left[\sum_{t=1}^{|y|} D_{\text{KL}}\!\big(\pi_\theta(\cdot|x, y_{<t})\,\|\,\pi_T(\cdot|x, y_{<t})\big)\right]$$</li><li><p><strong>三种 distillation 范式速记</strong>：</p>
+<ol><li><strong>OPD = On-Policy Distillation</strong>：student 用自己当前 policy <strong>采 trajectory</strong>，teacher 在 student 自己访问到的状态上给 <strong>per-token 监督信号</strong>（KL / log-prob / soft label）。它<strong>不是</strong> DPO 的笔误，也<strong>不是</strong> Online Preference Distillation——这一术语在 LLM 上下文专指 "on-policy distillation"。代表 paper：MiniLLM (Gu 2024 ICLR, arXiv 2306.08543)、GKD (Agarwal 2024 ICLR, arXiv 2306.13649)、Thinking Machines blog (Lu 2025-10-27)、Qwen3 Technical Report (May 2025, arXiv 2505.09388)、Survey (Song &amp; Zheng 2026, arXiv 2604.00626)。</li><li><strong>核心 loss（一行能写下来）</strong>：sample $y \sim \pi_\theta(\cdot|x)$，对每个 token 算 reverse KL，定义为 $L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D,\, y \sim \pi_\theta}[\sum_t D_{\text{KL}}(\pi_\theta(\cdot|x, y_{&lt;t})\,\|\,\pi_T(\cdot|x, y_{&lt;t}))]$。注意期望下标是 $y \sim \pi_\theta$（<strong>student 自己采</strong>），KL 方向是 $\pi_\theta \| \pi_T$（<strong>reverse / mode-seeking</strong>）——这两点是 OPD 与 vanilla KD 的本质区别。完整公式：  $$L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D,\, y \sim \pi_\theta}\!\left[\sum_{t=1}^{|y|} D_{\text{KL}}\!\big(\pi_\theta(\cdot|x, y_{&lt;t})\,\|\,\pi_T(\cdot|x, y_{&lt;t})\big)\right]$$</li><li><p><strong>三种 distillation 范式速记</strong>：</p>
 <ul><li><strong>SFT / Hard distillation</strong>：teacher 生成 $\hat y$，student 在 $\hat y$ 上做 cross-entropy（off-policy + hard label）</li><li><strong>Vanilla KD / Soft distillation (Hinton 2015)</strong>：teacher 生成 $\hat y$，student match teacher 的 soft logits（off-policy + soft label，forward KL，mode-covering）</li><li><strong>OPD</strong>：<strong>student 自己生成 $y$</strong>，teacher 在 $y$ 上算 logits 给 KL 信号（on-policy + soft label，reverse KL，mode-seeking）</li></ul></li><li><strong>为什么 on-policy 关键</strong>：off-policy distillation 有 exposure bias——training 时 teacher 的 prefix 都"完美"，但推理时 student 遇到自己的错误前缀<strong>没见过</strong>，错误 compound（误差随序列长度 $L$ 大约按 $O(L^2)$ 放大，见 §1.3）。OPD 把训练分布 = 推理分布对齐，把 compound 误差从 $O(L^2)$ 压到 $O(L)$。</li><li><strong>OPD vs RL（核心卖点）</strong>：Thinking Machines blog 给出经验法则——RL 每条 trajectory 教 $O(1)$ bits（一个 outcome reward），OPD 教 $O(N)$ bits（每个 token 都有 teacher 的 soft label 监督）。在 Qwen3-8B-Base + Qwen3-32B-teacher 数学推理实验上，OPD <strong>匹配 RL 在 AIME'24 的 gain，但 compute 降到约 1/9-1/30</strong>。Qwen3 Tech Report 也独立报告 OPD ≈ RL 性能但 GPU 时长<strong>只需 1/10</strong>。</li><li><strong>与 DPO / GRPO 的关系</strong>：(a) <strong>DPO</strong> 用 offline preference pair 做 closed-form RLHF，<strong>没有 teacher logits，没有 student rollout</strong>——与 OPD 几乎正交；(b) <strong>GRPO</strong> 用 group-relative advantage 做 on-policy RL，<strong>有 student rollout 但 reward 是 sparse outcome</strong>；(c) <strong>OPD = GRPO 的"dense teacher KL 替代 sparse outcome reward"</strong> 版本。Survey (Song 2026) 给出统一视角：OPD ≈ "KL-constrained RL with $\beta \to \infty$ 且 token-level reward 来自 teacher log-prob"。</li><li><strong>2025-2026 工业采用</strong>：Qwen3（off-policy + on-policy 两阶段蒸馏 small models）、DeepSeek-R1 distillation series（off-policy SFT 为主，但后续 follow-up 用 OPD）、Gemma 2/3、MiMo-V2、Kimi distill 系列。Thinking Machines (Murati 团队 2025) 把 OPD 包装成"便宜 RL 替代品"路线。</li><li><strong>三个最常考的 footgun</strong>：(a) <strong>Length inflation / truncation collapse</strong>——student rollout 越训越长，触发 truncation 后 gradient 偏置，validation 暴跌（Demystifying OPD 2026, arXiv 2604.08527）；(b) <strong>Reverse KL mode collapse</strong>——student 收敛到 teacher 单一模，生成多样性塌缩；(c) <strong>Teacher / student gap 太大</strong>：student 完全采不到 teacher 概率高的 region，OPD 信号近乎 0（"prefix teach, suffix fade" 现象，arXiv 2605.13643）。</li></ol>
 <h2 id="1-直觉为什么需要-on-policy-distillation">§1 直觉：为什么需要 On-Policy Distillation</h2>
 <h3 id="11-knowledge-distillation-简史hinton--distilbert--minillm--opd">1.1　Knowledge Distillation 简史（Hinton → DistilBERT → MiniLLM → OPD）</h3>
@@ -641,16 +641,16 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="12-forward-kl-vs-reverse-klmode-covering-vs-mode-seeking">1.2　Forward KL vs Reverse KL：mode-covering vs mode-seeking</h3>
 <p>vanilla KD (Hinton) 用 forward KL：</p>
 <p>$$D_{\text{KL}}(\pi_T \,\|\, \pi_\theta) = \sum_y \pi_T(y) \log \frac{\pi_T(y)}{\pi_\theta(y)}$$</p>
-<p>期望在 $\pi_T$ 下取，<strong>只有 teacher 给高概率的地方贡献 loss</strong>。如果 $\pi_T(y) > 0$ 但 $\pi_\theta(y) = 0$，loss 爆炸 → student 被迫<strong>覆盖 teacher 的每一个 mode</strong>（mode-covering / mass-covering），即使有些 mode 对 student 来说不可达，结果是 student 把概率分散到很多 token 上，生成"安全但平庸"的回答。</p>
+<p>期望在 $\pi_T$ 下取，<strong>只有 teacher 给高概率的地方贡献 loss</strong>。如果 $\pi_T(y) &gt; 0$ 但 $\pi_\theta(y) = 0$，loss 爆炸 → student 被迫<strong>覆盖 teacher 的每一个 mode</strong>（mode-covering / mass-covering），即使有些 mode 对 student 来说不可达，结果是 student 把概率分散到很多 token 上，生成"安全但平庸"的回答。</p>
 <p>MiniLLM 改用 reverse KL：</p>
 <p>$$D_{\text{KL}}(\pi_\theta \,\|\, \pi_T) = \sum_y \pi_\theta(y) \log \frac{\pi_\theta(y)}{\pi_T(y)}$$</p>
-<p>期望在 $\pi_\theta$ 下取，<strong>只有 student 自己采到的地方贡献 loss</strong>。如果 $\pi_T(y) = 0$ 但 $\pi_\theta(y) > 0$，loss 爆炸 → student 被迫<strong>避开 teacher 认为不可能的 token</strong>（mode-seeking / zero-forcing），结果 student 收敛到 teacher 的某一个高质量 mode 上，生成"sharp 且 coherent"的回答。</p>
+<p>期望在 $\pi_\theta$ 下取，<strong>只有 student 自己采到的地方贡献 loss</strong>。如果 $\pi_T(y) = 0$ 但 $\pi_\theta(y) &gt; 0$，loss 爆炸 → student 被迫<strong>避开 teacher 认为不可能的 token</strong>（mode-seeking / zero-forcing），结果 student 收敛到 teacher 的某一个高质量 mode 上，生成"sharp 且 coherent"的回答。</p>
 <div class="callout callout-info"><div class="callout-title">直观差异</div><p>想象 teacher 是一个 "有 3 个等价好答案" 的双峰分布：</p></div>
 <ul><li><strong>forward KL</strong> 让 student 学一个 trimodal 平均的分布，每个 mode 都有概率但每个都不够 sharp</li><li><strong>reverse KL</strong> 让 student 锁定其中一个 mode（哪个 mode 由 init + sampling 决定），生成最自信、最贴近 teacher 决策的那条路径</li></ul>
 <p>对 LLM 生成任务这一般是好事——我们要的是"流畅、自信、正确"的输出，不是"平均、模糊、平庸"的输出。这也是 MiniLLM 第一个把 reverse KL 用到 LLM 蒸馏的关键洞察。</p>
 <h3 id="13-exposure-biasoff-policy-蒸馏的结构缺陷">1.3　Exposure bias：off-policy 蒸馏的结构缺陷</h3>
 <p>考虑一个 autoregressive 生成任务，序列长度 $L$。off-policy 蒸馏（包括 SFT / vanilla KD / seq-level KD）训练时 prefix 来自 teacher 或 dataset；推理时 prefix 来自 student 自己。</p>
-<p>假设单步错误率（student 与 teacher 在某个 prefix 上偏离的概率）为 $\epsilon$。off-policy 训练只在 teacher prefix 上"教过"student，所以推理时 student 一旦走错一步，<strong>后续步骤进入了训练中没见过的状态分布</strong>——student 的错误率不再是 $\epsilon$，而是 $\epsilon' > \epsilon$（甚至跳到 0.5+ 的随机水平）。</p>
+<p>假设单步错误率（student 与 teacher 在某个 prefix 上偏离的概率）为 $\epsilon$。off-policy 训练只在 teacher prefix 上"教过"student，所以推理时 student 一旦走错一步，<strong>后续步骤进入了训练中没见过的状态分布</strong>——student 的错误率不再是 $\epsilon$，而是 $\epsilon' &gt; \epsilon$（甚至跳到 0.5+ 的随机水平）。</p>
 <p>Bagnell 2010 在 imitation learning 上证明：<strong>off-policy 模仿的累积误差是 $O(L^2 \epsilon)$</strong>（compound error），而 on-policy 监督（如 DAgger）能把累积误差压到 $O(L \epsilon)$。这正是 OPD 在 LLM 上的理论动机——把训练 state 分布对齐到推理 state 分布。</p>
 <p>Survey (Song &amp; Zheng 2026 arXiv 2604.00626) 在 §3 复述了这个结果：</p>
 <blockquote><p>"off-policy distillation 的 exposure bias 随序列长度大约按平方放大；on-policy distillation 把累积误差线性化。"</p></blockquote>
@@ -664,12 +664,12 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>给定：</p>
 <ul><li><strong>prompt 分布</strong> $D$（如 dataset 中 instruction 的分布）</li><li><strong>teacher policy</strong> $\pi_T$（固定 frozen，参数量 $\gg$ student）</li><li><strong>student policy</strong> $\pi_\theta$（可训练）</li></ul>
 <p>OPD 的目标函数（一般形式，from Survey arXiv 2604.00626 §2.1）：</p>
-<p>$$\boxed{\;L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D}\,\mathbb{E}_{y \sim \pi_\theta(\cdot|x)}\!\left[\sum_{t=1}^{|y|} D_f\!\big(\pi_\theta(\cdot|x, y_{<t})\,\|\,\pi_T(\cdot|x, y_{<t})\big)\right]\;}$$</p>
+<p>$$\boxed{\;L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D}\,\mathbb{E}_{y \sim \pi_\theta(\cdot|x)}\!\left[\sum_{t=1}^{|y|} D_f\!\big(\pi_\theta(\cdot|x, y_{&lt;t})\,\|\,\pi_T(\cdot|x, y_{&lt;t})\big)\right]\;}$$</p>
 <p>其中 $D_f$ 是某个 $f$-divergence，常见选择：</p>
 <table><thead><tr><th>Divergence</th><th>公式</th><th>来源 / 偏好</th></tr></thead><tbody><tr><td><strong>Reverse KL</strong></td><td>$D(\pi_\theta \,\Vert\, \pi_T) = \sum_v \pi_\theta(v) \log \frac{\pi_\theta(v)}{\pi_T(v)}$</td><td>MiniLLM、Thinking Machines blog、Qwen3 主用</td></tr><tr><td><strong>Forward KL</strong></td><td>$D(\pi_T \,\Vert\, \pi_\theta)$（但 sample 时仍从 $\pi_\theta$）</td><td>"Sampled-token OPD"，简单稳定</td></tr><tr><td><strong>JSD</strong></td><td>$\frac{1}{2}D(\pi_\theta \,\Vert\, M) + \frac{1}{2}D(\pi_T \,\Vert\, M)$, $M = \frac{1}{2}(\pi_\theta + \pi_T)$</td><td>GKD 默认（对称、bounded）</td></tr><tr><td><strong>Generalized JSD</strong></td><td>$D_\beta = \beta D(\pi_\theta \,\Vert\, M_\beta) + (1-\beta) D(\pi_T \,\Vert\, M_\beta)$, $M_\beta = \beta \pi_\theta + (1-\beta)\pi_T$</td><td>GKD 的 $\beta$ 插值</td></tr><tr><td><strong>Total Variation</strong></td><td>$\frac{1}{2}\sum_v \lvert\pi_\theta(v) - \pi_T(v)\rvert$</td><td>较少用，bounded but non-smooth</td></tr></tbody></table>
 <p><strong>核心点</strong>：不管 $D_f$ 是哪个，<strong>期望下标必须包含 $y \sim \pi_\theta$</strong>——student 自己采，这是 "on-policy" 的定义。</p>
 <h3 id="22-reverse-kl-展开--token-level-loss">2.2　Reverse KL 展开 + token-level loss</h3>
-<p>把 reverse KL 在每个 prefix $s_t = (x, y_{<t})$ 展开：</p>
+<p>把 reverse KL 在每个 prefix $s_t = (x, y_{&lt;t})$ 展开：</p>
 <p>$$D_{\text{KL}}\!\big(\pi_\theta(\cdot|s_t)\,\|\,\pi_T(\cdot|s_t)\big) = \sum_{v=1}^{V} \pi_\theta(v|s_t) \left[\log \pi_\theta(v|s_t) - \log \pi_T(v|s_t)\right]$$</p>
 <p>这是<strong>完整 KL</strong>（"full-distribution" 形式），需要 teacher 在每个 prefix 上做一次 forward，得到整个 vocab 的 logits。计算成本：$O(B \cdot L \cdot V)$ 的 teacher forward + softmax。</p>
 <p>实践中常用 <strong>"sampled-token" 近似</strong>——只在 student 实际采到的 token $v = y_t$ 上算：</p>
@@ -1084,7 +1084,7 @@ Qwen3-8B-final</code></pre>
 <p><strong>缓解</strong>：</p>
 <ul><li><strong>Length normalization</strong>：loss 除以 trajectory length（per-token average，不是 sum）——这是 Tinker / 大多数生产实现的默认</li><li><strong>Length penalty</strong>：在 reward 里加 $-\lambda \cdot L$ 抑制超长</li><li><strong>Max-length 比 sample max-length 大很多</strong>：避免 truncation 进入训练</li><li><strong>Early stop on val loss spike</strong>：检测到 val 暴跌马上停</li></ul>
 <h3 id="72-mode-collapse--diversity-loss">7.2　Mode Collapse / Diversity Loss</h3>
-<p><strong>现象</strong>：reverse KL 是 mode-seeking 的，理论上 student 应该锁定到 teacher 的一个 mode；但在某些任务（如 open-ended generation）上 student 收敛到<strong>单一回答 template</strong>，丢掉多样性，pass@N（$N > 1$）下降。</p>
+<p><strong>现象</strong>：reverse KL 是 mode-seeking 的，理论上 student 应该锁定到 teacher 的一个 mode；但在某些任务（如 open-ended generation）上 student 收敛到<strong>单一回答 template</strong>，丢掉多样性，pass@N（$N &gt; 1$）下降。</p>
 <p><strong>缓解</strong>：</p>
 <ul><li><strong>使用 forward KL / JSD 替代 reverse KL</strong>（GKD 的 $\beta$ 插值）</li><li><strong>加 entropy bonus</strong>（类似 PPO）</li><li><strong>Mixed loss</strong>：reverse KL × $\alpha$ + forward KL × $(1-\alpha)$</li><li><strong>MiniLLM 的 stabilization trick</strong>：mixed policy $\pi_{\text{mix}} = (1-\alpha)\pi_\theta + \alpha\pi_T$ with $\alpha = 0.2$ 防止 mode collapse early</li></ul>
 <h3 id="73-reward-hackingteacher-game">7.3　Reward Hacking（teacher-game）</h3>
@@ -1142,7 +1142,7 @@ Qwen3-8B-final</code></pre>
 </details>
 <details>
 <summary><strong>L1-3：写出 OPD 的 reverse KL 损失公式。</strong></summary>
-<p><strong>答</strong>： $$L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D,\, y \sim \pi_\theta(\cdot|x)}\!\left[\sum_{t=1}^{|y|} D_{\text{KL}}\!\big(\pi_\theta(\cdot|x, y_{<t})\,\|\,\pi_T(\cdot|x, y_{<t})\big)\right]$$ 关键：期望下标 $y \sim \pi_\theta$（on-policy），KL 方向是 $\pi_\theta$ 在前（reverse / mode-seeking）。Sampled-token 近似 = $\log \pi_\theta(y_t) - \log \pi_T(y_t)$。</p>
+<p><strong>答</strong>： $$L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D,\, y \sim \pi_\theta(\cdot|x)}\!\left[\sum_{t=1}^{|y|} D_{\text{KL}}\!\big(\pi_\theta(\cdot|x, y_{&lt;t})\,\|\,\pi_T(\cdot|x, y_{&lt;t})\big)\right]$$ 关键：期望下标 $y \sim \pi_\theta$（on-policy），KL 方向是 $\pi_\theta$ 在前（reverse / mode-seeking）。Sampled-token 近似 = $\log \pi_\theta(y_t) - \log \pi_T(y_t)$。</p>
 </details>
 <details>
 <summary><strong>L1-4：什么是 exposure bias？OPD 怎么解决？</strong></summary>
@@ -1296,7 +1296,7 @@ assert losses[-1] &lt; losses[0], &quot;OPD should reduce KL over training&quot;
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/llm_opd_tutorial.md</code> ·
   SHA256 <code>621b0792bede</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

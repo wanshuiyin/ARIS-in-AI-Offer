@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/flow_matching_tutorial_en.md">
 <meta name="aris:source-sha256" content="30fb19ce90837b396223edc71b7d1276adb53fa6ab8b488e27d89a9507b577e7">
-<meta name="aris:generated-at" content="2026-05-31 05:07 UTC">
+<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -578,7 +578,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/flow_matching_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>30fb19ce9083</code></span>
-    <span><strong>Rendered:</strong> 2026-05-31 05:07 UTC</span>
+    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
     
   </div>
 </header>
@@ -613,7 +613,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\boxed{\;\mathcal{L}_\text{CFM}(\theta) = \mathbb{E}_{t,\; z \sim q,\; x \sim p_t(\cdot|z)} \left\| v_\theta(t, x) - u_t(x|z) \right\|^2\;}$$</p>
 <p>Each term is <strong>sampleable and computable</strong>. $x \sim p_t(\cdot|z)$ is usually closed-form sampleable (e.g. linear interpolation below).</p>
 <h3 id="23-key-theorem-lipman-et-al-2023-theorem-2">2.3　Key theorem (Lipman et al. 2023, Theorem 2)</h3>
-<div class="callout callout-good"><div class="callout-title">Gradient equivalence theorem</div><p>under appropriate regularity of $p_t$ and $u_t$, and $p_t > 0$:</p></div>
+<div class="callout callout-good"><div class="callout-title">Gradient equivalence theorem</div><p>under appropriate regularity of $p_t$ and $u_t$, and $p_t &gt; 0$:</p></div>
 <p>$$\nabla_\theta \mathcal{L}_\text{FM}(\theta) = \nabla_\theta \mathcal{L}_\text{CFM}(\theta)$$ So <strong>minimizing CFM ≡ minimizing FM</strong>. The two losses differ by a $\theta$-independent constant under the above assumptions.</p>
 <p><strong>Proof sketch</strong>: expand the L2 norm $\|v_\theta\|^2 - 2 v_\theta^\top u_t + \|u_t\|^2$; the first two terms are equal under either loss (using the definition of $u_t$ to write the marginal as a conditional-weighted expectation); the third term is $\theta$-independent and vanishes under the gradient.</p>
 <div class="callout callout-info"><div class="callout-title">Interview bonus: marginal vector field is non-unique</div><p>given $p_t$, the $u_t$ satisfying the continuity equation $\partial_t p_t + \nabla\cdot(p_t u_t) = 0$ is <strong>not unique</strong> — adding any divergence-free vector field still yields a valid choice. CFM automatically picks a "natural" $u_t$ via the conditional path (usually corresponding to the OT map or a score-based ODE). This is often a follow-up: "Is the marginal $u_t$ unique?"</p></div>
@@ -862,11 +862,11 @@ def rk4_sampler(model, x0, steps=25, t_start=0.0, t_end=1.0):
 <p>For any SDE $dx = f(x, t) dt + g(t) dW$ (forward), there exists a corresponding <strong>probability flow ODE</strong> (Song et al. 2021):</p>
 <p>$$dx = \underbrace{\left[ f(x, t) - \frac{1}{2} g^2(t)\, \nabla_x \log p_t(x) \right]}_{\text{vector field } u_t(x)} dt$$</p>
 <p>This ODE has the same marginal distribution $p_t$ as the SDE at every time.</p>
-<div class="callout callout-good"><div class="callout-title">FM ↔ Score Matching bridge (with caveats)</div><p>when the FM probability path arises from a non-degenerate noising SDE ($g(t) > 0$), learning the score $s_\theta \approx \nabla \log p_t$ and learning the vector field $v_\theta \approx u_t$ are <strong>two parameterizations of the same information</strong>:</p></div>
+<div class="callout callout-good"><div class="callout-title">FM ↔ Score Matching bridge (with caveats)</div><p>when the FM probability path arises from a non-degenerate noising SDE ($g(t) &gt; 0$), learning the score $s_\theta \approx \nabla \log p_t$ and learning the vector field $v_\theta \approx u_t$ are <strong>two parameterizations of the same information</strong>:</p></div>
 <p>$$v_\theta(t, x) = f(x, t) - \tfrac{1}{2} g^2(t)\, s_\theta(t, x)$$ So under VP/VE paths, FM can be viewed as a score matching equivalent in the ODE viewpoint. <strong>But this fails for Rectified Flow / OT-CFM</strong> (no standard SDE correspondence), where FM is more general vector-field regression.</p>
 <h3 id="61-velocity--score--noise-prediction-interconversion-must-know">6.1　Velocity ↔ Score ↔ Noise prediction interconversion (must know)</h3>
 <p>Under VP/VE paths, assuming $x_t = \alpha(t) x_1 + \sigma(t) x_0$ (with $x_0 \sim \mathcal{N}(0, I)$ as the noise direction), the three main prediction targets are linearly interconvertible:</p>
-<p>$$ \begin{aligned} \epsilon\text{-prediction} &:\quad \epsilon_\theta(t, x_t) \approx x_0 \\ x_0\text{-prediction} &:\quad x^0_\theta(t, x_t) \approx x_1 \\ v\text{-prediction (Salimans-Ho)} &:\quad v_\theta(t, x_t) \approx \alpha'(t) x_1 + \sigma'(t) x_0 \\ \text{score} &:\quad s_\theta(t, x_t) \approx -x_0 / \sigma(t) \end{aligned} $$</p>
+<p>$$ \begin{aligned} \epsilon\text{-prediction} &amp;:\quad \epsilon_\theta(t, x_t) \approx x_0 \\ x_0\text{-prediction} &amp;:\quad x^0_\theta(t, x_t) \approx x_1 \\ v\text{-prediction (Salimans-Ho)} &amp;:\quad v_\theta(t, x_t) \approx \alpha'(t) x_1 + \sigma'(t) x_0 \\ \text{score} &amp;:\quad s_\theta(t, x_t) \approx -x_0 / \sigma(t) \end{aligned} $$</p>
 <p>Given $x_t$ and any one prediction, the other three are algebraically recoverable. For example, under VP the $\epsilon$-score relation is:</p>
 <p>$$s_\theta(t, x_t) = -\epsilon_\theta(t, x_t) / \sigma(t)$$</p>
 <p>This is why DDPM (learning $\epsilon$) and score-based (learning $\nabla \log p_t$) are <strong>equivalent parameterizations</strong>. Flow matching learning $v = \alpha' x_1 + \sigma' x_0$ is one such choice, and under RF (linear) it degenerates to $v = x_1 - x_0$.</p>
@@ -885,7 +885,7 @@ def rk4_sampler(model, x0, steps=25, t_start=0.0, t_end=1.0):
 <p>During training, with probability $p_\text{drop}$ (typically 0.1), $c$ is replaced by a null token (e.g. null embedding), yielding an <strong>unconditional head</strong>.</p>
 <p>At sampling time, use <strong>Classifier-Free Guidance</strong>:</p>
 <p>$$v_\text{CFG}(t, x, c) = v_\theta(t, x, \emptyset) + s \cdot \left[v_\theta(t, x, c) - v_\theta(t, x, \emptyset)\right]$$</p>
-<p>$s$ is the guidance scale (typically 1.5-7.5). $s > 1$ amplifies the conditional signal, improving text alignment but reducing diversity.</p>
+<p>$s$ is the guidance scale (typically 1.5-7.5). $s &gt; 1$ amplifies the conditional signal, improving text alignment but reducing diversity.</p>
 <h3 id="73-logit-normal-t-sd3-default">7.3　Logit-normal $t$ (SD3 default)</h3>
 <p>SD3 (Esser et al. 2024) finds that <strong>$t \sim \mathcal{U}[0, 1]$ is not optimal</strong>. The middle region ($t \approx 0.5$) has the most difficult target noise-signal ratio. Replace with:</p>
 <p>$$t = \sigma(\tau), \quad \tau \sim \mathcal{N}(m, s^2)$$</p>
@@ -949,7 +949,7 @@ def rk4_sampler(model, x0, steps=25, t_start=0.0, t_end=1.0):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/flow_matching_tutorial_en.md</code> ·
   SHA256 <code>30fb19ce9083</code> ·
-  generated at 2026-05-31 05:07 UTC.
+  generated at 2026-06-16 06:15 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>
