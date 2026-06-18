@@ -1,0 +1,31 @@
+{
+  "skill": "interview-cheatsheet (EN translation-fidelity)",
+  "source": "docs/tutorials/linear_sparse_attention_tutorial_en.md",
+  "source_sha256": "9905f5f38239d85e6500fdbb6b8f7e632ae50cc9f30fa31e92b63a9d92c4e34b",
+  "output": "docs/tutorials/linear_sparse_attention_tutorial_en.html",
+  "zh_source": "docs/tutorials/linear_sparse_attention_tutorial.md",
+  "reviewer": "codex gpt-5.5 xhigh, fresh thread",
+  "verdict": "PASS",
+  "thread_id": "019ed961-f704-7d71-ab2e-b86908d54f8e",
+  "translation_fidelity_review": {
+    "verdict": "PASS (1 round)",
+    "date": "2026-06-18",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "PASS",
+        "thread_id": "019ed961-f704-7d71-ab2e-b86908d54f8e",
+        "summary": "Cross-model ZH↔EN fidelity check (Codex GPT-5.5 xhigh, from-disk file compare, no web). No fidelity divergences. All 6 high-risk hedges carry the same strength as ZH: §6.2 ungated-additive-only state update; §A delta==additive iff erase term S_{t-1}k_t=0 (orthogonality = sufficient, not iff); §11 recall ordering empirical-not-theorem + NSA softmax-over-selected; TL;DR(9)/§9 'few attention layers (full/sliding/gated, varies by model)'; §10 footguns (asymptotic≠wall-clock, FlashAttention exact-softmax O(L²), SSD≡semiseparable masked NOT softmax); Mamba B,C,Δ data-dependent & A fixed. LaTeX math tokens zero diff; code blocks consistent (non-comment code + text output identical); all 21 references match incl. DeepSeek-V3.2/DSA & Qwen3-Next 'no standalone arXiv / tech report' framing and Kimi-Linear 2510.26692."
+      }
+    ]
+  },
+  "pre_review_convention_fixes": {
+    "note": "Two house-convention fixes applied to the subagent draft BEFORE the fidelity review (a fidelity review compares EN-vs-ZH and would NOT flag these, since they are EN-side conventions, not meaning divergences):",
+    "fixes": [
+      "Inline code-block comments translated ZH→EN. The subagent kept the §6/§A python comments in Chinese (byte-identical to source); but the shipped EN editions (lora_en 0 CJK / rag_en 0 CJK code comments) use English inline-code comments per the repo convention ('Code logic identical to ZH with English-translated comments'). Translated all 28 inline comments; code logic byte-identical, real-output text block untouched.",
+      "Collapsed 6 bilingual-gloss doublings created by translating the source's `中文（English）` pattern into `English (English)`: 'structured masked attention (structured masked attention)' + '1-semiseparable matrix (1-semiseparable matrix)' (§4.1 callout), 'Sliding window (sliding window)' (§7.2 NSA), 'Hybrid architectures (hybrid)' (§9 header), 'Sparse attention (sparse / trainable block-sparse)' → '(trainable block-sparse)' (§7 header), 'associative memory (associative memory / fast weight)' → '(a.k.a. fast weight)' (§2.2), 'gated (output-gated)' → 'output-gated' (§9.2 Qwen3-Next cell). Legitimate enumerations like 'write (additive/rewrite)' kept."
+    ]
+  },
+  "summary": "EN edition of the Linear / Sparse Attention cheat sheet (866 lines): drafted by a general-purpose subagent (math/LaTeX + code blocks copied byte-identical, 14 §-sections + 25 Q&A preserved), then orchestrator applied 2 house-convention fixes (English inline-code comments + 6 bilingual-gloss collapses), then a 1-round cross-model Codex GPT-5.5 xhigh translation-fidelity review confirmed PASS with zero meaning divergences and all hard-won ZH hedges preserved. Code logic identical to ZH with English comments; §A real-run output preserved verbatim.",
+  "rendered_at": "2026-06-18"
+}

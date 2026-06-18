@@ -1,0 +1,89 @@
+{
+  "skill": "interview-cheatsheet",
+  "source": "docs/tutorials/linear_sparse_attention_tutorial.md",
+  "source_sha256": "3c6e3b2dd270e150e973cdb64919b7cbe673522c04b8a2a70b55a93ee8d73395",
+  "output": "docs/tutorials/linear_sparse_attention_tutorial.html",
+  "runnable_code": "docs/tutorials/code/linear_sparse_attention.py",
+  "topic": "线性 / 稀疏注意力 — 线性注意力(kernel φ + 结合律 + 矩阵状态 RNN) / SSM·Mamba(selective S6) / Mamba-2·SSD(1-半可分 ≡ 结构化掩码线性注意力) / DeltaNet(改写式更新)·Gated DeltaNet / chunkwise parallel / 稀疏注意力(NSA 三分支 · MoBA · Lightning · DSA) / KV cache / 混合架构(Jamba·Hymba·Qwen3-Next·Kimi-Linear·MiniMax-01)",
+  "effort": "max",
+  "reviewer": "codex gpt-5.5 xhigh, fresh thread per batch",
+  "drafted_by": "subagent (general-purpose), then orchestrator self-verified the hard math + ran the full cross-model review",
+  "math_code_review": {
+    "verdict": "PASS (7 batches: 3 citation + math + code + answers + overall — all real issues fixed)",
+    "rounds": [
+      {
+        "run": 1,
+        "scope": "citations batch A (refs with no flags)",
+        "verdict": "PASS",
+        "thread_id": "019ed935-7322-7702-b9c2-002eb656811f",
+        "notes": "Subset of the 21 references returned corrections:[] — arXiv ids / years / titles verified from training knowledge (Katharopoulos 2006.16236, Performer 2009.14794, Mamba 2312.00752, Mamba-2/SSD 2405.21060, DeltaNet 2406.06484, Gated DeltaNet 2412.06464, GLA 2312.06635, RetNet 2307.08621, NSA 2502.11089, MoBA 2502.13189, Lightning/MiniMax-01 2501.08313, Jamba 2403.19887, etc.)."
+      },
+      {
+        "run": 2,
+        "scope": "citations batch B1",
+        "verdict": "PASS (1 unsure, kept with hedge)",
+        "thread_id": "019ed935-ec27-73a1-96c9-82f27dbb5a1f",
+        "notes": "Flagged ref #14 (Kimi-Linear, arXiv 2510.26692) id/year as 'unsure' from training knowledge. Kept the citation but it is a late-2025 frontier ref; not over-claimed in body."
+      },
+      {
+        "run": 3,
+        "scope": "citations batch B2 (frontier models with no standalone arXiv)",
+        "verdict": "PASS (2 reframed)",
+        "thread_id": "019ed936-5ada-7f13-a7fd-3edfc93a4d92",
+        "notes": "Flagged #17 (DeepSeek-V3.2 / DSA) and #19 (Qwen3-Next) as having no stable standalone arXiv paper. Reframed both in §A references as tech report / model card (no invented arXiv title), per the citation-discipline rule for frontier releases. Zamba kept (2405.16712)."
+      },
+      {
+        "run": 4,
+        "scope": "math — §2–§6 load-bearing derivations",
+        "verdict": "PASS (1 caveat strengthened)",
+        "thread_id": "019ed93c-0b73-7041-bb60-374c973fdb6b",
+        "real_issues_caught": [
+          "§6 chunkwise: flagged that the bare state update S_{c+1}=S_c+K_c^T V_c is the UN-GATED additive case only; DeltaNet/Mamba-2/GLA must fold the (I-βkk^T) erase / α decay factors into the intra-chunk and cross-chunk operators. The tutorial already scoped §6 to '以无门控线性注意力为例' and noted the generalization — strengthened the §6.2 closing caveat to make the additive-only scope explicit (names WY for DeltaNet, ∏α for GLA/Mamba-2)."
+        ],
+        "confirmed_correct": "linear-attention associativity + matrix state S_t=S_{t-1}+φ(k)v^T; SSM ZOH discretization Ā=exp(ΔA) + Mamba selectivity (B,C,Δ data-dependent, A structured-fixed); SSD M_ts=C_t(∏Ā_r)B̄_s 1-semiseparable ≡ structured masked linear attention (not softmax); delta-rule online-LSQ derivation S_t=S_{t-1}(I-β k k^T)+β v k^T; Gated DeltaNet α_t decay + β_t write — all independently re-derived correct."
+      },
+      {
+        "run": 5,
+        "scope": "code — §6 chunkwise + §A delta-rule + block-sparse",
+        "verdict": "PASS (2 fixes applied)",
+        "thread_id": "019ed940-daef-7513-acc2-a38fa6a65eeb",
+        "real_issues_caught": [
+          "§A note over-strong: claimed delta == additive 'ONLY when keys pairwise-orthogonal'. The precise condition is the erase term vanishing each step (S_{t-1}k_t=0); orthonormal keys + β=1 is a SUFFICIENT not necessary condition. Fixed both §A spots (inline comment + 💡 note).",
+          "block_topk_attention latent bug: the block representative score used mean over a -inf-padded view, so for L not divisible by `block` the last (partly-padded) block scored -inf and was never selectable (real tokens silently masked). Demo avoided it with L=12; fixed to a masked block-mean (pad scores 0, divide by real-column count) so any L is correct."
+        ],
+        "confirmed_correct": "linear_attn_chunkwise is EXACTLY equal to linear_attn_recurrent for all L incl. ragged last chunk — self-inclusive convention (recurrent writes S before reading o_t; chunkwise tril includes the diagonal) and inter uses pre-chunk state: no off-by-one, no double-count. delta_rule_recurrent implements S(I-βkk^T)+β v k^T correctly."
+      },
+      {
+        "run": 6,
+        "scope": "answers — L1/L2/L3 conceptual claims",
+        "verdict": "PASS",
+        "thread_id": "019ed942-cca6-7f90-80bf-9eccb13d8a84",
+        "notes": "All fine: FlashAttention = exact softmax IO-opt (still O(L²) FLOPs, not linear); NSA three branches (compress+select+window, natively trainable, hardware-aligned); MoBA MoE-route-to-top-k-blocks vs NSA fixed three-branch; selective SSM can't FFT (time-varying kernel) → selective scan / SSD; DeltaNet ∏(I-βkk^T) parallelized via WY representation; hybrid ~1:5–1:7 full-attention ratio + Hymba head-level + not-constant-memory (full-attn layers keep O(L) KV)."
+      },
+      {
+        "run": 7,
+        "scope": "overall — top-level framing, complexity table, recall ordering",
+        "verdict": "PASS (3 hedges applied)",
+        "thread_id": "019ed944-8dcc-7091-b2e7-de61f13413be",
+        "notes": "No errors. 5 refinements raised; 2 already covered in-doc (taxonomy non-exclusivity — §1 + TL;DR(4) SSD bridge; sparse keeps full KV — §8 + §11 table/read-points). 3 applied: (1) §11 recall ordering hedged as empirical / scale-recipe-benchmark-dependent; (2) NSA '≈ softmax' clarified as softmax-over-SELECTED (not exact full attention, can miss if selector errs); (3) TL;DR(9) 'few full-attention layers' softened to 'few attention layers (full / sliding / gated, varies by model)'. Lightning Attention correctly classed as LINEAR not sparse."
+      }
+    ]
+  },
+  "render_review": {
+    "verdict": "PASS",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "PASS",
+        "thread_id": "019ed950-5d56-7d33-9f5c-26233da20ee0",
+        "notes": "Fidelity confirmed. Mechanical: 14 §-sections, 25 Q&A (<details>/<summary> 25/25 in source; HTML 27/25 — the +2 details is a template constant identical on lora/rag), 3 <pre> (2 python + 1 §A real-output text), 5 <table>, 20 callouts, 44 TOC entries, embedded aris:source-sha256 matches source. The #18-class footgun (a literal '<' in inline math, source `$t<s$`) was changed to `$t \\lt s$` for style-consistency with the doc's \\le/\\ll usage AND verified to render as '<' (renderer escapes <>& inside math so the browser does not parse it as a tag while MathJax reads the decoded textContent). Spot-checks A–E (inline+display math delimiters intact, code char-exact, table-cell inline math, ampersands only in template JS) all faithful, no injection."
+      }
+    ]
+  },
+  "runnable_code_check": {
+    "verdict": "PASS",
+    "notes": "docs/tutorials/code/linear_sparse_attention.py (pure PyTorch, English comments per code/README convention) ran on Server5 (dllm env). Six asserts pass: [a] chunkwise==recurrent max|Δ|=3.81e-6 over C∈{1,4,7,13}; [b] chunk-size invariance; [c] state shape {(6,6)} L-independent; [d] delta(use_delta=False,β=1)==additive |Δ|=0; [e] overwrite term real — non-orthogonal ||Δ||=8.315, orthonormal |Δ|=3.58e-7; [f] block-sparse keeps exactly top-k=2 blocks & softmax rows sum to 1 at BOTH L=12 (divisible) and L=13 (non-divisible — verifies the masked block-mean fix). §A real-output block is this run, verbatim."
+  },
+  "summary": "Linear / Sparse Attention cheat sheet (effort=max, ~860 lines, drafted by a general-purpose subagent then orchestrator-verified): full cross-model review on codex gpt-5.5 xhigh — 3 citation batches (18/21 refs confirmed; DeepSeek-V3.2/DSA + Qwen3-Next reframed as tech reports, Kimi-Linear kept-with-hedge), math (core derivations re-derived correct; chunkwise additive-only caveat strengthened), code (2 fixes: §A orthogonality over-claim → erase-term-vanishes condition; block_topk masked-mean for non-divisible L), answers (all fine), overall (3 hedges: recall ordering empirical, NSA softmax-over-selected, hybrid attention-type varies), and a render-fidelity pass (PASS, the '<'-in-math footgun neutralised). Runnable code re-ran clean on Server5 with the §A output captured verbatim.",
+  "rendered_at": "2026-06-18"
+}

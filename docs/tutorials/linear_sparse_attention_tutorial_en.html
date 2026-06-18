@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linear Sparse Attention Tutorial En</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/linear_sparse_attention_tutorial_en.md">
+<meta name="aris:source-sha256" content="9905f5f38239d85e6500fdbb6b8f7e632ae50cc9f30fa31e92b63a9d92c4e34b">
+<meta name="aris:generated-at" content="2026-06-18 06:21 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-intuition-softmax-attentions-quadratic-bottleneck-and-three-escape-routes">§1 Intuition: softmax attention&#x27;s quadratic bottleneck and three escape routes</a>
+</li>
+<li><a href="#2-linear-attention">§2 Linear attention</a>
+<ul>
+<li><a href="#21-from-softmax-to-a-kernel-feature-map">2.1　From softmax to a kernel feature map</a></li>
+<li><a href="#22-recurrent-form-linear-attention--an-rnn-whose-hidden-state-is-a-matrix">2.2　Recurrent form: linear attention = an RNN whose hidden state is a matrix</a></li>
+<li><a href="#23-the-cost-of-losing-softmax-normalization">2.3　The cost of losing softmax normalization</a></li>
+<li><a href="#24-gating--decay-retnet-and-gla">2.4　Gating / decay: RetNet and GLA</a></li>
+</ul>
+</li>
+<li><a href="#3-state-space-models-ssm-and-mamba">§3 State space models (SSM) and Mamba</a>
+<ul>
+<li><a href="#31-continuous-ssm-and-discretization">3.1　Continuous SSM and discretization</a></li>
+<li><a href="#32-hippo-initialization-intuition">3.2　HiPPO initialization intuition</a></li>
+<li><a href="#33-selective-ssm-s6--mamba-make-the-parameters-data-dependent">3.3　Selective SSM (S6 / Mamba): make the parameters data-dependent</a></li>
+<li><a href="#34-the-full-picture-of-a-mamba-block">3.4　The full picture of a Mamba block</a></li>
+</ul>
+</li>
+<li><a href="#4-mamba-2-and-state-space-duality-ssd">§4 Mamba-2 and State Space Duality (SSD)</a>
+<ul>
+<li><a href="#41-the-core-duality-ssm--structured-masked-attention">4.1　The core duality: SSM ⇔ structured masked attention</a></li>
+<li><a href="#42-the-benefit-training-ssms-with-chunkwise-matmuls">4.2　The benefit: training SSMs with chunkwise matmuls</a></li>
+</ul>
+</li>
+<li><a href="#5-delta-rule-deltanet-and-gated-deltanet">§5 Delta rule: DeltaNet and Gated DeltaNet</a>
+<ul>
+<li><a href="#51-from-accumulate-to-rewrite">5.1　From &quot;accumulate&quot; to &quot;rewrite&quot;</a></li>
+<li><a href="#52-gated-deltanet-add-a-forgetting-gate">5.2　Gated DeltaNet: add a forgetting gate</a></li>
+<li><a href="#53-how-to-parallelize-the-wy-representation--chunkwise">5.3　How to parallelize: the WY representation + chunkwise</a></li>
+</ul>
+</li>
+<li><a href="#6-chunkwise-parallel-how-to-parallelize-at-training-time">§6 Chunkwise parallel: how to parallelize at training time</a>
+<ul>
+<li><a href="#61-why-it-is-needed">6.1　Why it is needed</a></li>
+<li><a href="#62-two-stages-intra-chunk-parallel-within-a-chunk--inter-chunk-recurrence-across-chunks">6.2　Two stages: intra-chunk (parallel within a chunk) + inter-chunk (recurrence across chunks)</a></li>
+<li><a href="#63-code-recurrent-vs-chunkwise-the-outputs-should-match">6.3　Code: recurrent vs chunkwise, the outputs should match</a></li>
+</ul>
+</li>
+<li><a href="#7-sparse-attention-trainable-block-sparse">§7 Sparse attention (trainable block-sparse)</a>
+<ul>
+<li><a href="#71-a-different-family-keep-softmax-attend-only-to-a-subset">7.1　A different family: keep softmax, attend only to a subset</a></li>
+<li><a href="#72-nsa-native-sparse-attention-deepseek">7.2　NSA (Native Sparse Attention, DeepSeek)</a></li>
+<li><a href="#73-moba-mixture-of-block-attention-moonshot">7.3　MoBA (Mixture of Block Attention, Moonshot)</a></li>
+<li><a href="#74-lightning-attention-minimax-01-and-deepseek-v32-dsa">7.4　Lightning Attention (MiniMax-01) and DeepSeek-V3.2 DSA</a></li>
+<li><a href="#75-fixed-pattern-vs-trainable-sparse-a-one-sentence-comparison">7.5　Fixed pattern vs trainable sparse (a one-sentence comparison)</a></li>
+</ul>
+</li>
+<li><a href="#8-kv-cache-and-inference-the-trump-card-of-linearssm">§8 KV cache and inference: the trump card of linear/SSM</a>
+<ul>
+<li><a href="#81-the-inference-profiles-of-the-three-families">8.1　The inference profiles of the three families</a></li>
+<li><a href="#82-kv-cache-memory-comparison-intuitive-numbers">8.2　KV cache memory comparison (intuitive numbers)</a></li>
+</ul>
+</li>
+<li><a href="#9-hybrid-architectures">§9 Hybrid architectures</a>
+<ul>
+<li><a href="#91-the-recallthroughput-trade-off-why-pure-linearssm-is-not-enough">9.1　The recall–throughput trade-off: why pure linear/SSM is not enough</a></li>
+<li><a href="#92-representative-hybrid-models-and-ratios">9.2　Representative hybrid models and ratios</a></li>
+<li><a href="#93-recent-trends">9.3　Recent trends</a></li>
+</ul>
+</li>
+<li><a href="#10-engineering-practice-and-common-misconceptions">§10 Engineering practice and common misconceptions</a>
+</li>
+<li><a href="#11-complexity-and-resources">§11 Complexity and resources</a>
+</li>
+<li><a href="#12-25-high-frequency-interview-questions">§12 25 high-frequency interview questions</a>
+<ul>
+<li><a href="#l1-must-know">L1 must-know</a></li>
+<li><a href="#l2-advanced">L2 advanced</a></li>
+<li><a href="#l3-advanced">L3 advanced</a></li>
+</ul>
+</li>
+<li><a href="#a-appendix-sanity-check">§A Appendix: sanity check</a>
+</li>
+<li><a href="#references">📚 References</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  
+  <h1>Linear Sparse Attention Tutorial En</h1>
+  
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/linear_sparse_attention_tutorial_en.md</code></span>
+    <span><strong>SHA256:</strong> <code>9905f5f38239</code></span>
+    <span><strong>Rendered:</strong> 2026-06-18 06:21 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">9 sentences to nail efficient attention / SSM / sparse attention</div><p>one page covering the interview essentials (see §1–§11 for derivations).</p></div>
+<ol><li><strong>The quadratic bottleneck</strong>: softmax attention trains in $O(L^2 d)$ time, and at decode the KV cache grows linearly with context ($O(L)$ memory, $O(L)$ compute per step). There are three escape routes: <strong>linear attention</strong>, <strong>SSM / Mamba</strong>, <strong>sparse attention</strong>.</li><li><strong>Linear attention</strong>: use a kernel feature map $\phi$ to replace softmax with $\phi(q)^\top\phi(k)$, then lean on the <strong>associativity of matrix multiplication</strong> to compute $\phi(Q)\big(\phi(K)^\top V\big)$, dropping $O(L^2)$ to $O(L)$. It is equivalent to an RNN <strong>whose hidden state is a matrix</strong> $S_t\in\mathbb{R}^{d_k\times d_v}$: $S_t = S_{t-1} + \phi(k_t) v_t^\top$.</li><li><strong>SSM / Mamba</strong>: the continuous state space $h_t = A h_{t-1} + B x_t,\; y_t = C h_t$ becomes a recurrence after discretization ($\Delta$ + zero-order hold). <strong>Selective SSM (S6)</strong> makes $B, C, \Delta$ vary with the input (data-dependent gating), breaking LTI in exchange for content selection; paired with a hardware-aware selective scan.</li><li><strong>Mamba-2 / SSD</strong>: State Space Duality — a selective SSM is <strong>equivalent to a kind of structured masked linear attention</strong> (via a 1-semiseparable matrix). This lets SSMs train efficiently on tensor cores with a matmul-dense <strong>chunkwise</strong> algorithm.</li><li><strong>Delta rule (DeltaNet)</strong>: the update is a <strong>rewrite</strong> rather than a pure accumulation — $S_t = S_{t-1}(I - \beta_t k_t k_t^\top) + \beta_t v_t k_t^\top$, where the $(I-\beta k k^\top)$ term first <strong>erases the old association</strong> before writing the new value (online least squares / error correction). Gated DeltaNet then adds a scalar/diagonal decay gate $\alpha_t$ for forgetting.</li><li><strong>Chunkwise parallel</strong>: split the sequence into chunks, run quadratic parallel attention <strong>within a chunk</strong> and pass an $O(1)$ recurrent state <strong>across chunks</strong>. This is the <strong>core bridge</strong> that lets linear attention / SSM / DeltaNet both infer in $O(L)$ and train in parallel with matmuls.</li><li><strong>Sparse attention (trainable)</strong>: keep softmax but attend only to a subset. <strong>NSA</strong> (DeepSeek, natively trainable + hardware-aligned, three branches: compress + select + sliding window); <strong>MoBA</strong> (Moonshot, MoE-style routing of a query to its top-k key blocks); <strong>Lightning Attention</strong> (MiniMax-01, IO-aware linear); <strong>DeepSeek-V3.2 DSA</strong> (a lightweight lightning indexer scores and selects tokens).</li><li><strong>The inference trump card</strong>: linear / SSM keep a <strong>fixed-size</strong> recurrent state ($O(1)$ in sequence length) → constant memory + $O(1)$ per-token decode; softmax's KV cache grows linearly with length; sparse reduces KV access/compute but still stores KV.</li><li><strong>Hybrid architectures</strong>: pure linear/SSM have <strong>weak recall (associative recall / in-context copy)</strong> — a recall–throughput trade-off. The fix is to <strong>interleave a few attention layers</strong> among many linear/SSM layers (full / sliding / gated attention, the exact type and ratio differ by model): Jamba, Hymba, Qwen3-Next, Kimi-Linear, MiniMax-01 all take this route, balancing throughput and recall.</li></ol>
+<h2 id="1-intuition-softmax-attentions-quadratic-bottleneck-and-three-escape-routes">§1 Intuition: softmax attention's quadratic bottleneck and three escape routes</h2>
+<p>Recall standard attention: $\text{Attn}(Q,K,V) = \text{softmax}\!\big(QK^\top/\sqrt{d}\big)V$, $Q,K,V\in\mathbb{R}^{L\times d}$. Two costs:</p>
+<ul><li><strong>Training / prefill</strong>: you must compute the $L\times L$ score matrix, costing $O(L^2 d)$ time and $O(L^2)$ memory (FlashAttention squeezes memory to $O(L)$, but <strong>time is still $O(L^2 d)$</strong> — the FLOPs don't change).</li><li><strong>Autoregressive decode</strong>: with a KV cache each step is $O(L)$, but <strong>the cache itself grows linearly with context</strong>: at step $t$ you store $t$ key/value pairs. In long context the KV cache's memory and access bandwidth become the real bottleneck.</li></ul>
+<p>The root of the quadratic cost is that softmax does a <strong>nonlinear normalization</strong> of query–key similarity; $\text{softmax}(QK^\top)$ cannot be factored into "compress K/V first, then interact with Q," so the $L\times L$ matrix must be materialized explicitly. The three escape routes all essentially ask "can we avoid materializing this $L\times L$ matrix":</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>A mental model for the three escape routes</strong></p>
+<ul><li><strong>(a) Linear attention</strong>: drop softmax and approximate it with a kernel feature map $\phi$, so $\text{Attn}\approx \phi(Q)\big(\phi(K)^\top V\big)$ — leaning on <strong>associativity</strong> to first compress K and V into a small $d_k\times d_v$ matrix, then interact with Q. Time $O(L d^2)$, decode state $O(d_k d_v)$ <strong>independent of $L$</strong>. The cost: you lose softmax normalization, and recall weakens.</li><li><strong>(b) SSM / Mamba</strong>: model the sequence as the recurrence of a <strong>linear dynamical system</strong> $h_t = A h_{t-1}+B x_t$ — naturally $O(L)$ with a fixed state; selective SSM makes the transition parameters data-dependent, restoring content selection.</li><li><strong>(c) Sparse attention</strong>: keep softmax, but each query attends only to a <strong>subset</strong> (block / window / top-k), cutting $L^2$ to $L\cdot s$ ($s\ll L$). It can be a fixed pattern, or a <strong>trainable</strong> content-dependent selection.</li></ul></div>
+<p>(a) and (b) are mathematically very closely related (§4's SSD will pierce this veil: linear attention's recurrence ≈ a kind of SSM); (c) is a different family — it <strong>does not give up softmax</strong>, only gives up "full connectivity." Below, §2–§6 follow the (a)(b) "sub-quadratic recurrence" main line, §7 covers (c) sparse, and §8–§11 cover inference gains, hybrid architectures, engineering, and complexity.</p>
+<h2 id="2-linear-attention">§2 Linear attention</h2>
+<h3 id="21-from-softmax-to-a-kernel-feature-map">2.1　From softmax to a kernel feature map</h3>
+<p>Write out a single query's output (ignoring $\sqrt{d}$, with $\text{sim}(q,k)$ denoting a similarity kernel):</p>
+<p>$$o_i = \frac{\sum_{j} \text{sim}(q_i, k_j)\, v_j}{\sum_{j}\text{sim}(q_i, k_j)}, \qquad \text{softmax is } \text{sim}(q,k)=\exp(q^\top k).$$</p>
+<p><strong>The key step of linear attention</strong>: assume the similarity can be written as the inner product of a feature map $\text{sim}(q,k) = \phi(q)^\top \phi(k)$, where $\phi:\mathbb{R}^{d}\to\mathbb{R}^{d_k}$ (the feature map, $d_k$ is the feature dimension). Substituting:</p>
+<p>$$o_i = \frac{\sum_j \big(\phi(q_i)^\top\phi(k_j)\big) v_j}{\sum_j \phi(q_i)^\top \phi(k_j)} = \frac{\phi(q_i)^\top\big(\sum_j \phi(k_j) v_j^\top\big)}{\phi(q_i)^\top\big(\sum_j \phi(k_j)\big)}.$$</p>
+<p>The key is in the numerator: $\sum_j \phi(k_j)v_j^\top$ is a $\mathbf{d_k\times d_v}$ matrix, <strong>independent of the query</strong> — you can compute it once over all $j$ and reuse it for every query. This is using <strong>associativity</strong> to reorder $\big(\phi(Q)\phi(K)^\top\big)V$ into $\phi(Q)\big(\phi(K)^\top V\big)$:</p>
+<p>$$\underbrace{\big(\phi(Q)\phi(K)^\top\big)V}_{O(L^2 d_v)\ :\ \text{compute the }L\times L\text{ first}} \;=\; \underbrace{\phi(Q)\big(\phi(K)^\top V\big)}_{O(L d_k d_v)\ :\ \text{compute the }d_k\times d_v\text{ first}}.$$</p>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>Associativity is where all the magic lives</strong> When $L \gg d$, $O(Ld_kd_v)\ll O(L^2 d)$. softmax cannot be factored this way, because $\exp(q^\top k)$ is not a finite-dimensional inner product $\phi(q)^\top\phi(k)$ (it takes infinite-dimensional RFF to approximate it, see Performer).</p></div>
+<p>Common choices of $\phi$:</p>
+<ul><li><strong>$\phi(x)=\text{elu}(x)+1$</strong> (Katharopoulos 2020, "Transformers are RNNs"): guarantees non-negativity, simple.</li><li><strong>Performer (FAVOR+)</strong>: uses random features $\phi(x)=\exp(\omega^\top x - \|x\|^2/2)/\sqrt{m}$ and other <strong>positive random features</strong> to unbiasedly estimate $\exp(q^\top k)$, approximating the true softmax in accuracy (at the cost of needing a large feature dimension $m$).</li><li><strong>RetNet / GLA</strong>: essentially $\phi=\text{id}$ (or with normalization), putting the emphasis on <strong>decay / gating</strong> rather than the feature map (see 2.4).</li></ul>
+<h3 id="22-recurrent-form-linear-attention--an-rnn-whose-hidden-state-is-a-matrix">2.2　Recurrent form: linear attention = an RNN whose hidden state is a matrix</h3>
+<p>Make the above <strong>causal</strong> ($o_i$ only sees $j\le i$) and define a cumulative state. In the causal case the numerator's sum becomes a prefix sum:</p>
+<p>$$S_i = \sum_{j\le i}\phi(k_j)v_j^\top \in\mathbb{R}^{d_k\times d_v}, \qquad z_i=\sum_{j\le i}\phi(k_j)\in\mathbb{R}^{d_k}.$$</p>
+<p>This gives the <strong>recurrent form</strong>:</p>
+<p>$$\boxed{\;S_t = S_{t-1} + \phi(k_t)\,v_t^\top, \qquad o_t = \frac{\phi(q_t)^\top S_t}{\phi(q_t)^\top z_t}\;}$$</p>
+<p>This is the interview punchline: <strong>"linear attention = an RNN whose hidden state is a matrix $S\in\mathbb{R}^{d_k\times d_v}$."</strong> Compared with a plain RNN's vector hidden state, here the state is <strong>a matrix accumulated from outer products</strong> — it stores a "$\phi(k)\to v$" associative memory (a.k.a. fast weight).</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>The state is a matrix, not a vector (a frequent follow-up)</strong> Linear attention's recurrent state is $S\in\mathbb{R}^{d_k\times d_v}$ (an accumulation of outer products $\phi(k)v^\top$). Each decode step is $O(1)$ in sequence length, but $O(d_k d_v)$ in state size — both the update and the read are proportional to this matrix's size. If you say "$O(1)$ state," add the caveat "$O(1)$ is with respect to sequence length."</p></div>
+<p>Two views, the same computation:</p>
+<table><thead><tr><th>View</th><th>Formula</th><th>Complexity</th><th>Suited for</th></tr></thead><tbody><tr><td><strong>Parallel / quadratic</strong></td><td>$o = \big(\phi(Q)\phi(K)^\top \odot M\big)V$ ($M$ is the causal mask)</td><td>$O(L^2 d)$</td><td>short sequences / intuition</td></tr><tr><td><strong>Recurrent / linear</strong></td><td>$S_t=S_{t-1}+\phi(k_t)v_t^\top,\ o_t=\phi(q_t)^\top S_t$</td><td>$O(Ld_kd_v)$, state $O(d_kd_v)$</td><td>decode / long sequences</td></tr></tbody></table>
+<p>Note: the <strong>naive parallel form</strong> of causal linear attention still materializes $L\times L$ (because the mask is elementwise), so what is actually used at training time is the <strong>chunkwise</strong> compromise of §6 — neither materializing $L^2$ nor giving up matmuls.</p>
+<h3 id="23-the-cost-of-losing-softmax-normalization">2.3　The cost of losing softmax normalization</h3>
+<p>softmax has two implicit benefits that linear attention throws away:</p>
+<ol><li><strong>The normalization denominator $\phi(q)^\top z_t$ is unstable</strong>: softmax's denominator is always positive and well-defined ($\sum\exp\ge 1$), but $\phi(q)^\top z_t$ can be very small or even near 0 (if $\phi$ does not guarantee strong positivity), causing exploding outputs / numerical instability. Many implementations simply <strong>drop the denominator</strong> (unnormalized linear attention) and use §2.4's decay / gating + extra normalization to stabilize the magnitude.</li><li><strong>Lack of "sharp selection" ability → weak recall</strong>: softmax can concentrate probability mass highly onto one or two of the most relevant keys (near one-hot retrieval); but linear attention's $\phi(q)^\top\phi(k)$ is a finite-dimensional inner product, <strong>unable to express arbitrarily sharp selection</strong>. When a task needs to "precisely copy some token from the context" (associative recall / in-context copy), linear attention's fixed-size state suffers a <strong>capacity conflict</strong>: all the $\phi(k)v^\top$ pile up in the same $S$ and interfere with each other, getting blurrier the longer it gets.</li></ol>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>"Linear attention is $O(L)$ so it's strictly better" — wrong</strong> It is systematically weaker than softmax on <strong>long-context retrieval / exact copy</strong> tasks; this is a <strong>capacity bottleneck</strong> of the fixed-size state (information is compressed into the $d_k\times d_v$ matrix, and once over capacity it overwrites itself), not an implementation problem. This is exactly the core pain point that DeltaNet (rewrite-style update), gating (selective forgetting), and hybrid architectures (keeping a few full attention layers to rescue recall) later set out to solve.</p></div>
+<h3 id="24-gating--decay-retnet-and-gla">2.4　Gating / decay: RetNet and GLA</h3>
+<p>Pure accumulation $S_t=S_{t-1}+\phi(k_t)v_t^\top$ has a problem: <strong>old information never decays</strong>, and the state gets polluted by unbounded stacking. Adding a decay helps a lot:</p>
+<ul><li><strong>RetNet (Retentive Network)</strong>: introduces a <strong>scalar exponential decay</strong> $\gamma\in(0,1)$: $S_t = \gamma S_{t-1} + k_t v_t^\top$. It has three equivalent forms — <strong>parallel</strong> (training, like attention with a decay mask), <strong>recurrent</strong> (decode, $O(1)$ state), and <strong>chunkwise</strong> (long-sequence training, intra-chunk parallel + inter-chunk recurrence). $\gamma$ is usually <strong>fixed per head</strong> (not data-dependent).</li><li><strong>GLA (Gated Linear Attention)</strong>: upgrades the scalar decay to a <strong>data-dependent diagonal gate</strong> $G_t=\text{diag}(\alpha_t)$, with $\alpha_t\in(0,1)^{d_k}$ computed from the input: $S_t = G_t\,S_{t-1} + k_t v_t^\top$ (per-channel forgetting). GLA gives a hardware-efficient chunkwise form, and is the representative work unifying "gated RNN" and "linear attention."</li></ul>
+<p>You can view this line as a spectrum: <strong>pure linear attention (no decay) → RetNet (scalar decay) → GLA (data-dependent diagonal gate) → Gated DeltaNet (gating + rewrite-style update, see §5)</strong> — all in the $O(L)$ tier, differing in how the state "forgets" and "writes."</p>
+<h2 id="3-state-space-models-ssm-and-mamba">§3 State space models (SSM) and Mamba</h2>
+<h3 id="31-continuous-ssm-and-discretization">3.1　Continuous SSM and discretization</h3>
+<p>State space models come from control theory. A <strong>continuous-time</strong> SSM maps an input signal $x(t)$ to an output $y(t)$, with a hidden state $h(t)\in\mathbb{R}^{N}$ in between:</p>
+<p>$$h'(t) = A\,h(t) + B\,x(t), \qquad y(t) = C\,h(t),$$</p>
+<p>$A\in\mathbb{R}^{N\times N}$ (state transition), $B\in\mathbb{R}^{N\times 1}$, $C\in\mathbb{R}^{1\times N}$. To use it on a discrete token sequence, you must <strong>discretize</strong>: introduce a step size $\Delta$ and use the <strong>zero-order hold (ZOH)</strong> to discretize the continuous system into a recurrence:</p>
+<p>$$\bar A = \exp(\Delta A), \qquad \bar B = (\Delta A)^{-1}(\exp(\Delta A) - I)\,\Delta B \approx \Delta B,$$</p>
+<p>$$\boxed{\;h_t = \bar A\,h_{t-1} + \bar B\,x_t, \qquad y_t = C\,h_t\;}$$</p>
+<p>This step turns a "continuous dynamical system" into a <strong>linear recurrence</strong> — formally the same as an RNN, but the transition matrix $\bar A$ is structured. $\Delta$ controls "how fast the system reacts": large $\Delta$ ≈ weighting the current input more, fast updates; small $\Delta$ ≈ more persistent state memory.</p>
+<h3 id="32-hippo-initialization-intuition">3.2　HiPPO initialization intuition</h3>
+<p>If $A$ is initialized randomly, this recurrence cannot learn long-range dependencies. <strong>HiPPO (High-order Polynomial Projection Operators)</strong> gives a special structured $A$ matrix that makes the hidden state $h_t$ the <strong>optimal polynomial-projection coefficients of the historical input</strong> — i.e. $h_t$ is mathematically the result of "compressing the entire past signal with a set of orthogonal polynomials (e.g. Legendre)." Intuition: HiPPO lets a fixed-size state remember history in a "principled, minimal-information-loss" way, the key prior that makes S4 / Mamba work on long sequences. For interviews you only need to state clearly "HiPPO = a structured $A$ initialization that makes the state optimally compress history."</p>
+<h3 id="33-selective-ssm-s6--mamba-make-the-parameters-data-dependent">3.3　Selective SSM (S6 / Mamba): make the parameters data-dependent</h3>
+<p>Classic S4 is <strong>LTI (linear time-invariant)</strong>: $\bar A, \bar B, C$ are the same for all $t$ and independent of the input. LTI has a fundamental flaw — it <strong>cannot do content selection</strong> (content-based reasoning): the same transition matrix processes every token, with no way to "remember more when it sees an important token and skip filler." This is why S4 underperforms Transformers on language modeling.</p>
+<p><strong>Mamba's core innovation (Selective SSM, S6 for short)</strong>: make $B, C, \Delta$ <strong>vary with the input $x_t$</strong> (data-dependent / input-dependent), achieving <strong>selectivity</strong> — deciding what to remember and what to ignore based on content.</p>
+<p>$$B_t = \text{Linear}_B(x_t),\quad C_t = \text{Linear}_C(x_t),\quad \Delta_t = \text{softplus}\big(\text{Linear}_\Delta(x_t)\big),$$</p>
+<p>$$h_t = \bar A_t\,h_{t-1} + \bar B_t\,x_t,\qquad y_t = C_t\,h_t, \qquad \bar A_t=\exp(\Delta_t A).$$</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Which exactly is data-dependent? (very easy to get wrong)</strong> In Mamba, <strong>$B, C, \Delta$ are data-dependent, while $A$ itself is still a structured, input-independent fixed parameter</strong> (one learned $A$ per channel). $\Delta_t$ (data-dependent) turns the "effective decay rate" into something data-dependent via $\bar A_t=\exp(\Delta_t A)$ — so <strong>selectivity is injected mainly through $\Delta$ and $B,C$, not by directly making $A$ vary with the input</strong>. Saying "Mamba makes $A$ data-dependent" is inaccurate; you should point out that $A$ is structured and fixed, and $\Delta$ is the data-dependent gate.</p></div>
+<p><strong>The cost</strong>: once $\bar A_t$ varies with time, the system is no longer LTI, and <strong>the global convolution (FFT) form that S4 relies on for efficient training breaks</strong> — because the convolution kernel $\bar C\bar A^k \bar B$ is no longer fixed. Mamba's solution is a <strong>hardware-aware selective scan</strong>: write this time-varying recurrence as a GPU kernel, using a parallel prefix scan (parallel scan / associative scan) to parallelize over the sequence dimension, keeping the state in SRAM and writing back to HBM only when necessary (kernel fusion, avoiding materializing the $L\times N$ intermediate state). This is the origin of Mamba's two keywords "selective + hardware-aware."</p>
+<h3 id="34-the-full-picture-of-a-mamba-block">3.4　The full picture of a Mamba block</h3>
+<p>A complete Mamba block is not just the SSM; it wraps in gating and convolution: input → linear projection expansion → a <strong>short causal 1D convolution</strong> (local mixing) → SiLU → <strong>selective SSM</strong> → a <strong>gating branch</strong> (elementwise multiply by SiLU(z)) → project back. The short convolution handles local patterns, the SSM handles long range, and the gate handles selective gating. Remembering "Mamba ≠ pure SSM, but a combined block of conv + selective SSM + gate" shows more understanding than just memorizing the SSM formula.</p>
+<h2 id="4-mamba-2-and-state-space-duality-ssd">§4 Mamba-2 and State Space Duality (SSD)</h2>
+<h3 id="41-the-core-duality-ssm--structured-masked-attention">4.1　The core duality: SSM ⇔ structured masked attention</h3>
+<p>Mamba-1's selective scan is a hand-written CUDA kernel that <strong>does not go through the tensor-core matmul path</strong>, so although its asymptotic complexity is low, its constant is large, and it has no overwhelming speed advantage over the highly optimized FlashAttention. Mamba-2's paper, <em>Transformers are SSMs</em>, proposes <strong>State Space Duality (SSD)</strong>, connecting SSM and attention mathematically.</p>
+<p>Expand the selective SSM recurrence (with $h_0=0$, scalar $\bar A$ case):</p>
+<p>$$y_t = \sum_{s\le t} C_t\Big(\prod_{r=s+1}^{t}\bar A_r\Big)\bar B_s\, x_s = \sum_{s\le t} \underbrace{C_t\Big(\prod_{r=s+1}^{t}\bar A_r\Big)\bar B_s}_{\textstyle M_{ts}}\, x_s.$$</p>
+<p>Write it in matrix form $y = M x$, where $M$ is a <strong>lower-triangular matrix</strong>, $M_{ts}=C_t\big(\prod_{r=s+1}^t \bar A_r\big)\bar B_s$ (0 when $t \lt s$). This $M$ looks exactly like a <strong>causal attention matrix with decay</strong>: $C_t$ is like a query, $\bar B_s$ is like a key, and the product $\prod\bar A$ in the middle is the "positional decay."</p>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>SSD in one sentence</strong> <strong>A selective SSM is equivalent to structured masked attention using a 1-semiseparable matrix $M$.</strong> "Semiseparable" means that any sub-block of $M$'s lower triangle has rank $\le 1$ (determined by the product structure of $C, \bar A, \bar B$), which is exactly the algebraic reason the SSM recurrence can be computed in $O(L)$; and treating $M$ as a matrix and multiplying $x$ directly lets you use matmuls. The two computation paths (linear recurrence vs quadratic matmul) compute the <strong>same $M$</strong> — this is the duality.</p></div>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Don't overclaim</strong> SSD says "SSM ≡ <strong>a structured linear attention with a specific decay mask</strong>," <strong>not</strong> "SSM = ordinary softmax attention." $M$ has no softmax and is semiseparable-structured. This equivalence holds at the level of <strong>linear attention / masked linear attention</strong>, and the wording must be precise.</p></div>
+<h3 id="42-the-benefit-training-ssms-with-chunkwise-matmuls">4.2　The benefit: training SSMs with chunkwise matmuls</h3>
+<p>With SSD, Mamba-2 can train with §6's <strong>chunkwise / block-decomposition</strong> algorithm:</p>
+<ul><li><strong>Intra-chunk (diagonal blocks)</strong>: directly materialize the small $M$ sub-block and compute quadratic attention with matmuls (tensor core) — the block is small, so $L_{\text{chunk}}^2$ is acceptable.</li><li><strong>Inter-chunk (off-diagonal blocks)</strong>: because of the semiseparable (rank-1) structure, crossing blocks only needs to pass a <strong>low-rank state</strong> (precisely the SSM's hidden state $h$), processed in batch with matmuls.</li></ul>
+<p>The effect: Mamba-2 trains several times faster than Mamba-1 (saturating tensor cores), and because the state dimension $N$ can be made larger (matmuls are cheap), its expressiveness is also stronger. Mamba-2 also conveniently simplifies the structure ($A$ degenerates to a <strong>scalar times the identity</strong> $\bar A_t = a_t I$, i.e. one scalar decay per step), making the SSD derivation and implementation cleaner.</p>
+<div class="callout callout-info"><div class="callout-title">Interview punchline</div><p>Mamba-1 = hardware-aware selective <strong>scan</strong> (a custom kernel that doesn't use tensor cores); Mamba-2 = uses <strong>SSD</strong> to rewrite the same computation in a <strong>matmul-heavy chunkwise</strong> form (saturating tensor cores), training faster with a larger state. The two are algorithmically equivalent, differing in "whether you implement with a scan or with matmuls."</p></div>
+<h2 id="5-delta-rule-deltanet-and-gated-deltanet">§5 Delta rule: DeltaNet and Gated DeltaNet</h2>
+<h3 id="51-from-accumulate-to-rewrite">5.1　From "accumulate" to "rewrite"</h3>
+<p>Linear attention's state update is <strong>pure accumulation</strong>: $S_t = S_{t-1} + v_t k_t^\top$ (here $\phi(k)$ is abbreviated as $k$). The problem, as said before — when the same key recurs, or different keys interfere, information only <strong>stacks up and pollutes</strong>, with no "update / overwrite" mechanism.</p>
+<p><strong>The delta rule (from fast-weight / online learning)</strong> uses a different formulation: view the state $S$ as a linear map $k\mapsto S k$ (retrieve a value with a key), and for each incoming $(k_t,v_t)$ we want $S$'s "prediction" at $k_t$, $S_{t-1}k_t$, to approach the target $v_t$. Do one step of online gradient descent / least-squares correction:</p>
+<p>$$S_t = S_{t-1} - \beta_t\big(\underbrace{S_{t-1}k_t - v_t}_{\text{prediction error}}\big)k_t^\top = S_{t-1}(I - \beta_t k_t k_t^\top) + \beta_t v_t k_t^\top.$$</p>
+<p>$$\boxed{\;S_t = S_{t-1}\big(I - \beta_t\, k_t k_t^\top\big) + \beta_t\, v_t k_t^\top\;}$$</p>
+<p>(assuming the normalization $\|k_t\|=1$). $\beta_t\in(0,1]$ is the <strong>write strength / learning rate</strong> (which can also be data-dependent).</p>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>$(I-\beta k k^\top)$ is DeltaNet's soul</strong> This projection term first <strong>erases the old association</strong> of the state in the $k_t$ direction (right-multiplying $S_{t-1}$ by $(I-\beta kk^\top)$ attenuates the component in the $k_t$ direction), then writes in the new $\beta v_t k_t^\top$. This is "<strong>rewrite / overwrite</strong>" rather than "accumulate." Compare pure linear attention: $S_t = S_{t-1} + v_t k_t^\top$ (without that projection term = always add, never rewrite).</p></div>
+<p>Intuitively, look at the extreme cases:</p>
+<ul><li>$\beta_t = 1$ and $k_t$ orthogonal to all historical keys: $(I-k_tk_t^\top)$ leaves history untouched, equivalent to "first clear the $k_t$ direction (already empty) then write" — degenerating to one write of ordinary linear attention.</li><li>$k_t$ recurs: the delta rule <strong>overwrites</strong> the value written at $k_t$ last time, whereas pure linear attention adds the two values together (a wrong accumulation). This is exactly why DeltaNet is significantly stronger than ordinary linear attention on associative recall.</li></ul>
+<h3 id="52-gated-deltanet-add-a-forgetting-gate">5.2　Gated DeltaNet: add a forgetting gate</h3>
+<p>DeltaNet's delta rule solves "precise rewriting," but lacks a <strong>global forgetting</strong> mechanism (old information fading out as a whole over time). <strong>Gated DeltaNet</strong> combines a GLA-style decay gate with the delta rule:</p>
+<p>$$S_t = \alpha_t\, S_{t-1}\big(I - \beta_t k_t k_t^\top\big) + \beta_t v_t k_t^\top,$$</p>
+<p>where $\alpha_t\in(0,1)$ (scalar or diagonal, data-dependent) is the <strong>decay / forgetting gate</strong>. In one sentence: <strong>$\alpha_t$ controls "how much history to forget overall," and $\beta_t$ controls "how strongly to rewrite in the $k_t$ direction."</strong> The two mechanisms are orthogonal and complementary — gating handles continuous fading, the delta rule handles precise overwriting. This makes Gated DeltaNet stronger on both long-context recall and state utilization, and is why recent hybrid architectures like Qwen3-Next and Kimi-Linear (whose KDA is a variant) pick it for the linear layer.</p>
+<h3 id="53-how-to-parallelize-the-wy-representation--chunkwise">5.3　How to parallelize: the WY representation + chunkwise</h3>
+<p>The delta rule has a product of $(I-\beta kk^\top)$ terms, which looks strongly sequential and hard to parallelize. But the product over $T$ steps within a chunk, $\prod_t (I-\beta_t k_t k_t^\top)$, can be expanded into a compact $I - W Y^\top$ form using the <strong>WY representation of a product of Householder matrices</strong> (a classic trick from QR decomposition in numerical linear algebra), so that intra-chunk you batch with matmuls and inter-chunk you pass the state. This is the key to DeltaNet-family chunkwise parallel training over sequence length (one of the main engineering contributions of Yang et al. 2024). For interviews just remember "DeltaNet's intra-chunk parallelism relies on the WY / Householder representation," without memorizing the expansion.</p>
+<h2 id="6-chunkwise-parallel-how-to-parallelize-at-training-time">§6 Chunkwise parallel: how to parallelize at training time</h2>
+<h3 id="61-why-it-is-needed">6.1　Why it is needed</h3>
+<p>Linear attention / SSM / DeltaNet have two faces:</p>
+<ul><li><strong>The recurrent form</strong> is good for <strong>inference</strong>: $O(1)$ state, $O(1)$ per token, but <strong>strongly sequential</strong> ($S_t$ depends on $S_{t-1}$), so at training it runs the full $L$ steps token by token with very low GPU utilization.</li><li><strong>The parallel / quadratic form</strong> is good for <strong>training</strong>: it can use matmuls, but in the causal case it must materialize $L\times L$, blowing up memory on long sequences.</li></ul>
+<p><strong>Chunkwise parallel</strong> is the compromise bridge between the two, the core trick that makes this whole family <strong>actually trainable</strong>. The idea: split the sequence into $L/C$ chunks of size $C$, <strong>parallelize within a chunk and recur across chunks</strong>.</p>
+<h3 id="62-two-stages-intra-chunk-parallel-within-a-chunk--inter-chunk-recurrence-across-chunks">6.2　Two stages: intra-chunk (parallel within a chunk) + inter-chunk (recurrence across chunks)</h3>
+<p>Take ungated linear attention as the example ($S_t=S_{t-1}+k_tv_t^\top$, state $S\in\mathbb{R}^{d_k\times d_v}$, here with $\phi=\text{id}$, so $k$ is $\phi(k)$). Let the query/key/value of the $c$-th chunk be $Q_c,K_c,V_c\in\mathbb{R}^{C\times d}$, and the state entering this chunk be $S_c$ (= $\sum k v^\top$ over all preceding chunks). The output of the $i$-th query in the chunk splits into two parts:</p>
+<p>$$o_i = \underbrace{q_i^\top S_c}_{\textbf{inter: contribution of past chunks}} + \underbrace{\sum_{j\le i,\, j\in c} (q_i^\top k_j)\, v_j}_{\textbf{intra: causal attention within this chunk}}.$$</p>
+<p>In chunk-level matrix form:</p>
+<p>$$O_c = \underbrace{Q_c\, S_c}_{[C\times d_k][d_k\times d_v]=[C\times d_v]} \;+\; \underbrace{\big(\,(Q_c K_c^\top)\odot M\,\big)\,V_c}_{\text{intra-chunk quadratic, } M\text{ is the } C\times C\text{ causal mask}},$$</p>
+<p>after the chunk ends, <strong>update the cross-chunk state</strong>:</p>
+<p>$$S_{c+1} = S_c + K_c^\top V_c \quad (\in\mathbb{R}^{d_k\times d_v}).$$</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>Three matmuls to understand chunkwise</strong></p>
+<ul><li><strong>inter-chunk</strong> <code>Q_c @ S_c</code>: history is compressed into a $d_k\times d_v$ matrix $S_c$, read once by all queries in this chunk (this part is <strong>linear</strong> in $L$).</li><li><strong>intra-chunk</strong> <code>((Q_c K_c^T) ⊙ M) @ V_c</code>: quadratic attention only within the $C\times C$ small block ($C$ is a constant, e.g. 64/128, so <strong>the total cost is linear</strong> in $L$).</li><li><strong>state update</strong> <code>S_c + K_c^T V_c</code>: accumulate this chunk's information into the state, passed to the next chunk.</li></ul></div>
+<p>Complexity: $O\!\big(\tfrac{L}{C}\cdot(Cd_kd_v + C^2 d)\big)=O(Ld_kd_v + LCd)$, which is $O(L)$ for fixed $C$ and is all matmuls (saturating tensor cores). <strong>The chunk size $C$ is the key knob</strong>: too small $C$ → inter-chunk recurrence dominates, low parallelism; too large $C$ → the intra-chunk quadratic term $C^2$ gets expensive. Note that this section's state update $S_{c+1}=S_c+K_c^\top V_c$ <strong>holds only for the ungated additive version</strong>; with gating / decay you must fold in the corresponding factors — GLA / Mamba-2 multiply $S_c$ and the intra-chunk mask by the cumulative decay $\prod\alpha$, and <strong>DeltaNet additionally carries the $(I-\beta_t k_tk_t^\top)$ rewrite term inside the chunk</strong> (expanded with §5.3's WY representation). The skeleton (parallel within a chunk + pass the state across chunks) is exactly the same; only the intra/cross-chunk operators change from pure-additive to "decay × rewrite."</p>
+<h3 id="63-code-recurrent-vs-chunkwise-the-outputs-should-match">6.3　Code: recurrent vs chunkwise, the outputs should match</h3>
+<pre><code class="language-python">import torch
+
+def linear_attn_recurrent(Q, K, V):
+    &quot;&quot;&quot;Token-by-token recurrence. Q,K,V: [L, d]  -&gt;  O: [L, d]
+       State S: [d_k, d_v] matrix (here d_k=d_v=d).&quot;&quot;&quot;
+    L, d = Q.shape
+    S = torch.zeros(d, d, dtype=Q.dtype)          # [d_k, d_v] matrix state
+    O = torch.zeros(L, d, dtype=Q.dtype)
+    for t in range(L):
+        S = S + torch.outer(K[t], V[t])           # S += k_t v_t^T   accumulate outer product
+        O[t] = Q[t] @ S                           # o_t = q_t^T S    [d]
+    return O
+
+def linear_attn_chunkwise(Q, K, V, C=4):
+    &quot;&quot;&quot;Intra-chunk parallel + inter-chunk recurrence. Mathematically identical to recurrent.&quot;&quot;&quot;
+    L, d = Q.shape
+    S = torch.zeros(d, d, dtype=Q.dtype)          # cross-chunk state [d_k, d_v]
+    O = torch.zeros(L, d, dtype=Q.dtype)
+    tri = torch.tril(torch.ones(C, C, dtype=Q.dtype))  # in-chunk causal mask [C, C]
+    for s in range(0, L, C):
+        e = min(s + C, L)
+        Qc, Kc, Vc = Q[s:e], K[s:e], V[s:e]       # [c, d]
+        c = e - s
+        m = tri[:c, :c]
+        inter = Qc @ S                            # history-chunk contribution [c, d]
+        intra = ((Qc @ Kc.t()) * m) @ Vc          # in-chunk causal attention [c, d]
+        O[s:e] = inter + intra
+        S = S + Kc.t() @ Vc                        # update state [d_k, d_v]
+    return O
+
+if __name__ == &quot;__main__&quot;:
+    torch.manual_seed(0)
+    L, d = 13, 6
+    Q, K, V = torch.randn(L, d), torch.randn(L, d), torch.randn(L, d)
+    o1 = linear_attn_recurrent(Q, K, V)
+    o2 = linear_attn_chunkwise(Q, K, V, C=4)
+    print(&quot;max |Δ| =&quot;, (o1 - o2).abs().max().item())   # expect ~1e-6 (pure float error)
+    assert torch.allclose(o1, o2, atol=1e-5)</code></pre>
+<p>The two paths (recurrent / chunkwise) compute the same causal linear attention, and the outputs should match within floating-point error — this is the golden sanity check for verifying implementation correctness (see §A).</p>
+<h2 id="7-sparse-attention-trainable-block-sparse">§7 Sparse attention (trainable block-sparse)</h2>
+<h3 id="71-a-different-family-keep-softmax-attend-only-to-a-subset">7.1　A different family: keep softmax, attend only to a subset</h3>
+<p>The preceding §2–§6 are "give up softmax for a recurrence." Sparse attention takes another path: <strong>leave softmax alone, but each query only looks at a subset</strong> $S(i)\subseteq\{1..L\}$, cutting $L^2$ to $L\cdot |S(i)|$. The early ones (2019–2020) used <strong>fixed patterns</strong>:</p>
+<ul><li><strong>Longformer / BigBird</strong>: a sliding window (local) + a few global tokens + (BigBird adds) random tokens, a fixed sparse graph, $O(L)$. The problems: the pattern is human-designed and may not match the data; and many kernels are IO-unfriendly on modern GPUs.</li></ul>
+<p>The frontier of the last two years (2025) is <strong>trainable / content-dependent + hardware-aligned</strong> sparse attention — letting the model <strong>learn for itself</strong> which blocks to look at, with patterns designed so GPUs can run them efficiently.</p>
+<h3 id="72-nsa-native-sparse-attention-deepseek">7.2　NSA (Native Sparse Attention, DeepSeek)</h3>
+<p><strong>NSA's two keywords: natively trainable + hardware-aligned.</strong> Rather than slapping a sparse mask onto a dense model after the fact, it <strong>uses the sparse structure from pretraining onward</strong>, end-to-end learnable. Each query's output is a <strong>gated sum of three branches</strong>:</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>NSA's three branches (a frequent exam point, must memorize all)</strong></p>
+<ul><li><strong>(1) Compressed (compressed, coarse-grained)</strong>: <strong>compress</strong> distant key/value into a few "representative tokens" per block (intra-block aggregation), letting the query see a coarse global picture at very low cost.</li><li><strong>(2) Selected (selected, fine-grained top-k blocks)</strong>: using the block importance computed by the compressed branch, <strong>select the top-k most relevant key blocks</strong> and do full (fine-grained) attention on them — this is the workhorse for "exact retrieval."</li><li><strong>(3) Sliding window</strong>: fixedly attend to the most recent tokens, ensuring <strong>local context</strong> is not lost (local patterns matter a lot for language modeling).</li></ul>
+<p>Each of the three branches produces an output, fused by a <strong>learned gate</strong>.</p></div>
+<p>NSA's "hardware-aligned" means: the block size and selection granularity are designed in a GPU-friendly way for memory access / tensor cores (contiguous block access, avoiding the inefficiency of random gather), so it is not only theoretically $O(Ls)$ but <strong>delivers real wall-clock speedup over full attention on long sequences in practice</strong> (both training and decode accelerate) — this is where it differs from many methods that are "theoretically sparse but actually slower."</p>
+<h3 id="73-moba-mixture-of-block-attention-moonshot">7.3　MoBA (Mixture of Block Attention, Moonshot)</h3>
+<p><strong>MoBA brings MoE's "routing" idea to attention</strong>: split key/value into blocks, and each query, like an MoE router, <strong>routes only to the top-k most relevant key blocks</strong>, doing softmax attention on those k blocks and skipping the rest entirely. "Which blocks are relevant" is scored by the query against each block's representative (e.g. the mean of the keys in the block). The benefits:</p>
+<ul><li>routing is <strong>learnable and content-dependent</strong> (not a fixed pattern);</li><li>block-granularity selection is hardware-friendly (blocks are contiguous);</li><li>it is designed so you can <strong>seamlessly switch between full attention and MoBA</strong> (the same weights, mixable during training), easing migration of existing models.</li></ul>
+<p>A one-sentence comparison: <strong>NSA = the fixed fusion of three branches compress + select + window; MoBA = MoE-style routing assigning a query to its top-k key blocks</strong>. Both are representatives of 2025's "trainable sparse," with a shared idea (content-dependently selecting blocks) but different structures.</p>
+<h3 id="74-lightning-attention-minimax-01-and-deepseek-v32-dsa">7.4　Lightning Attention (MiniMax-01) and DeepSeek-V3.2 DSA</h3>
+<ul><li><strong>Lightning Attention (MiniMax-01)</strong>: strictly speaking it is an <strong>IO-aware linear attention</strong> implementation (not sparse softmax), using FlashAttention-like tiling + chunkwise to make linear attention IO-efficient, paired with a hybrid architecture (interleaving a few softmax layers) to support million-scale context. It is placed here because MiniMax-01 is a representative large-scale deployment of "linear + a few full attention layers" (see §9).</li><li><strong>DeepSeek-V3.2's DSA (DeepSeek Sparse Attention) / lightning indexer</strong>: a <strong>lightweight indexer (lightning indexer)</strong> quickly scores, for each query, "which historical tokens to attend to," then runs attention only on the selected tokens. The core is using a <strong>cheap scoring network</strong> to do token-level selection, lowering the cost of long-context attention while trying not to drop quality.</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Don't classify Lightning Attention as "sparse softmax"</strong> Lightning Attention is essentially an efficient (IO-aware) implementation of <strong>linear attention</strong>, belonging to §2's family; DSA / NSA / MoBA are the "keep softmax, select a subset" sparse attentions. Conflating them in an interview gives you away — the distinguishing point is "did it give up softmax, does it have a fixed-size recurrent state."</p></div>
+<h3 id="75-fixed-pattern-vs-trainable-sparse-a-one-sentence-comparison">7.5　Fixed pattern vs trainable sparse (a one-sentence comparison)</h3>
+<table><thead><tr><th>Dimension</th><th>Fixed pattern (the Longformer/BigBird era)</th><th>Trainable sparse (NSA / MoBA, 2025)</th></tr></thead><tbody><tr><td>Sparse structure</td><td>human-designed (window + global + random)</td><td>the model <strong>learns</strong> it (content-dependent block selection)</td></tr><tr><td>Training</td><td>usually slapped on at fine-tuning time</td><td><strong>natively</strong> sparse from pretraining (NSA)</td></tr><tr><td>Hardware</td><td>mostly IO-unfriendly</td><td><strong>hardware-aligned</strong> (contiguous blocks, tensor-core-friendly)</td></tr><tr><td>Quality</td><td>usable on long documents, with quality loss</td><td>close to full attention, with real speedup</td></tr></tbody></table>
+<h2 id="8-kv-cache-and-inference-the-trump-card-of-linearssm">§8 KV cache and inference: the trump card of linear/SSM</h2>
+<h3 id="81-the-inference-profiles-of-the-three-families">8.1　The inference profiles of the three families</h3>
+<p>In the autoregressive decode phase (emitting tokens one by one), the three families have starkly different resource profiles:</p>
+<table><thead><tr><th>Method</th><th>decode per step</th><th>"memory" growth with context $L$</th><th>per-step access</th></tr></thead><tbody><tr><td><strong>softmax + KV cache</strong></td><td>$O(L\,d)$ (new q against all historical k/v)</td><td>KV cache <strong>grows linearly $O(L)$</strong></td><td>read the whole KV cache (bandwidth bottleneck)</td></tr><tr><td><strong>linear attention / SSM</strong></td><td>$O(d_k d_v)$ (update + read a fixed state)</td><td><strong>fixed-size state $O(d_k d_v)$, independent of $L$</strong></td><td>read/write only that small state</td></tr><tr><td><strong>sparse (NSA/MoBA)</strong></td><td>$O(s\,d)$ (only the selected $s$ tokens/blocks)</td><td>still must <strong>store all KV</strong> ($O(L)$), but only <strong>accesses</strong> a subset</td><td>read a subset (less than full)</td></tr></tbody></table>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>This is the biggest selling point of linear / SSM</strong> softmax's KV cache <strong>inflates linearly</strong> with context — a 128K-context, 70B-model KV cache can reach tens of GB, the number-one memory / bandwidth killer of long-context inference. Linear attention / SSM compress history into a <strong>fixed-size</strong> recurrent state ($d_k\times d_v$ or the SSM's $N$-dim), so <strong>memory is independent of context length and per-token decode is $O(1)$</strong> — their hardest advantage in long-context / high-throughput serving.</p></div>
+<h3 id="82-kv-cache-memory-comparison-intuitive-numbers">8.2　KV cache memory comparison (intuitive numbers)</h3>
+<p>softmax KV cache (per sample, consistent with the attention sheet):</p>
+<p>$$\text{KV cache} = L \cdot n_{\text{layers}} \cdot 2 \cdot H_{\text{kv}} \cdot d_{\text{head}} \cdot \text{bytes}.$$</p>
+<p>It <strong>grows linearly</strong> with $L$. Whereas linear attention / SSM's "state memory" is:</p>
+<p>$$\text{state} = n_{\text{layers}} \cdot (\text{per-layer state size}) ,\quad \text{per layer} \approx d_k\, d_v\ (\text{linear}) \ \text{or}\ N\, d\ (\text{SSM}),$$</p>
+<p><strong>without $L$</strong>. So even if context grows from 4K to 1M, the state memory of linear / SSM layers stays untouched — the cost is the recall capacity ceiling of §2.3. Sparse attention does <strong>not</strong> save on this dimension (it still stores all KV); what it saves is <strong>compute / access</strong> (only computing a subset), which is the essential divide between it and linear/SSM.</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>In hybrid architectures, don't forget the full attention layers' KV cache</strong> Those few full attention layers in a hybrid (§9) <strong>still have a KV cache that grows with $L$</strong> — so a hybrid model is not "fully constant memory," but "most layers constant + a few layers linear." This is often overlooked when computing a long-context memory budget.</p></div>
+<h2 id="9-hybrid-architectures">§9 Hybrid architectures</h2>
+<h3 id="91-the-recallthroughput-trade-off-why-pure-linearssm-is-not-enough">9.1　The recall–throughput trade-off: why pure linear/SSM is not enough</h3>
+<p>Pure linear / SSM models have high throughput and a fixed state, but <strong>weak associative recall</strong>: after stuffing a fact into a fixed-size state, retrieving it <strong>precisely</strong> much later is limited by state capacity (information overwritten / interfered). Several studies (e.g. the Based, Zoology series) point out a <strong>recall–memory (throughput) Pareto frontier</strong>: a smaller state is faster but recalls worse. softmax attention sits at the "high recall, low throughput" end of this frontier, pure SSM at the "high throughput, low recall" end.</p>
+<p><strong>The fix is surprisingly simple and crude: among many linear / SSM layers, interleave a few full softmax attention layers.</strong> Those few full attention layers handle "exact retrieval / in-context copy," and the rest of the linear/SSM layers handle "cheaply processing long-range context." A small number of full attention layers can restore recall to near a pure Transformer, while the overall complexity and KV cache are still dominated by the linear/SSM layers (close to linear).</p>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>Why hybrid wins</strong> Under a fixed budget, a hybrid gets the benefits of both ends at once: <strong>linear/SSM layers → long-context throughput and memory (constant state)</strong>; <strong>a few full attention layers → recall / exact retrieval</strong>. Empirically a very small full-attention ratio (commonly 1:5 to 1:7, i.e. 1 full layer every 6–8 layers) can approach the quality of pure attention while cutting a large chunk of KV cache. This is why a great many industrial long-context models of 2024–2025 chose hybrid.</p></div>
+<h3 id="92-representative-hybrid-models-and-ratios">9.2　Representative hybrid models and ratios</h3>
+<table><thead><tr><th>Model</th><th>linear / SSM component</th><th>full attention component</th><th>rough ratio / characteristics</th></tr></thead><tbody><tr><td><strong>Jamba</strong></td><td>Mamba layers</td><td>Transformer layers + MoE</td><td>Mamba:Attention about 7:1, inserting 1 attention layer per block; the first large-scale Mamba-Transformer hybrid</td></tr><tr><td><strong>Zamba</strong></td><td>Mamba backbone</td><td><strong>shares</strong> one global attention block (reused in multiple places)</td><td>uses a single shared attention to save parameters</td></tr><tr><td><strong>Hymba</strong></td><td>SSM head</td><td>attention head</td><td>runs the attention head and SSM head <strong>in parallel within the same layer</strong> (head-level mixing, not layer-level interleaving)</td></tr><tr><td><strong>Qwen3-Next</strong></td><td><strong>Gated DeltaNet</strong> layers</td><td>output-gated full attention layers</td><td>a large proportion of Gated DeltaNet + a few gated attention layers, emphasizing long-context efficiency</td></tr><tr><td><strong>Kimi-Linear</strong></td><td><strong>KDA</strong> (Kimi Delta Attention, a Gated DeltaNet variant)</td><td>periodic full attention (MLA)</td><td>linear:full about 3:1, with long-context throughput and KV cache greatly optimized</td></tr><tr><td><strong>MiniMax-01</strong></td><td><strong>Lightning Attention</strong> (linear)</td><td>softmax attention</td><td>a large proportion of lightning + periodic softmax, supporting million-scale context</td></tr></tbody></table>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>Hymba's head-level mixing vs the others' layer-level interleaving</strong> Most hybrids interleave at the <strong>layer level</strong> (some layers are SSM, some are attention); <strong>Hymba mixes within a layer</strong>, placing attention heads and SSM heads <strong>in parallel</strong> in the same layer (fused / parallel heads). These are two different mixing granularities, and pointing out "layer-level vs head-level" in an interview earns points.</p></div>
+<h3 id="93-recent-trends">9.3　Recent trends</h3>
+<p>A clear 2024→2025 trend: <strong>the linear layer upgrades from "pure-additive linear attention / Mamba" to "gating + rewrite-style update" (Gated DeltaNet / KDA)</strong>, because the latter has stronger recall and needs fewer full attention layers; meanwhile those few full attention layers often adopt GQA / MLA / output gating and other KV-saving techniques. In other words, both ends of the hybrid are getting stronger: the linear end approaches attention's recall via the delta rule + gating, and the attention end compresses the KV cache via MLA/GQA.</p>
+<h2 id="10-engineering-practice-and-common-misconceptions">§10 Engineering practice and common misconceptions</h2>
+<ul><li><strong>Linear attention is no free lunch</strong>: its weak recall is the <strong>capacity essence of a fixed-size state</strong>, not a bug. On tasks needing exact long-range retrieval (multi-hop QA, long code completion, needle-in-a-haystack), pure linear/SSM drops points — which is the fundamental reason hybrids exist.</li><li><strong>"Linear = $O(N)$ so it must be faster and better" is wrong</strong>: (1) low asymptotic complexity ≠ actually faster — the constant and access pattern matter, and after FlashAttention's heavy optimization, softmax is often <strong>faster</strong> on short-to-medium sequences; linear/SSM's advantage shows only at very long sequences. (2) faster ≠ better — the recall shortcoming is independent of speed.</li><li><strong>The chunk size must be tuned</strong>: too small $C$ → low parallelism, inter-chunk recurrence dominates; too large → the intra-chunk $C^2$ term gets expensive + memory grows. Typically $C\in[64,256]$, tuned by sequence length / hardware.</li><li><strong>No softmax normalization → numerical stability must be managed separately</strong>: pure accumulation state grows unboundedly / drifts in magnitude. In practice you stabilize with <strong>decay gates ($\gamma,\alpha_t$)</strong>, <strong>normalization on the state or output</strong> (RMSNorm / L2), and <strong>bounded activations for $\beta,\Delta$ (sigmoid/softplus)</strong>. Directly carrying over softmax attention's implementation habits easily blows up.</li><li><strong>The sparse hardware alignment is crucial</strong>: theoretically sparse ≠ actually faster. Random gather and non-contiguous access can make a sparse kernel slower than dense — which is why NSA / MoBA emphasize "contiguous blocks, tensor-core-friendly." When evaluating a sparse method <strong>always look at real wall-clock / end-to-end throughput</strong>, not just FLOPs.</li><li><strong>The relationship with RoPE</strong>: linear attention / SSM don't apply RoPE directly the way softmax attention does — their "positional information" comes from the recurrent structure itself (the decay $\gamma^{t-s}$, $\Delta$, and the gate $\alpha$ provide an implicit relative position / temporal decay). In hybrid architectures, <strong>full attention layers use RoPE, and linear/SSM layers use their own decay mechanisms</strong>; forcing RoPE into linear attention's $\phi(q),\phi(k)$ takes care (it interacts with the decay term).</li><li><strong>Distinguish "linear attention" from "sub-quadratic but still attention"</strong>: FlashAttention is an IO optimization of <strong>exact softmax</strong> (still $O(L^2)$ FLOPs, only saving memory), <strong>not</strong> linear attention; Performer/Linformer are the sub-quadratic approximations. Linear attention / SSM <strong>replace attention with a fixed-state recurrence</strong>, fundamentally changing the compute paradigm. Interviewees often conflate these three classes.</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Biggest footgun #1: taking asymptotic complexity as actual performance</strong> "My method is $O(L)$, so it must be faster/better than the $O(L^2)$ Transformer" — wrong twice: actual speed depends on the constant and access (FlashAttention is very strong), and quality depends on recall (linear has a shortcoming). <strong>Any efficient-attention claim must provide real wall-clock + long-context recall benchmarks</strong>, or it doesn't hold up.</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Biggest footgun #2: thinking SSD / SSM "is" attention, or linear attention "≈" softmax</strong> SSD is the precise equivalence "SSM ≡ <strong>structured masked (semiseparable) linear attention</strong>," <strong>not</strong> softmax attention; linear attention is a <strong>finite-dimensional approximation</strong> of softmax, <strong>fundamentally limited</strong> on sharp selection / recall. Overclaiming these equivalences / approximations into "identical to / lossless replacement for softmax" is a classic mistake that gets probed to the bottom.</p></div>
+<h2 id="11-complexity-and-resources">§11 Complexity and resources</h2>
+<p>The table below compares the five families on "training time / decode per step / KV·state memory / recall / length extrapolation / parallelizable" ($L$=sequence length, $d$=hidden dim, $d_k d_v$=linear state, $N$=SSM state dim, $s$=number selected in sparse, $C$=chunk). Absolute values / norms in the table use $\lvert\cdot\rvert$, $\lVert\cdot\rVert$.</p>
+<table><thead><tr><th>Method</th><th>training time</th><th>decode per step</th><th>KV / state memory (with $L$)</th><th>recall</th><th>length extrapolation</th><th>parallel training</th></tr></thead><tbody><tr><td><strong>softmax (Flash)</strong></td><td>$O(L^2 d)$</td><td>$O(L d)$</td><td>KV cache $O(L)$ linear growth</td><td><strong>strong</strong></td><td>RoPE+YaRN moderate</td><td>yes (matmul)</td></tr><tr><td><strong>linear attention</strong></td><td>$O(L d_k d_v)$ (chunkwise)</td><td>$O(d_k d_v)$</td><td>state $O(d_k d_v)$, <strong>independent of $L$</strong></td><td>weak (capacity bottleneck)</td><td>good (decay extrapolates naturally)</td><td>yes (chunkwise matmul)</td></tr><tr><td><strong>SSM / Mamba-2</strong></td><td>$O(L\,N d)$ (SSD chunkwise)</td><td>$O(N d)$</td><td>state $O(N d)$, <strong>independent of $L$</strong></td><td>medium (stronger than pure linear, weaker than softmax)</td><td>good</td><td>yes (SSD matmul)</td></tr><tr><td><strong>DeltaNet / Gated</strong></td><td>$O(L d_k d_v)$ (WY chunkwise)</td><td>$O(d_k d_v)$</td><td>state $O(d_k d_v)$, <strong>independent of $L$</strong></td><td>medium-strong (rewrite-style update lifts recall)</td><td>good</td><td>yes (WY chunkwise)</td></tr><tr><td><strong>sparse (NSA)</strong></td><td>$O(L\,s\,d)$ ($s\ll L$)</td><td>$O(s\,d)$ (still stores full KV)</td><td>KV $O(L)$ (stores all, accesses a subset)</td><td><strong>strong</strong> (keeps softmax)</td><td>depends on window/selection</td><td>yes (block matmul, hardware-aligned)</td></tr></tbody></table>
+<p>Key reading points:</p>
+<ul><li><strong>State memory independent of $L$</strong> is achieved only by the three families linear / SSM / DeltaNet; sparse still stores $O(L)$ KV (what it saves is compute/access).</li><li><strong>recall</strong> rough ordering (<strong>empirical</strong>, varying by model scale / training recipe / benchmark, not a theorem; in particular the relative positions of DeltaNet/Gated and Mamba-2 depend heavily on the specific setup): softmax ≈ sparse(NSA) &gt; DeltaNet/Gated &gt; Mamba-2 &gt; pure linear attention. Note NSA's "≈ softmax" is <strong>softmax-over-selected</strong> (it keeps softmax, but computes it only over the selected blocks/tokens) — when the selector hits, it approaches full attention's recall, but it is <strong>not exact full softmax</strong>, and in an extreme needle-in-a-haystack it can still miss if it picks the wrong block. This is exactly the motivation for hybrids to combine softmax's recall with linear's throughput.</li><li><strong>All trainable in parallel</strong>: all five families can train with parallel matmuls (linear/SSM/DeltaNet via chunkwise, sparse via blocks), differing in the constant and access friendliness.</li><li><strong>decode</strong>: linear/SSM/DeltaNet are truly $O(1)$ in sequence length; softmax is $O(L)$; sparse is $O(s)$ but must maintain the full KV.</li></ul>
+<h2 id="12-25-high-frequency-interview-questions">§12 25 high-frequency interview questions</h2>
+<p>Sorted into three tiers. Click to expand for answer points + pitfalls. L2/L3 are the top-lab deep end (SSD, the delta rule, chunkwise, NSA's three branches, hybrid, etc.).</p>
+<h3 id="l1-must-know">L1 must-know</h3>
+<details>
+
+<summary>Q1. What are softmax attention's two quadratic/linear bottlenecks?</summary>
+<ul><li>training/prefill: materializes the $L\times L$ score matrix, time $O(L^2 d)$ (FlashAttn saves memory but not FLOPs)</li><li>decode: the KV cache <strong>grows linearly</strong> with context ($O(L)$ memory + $O(L)$ access per step)</li><li>three escape routes: linear attention, SSM/Mamba, sparse attention</li></ul>
+<p>Saying only "$O(n^2)$," not distinguishing the two different bottlenecks "quadratic training time" and "linear decode KV cache."</p>
+</details>
+<details>
+
+<summary>Q2. Why can linear attention achieve $O(L)$?</summary>
+<ul><li>use a feature map $\phi$ to write $\text{sim}(q,k)$ as the inner product $\phi(q)^\top\phi(k)$</li><li>lean on <strong>associativity</strong> to reorder $\big(\phi(Q)\phi(K)^\top\big)V$ into $\phi(Q)\big(\phi(K)^\top V\big)$</li><li>compress K, V into a $d_k\times d_v$ small matrix first, then interact with Q, avoiding materializing $L\times L$</li></ul>
+<p>Saying only "drop softmax," unable to articulate the "associativity + compress KV first" mechanism; or not knowing that softmax cannot be factored this way (needs infinite dimensions).</p>
+</details>
+<details>
+
+<summary>Q3. How do you understand "linear attention is an RNN"? What shape is its state?</summary>
+<ul><li>causal linear attention can be written as the recurrence $S_t=S_{t-1}+\phi(k_t)v_t^\top$, $o_t=\phi(q_t)^\top S_t$</li><li>the state $S\in\mathbb{R}^{d_k\times d_v}$ is a <strong>matrix</strong> (an associative memory accumulated from outer products)</li><li>unlike a plain RNN's vector hidden state</li></ul>
+<p>Saying the state is a vector (wrong, it's a matrix); or not knowing it and the parallel form are two faces of the same computation.</p>
+</details>
+<details>
+
+<summary>Q4. What is the SSM's basic recurrence? Why discretize?</summary>
+<ul><li>continuous: $h'(t)=Ah(t)+Bx(t),\ y(t)=Ch(t)$</li><li>discrete (ZOH, step size $\Delta$): $h_t=\bar A h_{t-1}+\bar B x_t,\ y_t=Ch_t$, $\bar A=\exp(\Delta A)$</li><li>a token sequence is discrete, so you must discretize the continuous dynamical system into a recurrence to use it</li></ul>
+<p>Unable to write the continuous→discrete step; or not knowing that $\Delta$ is the step size / controls reaction speed.</p>
+</details>
+<details>
+
+<summary>Q5. What is Mamba's key innovation over S4?</summary>
+<ul><li>Selective SSM (S6): make $B,C,\Delta$ <strong>data-dependent</strong> (varying with the input)</li><li>thereby gaining <strong>content selection</strong> (remember more of what matters, skip filler), filling LTI's shortcoming</li><li>the cost is no longer being LTI, the FFT convolution breaks, replaced by a hardware-aware selective scan</li></ul>
+<p>Saying "Mamba makes $A$ data-dependent" (inaccurate; $A$ is structured and fixed, it's $\Delta,B,C$ that are data-dependent).</p>
+</details>
+<details>
+
+<summary>Q6. What is the biggest inference advantage of linear attention / SSM?</summary>
+<ul><li>keeping a <strong>fixed-size</strong> recurrent state (independent of context length $L$)</li><li>constant memory + $O(1)$ per-token decode, very favorable for long-context / high-throughput serving</li><li>versus softmax's KV cache inflating linearly with $L$</li></ul>
+<p>Saying only "faster," unable to articulate the concrete mechanism "fixed state → constant memory + $O(1)$ decode."</p>
+</details>
+<details>
+
+<summary>Q7. The basic idea of sparse attention? The essential difference from linear attention?</summary>
+<ul><li>sparse: <strong>keep softmax</strong>, each query attends only to a subset (window/block/top-k), $L^2\to Ls$</li><li>linear: <strong>give up softmax</strong>, replace attention with a fixed-state recurrence</li><li>difference: sparse still stores all KV ($O(L)$ memory), strong recall; linear has constant state, weak recall</li></ul>
+<p>Conflating the two, or thinking sparse can also reduce the KV cache to constant (wrong, sparse still stores the full KV).</p>
+</details>
+<details>
+
+<summary>Q8. What is a hybrid architecture? Why is it needed?</summary>
+<ul><li><strong>interleave a few full softmax attention layers</strong> among many linear/SSM layers</li><li>because pure linear/SSM have <strong>weak recall (associative recall / exact copy)</strong></li><li>a few full attention layers fill recall, the rest of the linear layers keep throughput, getting both ends</li></ul>
+<p>Saying only "mix them," unable to articulate the core motivation "the recall–throughput trade-off."</p>
+</details>
+<details>
+
+<summary>Q9. Does FlashAttention count as linear attention?</summary>
+<ul><li><strong>No</strong>. FlashAttention is an IO optimization of <strong>exact softmax</strong> (block tiling + online softmax)</li><li>it cuts memory from $O(L^2)$ to $O(L)$, but the <strong>FLOPs are still $O(L^2)$</strong>, no change to the compute paradigm</li><li>linear attention / SSM are the ones that "replace attention with a fixed-state recurrence"</li></ul>
+<p>Treating FlashAttention as "linear/sub-quadratic attention" — it is an engineering optimization of exact attention, and its complexity class is unchanged.</p>
+</details>
+<details>
+
+<summary>Q10. Why might linear attention have worse recall than a Transformer?</summary>
+<ul><li>history is compressed into a <strong>fixed-size</strong> state $S\in\mathbb{R}^{d_k\times d_v}$ with limited capacity</li><li>many $\phi(k)v^\top$ pile up and interfere, so exact retrieval gets "blurry" on long sequences</li><li>softmax can do near one-hot sharp selection, which the finite-dimensional $\phi(q)^\top\phi(k)$ cannot express</li></ul>
+<p>Attributing weak recall to "bad implementation / poor tuning" rather than the capacity essence of the fixed state.</p>
+</details>
+<h3 id="l2-advanced">L2 advanced</h3>
+<details>
+
+<summary>Q11. Write linear attention's recurrence, and explain the two problems from dropping softmax normalization.</summary>
+<ul><li>recurrence: $S_t=S_{t-1}+\phi(k_t)v_t^\top,\ o_t=\phi(q_t)^\top S_t / (\phi(q_t)^\top z_t)$, $z_t=\sum_{j\le t}\phi(k_j)$</li><li>problem one: the normalization denominator $\phi(q)^\top z_t$ can be very small / near 0 → numerical instability, so many implementations simply drop the denominator + add extra normalization</li><li>problem two: lacks sharp selection ability → weak recall (capacity bottleneck)</li></ul>
+<p>Only writing the unnormalized version, unable to answer the two concrete consequences "unstable denominator + weak selection ability."</p>
+</details>
+<details>
+
+<summary>Q12. Which quantities exactly are data-dependent in Mamba? Is $A$? Why is selectivity mainly via $\Delta$?</summary>
+<ul><li>the data-dependent ones are $B, C, \Delta$; <strong>$A$ is a structured, input-independent fixed parameter</strong> (one learned $A$ per channel)</li><li>$\Delta_t$ is data-dependent and turns the "effective decay rate" into something data-dependent via $\bar A_t=\exp(\Delta_t A)$ — this is the main source of selectivity</li><li>$B_t, C_t$ are data-dependent, controlling "what is written / read out"</li></ul>
+<p>Saying "Mamba makes $A$ vary with the input" (wrong); or not knowing that $\Delta$ modulates the decay indirectly via $\exp(\Delta A)$.</p>
+</details>
+<details>
+
+<summary>Q13. Explain State Space Duality (SSD). Does it say SSM equals softmax attention?</summary>
+<ul><li>expand the selective SSM recurrence into $y=Mx$, where $M$ is a lower-triangular matrix, $M_{ts}=C_t(\prod_{r}\bar A_r)\bar B_s$</li><li>$M$ is a <strong>1-semiseparable matrix</strong> (lower-triangular sub-blocks have rank $\le 1$), equivalent to a kind of <strong>structured masked (linear) attention</strong></li><li><strong>not</strong> softmax attention — $M$ has no softmax and is semiseparable-structured; this is an equivalence at the "linear/masked attention" level</li></ul>
+<p>Overclaiming "SSM = softmax attention" (wrong, it's structured masked linear attention, with no softmax).</p>
+</details>
+<details>
+
+<summary>Q14. What engineering benefit does Mamba-2 get from SSD? The implementation difference from Mamba-1?</summary>
+<ul><li>Mamba-1: a hardware-aware selective <strong>scan</strong> (a custom kernel that <strong>doesn't use tensor cores</strong>)</li><li>Mamba-2: uses SSD to rewrite the same computation as <strong>matmul-heavy chunkwise</strong> (materialize the small $M$ intra-chunk, pass a low-rank state inter-chunk), <strong>saturating tensor cores</strong></li><li>benefit: trains several times faster, the state dim $N$ can be made larger (matmuls are cheap) → stronger expressiveness</li></ul>
+<p>Saying only "Mamba-2 is faster," unable to articulate the causal chain "SSD → chunkwise matmul → tensor core."</p>
+</details>
+<details>
+
+<summary>Q15. Derive the delta rule, and explain the role of the $(I-\beta k k^\top)$ term.</summary>
+<ul><li>view $S$ as the map $k\mapsto Sk$, do one step of online least squares / gradient descent on the error $(S_{t-1}k_t-v_t)$</li><li>get $S_t=S_{t-1}-\beta_t(S_{t-1}k_t-v_t)k_t^\top=S_{t-1}(I-\beta_t k_tk_t^\top)+\beta_t v_tk_t^\top$</li><li>$(I-\beta kk^\top)$ first <strong>erases the old association in the $k_t$ direction</strong> then writes the new value → "rewrite/overwrite" rather than "accumulate"</li></ul>
+<p>Only memorizing the formula, unable to articulate that it's error correction / online least squares, or unable to answer that the projection term = "delete then write."</p>
+</details>
+<details>
+
+<summary>Q16. The essential difference between DeltaNet and ordinary linear attention? Why does DeltaNet have stronger recall?</summary>
+<ul><li>ordinary linear: $S_t=S_{t-1}+v_tk_t^\top$, pure-additive — the same key recurring causes <strong>wrong accumulation</strong> of the value</li><li>DeltaNet: $S_t=S_{t-1}(I-\beta k_tk_t^\top)+\beta v_tk_t^\top$, <strong>overwrites</strong> the old association</li><li>the rewrite-style update avoids association interference, so associative recall is significantly stronger</li></ul>
+<p>Treating DeltaNet as "linear attention with decay added" (wrong, the key is the rewrite-style projection term, not just decay).</p>
+</details>
+<details>
+
+<summary>Q17. What does Gated DeltaNet add on top of DeltaNet? What do $\alpha$ and $\beta$ each control?</summary>
+<ul><li>adds a data-dependent <strong>decay/forgetting gate</strong> $\alpha_t\in(0,1)$: $S_t=\alpha_t S_{t-1}(I-\beta_t k_tk_t^\top)+\beta_t v_tk_t^\top$</li><li>$\alpha_t$ controls "how much history to forget overall" (continuous fading)</li><li>$\beta_t$ controls "how strongly to rewrite in the $k_t$ direction" (precise overwriting); the two are orthogonal and complementary</li></ul>
+<p>Conflating $\alpha$ and $\beta$, or not knowing that gating (forgetting) and delta (rewrite) are two independent mechanisms.</p>
+</details>
+<details>
+
+<summary>Q18. Explain chunkwise parallel in detail: what do intra-chunk and inter-chunk each do?</summary>
+<ul><li>split into chunks of size $C$, parallelize within a chunk and recur across chunks</li><li><strong>intra-chunk</strong>: $C\times C$ quadratic causal attention within the chunk ($((Q_cK_c^\top)\odot M)V_c$)</li><li><strong>inter-chunk</strong>: history compressed into a state $S_c$, this chunk's queries read $Q_cS_c$ once; update $S_{c+1}=S_c+K_c^\top V_c$ at the chunk's end</li><li>for fixed $C$ the total complexity is $O(L)$ and all matmuls (getting both $O(L)$ inference + parallel training)</li></ul>
+<p>Saying only "chunked compute," unable to articulate the two stages "intra-chunk quadratic + inter-chunk recurrent state," or not knowing this is the key to parallel training.</p>
+</details>
+<details>
+
+<summary>Q19. What are NSA's three branches? Why emphasize "natively trainable + hardware-aligned"?</summary>
+<ul><li>three branches: <strong>compress</strong> (distant blocks compressed into coarse tokens) + <strong>select</strong> (top-k most relevant key blocks for fine-grained attention) + <strong>sliding window</strong> (recent tokens to keep local), gated fusion</li><li>natively trainable: sparse structure used from pretraining, end-to-end learnable (not slapping on a mask after the fact)</li><li>hardware-aligned: contiguous blocks, tensor-core-friendly → real wall-clock speedup (not just fewer theoretical FLOPs)</li></ul>
+<p>Only remembering "top-k sparse," unable to recite all three branches; or not knowing "hardware-aligned" is for real speedup.</p>
+</details>
+<details>
+
+<summary>Q20. MoBA and NSA are both trainable sparse — how do their ideas differ and agree?</summary>
+<ul><li>same: both <strong>content-dependently select blocks</strong>, both save over full attention, both hardware-friendly</li><li>different: <strong>MoBA</strong> = an MoE-style router, routing each query to its top-k key blocks (skipping the rest); <strong>NSA</strong> = the fixed fusion of three branches compress+select+window</li><li>MoBA is designed to switch seamlessly with full attention, easing migration of existing models</li></ul>
+<p>Saying the two are the same, or not knowing MoBA borrows MoE routing and NSA is a three-branch structure.</p>
+</details>
+<h3 id="l3-advanced">L3 advanced</h3>
+<details>
+
+<summary>Q21. RetNet, Mamba, GLA, DeltaNet are all $O(L)$ recurrences — how do they each "forget/write" the state?</summary>
+<ul><li><strong>RetNet</strong>: $S_t=\gamma S_{t-1}+k_tv_t^\top$, <strong>scalar fixed decay</strong> $\gamma$ (not data-dependent), pure-additive write</li><li><strong>GLA</strong>: $S_t=\text{diag}(\alpha_t)S_{t-1}+k_tv_t^\top$, <strong>data-dependent diagonal gate</strong> forgetting, pure-additive write</li><li><strong>Mamba(S6)</strong>: SSM recurrence $h_t=\bar A_t h_{t-1}+\bar B_t x_t$, $\bar A_t=\exp(\Delta_t A)$ data-dependent decay</li><li><strong>DeltaNet</strong>: $S_t=S_{t-1}(I-\beta k_tk_t^\top)+\beta v_tk_t^\top$, <strong>rewrite-style</strong> write (delete old + write new); the Gated version adds $\alpha_t$ forgetting</li></ul>
+<p>Only able to memorize each formula, unable to abstract the unified framework "decay (scalar/diagonal/data-dependent) × write (additive/rewrite)."</p>
+</details>
+<details>
+
+<summary>Q22. Why can't a selective SSM train with the FFT global convolution like S4? How does Mamba solve it?</summary>
+<ul><li>S4 is LTI, the convolution kernel $\bar C\bar A^k\bar B$ is fixed, can be written as a global convolution computed in $O(L\log L)$ with FFT</li><li>the selective SSM's $\bar A_t,\bar B_t,C_t$ <strong>vary with time</strong> → the convolution kernel is no longer fixed → the FFT convolution breaks</li><li>Mamba's solution: a hardware-aware <strong>selective scan</strong> (parallel prefix scan + kernel fusion, keep the state in SRAM, don't materialize the $L\times N$ intermediate state); Mamba-2 further uses SSD chunkwise matmuls</li></ul>
+<p>Unable to answer "time-varying → convolution kernel not fixed → FFT breaks," or not knowing scan/SSD are the alternatives.</p>
+</details>
+<details>
+
+<summary>Q23. The delta rule's $\prod_t(I-\beta_t k_tk_t^\top)$ looks strongly sequential — how do you train it in parallel over sequence length?</summary>
+<ul><li>the Householder product over $T$ steps within a chunk can be written in the compact $I-WY^\top$ form using the <strong>WY representation</strong> (a classic numerical-linear-algebra QR trick)</li><li>so you batch with matmuls intra-chunk and pass the state inter-chunk (chunkwise)</li><li>this is the key engineering contribution that lets the DeltaNet family train efficiently on long sequences</li></ul>
+<p>Saying only "hard to parallelize" or "use chunkwise," unable to answer the concrete mechanism "WY / Householder representation."</p>
+</details>
+<details>
+
+<summary>Q24. In a hybrid architecture, how many full attention layers should you insert and where? Is a pure hybrid fully constant memory?</summary>
+<ul><li>empirically: a very small full-attention ratio (commonly 1:5 to 1:7, 1 full layer every 6–8 layers) can restore recall to near a pure Transformer</li><li>insertion comes in two kinds, <strong>layer-level interleaving</strong> (some layers are attention) and <strong>head-level parallel</strong> (Hymba: attention heads + SSM heads within the same layer)</li><li><strong>not fully constant memory</strong>: those few full attention layers still have a KV cache that grows with $L$, so overall it's "most layers constant + a few layers linear"</li></ul>
+<p>Saying "hybrid has no KV cache / fully constant memory at all" (wrong, full attention layers still have $O(L)$ KV).</p>
+</details>
+<details>
+
+<summary>Q25. Given a 200K long-context + high-concurrency serving scenario, how would you trade off among softmax / linear-SSM / sparse / hybrid?</summary>
+<ul><li>pure softmax: best recall but the KV cache explodes with $L$ (200K × high concurrency → memory/bandwidth infeasible)</li><li>pure linear/SSM: constant state, best throughput and memory, but recall (needle-in-a-haystack / multi-hop) may drop points</li><li>sparse (NSA/DSA): keeps softmax recall, saves compute/access, but still stores the full KV (no memory saving)</li><li><strong>hybrid (recommended)</strong>: most layers linear/SSM to compress KV, a few full attention (with MLA/GQA + optionally stacking sparse) to keep recall — the mainstream answer for 2025 industrial long-context; the final choice depends on the strength of the recall requirement, the memory budget, and the acceptable quality loss, validated with a real long-context benchmark</li></ul>
+<p>Reporting only a single option without trading off; or ignoring key constraints like "sparse doesn't save KV memory" and "a hybrid still has some linear KV."</p>
+</details>
+<h2 id="a-appendix-sanity-check">§A Appendix: sanity check</h2>
+<p>This tutorial's code (§6's <code>linear_attn_recurrent</code> / <code>linear_attn_chunkwise</code>, plus the delta-rule and block-sparse snippets below) should satisfy the following key invariants. The full runnable script is at <a href="code/linear_sparse_attention.py"><code>code/linear_sparse_attention.py</code></a> (pure PyTorch, a few seconds on CPU, 6 asserts) — <strong>the real run output is attached at the end of this section</strong>.</p>
+<ol><li><strong>chunkwise == recurrent (the core equivalence)</strong>: the output of <code>linear_attn_chunkwise(Q,K,V,C)</code> should match <code>linear_attn_recurrent(Q,K,V)</code> within floating-point error (<code>atol≈1e-5</code>) for any valid chunk size $C$ (e.g. 1/4/7/the full length $L$). This verifies that "intra-chunk quadratic + inter-chunk recurrence" really is equivalent to the token-by-token recurrence — the cornerstone of chunkwise correctness.</li><li><strong>chunk-size invariance</strong>: sweeping $C$ from 1 to $L$, the output is unchanged (only the computation path changes). $C=1$ degenerates to the pure recurrence, $C=L$ degenerates to single-block quadratic attention, and any $C$ in between should match.</li><li><strong>linear attention state shape</strong>: the recurrent state $S$ is always an $\mathbb{R}^{d_k\times d_v}$ matrix (in this demo $d_k=d_v=d$), independent of sequence length $L$; one decode step only updates/reads this fixed-size matrix.</li><li><strong>the delta rule degenerates to additive linear attention</strong>: in the delta-rule recurrence $S_t=S_{t-1}(I-\beta k_tk_t^\top)+\beta v_tk_t^\top$, if you <strong>drop the rewrite term</strong> (i.e. replace $(I-\beta k_tk_t^\top)$ with $I$) and set $\beta=1$, you fall back to ordinary linear attention $S_t=S_{t-1}+v_tk_t^\top$. This verifies that "the delta rule's soul is precisely that $(I-\beta kk^\top)$ projection term" — pull it out, and DeltaNet collapses back to §2's additive linear attention.</li><li><strong>block-sparse mask behavior</strong>: the top-k block-sparse mask below should satisfy — each query row keeps exactly $k$ key blocks (the rest $-\infty$), masked columns have weight 0 after softmax, and each row's weights sum to 1 (normalized within the selected blocks).</li></ol>
+<p>Below are two illustrative code snippets, the minimal delta-rule recurrence and the block-sparse top-k mask (runnable on CPU, with shape comments):</p>
+<pre><code class="language-python">import torch
+import torch.nn.functional as F
+
+# ---- code snippet 2: minimal delta-rule recurrence ----
+def delta_rule_recurrent(K, V, beta, use_delta=True):
+    &quot;&quot;&quot;S_t = S_{t-1}(I - beta k k^T) + beta v k^T.
+       K,V: [L, d] (k assumed normalized), beta: [L] write strength -&gt; state S: [d, d].
+       use_delta=False with beta=1 falls back to plain linear attention S += v k^T (see §A.4).&quot;&quot;&quot;
+    L, d = K.shape
+    S = torch.zeros(d, d, dtype=K.dtype)          # [d_k, d_v] matrix state
+    states = []
+    I = torch.eye(d, dtype=K.dtype)
+    for t in range(L):
+        k = K[t]                                   # [d]
+        if use_delta:
+            S = S @ (I - beta[t] * torch.outer(k, k))  # erase old association in k direction first
+        S = S + beta[t] * torch.outer(V[t], k)     # write new v k^T  (note the v k^T order)
+        states.append(S.clone())
+    return torch.stack(states)                     # [L, d, d]
+
+# ---- code snippet 3: block-sparse top-k attention mask (the NSA / MoBA &quot;select&quot; idea) ----
+def block_topk_attention(Q, K, V, block=4, topk=2):
+    &quot;&quot;&quot;Each query only attends its top-k most relevant key blocks (in-block softmax).
+       Q,K,V: [L, d] -&gt; out: [L, d]. block: block size, topk: how many blocks to select.&quot;&quot;&quot;
+    L, d = Q.shape
+    nblk = (L + block - 1) // block
+    scores = (Q @ K.t()) / (d ** 0.5)              # [Lq, Lk] full scores (used for both select + final attn)
+    # block representative score: mean over REAL columns only (ignore padding, so L not divisible by block is also correct) -&gt; [Lq, nblk]
+    pad = nblk * block - L
+    sc  = F.pad(scores, (0, pad), value=0.0).view(L, nblk, block)         # pad with 0
+    cnt = F.pad(torch.ones_like(scores), (0, pad)).view(L, nblk, block)   # real-column count (padding=0)
+    blk_score = sc.sum(-1) / cnt.sum(-1).clamp(min=1)     # [Lq, nblk] mean over real columns only
+    # select top-k blocks -&gt; block-level keep mask
+    topk = min(topk, nblk)
+    sel = blk_score.topk(topk, dim=-1).indices             # [Lq, topk]
+    keep_blk = torch.zeros(L, nblk, dtype=torch.bool)
+    keep_blk.scatter_(1, sel, True)                        # [Lq, nblk] True=keep this block
+    # expand back to token-level mask
+    keep = keep_blk.repeat_interleave(block, dim=1)[:, :L] # [Lq, Lk] True=keep
+    masked = scores.masked_fill(~keep, float(&quot;-inf&quot;))
+    w = F.softmax(masked, dim=-1)                          # normalized within selected blocks, each row sums to 1
+    return w @ V, keep                                     # [L, d], mask
+
+if __name__ == &quot;__main__&quot;:
+    torch.manual_seed(0)
+    L, d = 12, 8
+    # delta-rule: dropping the rewrite term + beta=1 should fall back to additive linear attention
+    K = F.normalize(torch.randn(L, d), dim=-1)
+    V = torch.randn(L, d)
+    beta = torch.ones(L)
+    S_delta = delta_rule_recurrent(K, V, beta, use_delta=True)[-1]
+    S_lin   = delta_rule_recurrent(K, V, beta, use_delta=False)[-1]  # additive version
+    # Note: the two are strictly equal iff the erase term S_{t-1}k_t=0 at every step; &quot;all k pairwise-orthogonal (and beta=1)&quot; is the cleanest sufficient condition.
+    #       In general the rewrite term S_{t-1}(beta k k^T) is nonzero -&gt; a difference appears (exactly DeltaNet overwriting old associations)
+    print(&quot;delta vs additive final-state diff:&quot;, (S_delta - S_lin).norm().item())
+    # block-sparse: each row keeps exactly topk blocks
+    Q = torch.randn(L, d)
+    out, keep = block_topk_attention(Q, K, V, block=4, topk=2)
+    nblk = (L + 3) // 4
+    per_row_blocks = keep.view(L, nblk, 4).any(dim=-1).sum(dim=-1)   # blocks kept per row
+    print(&quot;blocks kept per query (expect=2):&quot;, per_row_blocks.tolist())</code></pre>
+<p>The <strong>real output</strong> of running <code>python code/linear_sparse_attention.py</code> (CPU, pure PyTorch):</p>
+<pre><code class="language-text">[a] chunkwise == recurrent, C in [1, 4, 7, 13]: max |Δ| = 3.81e-06  OK
+[b] chunk-size invariance over C in [1, 4, 7, 13]: all equal = True  OK
+[c] state shape over all 13 steps = {(6, 6)} (expect {(6, 6)}), L-independent  OK
+[d] delta(use_delta=False, beta=1) == additive S+=vk^T: |Δ| = 0.00e+00  OK
+[e] overwrite term: non-orthogonal ||Δ|| = 8.315e+00 (&gt;0), orthonormal |Δ| = 3.58e-07 (~0)  OK
+[f] L=12: blocks kept/query = [2] (expect [2]), rows sum to 1 = True  OK
+[f] L=13: blocks kept/query = [2] (expect [2]), rows sum to 1 = True  OK
+
+all linear / sparse attention sanity checks passed ✓</code></pre>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>Reading the numbers</strong></p>
+<ul><li><strong>[a]</strong> chunkwise matches the token-by-token recurrence within floating-point error (max $|\Delta|\approx 3.8\mathrm{e}{-6}$) — the golden validation of chunkwise correctness, holding for $C=1/4/7/L$.</li><li><strong>[d]</strong> dropping the rewrite term $(I-\beta kk^\top)$ with $\beta=1$ <strong>strictly</strong> falls back to additive linear attention ($|\Delta|=0$, §A.4).</li><li><strong>[e]</strong> the rewrite term really is acting: under non-orthogonal keys, delta and additive differ by $8.3$ (nonzero), and under orthogonal keys + $\beta=1$ they are strictly equal ($3.6\mathrm{e}{-7}\approx0$) — confirming "they are equal only when $S_{t-1}k_t=0$ each step, and pairwise orthogonality is a sufficient condition."</li><li><strong>[f]</strong> block-sparse keeps exactly $\text{topk}=2$ blocks per query and has softmax row sums of 1 whether $L$ divides (12) or <strong>does not divide</strong> (13) the block (the masked block-mean makes non-divisible lengths correct too).</li></ul></div>
+<h2 id="references">📚 References</h2>
+<ul><li><strong>Linear Attention / Transformers are RNNs</strong> — Katharopoulos et al., <em>Transformers are RNNs: Fast Autoregressive Transformers with Linear Attention</em>, arXiv 2006.16236 (2020), ICML 2020.</li><li><strong>Performer (FAVOR+)</strong> — Choromanski et al., <em>Rethinking Attention with Performers</em>, arXiv 2009.14794 (2020), ICLR 2021.</li><li><strong>RetNet</strong> — Sun et al., <em>Retentive Network: A Successor to Transformer for Large Language Models</em>, arXiv 2307.08621 (2023).</li><li><strong>GLA (Gated Linear Attention)</strong> — Yang et al., <em>Gated Linear Attention Transformers with Hardware-Efficient Training</em>, arXiv 2312.06635 (2023), ICML 2024.</li><li><strong>Mamba</strong> — Gu &amp; Dao, <em>Mamba: Linear-Time Sequence Modeling with Selective State Spaces</em>, arXiv 2312.00752 (2023), COLM 2024.</li><li><strong>Mamba-2 / SSD</strong> — Dao &amp; Gu, <em>Transformers are SSMs: Generalized Models and Efficient Algorithms Through Structured State Space Duality</em>, arXiv 2405.21060 (2024), ICML 2024.</li><li><strong>DeltaNet</strong> — Yang et al., <em>Parallelizing Linear Transformers with the Delta Rule over Sequence Length</em>, arXiv 2406.06484 (2024), NeurIPS 2024.</li><li><strong>Gated DeltaNet</strong> — Yang et al., <em>Gated Delta Networks: Improving Mamba2 with Delta Rule</em>, arXiv 2412.06464 (2024), ICLR 2025.</li><li><strong>NSA (Native Sparse Attention)</strong> — Yuan et al. (DeepSeek), <em>Native Sparse Attention: Hardware-Aligned and Natively Trainable Sparse Attention</em>, arXiv 2502.11089 (2025).</li><li><strong>MoBA (Mixture of Block Attention)</strong> — Lu et al. (Moonshot AI), <em>MoBA: Mixture of Block Attention for Long-Context LLMs</em>, arXiv 2502.13189 (2025).</li><li><strong>Lightning Attention / MiniMax-01</strong> — MiniMax, <em>MiniMax-01: Scaling Foundation Models with Lightning Attention</em>, arXiv 2501.08313 (2025).</li><li><strong>Jamba</strong> — Lieber et al., <em>Jamba: A Hybrid Transformer-Mamba Language Model</em>, arXiv 2403.19887 (2024).</li><li><strong>Hymba</strong> — Dong et al., <em>Hymba: A Hybrid-head Architecture for Small Language Models</em>, arXiv 2411.13676 (2024).</li><li><strong>Kimi-Linear</strong> — Kimi Team, <em>Kimi Linear: An Expressive, Efficient Attention Architecture</em>, arXiv 2510.26692 (2025).</li><li><strong>HiPPO</strong> — Gu et al., <em>HiPPO: Recurrent Memory with Optimal Polynomial Projections</em>, arXiv 2008.07669 (2020), NeurIPS 2020.</li><li><strong>S4</strong> — Gu et al., <em>Efficiently Modeling Long Sequences with Structured State Spaces</em>, arXiv 2111.00396 (2021), ICLR 2022.</li><li><strong>DeepSeek-V3.2 / DSA</strong> — DeepSeek-AI, <em>DeepSeek-V3.2</em> technical report / model card — DeepSeek Sparse Attention (DSA, lightning indexer), 2025 (per the official technical report / model card; no standalone arXiv paper).</li><li><strong>Zamba</strong> — Glorioso et al., <em>Zamba: A Compact 7B SSM Hybrid Model</em>, arXiv 2405.16712 (2024).</li><li><strong>Qwen3-Next</strong> — Qwen Team, <em>Qwen3-Next</em> (Gated DeltaNet + gated full attention hybrid), 2025 (technical blog / model report; no standalone arXiv paper).</li><li><strong>Longformer</strong> — Beltagy et al., <em>Longformer: The Long-Document Transformer</em>, arXiv 2004.05150 (2020).</li><li><strong>BigBird</strong> — Zaheer et al., <em>Big Bird: Transformers for Longer Sequences</em>, arXiv 2007.14062 (2020), NeurIPS 2020.</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/linear_sparse_attention_tutorial_en.md</code> ·
+  SHA256 <code>9905f5f38239</code> ·
+  generated at 2026-06-18 06:21 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>
