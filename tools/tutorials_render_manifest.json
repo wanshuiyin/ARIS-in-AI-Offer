@@ -214,6 +214,18 @@
     "md": "docs/tutorials/multi_agent_long_horizon_tutorial_en.md",
     "title": "Multi Agent Long Horizon Tutorial En"
   },
+  "docs/tutorials/normalization_init_tutorial.html": {
+    "eyebrow": "Interview Prep · 归一化 / 残差 / 初始化 (Normalization / Residual / Init)",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/normalization_init_tutorial.md",
+    "subtitle": "BatchNorm / LayerNorm / RMSNorm / Pre-vs-Post-LN / DeepNorm / QK-Norm / 残差缩放 / Xavier·Kaiming / GPT-2 init / μP / DyT + 公式推导 + From-Scratch PyTorch + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "title": "归一化 / 残差 / 初始化 面试 Cheat Sheet"
+  },
+  "docs/tutorials/normalization_init_tutorial_en.html": {
+    "lang": "en",
+    "md": "docs/tutorials/normalization_init_tutorial_en.md",
+    "title": "Normalization Init Tutorial En"
+  },
   "docs/tutorials/quantization_tutorial.html": {
     "eyebrow": "Interview Prep · Quantization for LLM Inference",
     "lang": "zh-CN",

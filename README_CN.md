@@ -8,7 +8,7 @@
 >
 > 📖 **English version (default)**: [README.md](README.md)
 
-**📚 按方向直达** —— 26 篇 first-party cheat sheet，7 大方向 + 1 个社区贡献方向：
+**📚 按方向直达** —— 27 篇 first-party cheat sheet，7 大方向 + 1 个社区贡献方向：
 
 [🧠 General / 基础](#-general--基础) · [🎯 Post-Training & Reasoning](#-post-training--reasoning) · [🏛️ LLM Architecture & Systems](#-llm-architecture--systems) · [🌊 Generative Models — 理论 & Tokenizers](#-generative-models--理论--tokenizers) · [🎨 Generation Systems（图像 / 视频 / 3D / Diffusion 后训练）](#-generation-systems--图像--视频--3d--diffusion-后训练) · [👁️ Multimodal](#-multimodal) · [🤖 Agents](#-agents) · [🦾 Embodied AI / 具身智能](#-embodied-ai--具身智能)
 
@@ -66,6 +66,7 @@
 
 ## 📢 最新动态
 
+- **2026-06-19** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🧱 **第 27 篇 归一化 / 残差 / 初始化 cheat sheet 上线** —— 补 foundational 训练机理这个洞：**BatchNorm / LayerNorm / RMSNorm / GroupNorm** · **Pre-vs-Post-LN**（Xiong 梯度论证——Post-LN 为何需 warmup）· **DeepNorm / Sandwich / QK-Norm** · **残差连接 + 缩放**（LayerScale / ReZero / GPT-2 的 1/√(2N)）· **Xavier vs Kaiming**（ReLU 的因子 2，且守恒的量是二阶矩 E[y²] 而非 Var）· **μP**（宽度不变超参迁移）· **Fixup / NFNets / DyT**（归一化-free）· 以及 **covariate-shift 辨析**（Santurkar）。**双语**（中文 + EN），含可跑脚本（[`code/normalization.py`](docs/tutorials/code/normalization.py) —— from-scratch LN/RMSNorm vs `torch` + Pre/Post-LN 梯度 + Kaiming 二阶矩 + GPT-2 残差缩放，真机验证）和 25 高频题。跨模型审抓到 Pre/Post-LN 梯度 demo 的一个真方法学混淆（输出归一化假象），改用对 loss 稳健的顶/底梯度比。[`normalization_init_tutorial.html`](docs/tutorials/normalization_init_tutorial.html)。
 - **2026-06-18** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) ⚡ **第 26 篇 线性 / 稀疏注意力 cheat sheet 上线** —— 补上次二次 / 高效注意力这个全集到处引用却没系统讲的洞：**线性注意力**（kernel φ + 结合律 → 矩阵状态 RNN）· **SSM / Mamba**（selective S6）· **Mamba-2 / SSD**（1-半可分对偶 ≡ 结构化掩码线性注意力）· **DeltaNet / Gated DeltaNet**（改写式更新）· **chunkwise 并行**训练 · **可训练稀疏**（NSA 三分支 / MoBA / Lightning / DSA）· **混合架构**（Jamba / Hymba / Qwen3-Next / Kimi-Linear / MiniMax-01）。**双语**（中文 + EN），含可跑脚本（[`code/linear_sparse_attention.py`](docs/tutorials/code/linear_sparse_attention.py) —— `chunkwise ≡ recurrent` 等价 + delta-rule + block-sparse，真机验证）和 25 高频题，经多批 Codex GPT-5.5 xhigh 引用 / 数学 / 代码 / 答案 / 整体 + render 保真审定稿。[`linear_sparse_attention_tutorial.html`](docs/tutorials/linear_sparse_attention_tutorial.html)（[#22](https://github.com/wanshuiyin/ARIS-in-AI-Offer/pull/22) · [b84e913](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/b84e913)）。
 - **2026-06-13 → 06-14** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🧩 **两篇 must-know cheat sheet 上线：第 24 篇 LoRA / PEFT + 第 25 篇 RAG + 文本嵌入/检索** —— 全集到处在用、却从没讲过数学的两个 glaring hole。**LoRA/PEFT**：B=0 恒等起点 · α/r vs rsLoRA √r · 零延迟 merge · QLoRA（NF4 / 双重量化 / paged）· DoRA · 家族 vs Adapter / Prefix / Prompt / BitFit。**RAG**：双塔 · InfoNCE + 难负例 · Matryoshka · BM25 · HNSW · RRF 混合 · cross-encoder vs ColBERT late interaction · HyDE / Self-RAG / CRAG · GraphRAG · RAGAS。两篇均**双语**（中文 + EN），各含从零 PyTorch、可跑脚本（[`code/lora.py`](docs/tutorials/code/lora.py) · [`code/rag_embedding.py`](docs/tutorials/code/rag_embedding.py)，真机验证）和 25 高频题，经多轮 Codex GPT-5.5 xhigh 数学/代码 + render + EN 翻译保真审定稿。[`lora_peft_tutorial.html`](docs/tutorials/lora_peft_tutorial.html) · [`rag_embedding_retrieval_tutorial.html`](docs/tutorials/rag_embedding_retrieval_tutorial.html)。
 - **2026-06-08** — ![POLISH](https://img.shields.io/badge/POLISH-blue?style=flat-square) 🔧 [`tools/render_html.py`](tools/render_html.py) 在 frontmatter 检测前先剥掉开头的 UTF-8 BOM（[6cc4876](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/6cc4876)）。
@@ -109,6 +110,7 @@
 | Topic | HTML 中文 | HTML EN | MD |
 |---|---|---|---|
 | **Attention 面试 Cheat Sheet** | [📄 中](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/attention_tutorial.html) | [📄 EN](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/attention_tutorial_en.html) | [MD](docs/tutorials/attention_tutorial.md) |
+| **归一化 / 残差 / 初始化 (BatchNorm / LayerNorm / RMSNorm / Pre-vs-Post-LN / DeepNorm / QK-Norm / Xavier·Kaiming / μP)** | [📄 中](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/normalization_init_tutorial.html) | [📄 EN](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/normalization_init_tutorial_en.html) | [MD](docs/tutorials/normalization_init_tutorial.md) |
 | **KL Divergence in RLHF (k1/k2/k3 · placement gradient bias)** | [📄 中](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/kl_divergence_rlhf_tutorial.html) | [📄 EN](https://wanshuiyin.github.io/ARIS-in-AI-Offer/tutorials/kl_divergence_rlhf_tutorial_en.html) | [MD](docs/tutorials/kl_divergence_rlhf_tutorial.md) |
 
 ### 🎯 Post-Training & Reasoning

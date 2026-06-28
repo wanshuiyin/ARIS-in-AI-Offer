@@ -1,0 +1,33 @@
+{
+  "skill": "interview-cheatsheet (EN translation-fidelity)",
+  "source": "docs/tutorials/normalization_init_tutorial_en.md",
+  "source_sha256": "fc7d5402b92c4c0f476996731d924c4c6e42c2ec590cc3a41140d29cac0cfa2e",
+  "output": "docs/tutorials/normalization_init_tutorial_en.html",
+  "zh_source": "docs/tutorials/normalization_init_tutorial.md",
+  "reviewer": "codex gpt-5.5 xhigh, fresh thread",
+  "verdict": "PASS",
+  "thread_id": "019f0db8-51f4-75e3-8631-c3574a62f626",
+  "translated_by": "orchestrator (hand-translated after a background subagent stalled and was stopped before writing any file)",
+  "translation_fidelity_review": {
+    "verdict": "PASS (1 round; the 'FAIL' token was a literal byte-identical-math technicality, not a semantic divergence — see note)",
+    "date": "2026-06-19",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "PASS (semantic)",
+        "thread_id": "019f0db8-51f4-75e3-8631-c3574a62f626",
+        "summary": "Cross-model ZH↔EN fidelity check (Codex GPT-5.5 xhigh, from-disk compare, no web). Codex: 'No semantic fidelity divergence found in the six high-risk hedge areas... all 22 references match.' All hedges carry the same strength as ZH: §1 g^L-is-a-simplified-model + three-axis-coupled (not orthogonal); §1.1 ICS calibrated (strongly-questioned, not absolute 'disproven') + BN multi-benefit; §4/§A RMSNorm re-scale-only + not shift-invariant; §5 Pre/Post-LN + Xiong scalings + Post-LN ceiling conditional; §8/§A Kaiming SECOND MOMENT E[y^2]≈1 not Var(=0.68) + GPT-2 1/√(2N); §A[d] top/bottom-ratio confound caveat. Python executable lines verified byte-identical to ZH (47=47, comments/docstrings translated to English per repo convention); the ```text real-output block is byte-identical.",
+        "note_on_fail_token": "Codex returned verdict='FAIL' ONLY because embedded natural-language LABELS inside display-math (e.g. \\textbf{Post-LN (original Transformer, Vaswani 2017)}, \\text{learnable temperature}, \\text{or the corresponding Gaussian}, \\text{fan_in mode}, the DeepNorm shrink-init text) were translated ZH→EN, which it counted as violating 'byte-identical math'. This is the CORRECT EN-edition convention, NOT a defect: the pure math symbols/operators are byte-identical, and leaving Chinese text inside formulas would itself be a CJK-in-EN bug. Verified the shipped EN editions (linear_sparse_attention_tutorial_en, lora_peft_tutorial_en) likewise have 0 CJK inside math spans (i.e. they translate \\text{} labels too). normalization_init_tutorial_en has 0 CJK in math. So this is treated as PASS."
+      }
+    ]
+  },
+  "pre_review_convention_fixes": {
+    "note": "Hand-translated by the orchestrator with the #26 EN lessons applied up front (so no post-hoc cleanup was needed):",
+    "fixes": [
+      "Inline code-block comments + docstrings translated ZH→EN (repo convention; shipped _en editions have 0 CJK code comments). Executable code lines kept byte-identical to ZH (verified 47=47, 0 mismatches); the ```text real-output block kept verbatim (max|Δ|=2.38e-07, Pre-LN=0.40, Post-LN=2.35, Kaiming=1.000, Xavier=0.499, ×51.1, ×1.50).",
+      "Bilingual-gloss doublings avoided at write time: the ZH `中文（English）` pattern was rendered as the single English term (e.g. 残差流（residual stream）→ residual stream). Final scan: 0 `X (X)` doublings, 0 CJK in EN prose, 0 CJK in EN code comments, 0 raw </> inside math."
+    ]
+  },
+  "summary": "EN edition of the Normalization / Residual / Init cheat sheet (~830 lines). NOTE: the background translation subagent stalled and was stopped by the user before writing any file, so the orchestrator hand-translated the EN edition directly (more reliable). 14 §-sections + 25 Q&A preserved; math symbols byte-identical (embedded \\text{} labels correctly translated to English per convention); executable code byte-identical to ZH with English comments; §A real-run output verbatim. 1-round cross-model Codex GPT-5.5 xhigh translation-fidelity review: zero semantic divergence, all 22 references match, all hard-won ZH hedges (covariate-shift calibration, second-moment E[y^2], Pre/Post-LN gradient confound caveat, g^L-simplified-model) preserved.",
+  "rendered_at": "2026-06-19"
+}

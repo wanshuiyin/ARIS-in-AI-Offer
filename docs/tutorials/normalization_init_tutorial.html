@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>归一化 / 残差 / 初始化 面试 Cheat Sheet</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/normalization_init_tutorial.md">
+<meta name="aris:source-sha256" content="4f7256f57fc28cafadfedc64ea5128a67393cc89f358d2c0af5ba2f22e1a7ef7">
+<meta name="aris:generated-at" content="2026-06-28 09:42 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-为什么要归一化--残差">§1 为什么要归一化 + 残差</a>
+<ul>
+<li><a href="#11-internal-covariate-shift-的叙事以及它被推翻">1.1　internal covariate shift 的叙事——以及它被推翻</a></li>
+</ul>
+</li>
+<li><a href="#2-batchnorm">§2 BatchNorm</a>
+<ul>
+<li><a href="#21-公式沿-batch-维逐-channel">2.1　公式：沿 batch 维，逐 channel</a></li>
+<li><a href="#22-train-vs-evalrunning-stats-与-momentum">2.2　train vs eval：running stats 与 momentum</a></li>
+<li><a href="#23-为什么-bn-不适合序列--小-batch--rl">2.3　为什么 BN 不适合序列 / 小 batch / RL</a></li>
+</ul>
+</li>
+<li><a href="#3-layernorm">§3 LayerNorm</a>
+<ul>
+<li><a href="#31-公式沿特征维per-token">3.1　公式：沿特征维，per-token</a></li>
+<li><a href="#32-为什么适配-transformer--rnn">3.2　为什么适配 Transformer / RNN</a></li>
+</ul>
+</li>
+<li><a href="#4-rmsnorm">§4 RMSNorm</a>
+<ul>
+<li><a href="#41-只-re-scale不-re-center">4.1　只 re-scale，不 re-center</a></li>
+<li><a href="#42-为什么-re-scaling-比-re-centering-重要--成本">4.2　为什么 re-scaling 比 re-centering 重要 + 成本</a></li>
+</ul>
+</li>
+<li><a href="#5-pre-ln-vs-post-ln最关键的一节">§5 Pre-LN vs Post-LN（最关键的一节）</a>
+<ul>
+<li><a href="#51-两种放置">5.1　两种放置</a></li>
+<li><a href="#52-梯度幅度论证xiong-et-al-2020">5.2　梯度幅度论证（Xiong et al. 2020）</a></li>
+<li><a href="#53-pre-ln-的代价残差流随深度膨胀">5.3　Pre-LN 的代价：残差流随深度膨胀</a></li>
+<li><a href="#54-为什么-post-ln-质量上限有时更高">5.4　为什么 Post-LN 质量上限有时更高</a></li>
+</ul>
+</li>
+<li><a href="#6-放置与变体">§6 放置与变体</a>
+<ul>
+<li><a href="#61-deepnorm把-post-ln-修到能训-1000-层">6.1　DeepNorm：把 Post-LN 修到能训 1000 层</a></li>
+<li><a href="#62-sandwich--double-ln分支前后各一个">6.2　Sandwich / double LN：分支前后各一个</a></li>
+<li><a href="#63-qk-norm归一化-qk-稳住-attention-logits">6.3　QK-Norm：归一化 Q、K 稳住 attention logits</a></li>
+<li><a href="#64-groupnorm-与-weightnorm">6.4　GroupNorm 与 WeightNorm</a></li>
+</ul>
+</li>
+<li><a href="#7-残差连接--残差缩放">§7 残差连接 + 残差缩放</a>
+<ul>
+<li><a href="#71-残差为什么-work三种视角">7.1　残差为什么 work：三种视角</a></li>
+<li><a href="#72-残差流residual-stream视角">7.2　残差流（residual stream）视角</a></li>
+<li><a href="#73-残差缩放把分支起点压向恒等">7.3　残差缩放：把分支起点压向恒等</a></li>
+</ul>
+</li>
+<li><a href="#8-初始化">§8 初始化</a>
+<ul>
+<li><a href="#81-目标方差保持variance-preservation">8.1　目标：方差保持（variance preservation）</a></li>
+<li><a href="#82-xavier--glorot给-tanh--线性的折中">8.2　Xavier / Glorot：给 tanh / 线性的折中</a></li>
+<li><a href="#83-kaiming--he给-relu-补回那个因子-2">8.3　Kaiming / He：给 ReLU 补回那个因子 2</a></li>
+<li><a href="#84-残差网的深度感知下调--gpt-2-的-1sqrt2n">8.4　残差网的深度感知下调 + GPT-2 的 $1/\sqrt{2N}$</a></li>
+<li><a href="#85-fixup仅靠-init-免归一化训深残差网">8.5　Fixup：仅靠 init 免归一化训深残差网</a></li>
+</ul>
+</li>
+<li><a href="#9-pmaximal-update-parametrization">§9 μP（maximal update parametrization）</a>
+<ul>
+<li><a href="#91-问题标准参数化下最优-lr-随宽度漂移">9.1　问题：标准参数化下最优 LR 随宽度漂移</a></li>
+<li><a href="#92-p让超参宽度不变--zero-shot-迁移">9.2　μP：让超参宽度不变 → zero-shot 迁移</a></li>
+</ul>
+</li>
+<li><a href="#10-归一化-free-与前沿">§10 归一化-free 与前沿</a>
+<ul>
+<li><a href="#101-fixup--nfnets用-init--显式方差控制替代归一化">10.1　Fixup / NFNets：用 init + 显式方差控制替代归一化</a></li>
+<li><a href="#102-dytdynamic-tanh用可学-tanh-替掉-ln">10.2　DyT（Dynamic Tanh）：用可学 tanh 替掉 LN</a></li>
+</ul>
+</li>
+<li><a href="#11-工程实践--复杂度对比--常见误区">§11 工程实践 + 复杂度对比 + 常见误区</a>
+<ul>
+<li><a href="#111-四种归一化对比">11.1　四种归一化对比</a></li>
+<li><a href="#112-工程细节">11.2　工程细节</a></li>
+<li><a href="#113-常见误区footguns">11.3　常见误区（footguns）</a></li>
+</ul>
+</li>
+<li><a href="#12-25-高频面试题">§12 25 高频面试题</a>
+<ul>
+<li><a href="#l1必会题">L1必会题</a></li>
+<li><a href="#l2进阶题">L2进阶题</a></li>
+<li><a href="#l3高级题">L3高级题</a></li>
+</ul>
+</li>
+<li><a href="#a-附录sanity-check">§A 附录：sanity check</a>
+</li>
+<li><a href="#参考文献">📚 参考文献</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Interview Prep · 归一化 / 残差 / 初始化 (Normalization / Residual / Init)</div>
+  <h1>归一化 / 残差 / 初始化 面试 Cheat Sheet</h1>
+  <p class="subtitle">BatchNorm / LayerNorm / RMSNorm / Pre-vs-Post-LN / DeepNorm / QK-Norm / 残差缩放 / Xavier·Kaiming / GPT-2 init / μP / DyT + 公式推导 + From-Scratch PyTorch + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/normalization_init_tutorial.md</code></span>
+    <span><strong>SHA256:</strong> <code>4f7256f57fc2</code></span>
+    <span><strong>Rendered:</strong> 2026-06-28 09:42 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">9 句话搞定 Normalization / Residual / Init</div><p>一页拿下面试核心要点（详见后文 §1–§11 推导）。</p></div>
+<ol><li><strong>为什么要归一化</strong>：深网络逐层放大 / 缩小激活，方差以 $g^L$ 指数发散或塌缩；归一化把每层激活拉回受控尺度，关键收益是<strong>平滑了 loss landscape</strong>（更小的梯度 Lipschitz / β-smoothness，Santurkar 2018），从而能用更大学习率、堆更深——<strong>不是</strong>"减少 internal covariate shift"那套旧说法。</li><li><strong>BatchNorm</strong>：沿 <strong>batch（+空间）维</strong>对每个 channel 归一化，$\hat x=\frac{x-\mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2+\epsilon}}$；<strong>训练用 batch 统计 + 维护 running mean/var，推理用 running stats</strong> → train$\ne$eval，且强依赖 batch 大小（小 batch / 变长序列 / RL / online 全踩雷）。</li><li><strong>LayerNorm</strong>：沿<strong>特征维 per-token</strong> 归一化（与 batch 完全解耦），$y=\gamma\odot\frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}+\beta$；batch=1 也能用、变长序列也能用、train$=$eval——所以 Transformer / RNN 用它而不用 BN。</li><li><strong>RMSNorm</strong>：丢掉 re-centering，只按 RMS 缩放 $\bar x=\frac{x}{\sqrt{\frac1d\sum_i x_i^2+\epsilon}}\odot\gamma$（无均值、无 $\beta$）；论点是 <strong>re-scaling 不变性比 re-centering 更重要</strong>，省一次 reduction，LLaMA 之后的事实默认。</li><li><strong>Pre-LN vs Post-LN</strong>：Post-LN（原始 Transformer，LN 在残差相加<strong>之后</strong>）质量上限略高但<strong>需 LR warmup、深了不稳</strong>；Pre-LN（LN 在残差分支<strong>内部</strong>）有干净恒等梯度路径 → 稳、免 warmup，但<strong>残差流幅度随深度按 $\sqrt L$ 增长</strong>、深层贡献被稀释，必须补一个 final LN。</li><li><strong>放置变体</strong>：DeepNorm（放大残差 $\alpha x_l$ + 缩小 init → 训 1000 层）、Sandwich / double LN（Gemma2 分支前后各一个）、<strong>QK-Norm</strong>（点积前归一化 Q、K，压住 attention logits 防爆）。</li><li><strong>残差 + 缩放</strong>：$y=x+F(x)$ 的雅可比 $I+\partial F/\partial x$ 给出<strong>梯度高速路</strong>（恒等项保证梯度不消失）；缩放技巧把分支起点压向恒等——$1/\sqrt N$ 深度缩放、LayerScale（learnable per-channel $\lambda$）、ReZero（learnable 标量 init 0）、SkipInit。</li><li><strong>初始化</strong>：核心目标是<strong>方差保持</strong>——Xavier（tanh，$\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$）、Kaiming（ReLU，$\text{Var}(W)=\frac{2}{n_\text{in}}$，那个 2 补偿 ReLU 砍掉的一半方差）；残差网再按深度下调，<strong>GPT-2 把残差投影权重 $\times\frac{1}{\sqrt{2N}}$</strong>；Fixup 仅靠 init 就免归一化训深残差网。</li><li><strong>μP / 归一化-free / 工程</strong>：μP 让<strong>最优超参（尤其 LR）宽度不变</strong> → 小宽度调好 zero-shot 迁移到大模型；Fixup / NFNets / DyT 探索去归一化（前沿方向，非定论）；工程上盯紧 final LN、$\epsilon$ 位置、fp32 reduction、fused kernel。</li></ol>
+<h2 id="1-为什么要归一化--残差">§1 为什么要归一化 + 残差</h2>
+<p><strong>深网络的根本病灶是"尺度在深度上失控"。</strong> 把一个信号过 $L$ 个线性层，如果每层把激活方差乘以一个增益 $g$，那么 $L$ 层后方差变成 $g^L\cdot\text{Var}(\text{input})$。$g\gt 1$ 就指数爆炸、$g\lt 1$ 就指数消失——只有 $g=1$ 这个<strong>临界点</strong>才稳定，而随机初始化几乎不可能恰好命中。反向传播同理：梯度也按某个增益逐层连乘，于是要么梯度爆炸（loss 变 NaN），要么梯度消失（深层学不动）。这就是 2015 年前"很难训超过一二十层网络"的核心障碍。</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>$g^L$ 是简化模型，别当全部</strong> $g^L$ 是个<strong>标量 / 平均场近似</strong>——真实每层增益数据相关、含非线性 / attention / normalization，完整的信号传播稳定性还涉及 Jacobian 谱 / dynamical isometry、均值漂移、跨层相关、训练中参数漂移。但 $g^L$ 抓住了最本质的"指数尺度失控"，是理解归一化 / 残差 / init 的最小入口模型。顶级面试若深问，要点明它是简化，稳定性 $\ne$ 只看方差连乘。</p></div>
+<p>两类结构性药方分别攻这个病（外加 <strong>init / 参数化</strong>，§8–§9，是第三条轴）——三者<strong>概念上分工、工程上强耦合</strong>：norm 控局部尺度、residual 改善梯度路径、init 设定 step-0 临界性；现代深网的稳定性是三者的<strong>联合设计</strong>（见 §5.3 Pre-LN 残差流增长、§8 残差缩放、§10 norm-free 靠 init+scaling）：</p>
+<ul><li><strong>归一化（normalization）</strong>：在前向里显式把激活拉回固定尺度（零均值、单位方差，再用 $\gamma,\beta$ 学回需要的尺度），直接掐断 $g^L$ 的连乘。</li><li><strong>残差连接（residual / skip connection）</strong>：把每层写成 $y=x+F(x)$，给梯度开一条<strong>恒等高速路</strong>（§7），让梯度即使绕过 $F$ 也能无损流到浅层。</li></ul>
+<p>二者配合（Pre-LN Transformer = 残差 + LayerNorm + 合适 init）才让"几十到上千层"成为常规操作。</p>
+<h3 id="11-internal-covariate-shift-的叙事以及它被推翻">1.1　internal covariate shift 的叙事——以及它被推翻</h3>
+<p>BatchNorm 原始论文（Ioffe &amp; Szegedy, 2015）给出的动机是 <strong>internal covariate shift（ICS，内部协变量偏移）</strong>：随着前面层参数在训练中更新，每一层<strong>输入的分布</strong>也在不停漂移，后面层得不断追着这个移动的分布重新适配，拖慢训练；BN 通过固定每层输入的均值方差来"稳住分布"，所以训练更快。这个故事直觉好懂、流传极广——<strong>但它大概率不是 BN 真正起作用的原因。</strong></p>
+<p>Santurkar et al.（<em>How Does Batch Normalization Help Optimization?</em>, 2018, arXiv 1805.11604）用两组实验把这个叙事拆了：</p>
+<ol><li><strong>故意制造 ICS，BN 照样 work</strong>：在 BN 层<strong>之后</strong>注入随时间变化的随机噪声（人为放大分布漂移，ICS 明显增大），带 BN 的网络训练速度 / 精度几乎不受影响。如果 BN 的价值真在"消除 ICS"，这里早该崩了。</li><li><strong>BN 真正改变的是优化地形</strong>：他们证明 BN 让 loss 关于参数更<strong>平滑</strong>——loss 与梯度的 Lipschitz 常数变小（更好的 β-smoothness），梯度更可预测、更稳定。地形更平滑意味着可以放心走更大的步子（更大 LR）而不越过 / 震荡，这才是 BN 加速收敛、允许大 LR 的机制。</li></ol>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>面试别再背 "BN 减少 covariate shift"</strong> 这是被强实证质疑、主流不再视为主因的旧叙事。更稳的说法：归一化的主要收益是<strong>让损失地形更平滑、梯度更良态（well-conditioned）</strong>（并带来支持更大学习率、隐式正则、尺度不变性等多重好处），从而能训更深；"稳定每层输入分布"至多是表象，不是公认的因果机制。把 covariate shift 当成"已证明的唯一原因"是经典踩坑（§11、Q21）。</p></div>
+<div class="callout callout-info"><div class="callout-title">一句话心智模型</div><p>归一化不是在"对齐分布"，而是在给优化器<strong>修一条更平的路</strong>（小 Lipschitz）；残差不是在"加特征"，而是在给梯度<strong>修一条不堵车的高速路</strong>（恒等雅可比）。两条都是为了让"很深"这件事在数值上可行。</p></div>
+<h2 id="2-batchnorm">§2 BatchNorm</h2>
+<h3 id="21-公式沿-batch-维逐-channel">2.1　公式：沿 batch 维，逐 channel</h3>
+<p>设一个 mini-batch $\mathcal{B}=\{x_1,\dots,x_m\}$，对<strong>每个 channel / 特征 $c$ 独立</strong>统计：</p>
+<p>$$\mu_c = \frac{1}{m}\sum_{i=1}^m x_{i,c}, \qquad \sigma_c^2 = \frac{1}{m}\sum_{i=1}^m (x_{i,c}-\mu_c)^2,$$</p>
+<p>$$\hat x_{i,c} = \frac{x_{i,c}-\mu_c}{\sqrt{\sigma_c^2+\epsilon}}, \qquad y_{i,c} = \gamma_c\,\hat x_{i,c} + \beta_c.$$</p>
+<p>关键是<strong>沿哪个维度求统计</strong>：对 $[N, C]$ 的全连接特征，沿 $N$（batch）维、每个 $C$ 一组 $(\mu,\sigma)$；对 $[N, C, H, W]$ 的卷积特征，沿 $(N, H, W)$ 求、每个 channel $C$ 一组。所以 BN 的统计量是 <strong>"跨样本"</strong> 的——一个样本的归一化结果<strong>依赖同 batch 里的其他样本</strong>，这是它一切麻烦的根源。$\gamma_c,\beta_c$ 是逐 channel 的可学缩放 / 偏移，让网络能恢复"非零均值 / 非单位方差"的表达（否则强行标准化会限制表达力）。</p>
+<h3 id="22-train-vs-evalrunning-stats-与-momentum">2.2　train vs eval：running stats 与 momentum</h3>
+<p>推理时往往<strong>一次只来一个样本</strong>，没有 batch 可统计；而且我们要<strong>确定性</strong>输出（同一输入每次结果一致），不能让结果随同 batch 的其他样本变。于是 BN 在训练时<strong>额外维护一份 running（滑动平均）统计</strong>，推理时改用它：</p>
+<p>$$\hat\mu \leftarrow (1-\rho)\,\hat\mu + \rho\,\mu_\mathcal{B}, \qquad \hat\sigma^2 \leftarrow (1-\rho)\,\hat\sigma^2 + \rho\,\sigma_\mathcal{B}^2,$$</p>
+<p>其中 $\rho$ 是 momentum（PyTorch 里默认 0.1）。于是：</p>
+<ul><li><strong>训练（train mode）</strong>：用<strong>当前 batch</strong> 的 $\mu_\mathcal{B},\sigma_\mathcal{B}^2$ 归一化，并顺手更新 running stats。</li><li><strong>推理（eval mode）</strong>：用冻结的 running $\hat\mu,\hat\sigma^2$ 归一化，<strong>不再看 batch</strong>。</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>train$\ne$eval 是 BN 的硬约束（高频考点）</strong> BN 是少数几个"训练和推理走不同计算路径"的层。忘记切 <code>model.eval()</code> 会让推理用 batch 统计 → 结果随 batch 内容抖动、复现不了；BN 层在小 eval batch 上还会数值异常。这点和 LayerNorm / RMSNorm 形成鲜明对比——后者 train 和 eval 完全同构。</p></div>
+<h3 id="23-为什么-bn-不适合序列--小-batch--rl">2.3　为什么 BN 不适合序列 / 小 batch / RL</h3>
+<p>BN 的"跨样本统计"在很多场景下直接失效：</p>
+<ul><li><strong>变长序列（NLP / 语音）</strong>：不同样本长度不同，padding 会把无意义的 0 算进 batch 统计；不同位置 token 的分布也不一样，"沿 batch 求每个位置的均值"既要对齐长度又语义可疑。Transformer / RNN 因此几乎不用 BN。</li><li><strong>小 batch</strong>：$\mu_\mathcal{B},\sigma_\mathcal{B}^2$ 是用 $m$ 个样本估的，$m$ 小则估计噪声大（方差 $\propto 1/m$），归一化抖得厉害。检测 / 分割 / 大图任务因显存只能开 batch=2~4，BN 严重掉点（这是 GroupNorm 的动机，§6）。极端 $m=1$ 时方差为 0，根本没法做。</li><li><strong>RL / online / 流式</strong>：数据是<strong>非平稳</strong>且<strong>强相关</strong>的（同一条 trajectory 的相邻状态高度相关），batch 统计既不独立也随策略漂移；加上 RL 里 train/eval 行为切换频繁，BN 的 running stats 极易和实际分布脱节。RL 里普遍改用 LayerNorm 或不用归一化。</li></ul>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>"BN 是默认归一化" 是 CV 时代的惯性</strong> 在 CNN + 大 batch 分类任务上 BN 仍然好用；但一进序列建模 / 小 batch / RL，BN 的跨样本耦合 + train$\ne$eval 就成了负担。现代 LLM 栈里 BN 基本绝迹，主力是 LayerNorm / RMSNorm。</p></div>
+<h2 id="3-layernorm">§3 LayerNorm</h2>
+<h3 id="31-公式沿特征维per-token">3.1　公式：沿特征维，per-token</h3>
+<p>LayerNorm（Ba, Kiros &amp; Hinton, 2016, arXiv 1607.06450）把统计维度<strong>从 batch 转到特征</strong>。对<strong>单个 token / 单个样本</strong>的隐藏向量 $x\in\mathbb{R}^d$：</p>
+<p>$$\mu = \frac{1}{d}\sum_{i=1}^d x_i, \qquad \sigma^2 = \frac{1}{d}\sum_{i=1}^d (x_i-\mu)^2,$$</p>
+<p>$$\hat x = \frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}, \qquad y = \gamma\odot\hat x + \beta, \quad \gamma,\beta\in\mathbb{R}^d.$$</p>
+<p>对一个 $[B, T, d]$ 的 Transformer 张量，LN 沿<strong>最后一维 $d$</strong> 求 $(\mu,\sigma)$——每个 $(b,t)$ 位置一组统计，<strong>完全不跨样本、不跨 token</strong>。$\gamma,\beta$ 是 $d$ 维逐通道仿射（elementwise affine）。</p>
+<h3 id="32-为什么适配-transformer--rnn">3.2　为什么适配 Transformer / RNN</h3>
+<p>LN 的统计只在<strong>一个 token 的特征内部</strong>完成，于是 BN 的所有痛点一次消除：</p>
+<ul><li><strong>无 batch 耦合</strong>：batch=1 也能算（特征维永远有 $d$ 个数），样本之间互不影响。</li><li><strong>变长序列友好</strong>：每个位置独立归一化，长度不齐、padding 都不影响有效 token 的统计。</li><li><strong>train$=$eval</strong>：没有 running stats，训练和推理是<strong>同一个确定性函数</strong>，不用切模式、不会脱节。</li><li><strong>在线 / 流式 / RL 友好</strong>：来一个 token 算一个，天然适配自回归 decode。</li></ul>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>BN 沿 batch、LN 沿 feature（一句话区分）</strong> 同一个 $[N, C]$ 张量：BN 把它竖着切（固定 channel、跨样本求统计），LN 把它横着切（固定样本、跨 channel 求统计）。BN 问"这个特征在整批里什么尺度"，LN 问"这个样本内部各特征什么尺度"。前者引入跨样本依赖，后者没有——这就是 LN 适配序列的全部理由。</p></div>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>LN 的 $\gamma,\beta$ 不是可有可无</strong> 强行标准化到零均值单位方差会<strong>砍掉表达力</strong>（比如 sigmoid 前你可能就需要非零均值）；$\gamma,\beta$ 让网络把尺度 / 偏移<strong>学回来</strong>。去掉仿射（<code>elementwise_affine=False</code>）在某些任务可行，但默认保留。注意 RMSNorm 只保留 $\gamma$、砍掉 $\beta$（§4）。</p></div>
+<h2 id="4-rmsnorm">§4 RMSNorm</h2>
+<h3 id="41-只-re-scale不-re-center">4.1　只 re-scale，不 re-center</h3>
+<p>RMSNorm（Zhang &amp; Sennrich, 2019, arXiv 1910.07467）的出发点是一个假设：<strong>LayerNorm 的成功主要来自 re-scaling 不变性（把向量缩放到固定尺度），而不是 re-centering（减均值）。</strong> 既然如此，干脆把减均值这一步省掉，只用 <strong>均方根（RMS）</strong> 做缩放：</p>
+<p>$$\text{RMS}(x) = \sqrt{\frac{1}{d}\sum_{i=1}^d x_i^2 + \epsilon}, \qquad \boxed{\;\bar x = \frac{x}{\text{RMS}(x)}\odot\gamma\;}$$</p>
+<p>对比 LayerNorm，RMSNorm 做了两处删减：<strong>(1) 不减均值 $\mu$</strong>（少一次 reduction），<strong>(2) 通常不要 $\beta$ 偏移</strong>（只留 $\gamma$ 缩放）。本质上 LN 既给 $x$ 平移又缩放，RMSNorm 只缩放。</p>
+<h3 id="42-为什么-re-scaling-比-re-centering-重要--成本">4.2　为什么 re-scaling 比 re-centering 重要 + 成本</h3>
+<p>直觉：网络真正怕的是<strong>激活尺度失控</strong>（$g^L$ 那套），而尺度由 $\lVert x\rVert$ / RMS 主导，和均值关系不大。Zhang &amp; Sennrich 的消融显示：在 LN 里<strong>只保留 re-scaling、去掉 re-centering</strong>，多数任务性能几乎不掉；反过来只保留 re-centering 则掉得多。所以 RMSNorm 用更少的运算拿住了 LN 的主要红利。</p>
+<p>成本上 RMSNorm 比 LN 省：</p>
+<ul><li><strong>少一次均值 reduction</strong>：LN 要先求 $\mu$ 再求 $\sigma^2$（两遍 / 一遍带补偿），RMSNorm 直接一遍平方和。</li><li><strong>少存 $\beta$</strong>、少一次加法。</li><li>这些都是 memory-bound 的逐元素 + reduction 操作，省下来在长序列 / 大模型上累积成可观的吞吐收益。</li></ul>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>LLaMA 之后的事实默认</strong> LLaMA、Qwen、Mistral、Gemma 等近代 LLM 基本都用 RMSNorm（配 Pre-LN 放置）。面试问"现代 LLM 的归一化"，标准答案是 <strong>Pre-RMSNorm</strong>；能补一句"因为 re-scaling 是主要收益、re-centering 可省"就到位了。</p></div>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>RMSNorm 没有 re-centering / 没有 bias</strong> 把 LN 代码直接当 RMSNorm 用会出错：RMSNorm <strong>不减均值</strong>（所以它对输入的整体平移<strong>不</strong>不变——加个常数 $c$ 后输出会变，而 LN 不变），也<strong>没有 $\beta$</strong>。一个直接后果：RMSNorm 后的激活均值不被强制归零，下游若假设零均值要小心。</p></div>
+<h2 id="5-pre-ln-vs-post-ln最关键的一节">§5 Pre-LN vs Post-LN（最关键的一节）</h2>
+<p>这是归一化里最容易被深问的点：<strong>LN 到底放在残差的哪一侧？</strong> 两种放法行为差异巨大。</p>
+<h3 id="51-两种放置">5.1　两种放置</h3>
+<p>记一个子层（attention 或 FFN）为 $\text{Sublayer}(\cdot)$：</p>
+<p>$$\textbf{Post-LN（原始 Transformer, Vaswani 2017）}:\quad x_{l+1} = \text{LN}\big(x_l + \text{Sublayer}(x_l)\big),$$</p>
+<p>$$\textbf{Pre-LN（现代 LLM 主流）}:\quad x_{l+1} = x_l + \text{Sublayer}\big(\text{LN}(x_l)\big).$$</p>
+<p>差别看似只是 LN 挪了个位置，实则改变了<strong>残差路径的纯净度</strong>：</p>
+<ul><li><strong>Post-LN</strong>：LN 套在"残差相加之后"的整条流上——残差路径<strong>被 LN 反复挤压</strong>，没有一条干净的恒等通道。</li><li><strong>Pre-LN</strong>：LN 只作用在进入子层的分支输入上，残差主干 $x_l + (\cdots)$ 是<strong>纯恒等加法</strong>——梯度可以无损地沿主干流到底。</li></ul>
+<h3 id="52-梯度幅度论证xiong-et-al-2020">5.2　梯度幅度论证（Xiong et al. 2020）</h3>
+<p>Xiong et al.（<em>On Layer Normalization in the Transformer Architecture</em>, 2020, arXiv 2002.04745）在初始化处做了梯度尺度分析，给出干净结论：</p>
+<ul><li><strong>Post-LN</strong>：在初始化时，<strong>靠近输出层</strong>的参数梯度范数约为 $\Theta\!\big(d\sqrt{\ln d}\big)$，<strong>与深度 $L$ 无关</strong>——即顶层梯度天然偏大，而各层之间梯度尺度严重不均衡。直接上大 LR 会让这些大梯度把训练带飞，所以<strong>必须用 learning-rate warmup</strong>（前几千步把 LR 从 0 慢慢拉起）压住，深堆叠时还经常发散。</li><li><strong>Pre-LN</strong>：每层参数的梯度范数约为 $O\!\big(d\sqrt{(\ln d)/L}\big)$——<strong>随深度 $L$ 衰减、有界且跨层均衡</strong>。于是优化良态，<strong>可以直接上大 LR、免 warmup</strong>，深堆叠也稳。</li></ul>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>一句话抓住 Pre vs Post</strong> Pre-LN 给残差留了<strong>干净恒等梯度路</strong>（梯度按 $\sim 1/\sqrt L$ 有界、跨层均衡）→ 稳、免 warmup；Post-LN 把梯度尺度堆在顶层（与 $L$ 无关地偏大）→ 需 warmup、深了不稳。这就是为什么 GPT/LLaMA 一律 Pre-LN。</p></div>
+<h3 id="53-pre-ln-的代价残差流随深度膨胀">5.3　Pre-LN 的代价：残差流随深度膨胀</h3>
+<p>Pre-LN 不是免费的。看残差主干：$x_{l+1} = x_l + F_l\big(\text{LN}(x_l)\big)$。每个分支输出 $F_l(\text{LN}(\cdot))$ 因为输入被 LN 归一化、量级大致 $O(1)$，于是方差逐层<strong>累加</strong>：</p>
+<p>$$\text{Var}(x_l) \approx \text{Var}(x_0) + \sum_{j\lt l}\text{Var}\big(F_j\big) \;\propto\; l \quad\Longrightarrow\quad \text{std}(x_l)\propto\sqrt{l}.$$</p>
+<p>残差流的幅度随深度按 $\sqrt l$ 增长。后果：每个分支内部的 LN 都要除以这个越来越大的 $\text{std}(x_l)$，于是<strong>深层子层的相对贡献被稀释</strong>——加进去的 $O(1)$ 更新相对于已经 $\sqrt l$ 量级的主干越来越微不足道，网络的"有效深度"饱和，极端时退化成"恒等主干主导、深层近乎摆设"（有人称 representation / identity collapse）。这也是为什么 Pre-LN 网络<strong>必须在最后补一个 final LN</strong>（把膨胀的残差流拉回正常尺度再送进输出头），以及催生了 DeepNorm / Sandwich 等想兼顾两端的变体。</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Pre-LN 一定要有 final LN（高频踩坑）</strong> Pre-LN 结构里，最后一层之后残差流量级已是 $\sqrt L$ 级、且未被任何 LN 收口。不补 final LN 直接接 LM head，输出分布会失控、训练质量明显下降。GPT-2/3、LLaMA 都在 transformer 栈之后、输出投影之前加了这个 final LN——别漏。</p></div>
+<h3 id="54-为什么-post-ln-质量上限有时更高">5.4　为什么 Post-LN 质量上限有时更高</h3>
+<p>既然 Pre-LN 这么稳，为何还提 Post-LN？因为<strong>当 Post-LN 能训稳时（充分 warmup + 调参），它的最终质量往往略优</strong>。原因正是 §5.3 的反面：Post-LN 每层都把残差流重新归一化，深层贡献不会被稀释，"有效深度"利用得更充分。代价是训练脆弱（窗口窄、依赖 warmup、深了容易崩）。所以工程上的取舍是：<strong>追求稳定 / 可扩展性 → Pre-LN（现代 LLM 默认）；在可控规模上榨质量 → Post-LN 或 DeepNorm 这类"修好的 Post-LN"。</strong></p>
+<h2 id="6-放置与变体">§6 放置与变体</h2>
+<p>围绕"LN 放哪 / 归一化什么"，社区演化出一批变体，面试常被点名：</p>
+<h3 id="61-deepnorm把-post-ln-修到能训-1000-层">6.1　DeepNorm：把 Post-LN 修到能训 1000 层</h3>
+<p>DeepNorm（Wang et al., <em>DeepNet</em>, 2022, arXiv 2203.00555）是一个<strong>改良版 Post-LN</strong>，目标是同时拿到 Post-LN 的质量和 Pre-LN 的稳定。两个动作：</p>
+<p>$$x_{l+1} = \text{LN}\big(\alpha\,x_l + \text{Sublayer}(x_l)\big), \qquad \text{且把子层权重初始化按 } \beta \text{ 缩小}.$$</p>
+<p>对一个 $N$ 层单栈，取 $\alpha=(2N)^{1/4}\gt 1$（<strong>放大残差主干</strong>），同时用增益 $\beta=(8N)^{-1/4}\lt 1$ <strong>缩小子层初始化</strong>（编码器-解码器另有公式）。直觉：放大 $x_l$ 让残差主干在相加时占主导（接近 Pre-LN 的恒等稳定性），缩小子层 init 让每步"模型更新量"被<strong>理论上界</strong>住、不随深度爆炸。结果是 Post-LN 的放置 + 受控的更新幅度 → 稳定训练到 <strong>1000 层</strong>。记忆点：<strong>DeepNorm = up-scale 残差 + down-scale init 的 Post-LN</strong>。</p>
+<h3 id="62-sandwich--double-ln分支前后各一个">6.2　Sandwich / double LN：分支前后各一个</h3>
+<p>Gemma2 等用 <strong>sandwich norm（双 LN）</strong>：在每个子层的残差分支<strong>前后各放一个归一化</strong>：</p>
+<p>$$x_{l+1} = x_l + \text{PostNorm}\Big(\text{Sublayer}\big(\text{PreNorm}(x_l)\big)\Big).$$</p>
+<p>PreNorm 像 Pre-LN 一样给子层喂归一化输入（稳梯度），PostNorm 再把子层<strong>输出</strong>的量级收口（防止它无界地灌进残差流，缓解 §5.3 的膨胀）。代价是多一个 LN 的算力。可看成"Pre-LN 的稳定 + 对分支输出额外加一道闸"。</p>
+<h3 id="63-qk-norm归一化-qk-稳住-attention-logits">6.3　QK-Norm：归一化 Q、K 稳住 attention logits</h3>
+<p>QK-Norm（Henry et al., <em>Query-Key Normalization</em>, 2020, arXiv 2010.04245）针对的是<strong>注意力 logits 爆炸</strong>：训练中 $q^\top k$ 可能随尺度漂移到极大，softmax 进入饱和区（near one-hot），梯度消失 / 训练发散（大模型、长训练尤甚，也叫 attention entropy collapse）。修法极简——<strong>在点积之前对每个 head 的 $q,k$ 各做一次归一化</strong>（L2 或 RMS/LayerNorm），再算 logits：</p>
+<p>$$\tilde q = \text{Norm}(q),\quad \tilde k = \text{Norm}(k), \qquad \text{logits} = \frac{\tilde q^\top \tilde k}{\tau}\ (\tau\ \text{可学温度}).$$</p>
+<p>归一化后 $q,k$ 的模长被钳住，logits 不再随尺度爆炸 → attention 稳定。Gemma2、Chameleon、ViT-22B 等都用了 QK-Norm，已成为大规模训练的标配稳定器之一。</p>
+<h3 id="64-groupnorm-与-weightnorm">6.4　GroupNorm 与 WeightNorm</h3>
+<ul><li><strong>GroupNorm</strong>（Wu &amp; He, 2018, arXiv 1803.08494）：把 channel 分成 $G$ 组，<strong>在每个样本的每组 channel（+空间）内</strong>归一化——<strong>不依赖 batch</strong>。它统一了一族归一化：$G=1$ 退化为 LayerNorm（全 channel 一组），$G=C$ 退化为 InstanceNorm（每 channel 一组）。主战场是<strong>小 batch 的视觉任务</strong>（检测 / 分割，batch=2~4 时 BN 崩、GN 稳）。</li><li><strong>WeightNorm</strong>（Salimans &amp; Kingma, 2016, arXiv 1602.07868）：不归一化激活，而是<strong>重参数化权重</strong>——把权重向量拆成方向和模长 $w = g\,\frac{v}{\lVert v\rVert}$，单独学一个标量模长 $g$ 和方向 $v$。它解耦了权重的尺度与方向、加速优化，且<strong>无 batch 依赖、推理无开销</strong>（可折回普通权重），但稳定性不如 BN，热度后来被 BN/LN 盖过。</li></ul>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>一句话归位四种 norm</strong> BN 沿 batch、LN 沿 feature、GN 沿 group（batch 无关、桥接 LN 与 IN）、WN 归一化的是<strong>权重</strong>而非激活。面试问"小 batch 检测用什么归一化"答 GroupNorm；问"现代 LLM"答 RMSNorm；问"稳 attention logits"答 QK-Norm。</p></div>
+<h2 id="7-残差连接--残差缩放">§7 残差连接 + 残差缩放</h2>
+<h3 id="71-残差为什么-work三种视角">7.1　残差为什么 work：三种视角</h3>
+<p>残差块 $y = x + F(x)$（He et al., <em>ResNet</em>, 2015, arXiv 1512.03385）能训很深，有三个互补解释：</p>
+<ol><li><strong>恒等映射 / 梯度高速路</strong>：雅可比 $\frac{\partial y}{\partial x} = I + \frac{\partial F}{\partial x}$。那个 $I$ 保证——哪怕 $\frac{\partial F}{\partial x}$ 因深度而消失，梯度仍能经恒等项无损传回。$L$ 个残差块串起来，$\frac{\partial x_L}{\partial x_0}=\prod_{l}\big(I+\frac{\partial F_l}{\partial x}\big)$ 展开后含一个<strong>纯恒等项</strong>（外加各阶交叉项），所以梯度<strong>至少</strong>有一条不衰减的通路。这直接破了 $g^L$ 消失。</li><li><strong>优化更易 / 学残差比学映射容易</strong>：若理想映射接近恒等，让 $F$ 去拟合"残差"（差量）比让一整层拟合恒等容易得多——初始化在 0 附近就已经接近恒等，优化从一个好起点出发。</li><li><strong>浅路径集成（ensemble of shallow paths，Veit et al., 2016, arXiv 1605.06431）</strong>：一个 $L$ 块残差网在前向上等价于 $2^L$ 条不同深度路径的集合（每块选"走 $F$"或"走恒等"），其中<strong>短路径占主导</strong>，有效梯度主要来自这些浅路径——所以深残差网"像很多浅网的集成"，优化自然更容易。</li></ol>
+<h3 id="72-残差流residual-stream视角">7.2　残差流（residual stream）视角</h3>
+<p>机理可解释性里有个统一图景：残差主干是一条贯穿全网的<strong>共享通信总线（residual stream）</strong>。每个子层<strong>从总线读</strong>（经 LN 取出当前状态）、算一个更新、<strong>把更新加回总线</strong>。信息<strong>默认沿总线恒等保留</strong>，每层只决定"往上加什么"。这个视角解释了很多现象：为什么 Pre-LN 残差流会随深度累加膨胀（§5.3，大家都往同一条总线写）、为什么残差缩放（下面）有用（控制每层往总线写的强度）、为什么能在中间层"读出"语义。</p>
+<h3 id="73-残差缩放把分支起点压向恒等">7.3　残差缩放：把分支起点压向恒等</h3>
+<p>深残差网的一个隐患（§5.3）：分支输出无节制地灌进残差流，使其方差线性膨胀、训练初期不稳。一族技巧给残差分支<strong>乘一个小缩放</strong>，让训练<strong>从接近恒等的状态起步</strong>：</p>
+<ul><li><strong>$1/\sqrt N$ 深度缩放</strong>：把每个分支乘 $1/\sqrt N$（$N$=层数），使 $N$ 层累加后总方差仍 $O(1)$（$N\times(1/\sqrt N)^2=1$），残差流不随深度爆。GPT-2 的 init 技巧（§8.4）正是这一思想的初始化版本。</li><li><strong>LayerScale</strong>（CaiT, Touvron et al., 2021, arXiv 2103.17239）：给每个分支乘一个<strong>可学的 per-channel 对角</strong> $\text{diag}(\lambda)$，$\lambda$ 初始化成很小的值（如 $10^{-4}\sim10^{-6}$）：$x_{l+1}=x_l+\text{diag}(\lambda)\,F(x_l)$。起点近乎恒等，再让网络<strong>逐通道学</strong>每个分支该贡献多少，显著稳住深 ViT。</li><li><strong>ReZero</strong>（Bachlechner et al., 2020, arXiv 2003.04887）：更激进——每个分支乘一个<strong>可学标量</strong> $\alpha$，<strong>初始化为 0</strong>：$x_{l+1}=x_l+\alpha\,F(x_l)$。$t=0$ 时网络是<strong>精确恒等</strong>（dynamical isometry，每层输入输出雅可比为 $I$），梯度完美传导，可在无归一化下训很深；训练中 $\alpha$ 自己长起来。</li><li><strong>SkipInit</strong>（De &amp; Smith, 2020, arXiv 2002.10444）：把残差分支上的 BN 换成一个<strong>可学标量（init 0）</strong>，照样能训深残差网——以此<strong>实证 BN 在残差网里的主要作用，其实是初始化时把分支缩小、让网络偏向恒等函数</strong>（而非"减少 ICS"）。这条和 §1.1 的 debunk 相互印证。</li></ul>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>残差缩放的统一直觉</strong> LayerScale / ReZero / SkipInit / $1/\sqrt N$ 做的是同一件事：<strong>让残差分支在初始化时接近 0、网络从恒等起步</strong>，于是梯度良态、训练稳定，再让网络自己学该往残差流里加多强。"init 成接近恒等"是训练超深网络的一条暗线（也是 §8 init 的核心）。</p></div>
+<h2 id="8-初始化">§8 初始化</h2>
+<p>归一化和残差治标，<strong>初始化治本</strong>——它决定网络在第 0 步的方差 / 梯度尺度是否良态。（注：init 只保证<strong>良态起点</strong>；训练全程的稳定还要靠参数化 / LR / optimizer / 残差缩放 / norm 放置一起兜——见 §1 的"三轴联合设计"。）</p>
+<h3 id="81-目标方差保持variance-preservation">8.1　目标：方差保持（variance preservation）</h3>
+<p>希望前向激活方差与反向梯度方差<strong>逐层大致守恒</strong>，别让 $g^L$ 把它们带跑。对一个权重 $W\in\mathbb{R}^{n_\text{out}\times n_\text{in}}$、输入各分量独立同方差的线性层 $z=Wx$：</p>
+<p>$$\text{Var}(z_j) = n_\text{in}\,\text{Var}(W)\,\text{Var}(x).$$</p>
+<p>要 $\text{Var}(z)=\text{Var}(x)$（前向守恒）需 $n_\text{in}\text{Var}(W)=1$；要反向梯度方差守恒需 $n_\text{out}\text{Var}(W)=1$。两者一般不能同时满足，于是有了不同折中。</p>
+<h3 id="82-xavier--glorot给-tanh--线性的折中">8.2　Xavier / Glorot：给 tanh / 线性的折中</h3>
+<p>Xavier/Glorot（Glorot &amp; Bengio, AISTATS 2010）面向<strong>对称、近线性</strong>激活（tanh、线性），取前向与反向两个条件的折中：</p>
+<p>$$\text{Var}(W) = \frac{2}{n_\text{in}+n_\text{out}} \quad\Longrightarrow\quad W\sim U\!\Big[-\sqrt{\tfrac{6}{n_\text{in}+n_\text{out}}},\ \sqrt{\tfrac{6}{n_\text{in}+n_\text{out}}}\Big]\ \text{或对应高斯}.$$</p>
+<p>前提是激活在 0 附近近似线性（tanh 满足、ReLU 不满足），所以对 ReLU 网它偏小。</p>
+<h3 id="83-kaiming--he给-relu-补回那个因子-2">8.3　Kaiming / He：给 ReLU 补回那个因子 2</h3>
+<p>Kaiming/He（He et al., 2015, arXiv 1502.01852）指出：<strong>ReLU 把负半轴清零，砍掉约一半方差</strong>——$\mathbb{E}[\text{ReLU}(z)^2]=\tfrac12\text{Var}(z)$（对零均值对称 $z$）。要在 ReLU 后仍守恒，需补一个因子 2：</p>
+<p>$$\tfrac12\,n_\text{in}\,\text{Var}(W)=1 \quad\Longrightarrow\quad \boxed{\;\text{Var}(W)=\frac{2}{n_\text{in}}\;}\ (\text{fan\_in 模式},\ \text{std}=\sqrt{2/n_\text{in}}).$$</p>
+<p>这个 2 是 Xavier 与 Kaiming 的唯一实质区别，却决定了深 ReLU 网（VGG / ResNet 级）能不能训：用 Xavier 的 $1/n_\text{in}$ 喂 ReLU，每层信号能量被 ReLU 砍半又没补回，$L$ 层后二阶矩 $\mathbb{E}[y^2]\approx (1/2)^L$ <strong>指数消失</strong>；用 Kaiming 才守恒（§A 的 [e] 验证：Kaiming 后 post-ReLU 二阶矩 $\mathbb{E}[y^2]\approx1$，Xavier-for-ReLU $\approx 0.5$ 并逐层砍半）。这里守恒的量是<strong>二阶矩 $\mathbb{E}[y^2]$</strong>（喂给下一层的信号能量），而非 $\text{Var}(y)$——ReLU 让输出均值非零，$\text{Var}(y)=1-1/\pi\approx0.68$。</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Xavier vs Kaiming 不是"换个公式"，是"是否补 ReLU 的因子 2"</strong> tanh / 线性用 Xavier（$\frac{2}{n_\text{in}+n_\text{out}}$）；ReLU / LeakyReLU 用 Kaiming（$\frac{2}{n_\text{in}}$，LeakyReLU 还要按负斜率改增益）。给 ReLU 网用 Xavier 会系统性偏小 → 深了激活 / 梯度消失。</p></div>
+<h3 id="84-残差网的深度感知下调--gpt-2-的-1sqrt2n">8.4　残差网的深度感知下调 + GPT-2 的 $1/\sqrt{2N}$</h3>
+<p>即便每层都 Xavier/Kaiming，残差流仍会累加膨胀（§5.3）。所以深残差网在 per-layer init 之外还要<strong>按深度下调残差分支</strong>：</p>
+<ul><li>把分支<strong>最后一层初始化为 0</strong>（分支起点输出 0 → 块起点为恒等，同 ReZero / Fixup 思想）；</li><li>或把分支整体乘 $1/\sqrt L$。</li></ul>
+<p><strong>GPT-2 的经典技巧</strong>：把<strong>残差投影层</strong>（attention 的输出投影 + FFN 的 down 投影，即"往残差流写"的那两个矩阵）的权重在 init 时<strong>乘 $\frac{1}{\sqrt{2N}}$</strong>，$N$=层数。为什么是 $2N$ 而非 $N$？因为每个 transformer 层往残差流写<strong>两次</strong>（attn 一次、FFN 一次），$N$ 层共 $2N$ 次累加；按 $1/\sqrt{2N}$ 缩放每次写入，使 $2N$ 次累加后残差流方差仍 $O(1)$。nanoGPT 等实现都对 <code>c_proj</code> 类权重套这个缩放（§A 的 [f] 验证：不缩放方差随深度线性涨，$1/\sqrt{2N}$ 缩放后有界）。</p>
+<h3 id="85-fixup仅靠-init-免归一化训深残差网">8.5　Fixup：仅靠 init 免归一化训深残差网</h3>
+<p>Fixup（Zhang et al., 2019, arXiv 1901.09321）把"用 init 控方差"推到极致——<strong>完全不用任何归一化层</strong>，仅靠精心设计的初始化就训出能打 BN-ResNet 的深残差网。三招：</p>
+<ol><li>每个残差分支的<strong>最后一层初始化为 0</strong>（分支起点输出 0 → 块为恒等，残差流初始方差不爆）；</li><li>分支内其他层的权重<strong>额外乘 $L^{-1/(2m-2)}$</strong> 下调（$m$=每分支层数、$L$=块数），抵消深度累加；</li><li>加入少量<strong>可学标量偏置 / 乘子</strong>补偿被砍掉的仿射自由度。</li></ol>
+<p>意义：<strong>归一化不是训深网络的充要条件</strong>——把方差 / 梯度的尺度问题在初始化处一次性解决，就能去掉 BN/LN。这条直接通向 §10 的 normalizer-free 路线。（Transformer 上的对应工作是 T-Fixup，主张配好 init 后可免 warmup / 免 LN——见参考文献，arXiv id 待核。）</p>
+<h2 id="9-pmaximal-update-parametrization">§9 μP（maximal update parametrization）</h2>
+<h3 id="91-问题标准参数化下最优-lr-随宽度漂移">9.1　问题：标准参数化下最优 LR 随宽度漂移</h3>
+<p>标准参数化（SP，即 Xavier/Kaiming + 全网同一个 LR）有个隐蔽缺陷：<strong>当模型宽度 $n$ 变化时，各层激活和参数更新的尺度跟着错配</strong>，于是<strong>最优超参（尤其学习率）会随宽度漂移</strong>。后果很实际——你在小模型上辛苦调出的最佳 LR，搬到大模型上不再最优，每加宽一次就得重调；而大模型一次调参的算力成本极高。</p>
+<p>根因（Yang et al., <em>Tensor Programs V</em>, 2022, arXiv 2203.03466 给出的极限分析）：在 SP 下让宽度 $n\to\infty$，要么激活 / 更新随 $n$ 爆掉（需调小 LR），要么进入 <strong>lazy / kernel 区</strong>（特征几乎不更新、等于没在学 feature）。两种极限都不是我们想要的"宽了还能稳定地大幅更新特征"。</p>
+<h3 id="92-p让超参宽度不变--zero-shot-迁移">9.2　μP：让超参宽度不变 → zero-shot 迁移</h3>
+<p>μP（maximal update parametrization）是<strong>唯一</strong>能在任意宽度都保持"最大化且稳定的特征学习"的缩放方案：它把<strong>初始化方差、学习率、输出乘子</strong>都写成宽度（fan_in）的函数，逐层分别缩放，使得——</p>
+<ul><li>每层激活与<strong>特征更新量</strong>在宽度上都保持 $\Theta(1)$（不爆不退化）；</li><li><strong>最优学习率变得宽度不变</strong>。</li></ul>
+<p>典型缩放（Adam 下，示意）：隐藏层 LR $\propto 1/\text{fan\_in}$、隐藏层 init 方差 $\propto 1/\text{fan\_in}$、输出 logits 乘 $1/\text{fan\_in}$；输入 / 输出层与隐藏层用<strong>不同</strong>的缩放。落地为 <strong>μTransfer</strong>：在一个<strong>小宽度代理模型</strong>上把 LR / warmup / init 等超参调好，<strong>zero-shot 直接迁移</strong>到几十上百倍大的目标模型，省掉在大模型上重调的天价算力（被用于 GPT-3 规模、Cerebras-GPT、MiniCPM 等）。</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>μP 面试金句</strong> SP 下"最优 LR 随宽度漂移"，所以小模型调的参不能直接用到大模型；μP 把 init / LR / 输出乘子按 fan_in 重新缩放，使<strong>每层特征更新在宽度上 $\Theta(1)$、最优 LR 宽度不变</strong> → 小宽度调参、大宽度 zero-shot 迁移（μTransfer）。一句话：<strong>μP 是让超参可跨宽度迁移的参数化。</strong></p></div>
+<h2 id="10-归一化-free-与前沿">§10 归一化-free 与前沿</h2>
+<p>归一化层带来 train/eval 差异（BN）、跨设备同步（多卡 BN）、额外 reduction 等麻烦，于是一直有人问：<strong>能不能不要归一化？</strong> 这是研究方向，<strong>非定论</strong>，但思路很有启发。</p>
+<h3 id="101-fixup--nfnets用-init--显式方差控制替代归一化">10.1　Fixup / NFNets：用 init + 显式方差控制替代归一化</h3>
+<ul><li><strong>Fixup</strong>（§8.5）：纯靠初始化（分支末层置 0 + 深度下调）训深残差网，无任何归一化层，ImageNet 上逼近 BN-ResNet。证明 norm 非必需。</li><li><strong>NFNets</strong>（Brock et al., 2021, arXiv 2102.06171）：Normalizer-Free Networks，系统性地去掉 BN。三件套——<strong>Scaled Weight Standardization</strong>（标准化权重而非激活）+ <strong>解析设计的缩放残差块</strong> $x_{l+1}=x_l+\alpha\,F(x_l/\beta_l)$（用解析的 $\alpha,\beta_l$ 精确追踪 / 控制每层方差）+ <strong>Adaptive Gradient Clipping（AGC）</strong>（按参数范数自适应裁剪梯度，找回 BN 在大 batch 下的稳定性）。结果在 ImageNet 上<strong>超过 EfficientNet 且无任何归一化层</strong>，说明 BN 的好处（控尺度 + 正则 + 大 batch 稳定）可以被显式手段分别补回。</li></ul>
+<h3 id="102-dytdynamic-tanh用可学-tanh-替掉-ln">10.2　DyT（Dynamic Tanh）：用可学 tanh 替掉 LN</h3>
+<p>DyT（<em>Transformers without Normalization</em>, 2025, arXiv 2503.10622，arXiv id 以引用核查为准）来自一个观察：<strong>训练好的 LayerNorm 的输入-输出曲线，长得像一条被压扁的 $\tanh$</strong>（对中间值近线性、对离群值 S 形饱和）。既然 LN 的效果近似一个逐元素 squashing，那干脆<strong>省掉求均值 / 方差的 reduction，直接学一个 tanh</strong>：</p>
+<p>$$\text{DyT}(x) = \gamma\odot\tanh(\alpha\,x) + \beta,$$</p>
+<p>其中 $\alpha$ 是一个<strong>可学标量</strong>（控制输入尺度、对应 LN 里"除以 std"的作用），$\gamma,\beta$ 是逐通道仿射。论文报告在 ViT / LLM / diffusion 等多处用 DyT 替换 LN/RMSNorm，效果相当，且<strong>去掉了归一化的统计量计算</strong>（不再需要逐 token 的 reduction）。</p>
+<blockquote><p>🎯 <strong>前沿，诚实定位</strong> Fixup / NFNets / DyT 共同传递一个信息：<strong>归一化在理论上不是训练深网络的必要条件</strong>——它的核心作用（控方差、平滑地形、压离群值）可被"好 init / 显式方差控制 / 可学 squashing"等手段替代。但 <strong>LN/RMSNorm 仍是当前生产系统的稳妥默认</strong>（鲁棒、即插即用、生态成熟）。面试谈这些要点明"研究方向 / 有前景"，别说成"已取代归一化"。</p></blockquote>
+<h2 id="11-工程实践--复杂度对比--常见误区">§11 工程实践 + 复杂度对比 + 常见误区</h2>
+<h3 id="111-四种归一化对比">11.1　四种归一化对比</h3>
+<table><thead><tr><th>归一化</th><th>归一化维度</th><th>依赖 batch</th><th>train$\ne$eval</th><th>可学参数</th><th>相对成本</th></tr></thead><tbody><tr><td><strong>BatchNorm</strong></td><td>沿 batch（+空间），逐 channel</td><td>是</td><td><strong>是</strong>（推理用 running stats）</td><td>$\gamma,\beta$</td><td>中（两次 reduction + 维护 running stats + 多卡需同步）</td></tr><tr><td><strong>LayerNorm</strong></td><td>沿特征维，per-token</td><td>否</td><td>否</td><td>$\gamma,\beta$</td><td>中（均值 + 方差两次 reduction）</td></tr><tr><td><strong>RMSNorm</strong></td><td>沿特征维 RMS，per-token</td><td>否</td><td>否</td><td>$\gamma$（无 $\beta$）</td><td>低（一次平方和 reduction，无均值、无偏移）</td></tr><tr><td><strong>GroupNorm</strong></td><td>沿组内 channel（+空间），逐 sample</td><td>否</td><td>否</td><td>$\gamma,\beta$</td><td>中（组内 reduction，batch 无关）</td></tr></tbody></table>
+<h3 id="112-工程细节">11.2　工程细节</h3>
+<ul><li><strong>Pre-LN 别漏 final LN</strong>（§5.3）：transformer 栈之后、LM head 之前必须有一个收口 LN，否则膨胀的残差流直接进输出头，质量掉。</li><li><strong>$\epsilon$ 的位置</strong>：约定是 $\sqrt{\sigma^2+\epsilon}$（$\epsilon$ 在根号<strong>里</strong>，PyTorch 如此），不是 $\sqrt{\sigma^2}+\epsilon$。$\epsilon$ 太小在 fp16 下会因 $\sigma^2\approx0$ 触发除零 / 溢出；RMSNorm 的 $\epsilon$ 同理在 $\sqrt{\text{mean}(x^2)+\epsilon}$ 里。</li><li><strong>fp16/bf16 数值</strong>：归一化的 reduction（求和 / 平方和）<strong>务必在 fp32 累加</strong>，即使激活是 bf16——平方和在低精度下极易溢出 / 损失有效位。标准实现都把 norm 内部 upcast 到 fp32 再 downcast。</li><li><strong>fused kernel</strong>：LN/RMSNorm 是 <strong>memory-bound</strong>（读激活 → reduction → 写回），FLOPs 很小但访存重；用 fused kernel（Apex <code>FusedLayerNorm</code>、Triton、FlashNorm 等）把读-算-写并进一个 kernel，省 HBM 往返。RMSNorm 因只有一次 reduction、无均值，天然更便宜。</li><li><strong>推理成本</strong>：单看 FLOPs 归一化微不足道，但它<strong>打断算子融合 + 带一个 reduction</strong>，在大模型逐 token decode 时累积成可观延迟；这也是 RMSNorm（省一次 reduction）在推理侧受欢迎的原因之一。</li><li><strong>BN 的多卡坑</strong>：数据并行下每卡只看到 batch 的一部分，BN 统计是"局部 batch"的；要全局统计得用 SyncBatchNorm（跨卡通信，慢）。LN/RMSNorm 无此问题（per-token，天然无需同步）。</li></ul>
+<h3 id="113-常见误区footguns">11.3　常见误区（footguns）</h3>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 1：把 covariate shift 当成归一化有效的唯一/已证原因</strong> 已被 Santurkar 2018 实证推翻（§1.1）。正确归因是"平滑 loss 地形 / 梯度更良态"。这是最经典的面试陷阱。</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 2：Pre-LN 忘了 final LN</strong> Pre-LN 残差流随深度按 $\sqrt L$ 膨胀且末端无 LN 收口，漏掉 final LN 直接喂输出头会掉点（§5.3）。</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 3：把 LN 代码当 RMSNorm 用</strong> RMSNorm <strong>不减均值、没有 $\beta$</strong>，且对输入整体平移<strong>不</strong>不变；照搬 LN 的减均值 / 加 bias 逻辑就错了（§4.2）。</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 4：在 RL / 变长序列 / 小 batch 上用 BatchNorm</strong> 跨样本统计 + train$\ne$eval 在这些场景全面失效，应换 LayerNorm / GroupNorm（§2.3）。</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 5：给 ReLU 网用 Xavier 初始化</strong> 少了补 ReLU 的因子 2，深了激活 / 梯度指数衰减；ReLU 用 Kaiming（§8.3）。</p></div>
+<h2 id="12-25-高频面试题">§12 25 高频面试题</h2>
+<p>按难度分三档，点开看答案要点 + 易踩坑。L2/L3 是顶级 lab 深水区（Pre/Post 梯度论证、Kaiming 推导、μP、DeepNorm、norm-free、QK-Norm、covariate-shift debunk 等）。</p>
+<h3 id="l1必会题">L1必会题</h3>
+<details>
+
+<summary>Q1. 为什么深网络需要归一化？归一化到底解决了什么？</summary>
+<ul><li>深网络激活 / 梯度方差按 $g^L$ 指数爆炸或消失，只有 $g=1$ 临界点才稳，随机 init 难命中</li><li>归一化把每层激活拉回固定尺度，掐断 $g^L$ 连乘 → 可用更大 LR、堆更深</li><li>现代正确归因：让 loss 地形更平滑、梯度更良态（Santurkar 2018），<strong>不是</strong>"减少 covariate shift"</li></ul>
+<p>只说"加速收敛"，讲不出方差尺度 / loss 地形这一层；或还在背 covariate shift。</p>
+</details>
+<details>
+
+<summary>Q2. 写出 BatchNorm 的公式，它沿哪个维度统计？</summary>
+<ul><li>逐 channel 沿 batch（卷积再加空间 $H,W$）求 $\mu_c,\sigma_c^2$，$\hat x=\frac{x-\mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2+\epsilon}}$，再 $\gamma_c\hat x+\beta_c$</li><li>统计是<strong>跨样本</strong>的 → 一个样本的归一化依赖同 batch 其他样本</li><li>$[N,C]$ 沿 $N$；$[N,C,H,W]$ 沿 $(N,H,W)$，每 channel 一组</li></ul>
+<p>把 BN 说成沿特征维（那是 LN）；或忘了它跨样本这个关键性质。</p>
+</details>
+<details>
+
+<summary>Q3. BatchNorm 训练和推理（eval）有什么不同？为什么？</summary>
+<ul><li>训练用<strong>当前 batch 统计</strong>归一化，并以 momentum 更新 running mean/var</li><li>推理用冻结的 <strong>running stats</strong>（不看 batch），保证确定性 + 单样本可用</li><li>所以 BN 是 train$\ne$eval 的层，忘切 <code>eval()</code> 会让推理结果随 batch 抖动</li></ul>
+<p>不知道有 running stats / momentum；或以为推理也用 batch 统计。</p>
+</details>
+<details>
+
+<summary>Q4. 写出 LayerNorm 公式，它和 BN 沿的维度有何不同？</summary>
+<ul><li>对单 token 向量 $x\in\mathbb{R}^d$ 沿<strong>特征维 $d$</strong> 求 $\mu,\sigma$，$y=\gamma\odot\frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}+\beta$</li><li>$[B,T,d]$ 沿最后一维，每个 $(b,t)$ 一组统计，<strong>不跨样本、不跨 token</strong></li><li>BN 沿 batch（跨样本），LN 沿 feature（样本内）——这是本质区别</li></ul>
+<p>把 LN 也说成跨 batch；或答不出"per-token、与 batch 解耦"。</p>
+</details>
+<details>
+
+<summary>Q5. RMSNorm 是什么？和 LayerNorm 差在哪？</summary>
+<ul><li>只按 RMS 缩放：$\bar x=\frac{x}{\sqrt{\frac1d\sum x_i^2+\epsilon}}\odot\gamma$</li><li>相比 LN 删两样：<strong>不减均值</strong>（无 re-centering）、<strong>无 $\beta$</strong> 偏移</li><li>论点：re-scaling 是 LN 主要收益，re-centering 可省 → 更便宜，LLaMA 后默认</li></ul>
+<p>只说"RMSNorm 更快"，讲不出"去掉减均值 + 去掉 bias"两处删减。</p>
+</details>
+<details>
+
+<summary>Q6. LayerNorm 在 Transformer 里放在哪？有哪两种放法？</summary>
+<ul><li>Post-LN：$x_{l+1}=\text{LN}(x_l+\text{Sublayer}(x_l))$，LN 在残差相加<strong>之后</strong>（原始 Transformer）</li><li>Pre-LN：$x_{l+1}=x_l+\text{Sublayer}(\text{LN}(x_l))$，LN 在残差分支<strong>内部</strong>（现代 LLM 主流）</li><li>现代 LLM 用 Pre-LN + 一个 final LN</li></ul>
+<p>只知道"有个 LN"，说不清放在残差的哪一侧、两种放法叫什么。</p>
+</details>
+<details>
+
+<summary>Q7. 为什么 Transformer / RNN 用 LayerNorm 而不用 BatchNorm？</summary>
+<ul><li>变长序列 + padding 让"沿 batch 求每个位置统计"语义可疑、难对齐</li><li>batch 耦合：BN 一个样本依赖同 batch 其他样本；序列任务常小 batch / batch=1</li><li>LN per-token、与 batch 解耦、train$=$eval，天然适配序列 / 自回归 decode</li></ul>
+<p>只说"习惯用 LN"，答不出 batch 耦合 + 变长 + train/eval 这几条具体原因。</p>
+</details>
+<details>
+
+<summary>Q8. 残差连接为什么能帮助训练很深的网络？</summary>
+<ul><li>$y=x+F(x)$ 雅可比 $I+\partial F/\partial x$，那个 $I$ 给梯度一条<strong>恒等高速路</strong>，破 $g^L$ 消失</li><li>学残差比学整映射容易（理想接近恒等时从好起点出发）</li><li>等价于 $2^L$ 条路径的集成、短路径主导，优化更易（Veit 2016）</li></ul>
+<p>只说"防梯度消失"，讲不出雅可比恒等项 / 残差易学 / 浅路径集成这几个视角。</p>
+</details>
+<details>
+
+<summary>Q9. 归一化里的 $\gamma,\beta$（scale/shift）是干嘛的？去掉行不行？</summary>
+<ul><li>强行标准化到零均值单位方差会砍掉表达力；$\gamma,\beta$ 让网络把尺度 / 偏移<strong>学回来</strong></li><li>$\gamma$ 缩放、$\beta$ 平移，逐通道</li><li>RMSNorm 只保 $\gamma$、去掉 $\beta$；去掉全部仿射在某些任务可行但默认保留</li></ul>
+<p>以为 $\gamma,\beta$ 可有可无；或不知道 RMSNorm 砍掉了 $\beta$。</p>
+</details>
+<details>
+
+<summary>Q10. Xavier 和 Kaiming 初始化的区别？各用于什么激活？</summary>
+<ul><li>Xavier：$\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$，给 <strong>tanh / 线性</strong>（对称近线性激活）</li><li>Kaiming：$\text{Var}(W)=\frac{2}{n_\text{in}}$，给 <strong>ReLU</strong>，那个 2 补偿 ReLU 砍掉的一半方差</li><li>给 ReLU 网用 Xavier 会偏小 → 深了激活 / 梯度消失</li></ul>
+<p>只背两个公式，说不清"差别就是补不补 ReLU 的因子 2"。</p>
+</details>
+<h3 id="l2进阶题">L2进阶题</h3>
+<details>
+
+<summary>Q11. Pre-LN vs Post-LN：行为差异 + 梯度论证。</summary>
+<ul><li>Post-LN 需 <strong>LR warmup</strong>、深了不稳，但质量上限略高；Pre-LN 稳、免 warmup，但残差流随深度膨胀、需 final LN</li><li>Xiong 2020：Post-LN 顶层梯度 $\Theta(d\sqrt{\ln d})$（与 $L$ 无关地偏大、跨层不均）→ 必须 warmup</li><li>Pre-LN 每层梯度 $O(d\sqrt{(\ln d)/L})$（随 $L$ 衰减、有界均衡）→ 大 LR 免 warmup</li></ul>
+<p>只说"Pre-LN 更稳"，给不出顶层梯度偏大 / 随深度衰减这个定量论证。</p>
+</details>
+<details>
+
+<summary>Q12. 为什么 RMSNorm 去掉 re-centering 没事？re-scaling 和 re-centering 谁更重要？</summary>
+<ul><li>网络怕的是激活<strong>尺度</strong>失控（$g^L$），尺度由 RMS / 模长主导，和均值关系不大</li><li>消融：LN 里只保 re-scaling 性能几乎不掉，只保 re-centering 掉得多 → re-scaling 主导</li><li>所以 RMSNorm 用更少运算拿住主要红利</li></ul>
+<p>只说"省了均值计算"，答不出"re-scaling 是主要收益"这个论点依据。</p>
+</details>
+<details>
+
+<summary>Q13. 为什么 BatchNorm 不适合变长序列 / 小 batch / RL？</summary>
+<ul><li>变长：padding 污染统计 + 不同位置分布不同，"沿 batch 求每位置统计"语义差</li><li>小 batch：统计估计噪声 $\propto1/m$，$m$ 小则归一化抖动，$m=1$ 直接失效</li><li>RL：数据非平稳 + 强相关 + train/eval 频繁切，running stats 与实际脱节</li></ul>
+<p>只笼统说"BN 不好用"，讲不出三个场景各自的失效机理。</p>
+</details>
+<details>
+
+<summary>Q14. 推导 Kaiming 初始化的方差，为什么是 $2/n_\text{in}$？</summary>
+<ul><li>线性层 $\text{Var}(z)=n_\text{in}\text{Var}(W)\text{Var}(x)$，要前向守恒需 $n_\text{in}\text{Var}(W)=1$</li><li>ReLU 把负半轴清零：$\mathbb{E}[\text{ReLU}(z)^2]=\frac12\text{Var}(z)$，砍掉一半方差</li><li>补因子 2：$\frac12 n_\text{in}\text{Var}(W)=1\Rightarrow\text{Var}(W)=\frac{2}{n_\text{in}}$</li></ul>
+<p>写不出 $\text{Var}(z)=n_\text{in}\text{Var}(W)\text{Var}(x)$，或不知道那个 2 来自 ReLU 砍半。</p>
+</details>
+<details>
+
+<summary>Q15. 残差为什么能破梯度消失？给出反向传播的式子。</summary>
+<ul><li>$L$ 块串联：$\frac{\partial x_L}{\partial x_0}=\prod_l(I+\frac{\partial F_l}{\partial x})$</li><li>展开含一个<strong>纯恒等项</strong>（再加各阶交叉项）→ 梯度至少有一条不衰减通路</li><li>即使 $\partial F/\partial x\to0$，恒等项仍把梯度无损传回浅层</li></ul>
+<p>只说"加了 skip"，写不出雅可比连乘里那个恒等项为什么救梯度。</p>
+</details>
+<details>
+
+<summary>Q16. 残差缩放（$1/\sqrt N$ / LayerScale / ReZero）解决什么？怎么做？</summary>
+<ul><li>解决：深残差网分支无节制灌入残差流 → 方差线性膨胀、初期不稳</li><li>$1/\sqrt N$：分支乘 $1/\sqrt N$ 使 $N$ 层累加方差仍 $O(1)$；LayerScale：可学 per-channel $\lambda$（init 极小）；ReZero：可学标量 $\alpha$ init 0（起点精确恒等）</li><li>统一直觉：让分支起点接近 0、网络从恒等起步，梯度良态</li></ul>
+<p>只记住名字，说不出"让残差分支起点≈恒等"这个共同机理。</p>
+</details>
+<details>
+
+<summary>Q17. GPT-2 把残差投影权重乘 $1/\sqrt{2N}$ 是干嘛？为什么是 $2N$ 不是 $N$？</summary>
+<ul><li>控制残差流方差：每次往残差流写入按 $1/\sqrt{2N}$ 缩放，使累加后方差仍 $O(1)$</li><li>$2N$：每个 transformer 层往残差流写<strong>两次</strong>（attn 输出投影 + FFN down 投影），$N$ 层共 $2N$ 次</li><li>作用在 attn/FFN 的输出投影（残差投影）权重的 init 上</li></ul>
+<p>以为是每层一次（$N$）；或不知道作用在"残差投影"这两个特定矩阵上。</p>
+</details>
+<details>
+
+<summary>Q18. QK-Norm 是什么？解决什么问题？</summary>
+<ul><li>点积前对每个 head 的 $q,k$ 各做一次归一化（L2/RMS），再算 logits</li><li>解决 attention logits 随尺度爆炸 → softmax 饱和 / entropy collapse / 训练发散（大模型尤甚）</li><li>归一化后 $q,k$ 模长被钳住，logits 不爆；Gemma2 / Chameleon / ViT-22B 在用</li></ul>
+<p>只说"归一化 QK"，讲不出它防的是 logits 爆炸 / softmax 饱和。</p>
+</details>
+<details>
+
+<summary>Q19. DeepNorm 怎么训到 1000 层？它和 Pre/Post-LN 什么关系？</summary>
+<ul><li>是<strong>改良 Post-LN</strong>：$x_{l+1}=\text{LN}(\alpha x_l+\text{Sublayer}(x_l))$，$\alpha=(2N)^{1/4}\gt1$ 放大残差</li><li>同时用增益 $\beta=(8N)^{-1/4}\lt1$ <strong>缩小子层 init</strong>，把每步模型更新量界住</li><li>up-scale 残差（接近 Pre-LN 稳定）+ down-scale init（更新有界）→ Post-LN 质量 + 稳定到 1000 层</li></ul>
+<p>把 DeepNorm 当成 Pre-LN；或只记 $\alpha$ 不记"还要缩小 init"。</p>
+</details>
+<details>
+
+<summary>Q20. GroupNorm / InstanceNorm 和 BN/LN 是什么关系？什么时候用 GN？</summary>
+<ul><li>GN 把 channel 分 $G$ 组，每样本每组内归一化，<strong>不依赖 batch</strong></li><li>$G=1$ 退化为 LayerNorm，$G=C$ 退化为 InstanceNorm（GN 桥接二者）</li><li>用途：<strong>小 batch 视觉</strong>（检测 / 分割 batch=2~4，BN 崩、GN 稳）</li></ul>
+<p>不知道 GN 用 $G$ 桥接 LN 与 IN；或答不出小 batch 检测这个典型场景。</p>
+</details>
+<h3 id="l3高级题">L3高级题</h3>
+<details>
+
+<summary>Q21. internal covariate shift 是 BatchNorm 有效的真正原因吗？</summary>
+<ul><li>不是（大概率）。这是原始论文的叙事，已被 Santurkar 2018 实证推翻</li><li>证据一：BN 后注入噪声<strong>故意增大</strong> ICS，训练几乎不受影响</li><li>证据二：BN 真正让 loss / 梯度的 Lipschitz 变小（地形更平滑）→ 支持大 LR</li><li>SkipInit 进一步显示 BN 在残差网的作用是 init 时缩小分支、偏向恒等</li></ul>
+<p>还把 covariate shift 当公认原因；或不知道有实验直接证伪。</p>
+</details>
+<details>
+
+<summary>Q22. μP 是什么？为什么标准参数化下最优 LR 会随宽度漂移？</summary>
+<ul><li>SP 下宽度变则各层激活 / 更新尺度错配，宽度 $n\to\infty$ 要么爆炸要么进 lazy/kernel 区</li><li>于是最优 LR 随宽度变，小模型调的参不能直接用到大模型</li><li>μP 把 init 方差 / LR / 输出乘子按 fan_in 缩放，使<strong>特征更新在宽度上 $\Theta(1)$、最优 LR 宽度不变</strong> → μTransfer（小宽度调、大宽度 zero-shot 迁移）</li></ul>
+<p>只知道"μP 能迁移超参"，讲不出 SP 为何漂移 / μP 缩放了什么。</p>
+</details>
+<details>
+
+<summary>Q23. 怎么不用任何归一化层训练深残差网络？（Fixup / NFNets）</summary>
+<ul><li>Fixup：分支<strong>末层 init 0</strong>（块起点恒等）+ 其他层乘 $L^{-1/(2m-2)}$ 下调 + 加可学标量偏置/乘子</li><li>NFNets：Scaled Weight Standardization + 解析缩放残差块 $x+\alpha F(x/\beta)$ + Adaptive Gradient Clipping</li><li>共同点：把"控方差 + 大 batch 稳定"用 init / 显式手段补回，说明 norm 非必需</li></ul>
+<p>只说"调 init"，给不出"末层置 0 + 深度下调"或 NFNets 三件套的具体做法。</p>
+</details>
+<details>
+
+<summary>Q24. DyT（Dynamic Tanh）是什么？归一化是训练的必要条件吗？</summary>
+<ul><li>观察：训练好的 LN 输入-输出曲线像被压扁的 $\tanh$（中间近线性、离群值饱和）</li><li>DyT：$\gamma\odot\tanh(\alpha x)+\beta$，可学标量 $\alpha$ 替"除以 std"，<strong>去掉求均值/方差的 reduction</strong></li><li>含义：归一化理论上非必要（其作用可被 squashing / init / 显式方差控制替代），但 LN/RMSNorm 仍是稳妥生产默认</li></ul>
+<p>把 DyT 说成"已取代归一化"（过头）；或讲不出它来自"LN≈tanh"这个观察。</p>
+</details>
+<details>
+
+<summary>Q25. 给你一个非常深的网络（几百到上千层），你怎么组合 init / 归一化 / 残差让它稳定训练？</summary>
+<ul><li><strong>残差</strong>必须有（恒等梯度路），分支起点压向恒等：末层 init 0 或 LayerScale/ReZero、按深度乘 $1/\sqrt N$（GPT-2 的 $1/\sqrt{2N}$）</li><li><strong>归一化</strong> Pre-LN/RMSNorm（免 warmup、稳）+ <strong>别漏 final LN</strong>；要 Post-LN 质量则上 DeepNorm（放大残差 + 缩小 init，可达 1000 层）</li><li><strong>init</strong> 按激活选 Xavier/Kaiming 做方差保持，深度感知下调；想免归一化走 Fixup/NFNets</li><li><strong>超参</strong>用 μP 在小宽度调好再迁移；attention 不稳加 QK-Norm；全程 fp32 reduction</li><li>核心暗线：<strong>让网络从"接近恒等 + 方差守恒"的良态起点出发</strong></li></ul>
+<p>只报单一技巧；或忽略 final LN / 残差缩放 / 深度感知 init 的组合拳与"恒等起步"这条主线。</p>
+</details>
+<h2 id="a-附录sanity-check">§A 附录：sanity check</h2>
+<p>本 tutorial 的代码在 <a href="code/normalization.py"><code>docs/tutorials/code/normalization.py</code></a> 有最小可跑版本（纯 PyTorch、CPU 几秒、6 个 <code>assert</code>，覆盖 [a]–[f]）。它应满足以下关键不变量：</p>
+<ol><li><strong>[a] LayerNorm 自实现 == <code>nn.LayerNorm</code></strong>：用总体方差（<code>unbiased=False</code>，除以 $d$）、$\epsilon$ 放根号内，仿射后应与 PyTorch 在浮点误差内逐元素相等（<code>atol≈1e-5</code>）。</li><li><strong>[b] RMSNorm 自实现 == <code>nn.RMSNorm</code>，且 RMSNorm 对平移不变性与 LN 不同</strong>：给输入整体加常数 $c$，<strong>LayerNorm 输出几乎不变</strong>（它减均值 → re-centering 不变），而 <strong>RMSNorm 输出会变</strong>（它只 re-scale、不减均值）——这正是 §4 "RMSNorm 没有 re-centering" 的可执行验证。</li><li><strong>[c] BatchNorm train$\ne$eval</strong>：train 模式用 batch 统计（输出每特征近似零均值）并把 running mean 从 0 推离；切到 eval 用 running stats，对同一输入输出明显不同——验证 §2.2 的双路径。</li><li><strong>[d] Post-LN 把参数梯度堆在顶层（top-heavy），Pre-LN 跨深度均衡</strong>：搭一摞 48 层同构残差块（末尾接一个 linear head——避免 loss 直接作用在 Post-LN 的归一化输出上产生"梯度被压成 0"的假象），一次 forward+backward，量每个块 Linear 权重梯度的<strong>顶/底比值</strong>（last/first）。Pre-LN $\approx0.40$（均衡、略偏底），Post-LN $\approx2.35$（$\gt1$，梯度堆在靠近输出的顶层）——正是 §5.2 Xiong "Post-LN 顶层梯度偏大 → 需 warmup" 的可执行印证。<strong>用顶/底比值而非绝对梯度，因为它不受 loss 选择 / 输出归一化混淆</strong>（这是个隐蔽的实验设计坑）。</li><li><strong>[e] Kaiming 保二阶矩、Xavier-for-ReLU 衰减</strong>：单位二阶矩输入（$\mathbb{E}[x^2]=1$）过 <code>Linear+ReLU</code>，量 <strong>post-ReLU 的二阶矩 $\mathbb{E}[y^2]$</strong>（喂给下一层的信号能量，也是 He 推导真正传播的量）：Kaiming（$\sqrt{2/n_\text{in}}$）后 $\mathbb{E}[y^2]\approx1$（守恒），Xavier-for-ReLU（$\sqrt{1/n_\text{in}}$）后 $\approx0.5$（每层砍半 → 深了消失）——验证 §8.3 的因子 2。注意测的是 $\mathbb{E}[y^2]$ 而非 $\text{Var}(y)$：ReLU 使输出均值非零，故 $\text{Var}(y)=1-1/\pi\approx0.68$，而逐层守恒 / 传播的量是二阶矩 $\mathbb{E}[y^2]$。</li><li><strong>[f] GPT-2 残差缩放 $1/\sqrt{2N}$ 把残差流方差界住</strong>：往残差流累加 $N$ 次 $O(1)$ 更新，不缩放则方差随深度<strong>线性增长</strong>，乘 $1/\sqrt{2N}$ 后方差<strong>有界</strong>——验证 §8.4。</li></ol>
+<p>下面是几段示意代码（CPU 可跑、Chinese 注释、与上面脚本逻辑一致）。</p>
+<p><strong>(a) LayerNorm + RMSNorm 从零实现，并与 PyTorch 对齐：</strong></p>
+<pre><code class="language-python">import torch
+import torch.nn as nn
+
+def layernorm_from_scratch(x, weight, bias, eps=1e-5):
+    &quot;&quot;&quot;沿最后一维归一化。x: [..., d]。总体方差(unbiased=False)，eps 放根号内。&quot;&quot;&quot;
+    mean = x.mean(dim=-1, keepdim=True)                       # [..., 1] 均值
+    var  = x.var(dim=-1, unbiased=False, keepdim=True)        # [..., 1] 总体方差(/d)，与 torch 一致
+    return (x - mean) / torch.sqrt(var + eps) * weight + bias # 标准化 + 仿射
+
+def rmsnorm_from_scratch(x, weight, eps=1e-6):
+    &quot;&quot;&quot;只按 RMS 缩放：不减均值、无 bias。x: [..., d]。&quot;&quot;&quot;
+    ms = x.pow(2).mean(dim=-1, keepdim=True)                  # [..., 1] 均方
+    return x / torch.sqrt(ms + eps) * weight                  # 除以 RMS，再逐通道缩放
+
+d = 64
+x = torch.randn(8, d)                                         # [B, d]
+ln  = nn.LayerNorm(d, eps=1e-5)                              # 默认仿射 weight=1, bias=0
+assert torch.allclose(layernorm_from_scratch(x, ln.weight, ln.bias), ln(x), atol=1e-5)
+
+rms = nn.RMSNorm(d, eps=1e-6)                                # 需 torch&gt;=2.4
+assert torch.allclose(rmsnorm_from_scratch(x, rms.weight), rms(x), atol=1e-5)
+
+# RMSNorm 对整体平移不不变，LayerNorm 不变：
+c = 5.0
+assert (ln(x + c) - ln(x)).abs().max() &lt; 1e-4                              # LN re-centering 不变
+assert (rmsnorm_from_scratch(x + c, rms.weight) - rmsnorm_from_scratch(x, rms.weight)).abs().max() &gt; 1e-2</code></pre>
+<p><strong>(b) 一摞深残差块，比较 Pre-LN 与 Post-LN 跨深度的梯度范数：</strong></p>
+<pre><code class="language-python">import torch
+import torch.nn as nn
+
+class ResidualStack(nn.Module):
+    &quot;&quot;&quot;深残差栈 + 末尾 linear head。Pre-LN: h=h+Linear(LN(h)); Post-LN: h=LN(h+Linear(h))。
+       head 很关键：否则 Post-LN 输出已被 LN 归一化，loss=mean(out^2) 近似常数会把所有梯度压成 0（混淆）。&quot;&quot;&quot;
+    def __init__(self, depth, d, pre_ln=True):
+        super().__init__()
+        self.pre_ln = pre_ln
+        self.lns  = nn.ModuleList(nn.LayerNorm(d) for _ in range(depth))
+        self.lins = nn.ModuleList(nn.Linear(d, d) for _ in range(depth))
+        self.head = nn.Linear(d, d)                           # 末尾投影，去掉输出归一化的混淆
+
+    def forward(self, h):                                     # h: [B, d]
+        for ln, lin in zip(self.lns, self.lins):
+            h = h + lin(ln(h)) if self.pre_ln else ln(h + lin(h))
+        return self.head(h)
+
+def block_grad_topheavy(depth, d, pre_ln):
+    &quot;&quot;&quot;一次 forward+backward，返回 last/first 块权重梯度范数之比（&gt;1 = 梯度堆在顶层）。
+       该比值对 loss 选择稳健，正是 Xiong 2020 的论断。&quot;&quot;&quot;
+    torch.manual_seed(0)                                      # 两种放置用同一 init，公平对比
+    stack = ResidualStack(depth, d, pre_ln=pre_ln)
+    stack(torch.randn(16, d)).pow(2).mean().backward()       # 标量 loss
+    gn = [lin.weight.grad.norm().item() for lin in stack.lins]
+    return gn[-1] / gn[0]
+
+r_pre  = block_grad_topheavy(48, 64, pre_ln=True)            # 期望 ≈0.40（均衡）
+r_post = block_grad_topheavy(48, 64, pre_ln=False)          # 期望 ≈2.35（top-heavy，&gt;1）
+# Post-LN 顶/底比 &gt;1：梯度堆在靠近输出的顶层 -&gt; 必须 warmup。Pre-LN 跨深度均衡。</code></pre>
+<p><strong>(c) Kaiming 方差保持（vs 给 ReLU 误用 Xavier）：</strong></p>
+<pre><code class="language-python">import torch
+import torch.nn.functional as F
+
+fan_in, fan_out, N = 512, 512, 4096
+x = torch.randn(N, fan_in)                                   # E[x^2]=1 (单位二阶矩) [N, fan_in]
+W_kaiming = torch.randn(fan_out, fan_in) * (2.0 / fan_in) ** 0.5   # He: std=sqrt(2/fan_in)
+W_xavier  = torch.randn(fan_out, fan_in) * (1.0 / fan_in) ** 0.5   # 给 ReLU 误用 Xavier: std=sqrt(1/fan_in)
+# 测 post-ReLU 二阶矩 E[y^2]（喂下一层的信号能量、He 推导传播的量），不是 Var(y)
+ms_kaiming = F.relu(x @ W_kaiming.t()).pow(2).mean()        # ReLU 砍半，2/fan_in 补回 -&gt; E[y^2]≈1
+ms_xavier  = F.relu(x @ W_xavier.t()).pow(2).mean()         # 没补因子 2 -&gt; E[y^2]≈0.5，逐层砍半
+# 期望 E[y^2]_kaiming≈1（守恒）、E[y^2]_xavier≈0.5（深了指数消失）。
+# 注：Var(y)≈0.68（ReLU 使均值非零），逐层守恒的是二阶矩 E[y^2] 而非 Var。</code></pre>
+<p>运行 <code>python docs/tutorials/code/normalization.py</code> 的真实输出（CPU，纯 PyTorch，含 [a]–[f] 六个 <code>assert</code> 的汇总）：</p>
+<pre><code class="language-text">[a] LayerNorm from scratch vs nn.LayerNorm: max|Δ| = 2.38e-07  OK
+[b] RMSNorm vs nn.RMSNorm: max|Δ| = 2.38e-07; mean-shift LN |Δ|=9.54e-07 (~0, re-centers) vs RMS |Δ|=3.05e+00 (&gt;0, only re-scales)  OK
+[c] BatchNorm train!=eval: max|Δ| = 8.37e+00; running_mean moved 0.701 from 0; train per-feature mean = 8.15e-08 (~0)  OK
+[d] per-block weight-grad top/bottom ratio (last/first over 48 blocks): Pre-LN=0.40 (balanced)  Post-LN=2.35 (top-heavy, &gt;1)  -&gt; Post-LN piles gradient near the output, needs warmup  OK
+[e] post-ReLU second moment E[y^2] (input E[x^2]=1): Kaiming = 1.000 (~1, preserved)  Xavier = 0.499 (~0.5, halves per layer)  OK
+[f] residual-stream var growth over 50 blocks: unscaled ×51.1  vs  1/sqrt(2N)-scaled ×1.50  OK
+
+all normalization / residual / init sanity checks passed ✓</code></pre>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>读数解释</strong></p>
+<ul><li><strong>[a]/[b]</strong> 自实现 LN/RMSNorm 与 PyTorch 一致（max$|\Delta|$=2.4e-7）；平移测试里 LN 几乎不变（9.5e-7）、RMSNorm 明显变化（3.05），印证 §4 "RMSNorm 只 re-scale 不 re-center"。</li><li><strong>[c]</strong> BatchNorm running_mean 从 0 被推到 0.70、train 模式每特征均值≈0，且 train≠eval，印证 §2.2 双路径。</li><li><strong>[d]</strong> 块权重梯度的顶/底比（last/first）：Pre-LN $0.40$（均衡），Post-LN $2.35$（$\gt1$，梯度堆在顶层），印证 §5.2 "Post-LN 顶层梯度偏大 → 需 warmup"（加 head 去掉了输出归一化的混淆）。</li><li><strong>[e]</strong> post-ReLU 二阶矩 Kaiming $\mathbb{E}[y^2]=1.00$（守恒）、Xavier-for-ReLU $=0.50$（每层砍半），印证 §8.3 的因子 2。</li><li><strong>[f]</strong> 残差流方差不缩放 50 层后 ×51（线性涨）、$1/\sqrt{2N}$ 缩放后 ×1.5（有界），印证 §8.4 GPT-2 技巧。</li></ul></div>
+<h2 id="参考文献">📚 参考文献</h2>
+<ul><li><strong>BatchNorm</strong> — Ioffe &amp; Szegedy, <em>Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift</em>, arXiv 1502.03167 (2015), ICML 2015.</li><li><strong>LayerNorm</strong> — Ba, Kiros &amp; Hinton, <em>Layer Normalization</em>, arXiv 1607.06450 (2016).</li><li><strong>RMSNorm</strong> — Zhang &amp; Sennrich, <em>Root Mean Square Layer Normalization</em>, arXiv 1910.07467 (2019), NeurIPS 2019.</li><li><strong>How Does BN Help Optimization (covariate-shift debunk)</strong> — Santurkar et al., <em>How Does Batch Normalization Help Optimization?</em>, arXiv 1805.11604 (2018), NeurIPS 2018.</li><li><strong>Pre-LN vs Post-LN (gradient argument)</strong> — Xiong et al., <em>On Layer Normalization in the Transformer Architecture</em>, arXiv 2002.04745 (2020), ICML 2020.</li><li><strong>DeepNorm / DeepNet</strong> — Wang et al., <em>DeepNet: Scaling Transformers to 1,000 Layers</em>, arXiv 2203.00555 (2022).</li><li><strong>Kaiming init</strong> — He et al., <em>Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification</em>, arXiv 1502.01852 (2015), ICCV 2015.</li><li><strong>Xavier / Glorot init</strong> — Glorot &amp; Bengio, <em>Understanding the difficulty of training deep feedforward neural networks</em>, AISTATS 2010（PMLR proceedings，<strong>无 arXiv id</strong>，待引用核查）.</li><li><strong>ResNet (residual learning)</strong> — He et al., <em>Deep Residual Learning for Image Recognition</em>, arXiv 1512.03385 (2015), CVPR 2016.</li><li><strong>Residuals as ensembles</strong> — Veit et al., <em>Residual Networks Behave Like Ensembles of Relatively Shallow Networks</em>, arXiv 1605.06431 (2016), NeurIPS 2016.</li><li><strong>Fixup</strong> — Zhang et al., <em>Fixup Initialization: Residual Learning Without Normalization</em>, arXiv 1901.09321 (2019), ICLR 2019.</li><li><strong>ReZero</strong> — Bachlechner et al., <em>ReZero is All You Need: Fast Convergence at Large Depth</em>, arXiv 2003.04887 (2020), UAI 2021.</li><li><strong>LayerScale / CaiT</strong> — Touvron et al., <em>Going deeper with Image Transformers</em>, arXiv 2103.17239 (2021), ICCV 2021.</li><li><strong>SkipInit</strong> — De &amp; Smith, <em>Batch Normalization Biases Residual Blocks Towards the Identity Function in Deep Networks</em>, arXiv 2002.10444 (2020), NeurIPS 2020.</li><li><strong>μP / μTransfer</strong> — Yang et al., <em>Tensor Programs V: Tuning Large Neural Networks via Zero-Shot Hyperparameter Transfer</em>, arXiv 2203.03466 (2022), NeurIPS 2021.</li><li><strong>NFNets (normalizer-free)</strong> — Brock et al., <em>High-Performance Large-Scale Image Recognition Without Normalization</em>, arXiv 2102.06171 (2021), ICML 2021.</li><li><strong>GroupNorm</strong> — Wu &amp; He, <em>Group Normalization</em>, arXiv 1803.08494 (2018), ECCV 2018.</li><li><strong>WeightNorm</strong> — Salimans &amp; Kingma, <em>Weight Normalization: A Simple Reparameterization to Accelerate Training of Deep Neural Networks</em>, arXiv 1602.07868 (2016), NeurIPS 2016.</li><li><strong>QK-Norm</strong> — Henry et al., <em>Query-Key Normalization for Transformers</em>, arXiv 2010.04245 (2020), EMNLP 2020 Findings.</li><li><strong>DyT (Dynamic Tanh)</strong> — Zhu et al., <em>Transformers without Normalization</em>, 2025（CVPR 2025；arXiv 2503.10622，<strong>arXiv id 以引用核查为准</strong>）.</li><li><strong>T-Fixup</strong> — Huang et al., <em>Improving Transformer Optimization Through Better Initialization</em>, ICML 2020（PMLR proceedings；无广泛使用的独立 arXiv id，按会议出处引用）.</li><li><strong>GPT-2 (residual-projection $1/\sqrt{2N}$ init)</strong> — Radford et al., <em>Language Models are Unsupervised Multitask Learners</em>, OpenAI 技术报告 (2019)（<strong>无 arXiv id</strong>）.</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/normalization_init_tutorial.md</code> ·
+  SHA256 <code>4f7256f57fc2</code> ·
+  generated at 2026-06-28 09:42 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

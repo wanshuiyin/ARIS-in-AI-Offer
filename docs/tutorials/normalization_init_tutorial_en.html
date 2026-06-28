@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Normalization Init Tutorial En</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/normalization_init_tutorial_en.md">
+<meta name="aris:source-sha256" content="fc7d5402b92c4c0f476996731d924c4c6e42c2ec590cc3a41140d29cac0cfa2e">
+<meta name="aris:generated-at" content="2026-06-28 10:16 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-why-normalize--residuals">§1 Why normalize + residuals</a>
+<ul>
+<li><a href="#11-the-internal-covariate-shift-narrative--and-its-refutation">1.1　The internal-covariate-shift narrative — and its refutation</a></li>
+</ul>
+</li>
+<li><a href="#2-batchnorm">§2 BatchNorm</a>
+<ul>
+<li><a href="#21-formula-along-the-batch-dim-per-channel">2.1　Formula: along the batch dim, per-channel</a></li>
+<li><a href="#22-train-vs-eval-running-stats-and-momentum">2.2　train vs eval: running stats and momentum</a></li>
+<li><a href="#23-why-bn-doesnt-suit-sequences--small-batch--rl">2.3　Why BN doesn&#x27;t suit sequences / small batch / RL</a></li>
+</ul>
+</li>
+<li><a href="#3-layernorm">§3 LayerNorm</a>
+<ul>
+<li><a href="#31-formula-along-the-feature-dim-per-token">3.1　Formula: along the feature dim, per-token</a></li>
+<li><a href="#32-why-it-fits-transformers--rnns">3.2　Why it fits Transformers / RNNs</a></li>
+</ul>
+</li>
+<li><a href="#4-rmsnorm">§4 RMSNorm</a>
+<ul>
+<li><a href="#41-re-scale-only-no-re-center">4.1　Re-scale only, no re-center</a></li>
+<li><a href="#42-why-re-scaling-beats-re-centering--the-cost">4.2　Why re-scaling beats re-centering + the cost</a></li>
+</ul>
+</li>
+<li><a href="#5-pre-ln-vs-post-ln-the-most-important-section">§5 Pre-LN vs Post-LN (the most important section)</a>
+<ul>
+<li><a href="#51-the-two-placements">5.1　The two placements</a></li>
+<li><a href="#52-the-gradient-magnitude-argument-xiong-et-al-2020">5.2　The gradient-magnitude argument (Xiong et al. 2020)</a></li>
+<li><a href="#53-pre-lns-cost-the-residual-stream-inflates-with-depth">5.3　Pre-LN&#x27;s cost: the residual stream inflates with depth</a></li>
+<li><a href="#54-why-post-lns-quality-ceiling-is-sometimes-higher">5.4　Why Post-LN&#x27;s quality ceiling is sometimes higher</a></li>
+</ul>
+</li>
+<li><a href="#6-placement-variants">§6 Placement variants</a>
+<ul>
+<li><a href="#61-deepnorm-fixing-post-ln-up-to-1000-layers">6.1　DeepNorm: fixing Post-LN up to 1000 layers</a></li>
+<li><a href="#62-sandwich--double-ln-one-before-and-one-after-the-branch">6.2　Sandwich / double LN: one before and one after the branch</a></li>
+<li><a href="#63-qk-norm-normalize-q-k-to-stabilize-attention-logits">6.3　QK-Norm: normalize Q, K to stabilize attention logits</a></li>
+<li><a href="#64-groupnorm-and-weightnorm">6.4　GroupNorm and WeightNorm</a></li>
+</ul>
+</li>
+<li><a href="#7-residual-connections--residual-scaling">§7 Residual connections + residual scaling</a>
+<ul>
+<li><a href="#71-why-residuals-work-three-views">7.1　Why residuals work: three views</a></li>
+<li><a href="#72-the-residual-stream-view">7.2　The residual-stream view</a></li>
+<li><a href="#73-residual-scaling-push-the-branchs-start-toward-identity">7.3　Residual scaling: push the branch&#x27;s start toward identity</a></li>
+</ul>
+</li>
+<li><a href="#8-initialization">§8 Initialization</a>
+<ul>
+<li><a href="#81-goal-variance-preservation">8.1　Goal: variance preservation</a></li>
+<li><a href="#82-xavier--glorot-a-compromise-for-tanh--linear">8.2　Xavier / Glorot: a compromise for tanh / linear</a></li>
+<li><a href="#83-kaiming--he-restoring-that-factor-2-for-relu">8.3　Kaiming / He: restoring that factor 2 for ReLU</a></li>
+<li><a href="#84-depth-aware-down-scaling-for-residual-nets--gpt-2s-1sqrt2n">8.4　Depth-aware down-scaling for residual nets + GPT-2&#x27;s $1/\sqrt{2N}$</a></li>
+<li><a href="#85-fixup-training-deep-residual-nets-norm-free-on-init-alone">8.5　Fixup: training deep residual nets norm-free on init alone</a></li>
+</ul>
+</li>
+<li><a href="#9-p-maximal-update-parametrization">§9 μP (maximal update parametrization)</a>
+<ul>
+<li><a href="#91-problem-the-optimal-lr-drifts-with-width-under-standard-parametrization">9.1　Problem: the optimal LR drifts with width under standard parametrization</a></li>
+<li><a href="#92-p-make-hyperparameters-width-invariant--zero-shot-transfer">9.2　μP: make hyperparameters width-invariant → zero-shot transfer</a></li>
+</ul>
+</li>
+<li><a href="#10-norm-free-and-the-frontier">§10 Norm-free and the frontier</a>
+<ul>
+<li><a href="#101-fixup--nfnets-replacing-normalization-with-init--explicit-variance-control">10.1　Fixup / NFNets: replacing normalization with init + explicit variance control</a></li>
+<li><a href="#102-dyt-dynamic-tanh-replacing-ln-with-a-learnable-tanh">10.2　DyT (Dynamic Tanh): replacing LN with a learnable tanh</a></li>
+</ul>
+</li>
+<li><a href="#11-engineering-practice--complexity-comparison--common-misconceptions">§11 Engineering practice + complexity comparison + common misconceptions</a>
+<ul>
+<li><a href="#111-comparison-of-the-four-norms">11.1　Comparison of the four norms</a></li>
+<li><a href="#112-engineering-details">11.2　Engineering details</a></li>
+<li><a href="#113-common-footguns">11.3　Common footguns</a></li>
+</ul>
+</li>
+<li><a href="#12-25-high-frequency-interview-questions">§12 25 high-frequency interview questions</a>
+<ul>
+<li><a href="#l1-must-know">L1 must-know</a></li>
+<li><a href="#l2-advanced">L2 advanced</a></li>
+<li><a href="#l3-advanced">L3 advanced</a></li>
+</ul>
+</li>
+<li><a href="#a-appendix-sanity-check">§A Appendix: sanity check</a>
+</li>
+<li><a href="#references">📚 References</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  
+  <h1>Normalization Init Tutorial En</h1>
+  
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/normalization_init_tutorial_en.md</code></span>
+    <span><strong>SHA256:</strong> <code>fc7d5402b92c</code></span>
+    <span><strong>Rendered:</strong> 2026-06-28 10:16 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">Normalization / Residual / Init in 9 lines</div><p>the interview core on one page (derivations in §1–§11 below).</p></div>
+<ol><li><strong>Why normalize</strong>: deep nets amplify/shrink activations layer by layer, so variance diverges or collapses exponentially as $g^L$; normalization pulls each layer's activations back to a controlled scale, and the key benefit is a <strong>smoother loss landscape</strong> (smaller gradient Lipschitz / β-smoothness, Santurkar 2018), which lets you use a larger learning rate and stack deeper — <strong>NOT</strong> the old "reduce internal covariate shift" story.</li><li><strong>BatchNorm</strong>: normalize each channel along the <strong>batch (+spatial) dim</strong>, $\hat x=\frac{x-\mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2+\epsilon}}$; <strong>training uses batch stats + maintains running mean/var, inference uses running stats</strong> → train$\ne$eval, and it depends heavily on batch size (small batch / variable-length sequences / RL / online all break).</li><li><strong>LayerNorm</strong>: normalize along the <strong>feature dim, per-token</strong> (fully decoupled from the batch), $y=\gamma\odot\frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}+\beta$; works at batch=1, works for variable-length sequences, train$=$eval — which is why Transformers / RNNs use it instead of BN.</li><li><strong>RMSNorm</strong>: drop re-centering, rescale by RMS only, $\bar x=\frac{x}{\sqrt{\frac1d\sum_i x_i^2+\epsilon}}\odot\gamma$ (no mean, no $\beta$); the claim is that <strong>re-scaling invariance matters more than re-centering</strong>, saving one reduction — the de-facto default after LLaMA.</li><li><strong>Pre-LN vs Post-LN</strong>: Post-LN (original Transformer, LN <strong>after</strong> the residual add) has a slightly higher quality ceiling but <strong>needs LR warmup and is unstable when deep</strong>; Pre-LN (LN <strong>inside</strong> the residual branch) has a clean identity gradient path → stable, warmup-free, but the <strong>residual-stream magnitude grows ∝ $\sqrt L$</strong> with depth, deep layers get diluted, and you must add a final LN.</li><li><strong>Placement variants</strong>: DeepNorm (up-scale residual $\alpha x_l$ + down-scale init → train 1000 layers), Sandwich / double LN (Gemma2, one before and one after the branch), <strong>QK-Norm</strong> (normalize Q, K before the dot product to keep attention logits from exploding).</li><li><strong>Residual + scaling</strong>: the Jacobian $I+\partial F/\partial x$ of $y=x+F(x)$ gives a <strong>gradient highway</strong> (the identity term keeps the gradient from vanishing); scaling tricks push the branch's starting point toward identity — $1/\sqrt N$ depth scaling, LayerScale (learnable per-channel $\lambda$), ReZero (learnable scalar init 0), SkipInit.</li><li><strong>Initialization</strong>: the core goal is <strong>variance preservation</strong> — Xavier (tanh, $\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$), Kaiming (ReLU, $\text{Var}(W)=\frac{2}{n_\text{in}}$, that 2 compensating the half-variance ReLU kills); residual nets then down-scale by depth, <strong>GPT-2 multiplies the residual-projection weights by $\frac{1}{\sqrt{2N}}$</strong>; Fixup trains deep residual nets norm-free on init alone.</li><li><strong>μP / norm-free / engineering</strong>: μP makes the <strong>optimal hyperparameters (especially LR) width-invariant</strong> → tune at small width, zero-shot transfer to the large model; Fixup / NFNets / DyT explore dropping normalization (research direction, not settled); engineering-wise watch the final LN, $\epsilon$ placement, fp32 reduction, fused kernels.</li></ol>
+<h2 id="1-why-normalize--residuals">§1 Why normalize + residuals</h2>
+<p><strong>The root disease of deep nets is "scale getting out of control with depth."</strong> Pass a signal through $L$ linear layers; if each layer multiplies the activation variance by a gain $g$, then after $L$ layers the variance becomes $g^L\cdot\text{Var}(\text{input})$. $g\gt 1$ explodes exponentially, $g\lt 1$ vanishes exponentially — only the <strong>critical point</strong> $g=1$ is stable, and random initialization almost never hits it exactly. Backprop is the same: the gradient also multiplies by some gain layer by layer, so you get either exploding gradients (loss → NaN) or vanishing gradients (deep layers can't learn). This was the core obstacle to "training nets deeper than ten or twenty layers" before 2015.</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>$g^L$ is a simplified model, don't take it as the whole story</strong> $g^L$ is a <strong>scalar / mean-field approximation</strong> — real per-layer gain is data-dependent and involves nonlinearity / attention / normalization, and full signal-propagation stability also concerns the Jacobian spectrum / dynamical isometry, mean drift, cross-layer correlation, and parameter drift during training. But $g^L$ captures the most essential "exponential scale blow-up" and is the minimal entry model for understanding normalization / residual / init. If a top interview digs in, point out it's a simplification — stability $\ne$ just a scalar variance product.</p></div>
+<p>Two structural cures attack this disease (plus <strong>init / parametrization</strong>, §8–§9, as a third axis) — the three are <strong>conceptually separable but engineering-coupled</strong>: norm controls local scale, residual improves the gradient path, init sets step-0 criticality; modern deep-net stability is the <strong>joint design</strong> of all three (see §5.3 Pre-LN residual-stream growth, §8 residual scaling, §10 norm-free relying on init+scaling):</p>
+<ul><li><strong>Normalization</strong>: explicitly pull activations back to a fixed scale in the forward pass (zero mean, unit variance, then re-learn the needed scale via $\gamma,\beta$), directly cutting the $g^L$ product.</li><li><strong>Residual / skip connection</strong>: write each layer as $y=x+F(x)$, opening an <strong>identity highway</strong> for the gradient (§7), so the gradient flows to the shallow layers undiminished even if it bypasses $F$.</li></ul>
+<p>The two together (Pre-LN Transformer = residual + LayerNorm + good init) are what make "tens to thousands of layers" routine.</p>
+<h3 id="11-the-internal-covariate-shift-narrative--and-its-refutation">1.1　The internal-covariate-shift narrative — and its refutation</h3>
+<p>The motivation in the original BatchNorm paper (Ioffe &amp; Szegedy, 2015) was <strong>internal covariate shift (ICS)</strong>: as the earlier layers' parameters update during training, each layer's <strong>input distribution</strong> keeps drifting, and the later layers have to keep re-adapting to this moving distribution, slowing training; BN fixes each layer's input mean/variance to "stabilize the distribution," so training is faster. This story is intuitive and widely repeated — <strong>but it is most likely NOT the real reason BN works.</strong></p>
+<p>Santurkar et al. (<em>How Does Batch Normalization Help Optimization?</em>, 2018, arXiv 1805.11604) dismantled this narrative with two experiments:</p>
+<ol><li><strong>Deliberately create ICS, BN still works</strong>: inject time-varying random noise <strong>after</strong> the BN layer (artificially amplifying distribution drift, clearly increasing ICS), and a BN net's training speed / accuracy is barely affected. If BN's value were really in "removing ICS," it should have collapsed here.</li><li><strong>What BN really changes is the optimization landscape</strong>: they show BN makes the loss <strong>smoother</strong> in the parameters — the Lipschitz constants of the loss and gradient shrink (better β-smoothness), so the gradient is more predictable and stable. A smoother landscape means you can safely take larger steps (larger LR) without overshooting / oscillating, and that is the mechanism behind BN's faster convergence and large-LR tolerance.</li></ol>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Stop reciting "BN reduces covariate shift" in interviews</strong> This is an old narrative that's been strongly questioned empirically and is no longer seen as the main cause. The safer statement: normalization's main benefit is <strong>a smoother loss landscape and better-conditioned (well-conditioned) gradients</strong> (with side benefits like supporting larger LR, implicit regularization, scale invariance), which is what lets you train deeper; "stabilizing each layer's input distribution" is at best a surface effect, not the accepted causal mechanism. Treating covariate shift as "the proven sole cause" is a classic trap (§11, Q21).</p></div>
+<div class="callout callout-info"><div class="callout-title">One-line mental model</div><p>normalization isn't "aligning distributions," it's <strong>paving a flatter road</strong> for the optimizer (small Lipschitz); residuals aren't "adding features," they're <strong>building a traffic-free highway</strong> for the gradient (identity Jacobian). Both exist to make "very deep" numerically feasible.</p></div>
+<h2 id="2-batchnorm">§2 BatchNorm</h2>
+<h3 id="21-formula-along-the-batch-dim-per-channel">2.1　Formula: along the batch dim, per-channel</h3>
+<p>Given a mini-batch $\mathcal{B}=\{x_1,\dots,x_m\}$, compute statistics <strong>independently for each channel / feature $c$</strong>:</p>
+<p>$$\mu_c = \frac{1}{m}\sum_{i=1}^m x_{i,c}, \qquad \sigma_c^2 = \frac{1}{m}\sum_{i=1}^m (x_{i,c}-\mu_c)^2,$$</p>
+<p>$$\hat x_{i,c} = \frac{x_{i,c}-\mu_c}{\sqrt{\sigma_c^2+\epsilon}}, \qquad y_{i,c} = \gamma_c\,\hat x_{i,c} + \beta_c.$$</p>
+<p>The key is <strong>which dim the statistics are taken over</strong>: for $[N, C]$ fully-connected features, along $N$ (batch), one $(\mu,\sigma)$ per $C$; for $[N, C, H, W]$ convolutional features, along $(N, H, W)$, one per channel $C$. So BN's statistics are <strong>"cross-sample"</strong> — a single sample's normalized result <strong>depends on the other samples in the batch</strong>, which is the root of all its trouble. $\gamma_c,\beta_c$ are per-channel learnable scale / shift, letting the net recover "non-zero-mean / non-unit-variance" expressivity (forced standardization would otherwise limit it).</p>
+<h3 id="22-train-vs-eval-running-stats-and-momentum">2.2　train vs eval: running stats and momentum</h3>
+<p>At inference you often <strong>get one sample at a time</strong>, with no batch to compute over; and you want <strong>deterministic</strong> outputs (same input → same result every time), which can't depend on the other samples in the batch. So during training BN <strong>also maintains a running (moving-average) statistic</strong>, and uses it at inference:</p>
+<p>$$\hat\mu \leftarrow (1-\rho)\,\hat\mu + \rho\,\mu_\mathcal{B}, \qquad \hat\sigma^2 \leftarrow (1-\rho)\,\hat\sigma^2 + \rho\,\sigma_\mathcal{B}^2,$$</p>
+<p>where $\rho$ is the momentum (PyTorch default 0.1). So:</p>
+<ul><li><strong>Training (train mode)</strong>: normalize with the <strong>current batch</strong>'s $\mu_\mathcal{B},\sigma_\mathcal{B}^2$, and update the running stats along the way.</li><li><strong>Inference (eval mode)</strong>: normalize with the frozen running $\hat\mu,\hat\sigma^2$, <strong>no longer looking at the batch</strong>.</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>train$\ne$eval is a hard constraint of BN (frequent exam point)</strong> BN is one of the few layers whose training and inference take different compute paths. Forgetting <code>model.eval()</code> makes inference use batch stats → results jitter with batch content and aren't reproducible; BN layers also misbehave numerically on tiny eval batches. This contrasts sharply with LayerNorm / RMSNorm — those are structurally identical at train and eval.</p></div>
+<h3 id="23-why-bn-doesnt-suit-sequences--small-batch--rl">2.3　Why BN doesn't suit sequences / small batch / RL</h3>
+<p>BN's "cross-sample statistics" break down directly in many settings:</p>
+<ul><li><strong>Variable-length sequences (NLP / speech)</strong>: samples have different lengths, padding folds meaningless 0s into the batch statistics; token distributions also differ across positions, so "taking the per-position mean over the batch" requires length alignment and is semantically dubious. Transformers / RNNs therefore almost never use BN.</li><li><strong>Small batch</strong>: $\mu_\mathcal{B},\sigma_\mathcal{B}^2$ are estimated from $m$ samples; small $m$ means noisy estimates (variance $\propto 1/m$) and jittery normalization. Detection / segmentation / large-image tasks can only fit batch=2~4 due to memory, where BN degrades badly (this is GroupNorm's motivation, §6). At the extreme $m=1$ the variance is 0 and it simply can't be done.</li><li><strong>RL / online / streaming</strong>: data is <strong>non-stationary</strong> and <strong>strongly correlated</strong> (adjacent states in one trajectory are highly correlated), so batch statistics are neither independent nor stable as the policy drifts; plus RL switches train/eval behavior frequently, easily decoupling BN's running stats from the actual distribution. RL commonly uses LayerNorm or no normalization.</li></ul>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>"BN is the default normalization" is CV-era inertia</strong> BN is still good on CNN + large-batch classification; but the moment you enter sequence modeling / small batch / RL, BN's cross-sample coupling + train$\ne$eval become a burden. BN is essentially extinct in the modern LLM stack, where LayerNorm / RMSNorm dominate.</p></div>
+<h2 id="3-layernorm">§3 LayerNorm</h2>
+<h3 id="31-formula-along-the-feature-dim-per-token">3.1　Formula: along the feature dim, per-token</h3>
+<p>LayerNorm (Ba, Kiros &amp; Hinton, 2016, arXiv 1607.06450) moves the statistics dim <strong>from batch to feature</strong>. For a <strong>single token / single sample</strong> hidden vector $x\in\mathbb{R}^d$:</p>
+<p>$$\mu = \frac{1}{d}\sum_{i=1}^d x_i, \qquad \sigma^2 = \frac{1}{d}\sum_{i=1}^d (x_i-\mu)^2,$$</p>
+<p>$$\hat x = \frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}, \qquad y = \gamma\odot\hat x + \beta, \quad \gamma,\beta\in\mathbb{R}^d.$$</p>
+<p>For a $[B, T, d]$ Transformer tensor, LN takes $(\mu,\sigma)$ along the <strong>last dim $d$</strong> — one set of statistics per $(b,t)$ position, <strong>never across samples, never across tokens</strong>. $\gamma,\beta$ are $d$-dim per-channel affine (elementwise affine).</p>
+<h3 id="32-why-it-fits-transformers--rnns">3.2　Why it fits Transformers / RNNs</h3>
+<p>LN's statistics are computed entirely <strong>within a single token's features</strong>, so all of BN's pain points vanish at once:</p>
+<ul><li><strong>No batch coupling</strong>: works at batch=1 (the feature dim always has $d$ numbers), samples don't affect each other.</li><li><strong>Variable-length friendly</strong>: each position normalizes independently; ragged lengths and padding don't affect a valid token's statistics.</li><li><strong>train$=$eval</strong>: no running stats, training and inference are the <strong>same deterministic function</strong> — no mode switching, no decoupling.</li><li><strong>Online / streaming / RL friendly</strong>: compute one token as it arrives, naturally fitting autoregressive decode.</li></ul>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>BN along batch, LN along feature (one-line distinction)</strong> Same $[N, C]$ tensor: BN slices it vertically (fix the channel, compute statistics across samples), LN slices it horizontally (fix the sample, compute statistics across channels). BN asks "what scale is this feature across the whole batch," LN asks "what scale are this sample's features internally." The former introduces cross-sample dependence, the latter doesn't — that's the entire reason LN suits sequences.</p></div>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>LN's $\gamma,\beta$ are not optional</strong> Forcing standardization to zero-mean unit-variance <strong>cuts expressivity</strong> (before a sigmoid, say, you may need a non-zero mean); $\gamma,\beta$ let the net <strong>re-learn</strong> the scale / shift. Dropping the affine (<code>elementwise_affine=False</code>) works on some tasks but is kept by default. Note RMSNorm keeps only $\gamma$ and drops $\beta$ (§4).</p></div>
+<h2 id="4-rmsnorm">§4 RMSNorm</h2>
+<h3 id="41-re-scale-only-no-re-center">4.1　Re-scale only, no re-center</h3>
+<p>RMSNorm (Zhang &amp; Sennrich, 2019, arXiv 1910.07467) starts from a hypothesis: <strong>LayerNorm's success comes mainly from re-scaling invariance (scaling the vector to a fixed scale), not from re-centering (subtracting the mean).</strong> If so, just drop the mean-subtraction and rescale by the <strong>root mean square (RMS)</strong> only:</p>
+<p>$$\text{RMS}(x) = \sqrt{\frac{1}{d}\sum_{i=1}^d x_i^2 + \epsilon}, \qquad \boxed{\;\bar x = \frac{x}{\text{RMS}(x)}\odot\gamma\;}$$</p>
+<p>Versus LayerNorm, RMSNorm removes two things: <strong>(1) no mean-subtraction $\mu$</strong> (one fewer reduction), <strong>(2) usually no $\beta$ shift</strong> (only $\gamma$ scaling). Essentially LN both shifts and scales $x$, whereas RMSNorm only scales.</p>
+<h3 id="42-why-re-scaling-beats-re-centering--the-cost">4.2　Why re-scaling beats re-centering + the cost</h3>
+<p>Intuition: what the net really fears is <strong>activation scale getting out of control</strong> (the $g^L$ business), and the scale is dominated by $\lVert x\rVert$ / RMS, with little to do with the mean. Zhang &amp; Sennrich's ablation shows: keeping <strong>only re-scaling and dropping re-centering</strong> in LN barely hurts most tasks; conversely keeping only re-centering hurts a lot. So RMSNorm captures LN's main payoff with fewer operations.</p>
+<p>Cost-wise RMSNorm is cheaper than LN:</p>
+<ul><li><strong>One fewer mean reduction</strong>: LN computes $\mu$ then $\sigma^2$ (two passes / one pass with compensation), RMSNorm does a single sum-of-squares pass.</li><li><strong>Stores no $\beta$</strong>, one fewer add.</li><li>These are memory-bound elementwise + reduction ops; the savings accumulate into noticeable throughput gains on long sequences / large models.</li></ul>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>The de-facto default after LLaMA</strong> LLaMA, Qwen, Mistral, Gemma and other recent LLMs essentially all use RMSNorm (with Pre-LN placement). Asked "normalization in modern LLMs," the standard answer is <strong>Pre-RMSNorm</strong>; adding "because re-scaling is the main benefit and re-centering is dispensable" nails it.</p></div>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>RMSNorm has no re-centering / no bias</strong> Using LN code directly as RMSNorm is wrong: RMSNorm <strong>doesn't subtract the mean</strong> (so it's <strong>not</strong> invariant to a global shift of the input — adding a constant $c$ changes the output, whereas LN doesn't), and has <strong>no $\beta$</strong>. One direct consequence: the activation mean after RMSNorm isn't forced to zero, so be careful if downstream code assumes zero mean.</p></div>
+<h2 id="5-pre-ln-vs-post-ln-the-most-important-section">§5 Pre-LN vs Post-LN (the most important section)</h2>
+<p>This is the most deeply probed point in normalization: <strong>which side of the residual does LN go on?</strong> The two placements behave very differently.</p>
+<h3 id="51-the-two-placements">5.1　The two placements</h3>
+<p>Denote a sublayer (attention or FFN) as $\text{Sublayer}(\cdot)$:</p>
+<p>$$\textbf{Post-LN (original Transformer, Vaswani 2017)}:\quad x_{l+1} = \text{LN}\big(x_l + \text{Sublayer}(x_l)\big),$$</p>
+<p>$$\textbf{Pre-LN (mainstream modern LLM)}:\quad x_{l+1} = x_l + \text{Sublayer}\big(\text{LN}(x_l)\big).$$</p>
+<p>The difference looks like merely moving LN, but it changes the <strong>purity of the residual path</strong>:</p>
+<ul><li><strong>Post-LN</strong>: LN wraps the entire flow "after the residual add" — the residual path is <strong>repeatedly squeezed by LN</strong>, with no clean identity channel.</li><li><strong>Pre-LN</strong>: LN acts only on the branch input entering the sublayer, so the residual trunk $x_l + (\cdots)$ is a <strong>pure identity add</strong> — the gradient flows down the trunk undiminished.</li></ul>
+<h3 id="52-the-gradient-magnitude-argument-xiong-et-al-2020">5.2　The gradient-magnitude argument (Xiong et al. 2020)</h3>
+<p>Xiong et al. (<em>On Layer Normalization in the Transformer Architecture</em>, 2020, arXiv 2002.04745) did a gradient-scale analysis at initialization and gave a clean conclusion:</p>
+<ul><li><strong>Post-LN</strong>: at init, the parameter gradient norm <strong>near the output layers</strong> is about $\Theta\!\big(d\sqrt{\ln d}\big)$, <strong>independent of depth $L$</strong> — i.e. the top layers naturally have large gradients while the gradient scale is severely imbalanced across layers. Hitting it with a large LR straight away lets these big gradients blow training up, so you <strong>must use learning-rate warmup</strong> (ramp the LR up from 0 over the first few thousand steps) to suppress it, and deep stacks still often diverge.</li><li><strong>Pre-LN</strong>: each layer's parameter gradient norm is about $O\!\big(d\sqrt{(\ln d)/L}\big)$ — <strong>decaying with depth $L$, bounded, and balanced across layers</strong>. So optimization is well-behaved, <strong>you can use a large LR with no warmup</strong>, and deep stacks are stable.</li></ul>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>Grasp Pre vs Post in one line</strong> Pre-LN leaves the residual a <strong>clean identity gradient path</strong> (gradient bounded as $\sim 1/\sqrt L$, balanced across layers) → stable, warmup-free; Post-LN piles the gradient scale at the top (large, independent of $L$) → needs warmup, unstable when deep. That's why GPT/LLaMA are uniformly Pre-LN.</p></div>
+<h3 id="53-pre-lns-cost-the-residual-stream-inflates-with-depth">5.3　Pre-LN's cost: the residual stream inflates with depth</h3>
+<p>Pre-LN isn't free. Look at the residual trunk: $x_{l+1} = x_l + F_l\big(\text{LN}(x_l)\big)$. Each branch output $F_l(\text{LN}(\cdot))$ is roughly $O(1)$ in magnitude (its input is LN-normalized), so the variance <strong>accumulates</strong> layer by layer:</p>
+<p>$$\text{Var}(x_l) \approx \text{Var}(x_0) + \sum_{j\lt l}\text{Var}\big(F_j\big) \;\propto\; l \quad\Longrightarrow\quad \text{std}(x_l)\propto\sqrt{l}.$$</p>
+<p>The residual-stream magnitude grows as $\sqrt l$ with depth. Consequence: each branch's internal LN divides by this ever-larger $\text{std}(x_l)$, so the <strong>relative contribution of deep sublayers gets diluted</strong> — the $O(1)$ update added is increasingly negligible against a trunk already at the $\sqrt l$ scale, the net's "effective depth" saturates, and in the extreme it degenerates into "the identity trunk dominates, deep layers nearly idle" (some call it representation / identity collapse). This is also why a Pre-LN net <strong>must add a final LN at the end</strong> (pull the inflated residual stream back to a normal scale before the output head), and why DeepNorm / Sandwich and other variants that try to get the best of both ends emerged.</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Pre-LN must have a final LN (frequent footgun)</strong> In a Pre-LN structure, after the last layer the residual stream is already at the $\sqrt L$ scale and isn't closed off by any LN. Skipping the final LN and feeding the LM head directly makes the output distribution blow up and training quality drop noticeably. GPT-2/3 and LLaMA all add this final LN after the transformer stack and before the output projection — don't miss it.</p></div>
+<h3 id="54-why-post-lns-quality-ceiling-is-sometimes-higher">5.4　Why Post-LN's quality ceiling is sometimes higher</h3>
+<p>If Pre-LN is so stable, why mention Post-LN? Because <strong>when Post-LN can train stably (sufficient warmup + tuning), its final quality is often slightly better</strong>. The reason is the flip side of §5.3: Post-LN re-normalizes the residual stream at every layer, so deep contributions aren't diluted and "effective depth" is more fully used. The cost is fragile training (narrow window, dependent on warmup, prone to collapse when deep). So the engineering trade-off is: <strong>for stability / scalability → Pre-LN (modern LLM default); to squeeze quality at a controllable scale → Post-LN or a "fixed-up Post-LN" like DeepNorm.</strong></p>
+<h2 id="6-placement-variants">§6 Placement variants</h2>
+<p>Around "where to put LN / what to normalize," the community evolved a batch of variants that interviews like to name:</p>
+<h3 id="61-deepnorm-fixing-post-ln-up-to-1000-layers">6.1　DeepNorm: fixing Post-LN up to 1000 layers</h3>
+<p>DeepNorm (Wang et al., <em>DeepNet</em>, 2022, arXiv 2203.00555) is an <strong>improved Post-LN</strong> aiming for both Post-LN's quality and Pre-LN's stability. Two moves:</p>
+<p>$$x_{l+1} = \text{LN}\big(\alpha\,x_l + \text{Sublayer}(x_l)\big), \qquad \text{and shrink the sublayer-weight init by } \beta.$$</p>
+<p>For an $N$-layer single stack, take $\alpha=(2N)^{1/4}\gt 1$ (<strong>up-scale the residual trunk</strong>) and a gain $\beta=(8N)^{-1/4}\lt 1$ to <strong>down-scale the sublayer init</strong> (encoder-decoder has different formulas). Intuition: up-scaling $x_l$ lets the residual trunk dominate at the add (close to Pre-LN's identity stability), while down-scaling the sublayer init bounds each step's "model update magnitude" <strong>theoretically</strong> so it doesn't explode with depth. The result is Post-LN placement + a controlled update magnitude → stable training up to <strong>1000 layers</strong>. Mnemonic: <strong>DeepNorm = up-scale residual + down-scale init, a Post-LN</strong>.</p>
+<h3 id="62-sandwich--double-ln-one-before-and-one-after-the-branch">6.2　Sandwich / double LN: one before and one after the branch</h3>
+<p>Gemma2 and others use <strong>sandwich norm (double LN)</strong>: place <strong>a normalization both before and after</strong> each sublayer's residual branch:</p>
+<p>$$x_{l+1} = x_l + \text{PostNorm}\Big(\text{Sublayer}\big(\text{PreNorm}(x_l)\big)\Big).$$</p>
+<p>PreNorm feeds the sublayer a normalized input like Pre-LN (stable gradients), and PostNorm then caps the magnitude of the sublayer <strong>output</strong> (preventing it from pouring unbounded into the residual stream, easing the §5.3 inflation). The cost is one extra LN's compute. Think of it as "Pre-LN's stability + an extra gate on the branch output."</p>
+<h3 id="63-qk-norm-normalize-q-k-to-stabilize-attention-logits">6.3　QK-Norm: normalize Q, K to stabilize attention logits</h3>
+<p>QK-Norm (Henry et al., <em>Query-Key Normalization</em>, 2020, arXiv 2010.04245) targets <strong>attention-logit explosion</strong>: during training $q^\top k$ can drift to extreme magnitudes, pushing softmax into saturation (near one-hot), with vanishing gradients / diverging training (worse for large models and long training, also called attention entropy collapse). The fix is minimal — <strong>normalize each head's $q,k$ before the dot product</strong> (L2 or RMS/LayerNorm), then compute logits:</p>
+<p>$$\tilde q = \text{Norm}(q),\quad \tilde k = \text{Norm}(k), \qquad \text{logits} = \frac{\tilde q^\top \tilde k}{\tau}\ (\tau\ \text{learnable temperature}).$$</p>
+<p>After normalization $q,k$ have clamped norms, so logits no longer explode with scale → stable attention. Gemma2, Chameleon, ViT-22B all use QK-Norm; it's become a standard stabilizer for large-scale training.</p>
+<h3 id="64-groupnorm-and-weightnorm">6.4　GroupNorm and WeightNorm</h3>
+<ul><li><strong>GroupNorm</strong> (Wu &amp; He, 2018, arXiv 1803.08494): split channels into $G$ groups and normalize <strong>within each group of channels (+spatial) per sample</strong> — <strong>batch-independent</strong>. It unifies a family of norms: $G=1$ degenerates to LayerNorm (all channels in one group), $G=C$ degenerates to InstanceNorm (one channel per group). Its main arena is <strong>small-batch vision</strong> (detection / segmentation, where BN collapses and GN stays stable at batch=2~4).</li><li><strong>WeightNorm</strong> (Salimans &amp; Kingma, 2016, arXiv 1602.07868): instead of normalizing activations, <strong>reparametrize the weights</strong> — split the weight vector into a direction and a magnitude $w = g\,\frac{v}{\lVert v\rVert}$, learning a scalar magnitude $g$ and a direction $v$ separately. It decouples weight scale from direction and speeds optimization, with <strong>no batch dependence and no inference overhead</strong> (can fold back into a plain weight), but is less stable than BN and was later overshadowed by BN/LN.</li></ul>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>Place the four norms in one line</strong> BN along batch, LN along feature, GN along group (batch-independent, bridging LN and IN), WN normalizes the <strong>weights</strong> rather than activations. Asked "what normalization for small-batch detection" answer GroupNorm; "modern LLM" answer RMSNorm; "stabilize attention logits" answer QK-Norm.</p></div>
+<h2 id="7-residual-connections--residual-scaling">§7 Residual connections + residual scaling</h2>
+<h3 id="71-why-residuals-work-three-views">7.1　Why residuals work: three views</h3>
+<p>The residual block $y = x + F(x)$ (He et al., <em>ResNet</em>, 2015, arXiv 1512.03385) can train very deep, with three complementary explanations:</p>
+<ol><li><strong>Identity mapping / gradient highway</strong>: the Jacobian $\frac{\partial y}{\partial x} = I + \frac{\partial F}{\partial x}$. That $I$ guarantees — even if $\frac{\partial F}{\partial x}$ vanishes with depth, the gradient still flows back undiminished through the identity term. Chain $L$ residual blocks and $\frac{\partial x_L}{\partial x_0}=\prod_{l}\big(I+\frac{\partial F_l}{\partial x}\big)$ expands to contain a <strong>pure identity term</strong> (plus higher-order cross terms), so the gradient has <strong>at least</strong> one non-decaying path. This directly breaks the $g^L$ vanishing.</li><li><strong>Easier optimization / learning the residual is easier than learning the mapping</strong>: if the ideal mapping is near identity, having $F$ fit the "residual" (the delta) is far easier than having a whole layer fit identity — initialized near 0 it's already near identity, so optimization starts from a good point.</li><li><strong>Ensemble of shallow paths (Veit et al., 2016, arXiv 1605.06431)</strong>: an $L$-block residual net is equivalent in the forward pass to an ensemble of $2^L$ paths of different depths (each block either "takes $F$" or "takes identity"), in which <strong>short paths dominate</strong> and the effective gradient comes mainly from these shallow paths — so a deep residual net "behaves like an ensemble of many shallow nets," and optimization is naturally easier.</li></ol>
+<h3 id="72-the-residual-stream-view">7.2　The residual-stream view</h3>
+<p>Mechanistic interpretability has a unifying picture: the residual trunk is a <strong>shared communication bus (residual stream)</strong> running through the whole net. Each sublayer <strong>reads from the bus</strong> (pulling the current state out via LN), computes an update, and <strong>adds the update back to the bus</strong>. Information is <strong>preserved along the bus by identity by default</strong>, and each layer only decides "what to add on top." This view explains a lot: why the Pre-LN residual stream inflates with depth (§5.3, everyone writes to the same bus), why residual scaling (below) helps (controlling how strongly each layer writes to the bus), and why semantics can be "read out" at intermediate layers.</p>
+<h3 id="73-residual-scaling-push-the-branchs-start-toward-identity">7.3　Residual scaling: push the branch's start toward identity</h3>
+<p>A hazard of deep residual nets (§5.3): branch outputs pour unchecked into the residual stream, inflating its variance linearly and destabilizing early training. A family of tricks multiplies the residual branch by <strong>a small scale</strong>, so training <strong>starts near identity</strong>:</p>
+<ul><li><strong>$1/\sqrt N$ depth scaling</strong>: multiply each branch by $1/\sqrt N$ ($N$=#layers), so the total variance after $N$ layers stays $O(1)$ ($N\times(1/\sqrt N)^2=1$) and the residual stream doesn't blow up with depth. GPT-2's init trick (§8.4) is exactly the init-time version of this idea.</li><li><strong>LayerScale</strong> (CaiT, Touvron et al., 2021, arXiv 2103.17239): multiply each branch by a <strong>learnable per-channel diagonal</strong> $\text{diag}(\lambda)$, with $\lambda$ initialized to a very small value (e.g. $10^{-4}\sim10^{-6}$): $x_{l+1}=x_l+\text{diag}(\lambda)\,F(x_l)$. The start is nearly identity, and the net then <strong>learns per-channel</strong> how much each branch should contribute, markedly stabilizing deep ViTs.</li><li><strong>ReZero</strong> (Bachlechner et al., 2020, arXiv 2003.04887): more aggressive — multiply each branch by a <strong>learnable scalar</strong> $\alpha$ <strong>initialized to 0</strong>: $x_{l+1}=x_l+\alpha\,F(x_l)$. At $t=0$ the net is <strong>exactly identity</strong> (dynamical isometry, each layer's input-output Jacobian is $I$), gradients propagate perfectly, and it can train very deep norm-free; during training $\alpha$ grows on its own.</li><li><strong>SkipInit</strong> (De &amp; Smith, 2020, arXiv 2002.10444): replace the BN on the residual branch with a <strong>learnable scalar (init 0)</strong> and still train deep residual nets — thereby <strong>empirically showing that BN's main role in residual nets is to shrink the branch at init and bias the net toward the identity function</strong> (not "reduce ICS"). This corroborates the §1.1 debunk.</li></ul>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>The unifying intuition of residual scaling</strong> LayerScale / ReZero / SkipInit / $1/\sqrt N$ all do the same thing: <strong>make the residual branch near 0 at init so the net starts from identity</strong>, giving well-behaved gradients and stable training, then let the net learn how strongly to write into the residual stream. "Init close to identity" is an underlying thread for training ultra-deep nets (and the core of §8 init).</p></div>
+<h2 id="8-initialization">§8 Initialization</h2>
+<p>Normalization and residuals treat symptoms; <strong>initialization treats the root</strong> — it determines whether the net's step-0 variance / gradient scale is well-behaved. (Note: init only guarantees a <strong>well-behaved starting point</strong>; stability throughout training also relies on parametrization / LR / optimizer / residual scaling / norm placement together — see §1's "three-axis joint design.")</p>
+<h3 id="81-goal-variance-preservation">8.1　Goal: variance preservation</h3>
+<p>We want the forward activation variance and the backward gradient variance <strong>roughly conserved layer by layer</strong>, so $g^L$ doesn't carry them away. For a weight $W\in\mathbb{R}^{n_\text{out}\times n_\text{in}}$ and a linear layer $z=Wx$ with iid-variance input components:</p>
+<p>$$\text{Var}(z_j) = n_\text{in}\,\text{Var}(W)\,\text{Var}(x).$$</p>
+<p>Requiring $\text{Var}(z)=\text{Var}(x)$ (forward conservation) needs $n_\text{in}\text{Var}(W)=1$; requiring backward gradient-variance conservation needs $n_\text{out}\text{Var}(W)=1$. The two generally can't hold at once, hence different compromises.</p>
+<h3 id="82-xavier--glorot-a-compromise-for-tanh--linear">8.2　Xavier / Glorot: a compromise for tanh / linear</h3>
+<p>Xavier/Glorot (Glorot &amp; Bengio, AISTATS 2010) targets <strong>symmetric, near-linear</strong> activations (tanh, linear), taking a compromise between the forward and backward conditions:</p>
+<p>$$\text{Var}(W) = \frac{2}{n_\text{in}+n_\text{out}} \quad\Longrightarrow\quad W\sim U\!\Big[-\sqrt{\tfrac{6}{n_\text{in}+n_\text{out}}},\ \sqrt{\tfrac{6}{n_\text{in}+n_\text{out}}}\Big]\ \text{or the corresponding Gaussian}.$$</p>
+<p>The premise is that the activation is near-linear around 0 (tanh satisfies it, ReLU doesn't), so it's too small for ReLU nets.</p>
+<h3 id="83-kaiming--he-restoring-that-factor-2-for-relu">8.3　Kaiming / He: restoring that factor 2 for ReLU</h3>
+<p>Kaiming/He (He et al., 2015, arXiv 1502.01852) points out: <strong>ReLU zeros the negative half, killing about half the variance</strong> — $\mathbb{E}[\text{ReLU}(z)^2]=\tfrac12\text{Var}(z)$ (for zero-mean symmetric $z$). To still conserve after ReLU, restore a factor 2:</p>
+<p>$$\tfrac12\,n_\text{in}\,\text{Var}(W)=1 \quad\Longrightarrow\quad \boxed{\;\text{Var}(W)=\frac{2}{n_\text{in}}\;}\ (\text{fan\_in mode},\ \text{std}=\sqrt{2/n_\text{in}}).$$</p>
+<p>This 2 is the only substantive difference between Xavier and Kaiming, yet it decides whether a deep ReLU net (VGG / ResNet scale) can train: feed ReLU with Xavier's $1/n_\text{in}$, each layer's signal energy is halved by ReLU and never restored, so after $L$ layers the second moment $\mathbb{E}[y^2]\approx (1/2)^L$ <strong>vanishes exponentially</strong>; only Kaiming conserves (the §A [e] check: post-ReLU second moment $\mathbb{E}[y^2]\approx1$ with Kaiming, $\approx 0.5$ and halving per layer with Xavier-for-ReLU). The conserved quantity here is the <strong>second moment $\mathbb{E}[y^2]$</strong> (the signal energy fed to the next layer), not $\text{Var}(y)$ — ReLU makes the output mean non-zero, so $\text{Var}(y)=1-1/\pi\approx0.68$.</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Xavier vs Kaiming isn't "a different formula," it's "whether you restore ReLU's factor 2"</strong> tanh / linear use Xavier ($\frac{2}{n_\text{in}+n_\text{out}}$); ReLU / LeakyReLU use Kaiming ($\frac{2}{n_\text{in}}$, LeakyReLU further adjusts the gain by the negative slope). Using Xavier on a ReLU net is systematically too small → activations / gradients vanish when deep.</p></div>
+<h3 id="84-depth-aware-down-scaling-for-residual-nets--gpt-2s-1sqrt2n">8.4　Depth-aware down-scaling for residual nets + GPT-2's $1/\sqrt{2N}$</h3>
+<p>Even with Xavier/Kaiming at every layer, the residual stream still accumulates and inflates (§5.3). So deep residual nets, beyond per-layer init, also <strong>down-scale the residual branch by depth</strong>:</p>
+<ul><li><strong>initialize the branch's last layer to 0</strong> (branch start outputs 0 → block start is identity, same idea as ReZero / Fixup);</li><li>or multiply the whole branch by $1/\sqrt L$.</li></ul>
+<p><strong>GPT-2's classic trick</strong>: at init, <strong>multiply the residual-projection layers'</strong> weights (attention's output projection + FFN's down projection — the two matrices that "write into the residual stream") <strong>by $\frac{1}{\sqrt{2N}}$</strong>, $N$=#layers. Why $2N$ and not $N$? Because each transformer layer writes to the residual stream <strong>twice</strong> (attn once, FFN once), $N$ layers accumulate $2N$ times; scaling each write by $1/\sqrt{2N}$ keeps the residual-stream variance $O(1)$ after $2N$ adds. Implementations like nanoGPT apply this scaling to <code>c_proj</code>-type weights (the §A [f] check: unscaled variance grows linearly with depth, bounded after $1/\sqrt{2N}$ scaling).</p>
+<h3 id="85-fixup-training-deep-residual-nets-norm-free-on-init-alone">8.5　Fixup: training deep residual nets norm-free on init alone</h3>
+<p>Fixup (Zhang et al., 2019, arXiv 1901.09321) pushes "control variance with init" to the extreme — <strong>using no normalization layer at all</strong>, training a deep residual net that rivals a BN-ResNet on carefully designed initialization alone. Three moves:</p>
+<ol><li><strong>initialize each residual branch's last layer to 0</strong> (branch start outputs 0 → block is identity, residual-stream initial variance doesn't blow up);</li><li><strong>multiply the branch's other-layer weights by an extra $L^{-1/(2m-2)}$</strong> down-scale ($m$=layers per branch, $L$=#blocks), offsetting the depth accumulation;</li><li>add a few <strong>learnable scalar biases / multipliers</strong> to compensate the affine degrees of freedom that were removed.</li></ol>
+<p>The significance: <strong>normalization is not a necessary condition for training deep nets</strong> — solve the variance / gradient scale problem once at init and you can drop BN/LN. This leads directly to the normalizer-free route of §10. (The Transformer-side counterpart is T-Fixup, which argues that with good init you can drop warmup / drop LN — see references, arXiv id to be verified.)</p>
+<h2 id="9-p-maximal-update-parametrization">§9 μP (maximal update parametrization)</h2>
+<h3 id="91-problem-the-optimal-lr-drifts-with-width-under-standard-parametrization">9.1　Problem: the optimal LR drifts with width under standard parametrization</h3>
+<p>Standard parametrization (SP, i.e. Xavier/Kaiming + a single LR for the whole net) has a hidden flaw: <strong>when the model width $n$ changes, the scales of each layer's activations and parameter updates become mismatched</strong>, so the <strong>optimal hyperparameters (especially the learning rate) drift with width</strong>. The consequence is very real — the best LR you painstakingly tuned on a small model is no longer optimal on a large one, and you'd have to re-tune every time you widen; while one tuning run on a large model is hugely expensive in compute.</p>
+<p>The root cause (the limit analysis in Yang et al., <em>Tensor Programs V</em>, 2022, arXiv 2203.03466): under SP, taking width $n\to\infty$, either activations / updates blow up with $n$ (forcing a smaller LR), or you enter the <strong>lazy / kernel regime</strong> (features barely update, i.e. no feature learning). Neither limit is the "still updates features stably and substantially as it widens" that we want.</p>
+<h3 id="92-p-make-hyperparameters-width-invariant--zero-shot-transfer">9.2　μP: make hyperparameters width-invariant → zero-shot transfer</h3>
+<p>μP (maximal update parametrization) is the <strong>unique</strong> scaling scheme that maintains "maximal and stable feature learning" at any width: it writes the <strong>init variance, learning rate, and output multiplier</strong> as functions of width (fan_in), scaling each layer separately, so that —</p>
+<ul><li>each layer's activations and <strong>feature-update magnitude</strong> stay $\Theta(1)$ across width (neither blowing up nor degenerating);</li><li>the <strong>optimal learning rate becomes width-invariant</strong>.</li></ul>
+<p>Typical scaling (under Adam, schematically): hidden-layer LR $\propto 1/\text{fan\_in}$, hidden-layer init variance $\propto 1/\text{fan\_in}$, output logits times $1/\text{fan\_in}$; input / output layers use <strong>different</strong> scaling from hidden layers. Realized as <strong>μTransfer</strong>: tune LR / warmup / init and other hyperparameters on a <strong>small-width proxy model</strong>, then <strong>zero-shot transfer directly</strong> to a target model tens-to-hundreds of times larger, saving the astronomical compute of re-tuning on the big model (used at GPT-3 scale, Cerebras-GPT, MiniCPM, etc.).</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>μP interview soundbite</strong> Under SP the "optimal LR drifts with width," so params tuned on a small model can't be used directly on a large one; μP re-scales init / LR / output multiplier by fan_in so that <strong>each layer's feature update is $\Theta(1)$ across width and the optimal LR is width-invariant</strong> → tune at small width, zero-shot transfer at large width (μTransfer). In a line: <strong>μP is the parametrization that makes hyperparameters transferable across width.</strong></p></div>
+<h2 id="10-norm-free-and-the-frontier">§10 Norm-free and the frontier</h2>
+<p>Normalization layers bring train/eval differences (BN), cross-device sync (multi-GPU BN), extra reductions, and other hassles, so people keep asking: <strong>can we go without normalization?</strong> This is a research direction, <strong>not settled</strong>, but the ideas are instructive.</p>
+<h3 id="101-fixup--nfnets-replacing-normalization-with-init--explicit-variance-control">10.1　Fixup / NFNets: replacing normalization with init + explicit variance control</h3>
+<ul><li><strong>Fixup</strong> (§8.5): train deep residual nets on init alone (branch last layer to 0 + depth down-scale), with no normalization layer, approaching BN-ResNet on ImageNet. Proof that norm is not required.</li><li><strong>NFNets</strong> (Brock et al., 2021, arXiv 2102.06171): Normalizer-Free Networks, systematically removing BN. Three pieces — <strong>Scaled Weight Standardization</strong> (standardize weights rather than activations) + <strong>analytically designed scaled residual blocks</strong> $x_{l+1}=x_l+\alpha\,F(x_l/\beta_l)$ (track / control each layer's variance exactly with analytic $\alpha,\beta_l$) + <strong>Adaptive Gradient Clipping (AGC)</strong> (clip gradients adaptively by parameter norm, recovering BN's large-batch stability). The result <strong>surpasses EfficientNet on ImageNet with no normalization layer at all</strong>, showing BN's benefits (scale control + regularization + large-batch stability) can each be restored by explicit means.</li></ul>
+<h3 id="102-dyt-dynamic-tanh-replacing-ln-with-a-learnable-tanh">10.2　DyT (Dynamic Tanh): replacing LN with a learnable tanh</h3>
+<p>DyT (<em>Transformers without Normalization</em>, 2025, arXiv 2503.10622, arXiv id to be verified) comes from an observation: <strong>a trained LayerNorm's input-output curve looks like a squashed $\tanh$</strong> (near-linear for middle values, S-shaped saturation for outliers). Since LN's effect approximates an elementwise squashing, just <strong>drop the mean / variance reduction and learn a tanh directly</strong>:</p>
+<p>$$\text{DyT}(x) = \gamma\odot\tanh(\alpha\,x) + \beta,$$</p>
+<p>where $\alpha$ is a <strong>learnable scalar</strong> (controlling the input scale, corresponding to LN's "divide by std"), and $\gamma,\beta$ are per-channel affine. The paper reports DyT replacing LN/RMSNorm across ViT / LLM / diffusion with comparable results, and <strong>removes the normalization's statistic computation</strong> (no more per-token reduction).</p>
+<blockquote><p>🎯 <strong>Frontier, honest positioning</strong> Fixup / NFNets / DyT together convey one message: <strong>normalization is not theoretically a necessary condition for training deep nets</strong> — its core roles (control variance, smooth the landscape, squash outliers) can be replaced by "good init / explicit variance control / learnable squashing." But <strong>LN/RMSNorm remain the safe default in current production systems</strong> (robust, plug-and-play, mature ecosystem). When discussing these in interviews, mark them as "research directions / promising," don't say "already replaced normalization."</p></blockquote>
+<h2 id="11-engineering-practice--complexity-comparison--common-misconceptions">§11 Engineering practice + complexity comparison + common misconceptions</h2>
+<h3 id="111-comparison-of-the-four-norms">11.1　Comparison of the four norms</h3>
+<table><thead><tr><th>Norm</th><th>Normalization dim</th><th>batch-dependent</th><th>train$\ne$eval</th><th>learnable params</th><th>relative cost</th></tr></thead><tbody><tr><td><strong>BatchNorm</strong></td><td>along batch (+spatial), per-channel</td><td>yes</td><td><strong>yes</strong> (running stats at inference)</td><td>$\gamma,\beta$</td><td>medium (two reductions + maintain running stats + multi-GPU sync)</td></tr><tr><td><strong>LayerNorm</strong></td><td>along feature dim, per-token</td><td>no</td><td>no</td><td>$\gamma,\beta$</td><td>medium (mean + variance, two reductions)</td></tr><tr><td><strong>RMSNorm</strong></td><td>along feature-dim RMS, per-token</td><td>no</td><td>no</td><td>$\gamma$ (no $\beta$)</td><td>low (one sum-of-squares reduction, no mean, no shift)</td></tr><tr><td><strong>GroupNorm</strong></td><td>within-group channels (+spatial), per sample</td><td>no</td><td>no</td><td>$\gamma,\beta$</td><td>medium (within-group reduction, batch-independent)</td></tr></tbody></table>
+<h3 id="112-engineering-details">11.2　Engineering details</h3>
+<ul><li><strong>Pre-LN: don't miss the final LN</strong> (§5.3): there must be a closing LN after the transformer stack and before the LM head, or the inflated residual stream goes straight into the output head and quality drops.</li><li><strong>The $\epsilon$ placement</strong>: the convention is $\sqrt{\sigma^2+\epsilon}$ ($\epsilon$ <strong>inside</strong> the sqrt, as in PyTorch), not $\sqrt{\sigma^2}+\epsilon$. Too small an $\epsilon$ in fp16 triggers division-by-zero / overflow when $\sigma^2\approx0$; RMSNorm's $\epsilon$ is likewise inside $\sqrt{\text{mean}(x^2)+\epsilon}$.</li><li><strong>fp16/bf16 numerics</strong>: the normalization reduction (sum / sum-of-squares) <strong>must accumulate in fp32</strong>, even if the activations are bf16 — sum-of-squares easily overflows / loses significant bits in low precision. Standard implementations upcast the norm internals to fp32 then downcast.</li><li><strong>fused kernels</strong>: LN/RMSNorm are <strong>memory-bound</strong> (read activations → reduce → write back), tiny in FLOPs but heavy in memory traffic; a fused kernel (Apex <code>FusedLayerNorm</code>, Triton, FlashNorm, etc.) merges read-compute-write into one kernel, saving HBM round-trips. RMSNorm is naturally cheaper since it has only one reduction and no mean.</li><li><strong>inference cost</strong>: by FLOPs normalization is negligible, but it <strong>breaks operator fusion + carries a reduction</strong>, accumulating into noticeable latency in large-model per-token decode; this is one reason RMSNorm (one fewer reduction) is favored on the inference side.</li><li><strong>BN's multi-GPU footgun</strong>: under data parallelism each GPU sees only part of the batch, so BN stats are "local-batch"; getting global stats requires SyncBatchNorm (cross-GPU communication, slow). LN/RMSNorm don't have this issue (per-token, no sync needed).</li></ul>
+<h3 id="113-common-footguns">11.3　Common footguns</h3>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 1: treating covariate shift as the sole/proven reason normalization works</strong> Empirically refuted by Santurkar 2018 (§1.1). The correct attribution is "smoother loss landscape / better-conditioned gradients." This is the most classic interview trap.</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 2: Pre-LN forgetting the final LN</strong> The Pre-LN residual stream inflates as $\sqrt L$ with depth with no closing LN at the end; missing the final LN and feeding the output head directly drops quality (§5.3).</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 3: using LN code as RMSNorm</strong> RMSNorm <strong>doesn't subtract the mean, has no $\beta$</strong>, and is <strong>not</strong> invariant to a global input shift; copying LN's mean-subtraction / bias logic is wrong (§4.2).</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 4: using BatchNorm on RL / variable-length sequences / small batch</strong> Cross-sample statistics + train$\ne$eval break down across these settings; switch to LayerNorm / GroupNorm (§2.3).</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 5: using Xavier init on a ReLU net</strong> Missing ReLU's factor-2 compensation, activations / gradients decay exponentially when deep; use Kaiming for ReLU (§8.3).</p></div>
+<h2 id="12-25-high-frequency-interview-questions">§12 25 high-frequency interview questions</h2>
+<p>Sorted into three tiers; click for answer points + easy traps. L2/L3 are top-lab deep water (Pre/Post gradient argument, Kaiming derivation, μP, DeepNorm, norm-free, QK-Norm, the covariate-shift debunk, etc.).</p>
+<h3 id="l1-must-know">L1 must-know</h3>
+<details>
+
+<summary>Q1. Why do deep nets need normalization? What does it actually solve?</summary>
+<ul><li>Deep-net activation / gradient variance explodes or vanishes as $g^L$, only the critical point $g=1$ is stable, and random init rarely hits it</li><li>Normalization pulls each layer's activations back to a fixed scale, cutting the $g^L$ product → larger LR, stack deeper</li><li>Modern correct attribution: a smoother loss landscape, better-conditioned gradients (Santurkar 2018), <strong>not</strong> "reducing covariate shift"</li></ul>
+<p>Saying only "speeds up convergence," missing the variance-scale / loss-landscape layer; or still reciting covariate shift.</p>
+</details>
+<details>
+
+<summary>Q2. Write the BatchNorm formula. Which dim does it compute statistics over?</summary>
+<ul><li>Per-channel along batch (conv adds spatial $H,W$) for $\mu_c,\sigma_c^2$, $\hat x=\frac{x-\mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2+\epsilon}}$, then $\gamma_c\hat x+\beta_c$</li><li>Statistics are <strong>cross-sample</strong> → a sample's normalization depends on the other samples in the batch</li><li>$[N,C]$ along $N$; $[N,C,H,W]$ along $(N,H,W)$, one per channel</li></ul>
+<p>Saying BN is along the feature dim (that's LN); or forgetting its cross-sample nature.</p>
+</details>
+<details>
+
+<summary>Q3. How do BatchNorm training and inference (eval) differ? Why?</summary>
+<ul><li>Training normalizes with the <strong>current batch stats</strong> and updates running mean/var with momentum</li><li>Inference uses the frozen <strong>running stats</strong> (not the batch), ensuring determinism + single-sample use</li><li>So BN is a train$\ne$eval layer; forgetting <code>eval()</code> makes inference results jitter with the batch</li></ul>
+<p>Not knowing about running stats / momentum; or thinking inference also uses batch stats.</p>
+</details>
+<details>
+
+<summary>Q4. Write the LayerNorm formula. How does its dim differ from BN's?</summary>
+<ul><li>For a single-token vector $x\in\mathbb{R}^d$ along the <strong>feature dim $d$</strong> for $\mu,\sigma$, $y=\gamma\odot\frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}+\beta$</li><li>$[B,T,d]$ along the last dim, one set of stats per $(b,t)$, <strong>never across samples or tokens</strong></li><li>BN along batch (cross-sample), LN along feature (within-sample) — that's the essential difference</li></ul>
+<p>Saying LN is also cross-batch; or failing to answer "per-token, decoupled from the batch."</p>
+</details>
+<details>
+
+<summary>Q5. What is RMSNorm? How does it differ from LayerNorm?</summary>
+<ul><li>Rescale by RMS only: $\bar x=\frac{x}{\sqrt{\frac1d\sum x_i^2+\epsilon}}\odot\gamma$</li><li>Removes two things vs LN: <strong>no mean-subtraction</strong> (no re-centering), <strong>no $\beta$</strong> shift</li><li>Claim: re-scaling is LN's main benefit, re-centering is dispensable → cheaper, the default after LLaMA</li></ul>
+<p>Saying only "RMSNorm is faster," missing the "drop mean-subtraction + drop bias" two removals.</p>
+</details>
+<details>
+
+<summary>Q6. Where does LayerNorm go in a Transformer? What are the two placements?</summary>
+<ul><li>Post-LN: $x_{l+1}=\text{LN}(x_l+\text{Sublayer}(x_l))$, LN <strong>after</strong> the residual add (original Transformer)</li><li>Pre-LN: $x_{l+1}=x_l+\text{Sublayer}(\text{LN}(x_l))$, LN <strong>inside</strong> the residual branch (mainstream modern LLM)</li><li>Modern LLMs use Pre-LN + a final LN</li></ul>
+<p>Knowing only "there's an LN," unable to say which side of the residual or name the two placements.</p>
+</details>
+<details>
+
+<summary>Q7. Why do Transformers / RNNs use LayerNorm instead of BatchNorm?</summary>
+<ul><li>Variable-length sequences + padding make "per-position stats over the batch" semantically dubious and hard to align</li><li>Batch coupling: BN's one sample depends on others in the batch; sequence tasks often run small batch / batch=1</li><li>LN is per-token, batch-decoupled, train$=$eval, naturally fitting sequences / autoregressive decode</li></ul>
+<p>Saying only "LN is customary," missing batch coupling + variable length + train/eval as concrete reasons.</p>
+</details>
+<details>
+
+<summary>Q8. Why do residual connections help train very deep networks?</summary>
+<ul><li>$y=x+F(x)$ Jacobian $I+\partial F/\partial x$; that $I$ gives the gradient an <strong>identity highway</strong>, breaking $g^L$ vanishing</li><li>Learning the residual is easier than learning the whole mapping (start from a good point when the ideal is near identity)</li><li>Equivalent to an ensemble of $2^L$ paths, short paths dominate, easier optimization (Veit 2016)</li></ul>
+<p>Saying only "prevents vanishing gradients," missing the Jacobian identity term / residual-is-easier / shallow-path-ensemble views.</p>
+</details>
+<details>
+
+<summary>Q9. What are $\gamma,\beta$ (scale/shift) in normalization for? Can you drop them?</summary>
+<ul><li>Forced standardization to zero-mean unit-variance cuts expressivity; $\gamma,\beta$ let the net <strong>re-learn</strong> the scale / shift</li><li>$\gamma$ scales, $\beta$ shifts, per-channel</li><li>RMSNorm keeps only $\gamma$ and drops $\beta$; dropping all affine works on some tasks but is kept by default</li></ul>
+<p>Thinking $\gamma,\beta$ are optional; or not knowing RMSNorm drops $\beta$.</p>
+</details>
+<details>
+
+<summary>Q10. The difference between Xavier and Kaiming init? Which activation does each suit?</summary>
+<ul><li>Xavier: $\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$, for <strong>tanh / linear</strong> (symmetric near-linear activations)</li><li>Kaiming: $\text{Var}(W)=\frac{2}{n_\text{in}}$, for <strong>ReLU</strong>, the 2 compensating the half-variance ReLU kills</li><li>Using Xavier on a ReLU net is too small → activations / gradients vanish when deep</li></ul>
+<p>Reciting only the two formulas, unable to say "the difference is whether you restore ReLU's factor 2."</p>
+</details>
+<h3 id="l2-advanced">L2 advanced</h3>
+<details>
+
+<summary>Q11. Pre-LN vs Post-LN: behavioral differences + the gradient argument.</summary>
+<ul><li>Post-LN needs <strong>LR warmup</strong>, unstable when deep, but a slightly higher quality ceiling; Pre-LN is stable, warmup-free, but the residual stream inflates with depth and needs a final LN</li><li>Xiong 2020: Post-LN top-layer gradient $\Theta(d\sqrt{\ln d})$ (large independent of $L$, imbalanced across layers) → must warmup</li><li>Pre-LN per-layer gradient $O(d\sqrt{(\ln d)/L})$ (decays with $L$, bounded, balanced) → large LR, warmup-free</li></ul>
+<p>Saying only "Pre-LN is more stable," missing the quantitative top-layer-large / decays-with-depth argument.</p>
+</details>
+<details>
+
+<summary>Q12. Why is dropping re-centering in RMSNorm fine? Which matters more, re-scaling or re-centering?</summary>
+<ul><li>What the net fears is activation <strong>scale</strong> getting out of control ($g^L$), and the scale is dominated by RMS / norm, little to do with the mean</li><li>Ablation: keeping only re-scaling in LN barely hurts, keeping only re-centering hurts a lot → re-scaling dominates</li><li>So RMSNorm captures the main payoff with fewer ops</li></ul>
+<p>Saying only "saves the mean computation," missing the "re-scaling is the main benefit" justification.</p>
+</details>
+<details>
+
+<summary>Q13. Why doesn't BatchNorm suit variable-length sequences / small batch / RL?</summary>
+<ul><li>Variable length: padding pollutes stats + different positions have different distributions, "per-position stats over the batch" is semantically poor</li><li>Small batch: estimation noise $\propto1/m$, small $m$ jitters normalization, $m=1$ fails outright</li><li>RL: non-stationary + strongly correlated data + frequent train/eval switching, running stats decouple from reality</li></ul>
+<p>Saying vaguely "BN doesn't work well," missing the failure mechanism for each of the three settings.</p>
+</details>
+<details>
+
+<summary>Q14. Derive the Kaiming init variance. Why is it $2/n_\text{in}$?</summary>
+<ul><li>Linear layer $\text{Var}(z)=n_\text{in}\text{Var}(W)\text{Var}(x)$, forward conservation needs $n_\text{in}\text{Var}(W)=1$</li><li>ReLU zeros the negative half: $\mathbb{E}[\text{ReLU}(z)^2]=\frac12\text{Var}(z)$, killing half the variance</li><li>Restore the factor 2: $\frac12 n_\text{in}\text{Var}(W)=1\Rightarrow\text{Var}(W)=\frac{2}{n_\text{in}}$</li></ul>
+<p>Unable to write $\text{Var}(z)=n_\text{in}\text{Var}(W)\text{Var}(x)$, or not knowing the 2 comes from ReLU's halving.</p>
+</details>
+<details>
+
+<summary>Q15. Why do residuals break vanishing gradients? Give the backprop expression.</summary>
+<ul><li>$L$ blocks chained: $\frac{\partial x_L}{\partial x_0}=\prod_l(I+\frac{\partial F_l}{\partial x})$</li><li>Expansion contains a <strong>pure identity term</strong> (plus higher-order cross terms) → at least one non-decaying gradient path</li><li>Even if $\partial F/\partial x\to0$, the identity term still carries the gradient back to shallow layers undiminished</li></ul>
+<p>Saying only "added a skip," unable to write why the identity term in the Jacobian product saves the gradient.</p>
+</details>
+<details>
+
+<summary>Q16. What does residual scaling ($1/\sqrt N$ / LayerScale / ReZero) solve? How is it done?</summary>
+<ul><li>Solves: deep residual branches pouring unchecked into the residual stream → linear variance inflation, early instability</li><li>$1/\sqrt N$: multiply branch by $1/\sqrt N$ so $N$-layer accumulation stays $O(1)$; LayerScale: learnable per-channel $\lambda$ (tiny init); ReZero: learnable scalar $\alpha$ init 0 (exactly identity start)</li><li>Unifying intuition: make the branch start near 0, the net starts from identity, well-behaved gradients</li></ul>
+<p>Remembering only the names, unable to state the shared "make the residual branch start ≈ identity" mechanism.</p>
+</details>
+<details>
+
+<summary>Q17. What is GPT-2 multiplying the residual-projection weights by $1/\sqrt{2N}$ for? Why $2N$ not $N$?</summary>
+<ul><li>Controls residual-stream variance: scale each write into the residual stream by $1/\sqrt{2N}$ so the accumulation stays $O(1)$</li><li>$2N$: each transformer layer writes to the residual stream <strong>twice</strong> (attn output proj + FFN down proj), $N$ layers total $2N$</li><li>Acts on the init of the attn/FFN output-projection (residual-projection) weights</li></ul>
+<p>Thinking it's once per layer ($N$); or not knowing it acts on the two specific "residual-projection" matrices.</p>
+</details>
+<details>
+
+<summary>Q18. What is QK-Norm? What problem does it solve?</summary>
+<ul><li>Normalize each head's $q,k$ (L2/RMS) before the dot product, then compute logits</li><li>Solves attention-logit explosion with scale → softmax saturation / entropy collapse / diverging training (worse for large models)</li><li>After normalization $q,k$ norms are clamped, logits don't explode; used in Gemma2 / Chameleon / ViT-22B</li></ul>
+<p>Saying only "normalize QK," missing that it guards against logit explosion / softmax saturation.</p>
+</details>
+<details>
+
+<summary>Q19. How does DeepNorm train to 1000 layers? How does it relate to Pre/Post-LN?</summary>
+<ul><li>It's an <strong>improved Post-LN</strong>: $x_{l+1}=\text{LN}(\alpha x_l+\text{Sublayer}(x_l))$, $\alpha=(2N)^{1/4}\gt1$ up-scales the residual</li><li>Also a gain $\beta=(8N)^{-1/4}\lt1$ to <strong>down-scale the sublayer init</strong>, bounding each step's model update</li><li>up-scale residual (near Pre-LN stability) + down-scale init (bounded updates) → Post-LN quality + stable to 1000 layers</li></ul>
+<p>Treating DeepNorm as Pre-LN; or remembering only $\alpha$ and not "also shrink the init."</p>
+</details>
+<details>
+
+<summary>Q20. How do GroupNorm / InstanceNorm relate to BN/LN? When to use GN?</summary>
+<ul><li>GN splits channels into $G$ groups, normalizing within each group per sample, <strong>batch-independent</strong></li><li>$G=1$ degenerates to LayerNorm, $G=C$ to InstanceNorm (GN bridges the two)</li><li>Use: <strong>small-batch vision</strong> (detection / segmentation batch=2~4, BN collapses, GN stable)</li></ul>
+<p>Not knowing GN uses $G$ to bridge LN and IN; or unable to answer small-batch detection as the typical setting.</p>
+</details>
+<h3 id="l3-advanced">L3 advanced</h3>
+<details>
+
+<summary>Q21. Is internal covariate shift the real reason BatchNorm works?</summary>
+<ul><li>No (most likely). This is the original paper's narrative, empirically refuted by Santurkar 2018</li><li>Evidence 1: injecting noise after BN to <strong>deliberately increase</strong> ICS barely affects training</li><li>Evidence 2: BN actually shrinks the loss / gradient Lipschitz (smoother landscape) → supports large LR</li><li>SkipInit further shows BN's role in residual nets is to shrink the branch at init, biasing toward identity</li></ul>
+<p>Still treating covariate shift as the accepted cause; or not knowing there are experiments that directly falsify it.</p>
+</details>
+<details>
+
+<summary>Q22. What is μP? Why does the optimal LR drift with width under standard parametrization?</summary>
+<ul><li>Under SP, changing width mismatches each layer's activation / update scale; as width $n\to\infty$ either it blows up or enters the lazy/kernel regime</li><li>So the optimal LR varies with width, and params tuned on a small model can't be used directly on a large one</li><li>μP scales init variance / LR / output multiplier by fan_in so that <strong>feature updates are $\Theta(1)$ across width and the optimal LR is width-invariant</strong> → μTransfer (tune small-width, zero-shot transfer to large-width)</li></ul>
+<p>Knowing only "μP transfers hyperparameters," unable to explain why SP drifts / what μP scales.</p>
+</details>
+<details>
+
+<summary>Q23. How do you train deep residual nets without any normalization layer? (Fixup / NFNets)</summary>
+<ul><li>Fixup: <strong>branch last layer init 0</strong> (identity block start) + multiply other layers by $L^{-1/(2m-2)}$ down-scale + add learnable scalar biases/multipliers</li><li>NFNets: Scaled Weight Standardization + analytic scaled residual block $x+\alpha F(x/\beta)$ + Adaptive Gradient Clipping</li><li>Common point: restore "variance control + large-batch stability" via init / explicit means, showing norm is not required</li></ul>
+<p>Saying only "tune init," unable to give "last layer to 0 + depth down-scale" or NFNets' three pieces concretely.</p>
+</details>
+<details>
+
+<summary>Q24. What is DyT (Dynamic Tanh)? Is normalization a necessary condition for training?</summary>
+<ul><li>Observation: a trained LN's input-output curve looks like a squashed $\tanh$ (near-linear in the middle, saturating for outliers)</li><li>DyT: $\gamma\odot\tanh(\alpha x)+\beta$, a learnable scalar $\alpha$ replacing "divide by std," <strong>dropping the mean/variance reduction</strong></li><li>Implication: normalization is theoretically not necessary (its role can be replaced by squashing / init / explicit variance control), but LN/RMSNorm remain the safe production default</li></ul>
+<p>Saying DyT "already replaced normalization" (overstated); or unable to state it comes from the "LN≈tanh" observation.</p>
+</details>
+<details>
+
+<summary>Q25. Given a very deep network (hundreds to thousands of layers), how do you combine init / normalization / residual to train it stably?</summary>
+<ul><li><strong>Residuals</strong> are mandatory (identity gradient path), push the branch start toward identity: last layer init 0 or LayerScale/ReZero, multiply by depth $1/\sqrt N$ (GPT-2's $1/\sqrt{2N}$)</li><li><strong>Normalization</strong> Pre-LN/RMSNorm (warmup-free, stable) + <strong>don't miss the final LN</strong>; for Post-LN quality use DeepNorm (up-scale residual + down-scale init, up to 1000 layers)</li><li><strong>init</strong> pick Xavier/Kaiming by activation for variance preservation, depth-aware down-scaling; for norm-free go Fixup/NFNets</li><li><strong>hyperparameters</strong> tune with μP at small width then transfer; add QK-Norm if attention is unstable; fp32 reduction throughout</li><li>The core thread: <strong>start the net from a well-behaved "near-identity + variance-conserving" point</strong></li></ul>
+<p>Reporting a single trick; or missing the combined punch of final LN / residual scaling / depth-aware init and the "identity start" thread.</p>
+</details>
+<h2 id="a-appendix-sanity-check">§A Appendix: sanity check</h2>
+<p>This tutorial's code has a minimal runnable version in <a href="code/normalization.py"><code>docs/tutorials/code/normalization.py</code></a> (pure PyTorch, a few seconds on CPU, 6 <code>assert</code>s covering [a]–[f]). It should satisfy the following key invariants:</p>
+<ol><li><strong>[a] LayerNorm from scratch == <code>nn.LayerNorm</code></strong>: with population variance (<code>unbiased=False</code>, divide by $d$), $\epsilon$ inside the sqrt, after affine it should match PyTorch elementwise within float error (<code>atol≈1e-5</code>).</li><li><strong>[b] RMSNorm from scratch == <code>nn.RMSNorm</code>, and RMSNorm's shift-invariance differs from LN's</strong>: add a constant $c$ to the whole input, and <strong>LayerNorm's output barely changes</strong> (it subtracts the mean → re-centering invariant), while <strong>RMSNorm's output changes</strong> (it only re-scales, no mean-subtraction) — exactly the executable check of §4's "RMSNorm has no re-centering."</li><li><strong>[c] BatchNorm train$\ne$eval</strong>: train mode uses batch stats (output per-feature mean ≈ 0) and pushes the running mean away from 0; switch to eval and it uses running stats, with a clearly different output for the same input — verifying §2.2's dual path.</li><li><strong>[d] Post-LN piles parameter gradients at the top (top-heavy), Pre-LN is balanced across depth</strong>: build a stack of 48 identical residual blocks (with a final linear head — to avoid the artifact where a loss acting directly on the Post-LN normalized output "squashes gradients to 0"), do one forward+backward, and measure each block's Linear weight-grad <strong>top/bottom ratio</strong> (last/first). Pre-LN $\approx0.40$ (balanced, slightly bottom-heavy), Post-LN $\approx2.35$ ($\gt1$, gradient piled near the output) — exactly the executable check of §5.2 Xiong's "Post-LN top-layer gradients large → needs warmup." <strong>Use the top/bottom ratio rather than the absolute gradient, because it's not confounded by the loss choice / output normalization</strong> (a subtle experiment-design pitfall).</li><li><strong>[e] Kaiming preserves the second moment, Xavier-for-ReLU decays</strong>: a unit-second-moment input ($\mathbb{E}[x^2]=1$) through <code>Linear+ReLU</code>, measuring the <strong>post-ReLU second moment $\mathbb{E}[y^2]$</strong> (the signal energy fed to the next layer, the quantity He's derivation actually propagates): with Kaiming ($\sqrt{2/n_\text{in}}$) $\mathbb{E}[y^2]\approx1$ (conserved), with Xavier-for-ReLU ($\sqrt{1/n_\text{in}}$) $\approx0.5$ (halving per layer → vanishing when deep) — verifying §8.3's factor 2. Note we measure $\mathbb{E}[y^2]$, not $\text{Var}(y)$: ReLU makes the output mean non-zero, so $\text{Var}(y)=1-1/\pi\approx0.68$, while the layer-conserved / propagated quantity is the second moment $\mathbb{E}[y^2]$.</li><li><strong>[f] GPT-2 residual scaling $1/\sqrt{2N}$ bounds the residual-stream variance</strong>: accumulate $N$ $O(1)$ updates into the residual stream; unscaled, the variance <strong>grows linearly</strong> with depth, while multiplying by $1/\sqrt{2N}$ keeps it <strong>bounded</strong> — verifying §8.4.</li></ol>
+<p>Below are a few illustrative snippets (CPU-runnable, English comments, logic identical to the script above).</p>
+<p><strong>(a) LayerNorm + RMSNorm from scratch, aligned with PyTorch:</strong></p>
+<pre><code class="language-python">import torch
+import torch.nn as nn
+
+def layernorm_from_scratch(x, weight, bias, eps=1e-5):
+    &quot;&quot;&quot;Normalize along the last dim. x: [..., d]. Population variance (unbiased=False), eps inside the sqrt.&quot;&quot;&quot;
+    mean = x.mean(dim=-1, keepdim=True)                       # [..., 1] mean
+    var  = x.var(dim=-1, unbiased=False, keepdim=True)        # [..., 1] population var (/d), matches torch
+    return (x - mean) / torch.sqrt(var + eps) * weight + bias # standardize + affine
+
+def rmsnorm_from_scratch(x, weight, eps=1e-6):
+    &quot;&quot;&quot;Re-scale by RMS only: no mean-subtraction, no bias. x: [..., d].&quot;&quot;&quot;
+    ms = x.pow(2).mean(dim=-1, keepdim=True)                  # [..., 1] mean of squares
+    return x / torch.sqrt(ms + eps) * weight                  # divide by RMS, then per-channel scale
+
+d = 64
+x = torch.randn(8, d)                                         # [B, d]
+ln  = nn.LayerNorm(d, eps=1e-5)                              # default affine weight=1, bias=0
+assert torch.allclose(layernorm_from_scratch(x, ln.weight, ln.bias), ln(x), atol=1e-5)
+
+rms = nn.RMSNorm(d, eps=1e-6)                                # needs torch&gt;=2.4
+assert torch.allclose(rmsnorm_from_scratch(x, rms.weight), rms(x), atol=1e-5)
+
+# RMSNorm is NOT invariant to a global shift, LayerNorm is:
+c = 5.0
+assert (ln(x + c) - ln(x)).abs().max() &lt; 1e-4                              # LN re-centering invariant
+assert (rmsnorm_from_scratch(x + c, rms.weight) - rmsnorm_from_scratch(x, rms.weight)).abs().max() &gt; 1e-2</code></pre>
+<p><strong>(b) A deep residual stack, comparing Pre-LN vs Post-LN gradient norms across depth:</strong></p>
+<pre><code class="language-python">import torch
+import torch.nn as nn
+
+class ResidualStack(nn.Module):
+    &quot;&quot;&quot;Deep residual stack + final linear head. Pre-LN: h=h+Linear(LN(h)); Post-LN: h=LN(h+Linear(h)).
+       The head matters: otherwise the Post-LN output is LN-normalized and loss=mean(out^2) is ~constant,
+       squashing all gradients to 0 (a confound).&quot;&quot;&quot;
+    def __init__(self, depth, d, pre_ln=True):
+        super().__init__()
+        self.pre_ln = pre_ln
+        self.lns  = nn.ModuleList(nn.LayerNorm(d) for _ in range(depth))
+        self.lins = nn.ModuleList(nn.Linear(d, d) for _ in range(depth))
+        self.head = nn.Linear(d, d)                           # final projection, removes the output-normalization confound
+
+    def forward(self, h):                                     # h: [B, d]
+        for ln, lin in zip(self.lns, self.lins):
+            h = h + lin(ln(h)) if self.pre_ln else ln(h + lin(h))
+        return self.head(h)
+
+def block_grad_topheavy(depth, d, pre_ln):
+    &quot;&quot;&quot;One forward+backward, return the last/first block weight-grad-norm ratio (&gt;1 = gradient piled at the top).
+       This ratio is robust to the loss choice; exactly Xiong 2020&#x27;s claim.&quot;&quot;&quot;
+    torch.manual_seed(0)                                      # same init for both placements, fair comparison
+    stack = ResidualStack(depth, d, pre_ln=pre_ln)
+    stack(torch.randn(16, d)).pow(2).mean().backward()       # scalar loss
+    gn = [lin.weight.grad.norm().item() for lin in stack.lins]
+    return gn[-1] / gn[0]
+
+r_pre  = block_grad_topheavy(48, 64, pre_ln=True)            # expect ≈0.40 (balanced)
+r_post = block_grad_topheavy(48, 64, pre_ln=False)          # expect ≈2.35 (top-heavy, &gt;1)
+# Post-LN top/bottom ratio &gt;1: gradient piled near the output -&gt; must warmup. Pre-LN balanced across depth.</code></pre>
+<p><strong>(c) Kaiming variance preservation (vs misusing Xavier for ReLU):</strong></p>
+<pre><code class="language-python">import torch
+import torch.nn.functional as F
+
+fan_in, fan_out, N = 512, 512, 4096
+x = torch.randn(N, fan_in)                                   # E[x^2]=1 (unit second moment) [N, fan_in]
+W_kaiming = torch.randn(fan_out, fan_in) * (2.0 / fan_in) ** 0.5   # He: std=sqrt(2/fan_in)
+W_xavier  = torch.randn(fan_out, fan_in) * (1.0 / fan_in) ** 0.5   # misusing Xavier for ReLU: std=sqrt(1/fan_in)
+# measure the post-ReLU second moment E[y^2] (signal energy fed to the next layer, the quantity He propagates), not Var(y)
+ms_kaiming = F.relu(x @ W_kaiming.t()).pow(2).mean()        # ReLU halves, 2/fan_in restores -&gt; E[y^2]≈1
+ms_xavier  = F.relu(x @ W_xavier.t()).pow(2).mean()         # no factor 2 -&gt; E[y^2]≈0.5, halving per layer
+# expect E[y^2]_kaiming≈1 (conserved), E[y^2]_xavier≈0.5 (vanishes exponentially when deep).
+# Note: Var(y)≈0.68 (ReLU makes the mean non-zero); the layer-conserved quantity is the second moment E[y^2], not Var.</code></pre>
+<p>The real output of running <code>python docs/tutorials/code/normalization.py</code> (CPU, pure PyTorch, with the summary of the six [a]–[f] <code>assert</code>s):</p>
+<pre><code class="language-text">[a] LayerNorm from scratch vs nn.LayerNorm: max|Δ| = 2.38e-07  OK
+[b] RMSNorm vs nn.RMSNorm: max|Δ| = 2.38e-07; mean-shift LN |Δ|=9.54e-07 (~0, re-centers) vs RMS |Δ|=3.05e+00 (&gt;0, only re-scales)  OK
+[c] BatchNorm train!=eval: max|Δ| = 8.37e+00; running_mean moved 0.701 from 0; train per-feature mean = 8.15e-08 (~0)  OK
+[d] per-block weight-grad top/bottom ratio (last/first over 48 blocks): Pre-LN=0.40 (balanced)  Post-LN=2.35 (top-heavy, &gt;1)  -&gt; Post-LN piles gradient near the output, needs warmup  OK
+[e] post-ReLU second moment E[y^2] (input E[x^2]=1): Kaiming = 1.000 (~1, preserved)  Xavier = 0.499 (~0.5, halves per layer)  OK
+[f] residual-stream var growth over 50 blocks: unscaled ×51.1  vs  1/sqrt(2N)-scaled ×1.50  OK
+
+all normalization / residual / init sanity checks passed ✓</code></pre>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>Reading the numbers</strong></p>
+<ul><li><strong>[a]/[b]</strong> from-scratch LN/RMSNorm match PyTorch (max$|\Delta|$=2.4e-7); in the shift test LN barely changes (9.5e-7) while RMSNorm changes clearly (3.05), confirming §4 "RMSNorm only re-scales, no re-center."</li><li><strong>[c]</strong> BatchNorm running_mean pushed from 0 to 0.70, train-mode per-feature mean ≈ 0, and train≠eval, confirming §2.2's dual path.</li><li><strong>[d]</strong> block weight-grad top/bottom ratio (last/first): Pre-LN $0.40$ (balanced), Post-LN $2.35$ ($\gt1$, gradient piled at the top), confirming §5.2 "Post-LN top-layer gradients large → needs warmup" (the head removes the output-normalization confound).</li><li><strong>[e]</strong> post-ReLU second moment Kaiming $\mathbb{E}[y^2]=1.00$ (conserved), Xavier-for-ReLU $=0.50$ (halving per layer), confirming §8.3's factor 2.</li><li><strong>[f]</strong> residual-stream variance unscaled ×51 after 50 layers (linear growth), bounded ×1.5 after $1/\sqrt{2N}$ scaling, confirming §8.4's GPT-2 trick.</li></ul></div>
+<h2 id="references">📚 References</h2>
+<ul><li><strong>BatchNorm</strong> — Ioffe &amp; Szegedy, <em>Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift</em>, arXiv 1502.03167 (2015), ICML 2015.</li><li><strong>LayerNorm</strong> — Ba, Kiros &amp; Hinton, <em>Layer Normalization</em>, arXiv 1607.06450 (2016).</li><li><strong>RMSNorm</strong> — Zhang &amp; Sennrich, <em>Root Mean Square Layer Normalization</em>, arXiv 1910.07467 (2019), NeurIPS 2019.</li><li><strong>How Does BN Help Optimization (covariate-shift debunk)</strong> — Santurkar et al., <em>How Does Batch Normalization Help Optimization?</em>, arXiv 1805.11604 (2018), NeurIPS 2018.</li><li><strong>Pre-LN vs Post-LN (gradient argument)</strong> — Xiong et al., <em>On Layer Normalization in the Transformer Architecture</em>, arXiv 2002.04745 (2020), ICML 2020.</li><li><strong>DeepNorm / DeepNet</strong> — Wang et al., <em>DeepNet: Scaling Transformers to 1,000 Layers</em>, arXiv 2203.00555 (2022).</li><li><strong>Kaiming init</strong> — He et al., <em>Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification</em>, arXiv 1502.01852 (2015), ICCV 2015.</li><li><strong>Xavier / Glorot init</strong> — Glorot &amp; Bengio, <em>Understanding the difficulty of training deep feedforward neural networks</em>, AISTATS 2010 (PMLR proceedings, <strong>no arXiv id</strong>, citation to be verified).</li><li><strong>ResNet (residual learning)</strong> — He et al., <em>Deep Residual Learning for Image Recognition</em>, arXiv 1512.03385 (2015), CVPR 2016.</li><li><strong>Residuals as ensembles</strong> — Veit et al., <em>Residual Networks Behave Like Ensembles of Relatively Shallow Networks</em>, arXiv 1605.06431 (2016), NeurIPS 2016.</li><li><strong>Fixup</strong> — Zhang et al., <em>Fixup Initialization: Residual Learning Without Normalization</em>, arXiv 1901.09321 (2019), ICLR 2019.</li><li><strong>ReZero</strong> — Bachlechner et al., <em>ReZero is All You Need: Fast Convergence at Large Depth</em>, arXiv 2003.04887 (2020), UAI 2021.</li><li><strong>LayerScale / CaiT</strong> — Touvron et al., <em>Going deeper with Image Transformers</em>, arXiv 2103.17239 (2021), ICCV 2021.</li><li><strong>SkipInit</strong> — De &amp; Smith, <em>Batch Normalization Biases Residual Blocks Towards the Identity Function in Deep Networks</em>, arXiv 2002.10444 (2020), NeurIPS 2020.</li><li><strong>μP / μTransfer</strong> — Yang et al., <em>Tensor Programs V: Tuning Large Neural Networks via Zero-Shot Hyperparameter Transfer</em>, arXiv 2203.03466 (2022), NeurIPS 2021.</li><li><strong>NFNets (normalizer-free)</strong> — Brock et al., <em>High-Performance Large-Scale Image Recognition Without Normalization</em>, arXiv 2102.06171 (2021), ICML 2021.</li><li><strong>GroupNorm</strong> — Wu &amp; He, <em>Group Normalization</em>, arXiv 1803.08494 (2018), ECCV 2018.</li><li><strong>WeightNorm</strong> — Salimans &amp; Kingma, <em>Weight Normalization: A Simple Reparameterization to Accelerate Training of Deep Neural Networks</em>, arXiv 1602.07868 (2016), NeurIPS 2016.</li><li><strong>QK-Norm</strong> — Henry et al., <em>Query-Key Normalization for Transformers</em>, arXiv 2010.04245 (2020), EMNLP 2020 Findings.</li><li><strong>DyT (Dynamic Tanh)</strong> — Zhu et al., <em>Transformers without Normalization</em>, 2025 (CVPR 2025; arXiv 2503.10622, <strong>arXiv id subject to citation verification</strong>).</li><li><strong>T-Fixup</strong> — Huang et al., <em>Improving Transformer Optimization Through Better Initialization</em>, ICML 2020 (PMLR proceedings; no widely-used standalone arXiv id, cited by venue).</li><li><strong>GPT-2 (residual-projection $1/\sqrt{2N}$ init)</strong> — Radford et al., <em>Language Models are Unsupervised Multitask Learners</em>, OpenAI technical report (2019) (<strong>no arXiv id</strong>).</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/normalization_init_tutorial_en.md</code> ·
+  SHA256 <code>fc7d5402b92c</code> ·
+  generated at 2026-06-28 10:16 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>
