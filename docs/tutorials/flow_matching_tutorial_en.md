@@ -431,7 +431,7 @@ This is why DDPM (learning $\epsilon$) and score-based (learning $\nabla \log p_
 
 ## §7 Advanced topics
 
-### 7.1　Reflow (Liu et al. 2022, ICLR)
+### 7.1　Reflow (Liu et al., ICLR 2023)
 
 The reason Rectified Flow enables few-step generation is the **reflow algorithm**:
 

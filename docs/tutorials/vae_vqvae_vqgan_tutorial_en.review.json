@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/vae_vqvae_vqgan_tutorial_en.md",
-  "source_sha256": "30ec2764cc2c896ea77751d2f8ba1ad40c2e2fbf40f4c4d69865993dd46fe51a",
+  "source_sha256": "dd163f95024f8af9e32b70b615509f7acf9ed59024b6873209eb28d017cc7edb",
   "output": "docs/tutorials/vae_vqvae_vqgan_tutorial_en.html",
   "zh_source": "docs/tutorials/vae_vqvae_vqgan_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -17,5 +17,14 @@
     ],
     "summary": "Fresh cross-model GPT-5.5 xhigh translation-fidelity verify of docs/tutorials/vae_vqvae_vqgan_tutorial_en.{md,html} against the ZH source of truth docs/tutorials/vae_vqvae_vqgan_tutorial.md. Verdict: WARN. (a) The §9.5 FSQ fix LANDED in BOTH the EN .md and EN .html: the `levels` docstring no longer imposes any parity constraint — it states odd OR even level counts both work, with odd merely preferred because it guarantees 0 is included (matching ZH); no remaining \"must be odd\"/\"even invalid\" wording. (b) Otherwise faithful: Codex confirmed matching line counts, sections, display formulas, code"
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Blau & Michaeli venue corrected ICML 2018 to CVPR 2018 (Perception-Distortion Tradeoff), x2; Gumbel-Max section 8.2 notation made self-consistent under the logits reading (dropped the spurious log on pi, matching the softmax(pi) result and the code). (EN edition mirrors the ZH fix.)",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

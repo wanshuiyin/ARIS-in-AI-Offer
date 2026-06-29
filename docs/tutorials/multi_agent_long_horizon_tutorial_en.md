@@ -154,7 +154,7 @@ Each role **only receives the structured output of the previous node (no free-fo
 
 ### 2.5 Mixture-of-Agents (MoA) — the catchiest work at NeurIPS 2024
 
-The core idea of MoA (Wang et al., NeurIPS 2024, arXiv 2406.04692, Together AI) is **so simple no one would believe it**:
+The core idea of MoA (Wang et al., ICLR 2025 Spotlight, arXiv 2406.04692, Together AI) is **so simple no one would believe it**:
 
 ```
         ┌─ proposer_1 (Qwen2-72B)
@@ -357,7 +357,7 @@ The de facto standard for production agents in 2024-2025: **1 orchestrator + N w
 - **Cline**: plan mode = orchestrator thinking, act mode = worker execution (same LLM, different prompt).
 - **Aider**: automatically splits large changes into small commits; each commit is a sub-conversation.
 
-> 💡 **Cost structure of orchestrator-worker** — orchestrators use big models (Claude 4.6 Sonnet class) for decisions; workers use cheap models (Haiku / Sonnet) for execution — known as **"cascading inference"** (Yue 2023 FrugalGPT, arXiv 2305.05176). 1 orchestrator call + 10 worker calls is 5-10× cheaper than 11 orchestrator calls.
+> 💡 **Cost structure of orchestrator-worker** — orchestrators use big models (Claude 4.6 Sonnet class) for decisions; workers use cheap models (Haiku / Sonnet) for execution — known as **"cascading inference"** (Chen, Zaharia & Zou 2023 "FrugalGPT", arXiv 2305.05176). 1 orchestrator call + 10 worker calls is 5-10× cheaper than 11 orchestrator calls.
 
 ### 4.4 Sub-agent blame-shifting (a common bug)
 
@@ -760,7 +760,7 @@ def lats_search(initial_state, llm_propose, llm_propose_one, llm_value, env_step
 | **WebArena** | Zhou et al., ICLR 2024, arXiv 2307.13854 | self-hosted web (Reddit-clone, Gitea, etc.) | 5-30 | GPT-4 ≈ 14.4% (2024); top in 2026 ~ 50% |
 | **VisualWebArena** | Koh et al., ACL 2024, arXiv 2401.13649 | WebArena + visual understanding | 10-30 | GPT-4V ≈ 16.4% |
 | **SWE-bench / Verified** | Jimenez et al., ICLR 2024, arXiv 2310.06770 | 2294 real GitHub issues (Python repos) | multi-file multi-commit | Claude 4.6 Sonnet (2026-05) ~ 75% (Verified) |
-| **MLE-bench** | Chan et al., 2024 (OpenAI), arXiv 2410.07095 | 75 Kaggle ML competition tasks | 24h compute budget | GPT-4o + AIDE ≈ 16.9% medals |
+| **MLE-bench** | Chan et al., 2024 (OpenAI), arXiv 2410.07095 | 75 Kaggle ML competition tasks | 24h compute budget | o1-preview + AIDE ≈ 16.9% medals |
 | **SWE-Lancer** | OpenAI, 2025, arXiv 2502.12115 | 1488 real Upwork freelance tasks ($1M+ payout) | hours-days | GPT-4o ≈ 8% (managerial), 26% (IC) |
 | **Adventure / TextWorld** | Yuan et al., AAAI 2019, arXiv 1806.11532 | text adventure game | 50-500 | RL-trained baseline + LLM > 80% on Coin Collector |
 
@@ -1107,7 +1107,7 @@ LATS / Agent-Q-class tree search at inference:
 
 ### 13.3 Cognition Devin / SWE-Agent
 
-- **Devin** (Cognition, Mar 2024 demo): the first commercial "AI software engineer" demo, capable of plan + code + debug + browser end-to-end. **SWE-bench Verified ~ 13.9%** (Mar 2024) → ~ 50% (late 2025, Devin 3.0).
+- **Devin** (Cognition, Mar 2024 demo): the first commercial "AI software engineer" demo, capable of plan + code + debug + browser end-to-end. **SWE-bench (original) ~ 13.9%** (Mar 2024; note: the *Verified* subset only launched 2024-08) → ~ 50% (late 2025, Devin 3.0).
 - **SWE-Agent** (Yang et al., NeurIPS 2024, arXiv 2405.15793, Princeton): an open-source SWE-bench agent that proposed the **Agent-Computer Interface (ACI)** concept — designing a dedicated file-edit / shell / search interface for the LLM (not giving it bash directly), reaching 18.0% on SWE-bench Lite.
 
 ### 13.4 Cursor / Cline / Aider / Continue
@@ -1209,7 +1209,7 @@ Action 2: ...
 
 <summary>Q6. What is MoA? Why N proposers + 1 aggregator rather than best-of-N?</summary>
 
-**MoA (Mixture-of-Agents, Wang et al. NeurIPS 2024, arXiv 2406.04692)**: N LLMs each give a response, the N responses are **concatenated into the prompt** fed to an aggregator LLM that synthesizes.
+**MoA (Mixture-of-Agents, Wang et al. ICLR 2025 Spotlight, arXiv 2406.04692)**: N LLMs each give a response, the N responses are **concatenated into the prompt** fed to an aggregator LLM that synthesizes.
 
 Why it beats best-of-N:
 

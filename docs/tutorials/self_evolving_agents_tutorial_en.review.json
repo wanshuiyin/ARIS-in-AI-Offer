@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/self_evolving_agents_tutorial_en.md",
-  "source_sha256": "65f5baf62206b2506086becf7b79fc11d4a8dc9ff113bb5f2ae933595131abb5",
+  "source_sha256": "e0865db2e08574d13746f43f1fe3f322ab4c04bd202d081e59761ffab80417d1",
   "output": "docs/tutorials/self_evolving_agents_tutorial_en.html",
   "zh_source": "docs/tutorials/self_evolving_agents_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -21,5 +21,14 @@
     ],
     "summary": "Fresh cross-model Codex (GPT-5.5 xhigh) translation-fidelity audit of docs/tutorials/self_evolving_agents_tutorial_en.md against the Chinese source-of-truth docs/tutorials/self_evolving_agents_tutorial.md plus the rendered docs/tutorials/self_evolving_agents_tutorial_en.html. Codex's raw verdict was FAIL (threadId 019e7cc0-7f42-7840-b42f-0a1d1293f8eb), but on direct inspection every one of its 8 issues is a benign translated code-comment or translated LaTeX descriptive label, NOT a factual divergence — so under the task's own rubric these are WARN-class, not FAIL-class. Codex's own summary con"
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Voyager venue corrected NeurIPS 2023 to TMLR (it appeared in TMLR plus a NeurIPS workshop, not the main track). (EN edition mirrors the ZH fix.)",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

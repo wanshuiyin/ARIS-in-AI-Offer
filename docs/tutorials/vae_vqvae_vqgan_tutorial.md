@@ -672,13 +672,13 @@ DALL·E 用 **dVAE (discrete VAE)** 作为 image tokenizer：
 
 **Gumbel-Max trick**：对 logits $\pi = (\pi_1, \ldots, \pi_K)$ 加独立 Gumbel(0,1) 噪声 $g_k = -\log(-\log u_k), u_k \sim \mathcal{U}(0, 1)$，则：
 
-$$\arg\max_k \{\log \pi_k + g_k\}$$
+$$\arg\max_k \{\pi_k + g_k\}$$
 
 服从 categorical(softmax($\pi$))。证明用 Gumbel 分布的 CDF 性质：$P(\max_k X_k = X_j) = e^{\pi_j} / \sum_k e^{\pi_k}$。
 
 **Gumbel-softmax (Jang et al., ICLR 2017; Maddison et al., ICLR 2017 同期)**：把不可导的 argmax **替换成** softmax：
 
-$$\boxed{\;y_k = \frac{\exp((\log \pi_k + g_k) / \tau)}{\sum_j \exp((\log \pi_j + g_j) / \tau)}\;}$$
+$$\boxed{\;y_k = \frac{\exp((\pi_k + g_k) / \tau)}{\sum_j \exp((\pi_j + g_j) / \tau)}\;}$$
 
 - $\tau \to 0$：$y$ 接近 one-hot（贴近 categorical 采样）
 - $\tau \to \infty$：$y$ 接近均匀（梯度好但偏离）
@@ -940,7 +940,7 @@ KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, F
 
 ### 11.3　Reconstruction-Perception Tradeoff（高级题）
 
-Blau & Michaeli (ICML 2018) 证明：**重建（MSE / PSNR）和感知（perceptual / FID）之间存在严格的 Pareto 边界**。VQ-GAN / SD VAE 引入 LPIPS + adversarial 是**为了交换更高 perceptual 质量而接受略差的 PSNR**。
+Blau & Michaeli (CVPR 2018) 证明：**重建（MSE / PSNR）和感知（perceptual / FID）之间存在严格的 Pareto 边界**。VQ-GAN / SD VAE 引入 LPIPS + adversarial 是**为了交换更高 perceptual 质量而接受略差的 PSNR**。
 
 > ⚠️ **PSNR 不等于"看起来好"** — VQ-GAN 论文里 PSNR 不一定优于 VQ-VAE，但 perceptual (LPIPS / FID) 远好。**面试常被反问"为什么 SOTA tokenizer 的 PSNR 反而下降"**——这是 distortion-perception tradeoff。
 
@@ -1244,7 +1244,7 @@ codex (gpt-5.5 xhigh) 作为顶级 lab 面试官视角列的，按难度分 3 �
 
 - 是 VQ-GAN / SD / 大部分 image GAN / diffusion 训练的标配
 
-- 配合 distortion-perception tradeoff 用（Blau & Michaeli ICML 2018）
+- 配合 distortion-perception tradeoff 用（Blau & Michaeli CVPR 2018）
 
 只说"用 VGG feature"，不说 learned channel weights / human study 拟合。
 
@@ -1369,7 +1369,7 @@ codex (gpt-5.5 xhigh) 作为顶级 lab 面试官视角列的，按难度分 3 �
 
 <summary>Q25.Reconstruction-perception tradeoff 是什么？对 VQ-GAN / SD VAE 有什么含义？</summary>
 
-- Blau & Michaeli (ICML 2018) 证明：**MSE / PSNR (distortion) 与 perceptual 距离 (perception) 之间存在严格 Pareto 边界**
+- Blau & Michaeli (CVPR 2018) 证明：**MSE / PSNR (distortion) 与 perceptual 距离 (perception) 之间存在严格 Pareto 边界**
 
 - 降低 distortion → 必然提升或不降 perception 损失，反之亦然
 

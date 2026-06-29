@@ -162,7 +162,7 @@ Cost: retrieval precision is worse than vector RAG; the fix is hybrid (vector fo
 
 Before going into 2024-2026 frontier work, you must chew through the three foundational works — interviewers will almost certainly ask about baselines.
 
-### 4.1　Voyager (Wang 2023 NeurIPS, NVIDIA + Caltech)
+### 4.1　Voyager (Wang 2023 TMLR, NVIDIA + Caltech)
 
 The first true end-to-end "automatic curriculum + skill library" agent: running GPT-4 in Minecraft, letting it propose its own tasks, write JS code (each piece of code is a skill), self-verify, and store successful skills in the library.
 
@@ -937,7 +937,7 @@ Per the Native Evolution paper §2 classification:
 
 <summary>Q3. What is Voyager's trio? Why doesn't it update GPT-4 weights?</summary>
 
-Voyager (Wang et al. NeurIPS 2023, NVIDIA + Caltech):
+Voyager (Wang et al. TMLR 2023, NVIDIA + Caltech):
 
 - **Automatic Curriculum**: automatically generates next task based on inventory
 - **Skill Library**: each skill is a JS function, retrieved by description embedding

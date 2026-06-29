@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/diffusion_distillation_tutorial.md",
-  "source_sha256": "cdf8cbf0098fd69e5a36cbd5b787d6415815106fdc3159de14661b50323e5b7c",
+  "source_sha256": "5f06105db9ffe0e923b0da9b1193e64c35d1994bc5749e984f20b214a09e30f9",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-20); not a new codex review",
   "output": "docs/tutorials/diffusion_distillation_tutorial.html",
   "topic": "Diffusion / Flow Distillation (few-step inference) — CM/iCT/sCM/CTM/LCM/LCM-LoRA/TCD/rCM, DMD/DMD2, ADD/LADD/Lightning, Rectified Flow/InstaFlow, Guidance/Progressive distillation",
@@ -112,5 +112,14 @@
   },
   "summary": "Diffusion Distillation tutorial: solo subagent draft (1570 lines, now ~1640) → main-session DIY strict review caught 7 substantive citation/scope issues + 1 render table-pipe collision (round 1). Per user no-defer policy, returned for 4 more rounds of deep math/code fixes on the previously-deferred items: sCM JVP self-reference, DMD score/denoiser notation, DMD2 multi-step backward simulation, LCM-LoRA arg name, Reflow tensor shape. All 5 substantively fixed and verified by codex gpt-5.5 xhigh. Tutorial now production-faithful to sCM (Lu-Song 2024), DMD (Yin 2024 CVPR), DMD2 (Yin 2024 NeurIPS), and current HF diffusers LCM-LoRA API.",
   "no_defer_compliance": true,
-  "rendered_at": "2026-05-20"
+  "rendered_at": "2026-05-20",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "iCT CIFAR-10 FID corrected: 2.51/2.24 are iCT-DEEP; plain iCT is 2.83/2.46 (resolves the self-contradiction with section 10 Q3).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

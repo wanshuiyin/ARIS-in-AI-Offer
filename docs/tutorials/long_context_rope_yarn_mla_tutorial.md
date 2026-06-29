@@ -758,7 +758,7 @@ $$\mathrm{Diff} = \mathrm{softmax}(Q_1 K_1^\top / \sqrt{d}) - \lambda \cdot \mat
 
 - **直觉**：第一项学"信号"，第二项学"噪声"，差值更尖锐。
 - **效果**：长上下文 needle-in-haystack 任务上比 vanilla attention 提升明显。
-- **代价**：每 head 多一组 Q/K 投影（参数和计算 + 50%）。
+- **代价**：实现上每 head 多算一组 Q/K 投影，但论文通过**减半 head 数**使总参数 / FLOPs 与标准 attention **基本持平**（≈0 额外开销，不是 +50%）。
 
 > 💡 **是否选用** — Differential Attention 是 2024 末的新方向，业界采用率还不高（DeepSeek-V3 没用，Llama-3 也没用），但研究上有意思。面试问"长上下文新方向"可以提一句。
 

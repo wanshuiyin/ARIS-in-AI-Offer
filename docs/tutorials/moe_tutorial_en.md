@@ -446,7 +446,7 @@ Arranged by time and "engineering threshold" in 7 rows (must-memorize timeline +
 | --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | Mixtral 8x7B | 46.7B | 12.9B | 8 | 2 | 0 | aux loss | 2023.12 |
 | Mixtral 8x22B | 141B | 39B | 8 | 2 | 0 | aux loss | 2024.4 |
-| Qwen2-57B-A14B | 57B | 14B | 64 | 8 | 0 | aux loss | 2024.6 |
+| Qwen2-57B-A14B | 57B | 14B | 64 | 8 | 1 | aux loss | 2024.6 |
 | DeepSeek-V2 | 236B | 21B | 160 | 6 | 2 | aux loss + device-level | 2024.5 |
 | **DeepSeek-V3** | **671B** | **37B** | **256** | **8** | **1** | **Aux-loss-free + sequence-aux** | 2024.12 |
 | Llama 4 Scout | 109B | 17B | 16 | 1 | 1 | undisclosed | 2025.4 |

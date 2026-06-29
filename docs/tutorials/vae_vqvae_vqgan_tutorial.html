@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/vae_vqvae_vqgan_tutorial.md">
-<meta name="aris:source-sha256" content="826ba28b7bb7ff38ca137ceebd48b0f4395a58dfb4081bb9f874234f2a61899c">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="516738c39ed47d9a19f540aee2ef8f3f6ce94258ed4d7995404364aac3a515b6">
+<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -618,8 +618,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/vae_vqvae_vqgan_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>826ba28b7bb7</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>516738c39ed4</code></span>
+    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
     
   </div>
 </header>
@@ -1050,10 +1050,10 @@ def hinge_g_loss(fake_logits):
 <h3 id="82-gumbel-softmax-推导">8.2　Gumbel-Softmax 推导</h3>
 <p><strong>目标</strong>：让 categorical sampling 可导。</p>
 <p><strong>Gumbel-Max trick</strong>：对 logits $\pi = (\pi_1, \ldots, \pi_K)$ 加独立 Gumbel(0,1) 噪声 $g_k = -\log(-\log u_k), u_k \sim \mathcal{U}(0, 1)$，则：</p>
-<p>$$\arg\max_k \{\log \pi_k + g_k\}$$</p>
+<p>$$\arg\max_k \{\pi_k + g_k\}$$</p>
 <p>服从 categorical(softmax($\pi$))。证明用 Gumbel 分布的 CDF 性质：$P(\max_k X_k = X_j) = e^{\pi_j} / \sum_k e^{\pi_k}$。</p>
 <p><strong>Gumbel-softmax (Jang et al., ICLR 2017; Maddison et al., ICLR 2017 同期)</strong>：把不可导的 argmax <strong>替换成</strong> softmax：</p>
-<p>$$\boxed{\;y_k = \frac{\exp((\log \pi_k + g_k) / \tau)}{\sum_j \exp((\log \pi_j + g_j) / \tau)}\;}$$</p>
+<p>$$\boxed{\;y_k = \frac{\exp((\pi_k + g_k) / \tau)}{\sum_j \exp((\pi_j + g_j) / \tau)}\;}$$</p>
 <ul><li>$\tau \to 0$：$y$ 接近 one-hot（贴近 categorical 采样）</li><li>$\tau \to \infty$：$y$ 接近均匀（梯度好但偏离）</li><li>训练时 $\tau$ anneal: $1.0 \to 0.1$ 渐降</li></ul>
 <p><strong>Straight-Through Gumbel-Softmax</strong>：前向用 argmax（离散），反向用 softmax 梯度——类似 VQ-VAE 的 STE 思路。</p>
 <pre><code class="language-python">def gumbel_softmax_sample(logits, tau=1.0, hard=False, dim=-1):
@@ -1203,7 +1203,7 @@ FSQ    →   离散 token grid  →   Transformer AR  (Cosmos, OpenMagViT2)
 LFQ    →   binary token grid →   AR / bit predictor (MAGVIT-v2, VideoPoet)
 KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, FLUX)</code></pre>
 <h3 id="113-reconstruction-perception-tradeoff高级题">11.3　Reconstruction-Perception Tradeoff（高级题）</h3>
-<p>Blau &amp; Michaeli (ICML 2018) 证明：<strong>重建（MSE / PSNR）和感知（perceptual / FID）之间存在严格的 Pareto 边界</strong>。VQ-GAN / SD VAE 引入 LPIPS + adversarial 是<strong>为了交换更高 perceptual 质量而接受略差的 PSNR</strong>。</p>
+<p>Blau &amp; Michaeli (CVPR 2018) 证明：<strong>重建（MSE / PSNR）和感知（perceptual / FID）之间存在严格的 Pareto 边界</strong>。VQ-GAN / SD VAE 引入 LPIPS + adversarial 是<strong>为了交换更高 perceptual 质量而接受略差的 PSNR</strong>。</p>
 <div class="callout callout-warn"><div class="callout-title">PSNR 不等于&quot;看起来好&quot;</div><p>VQ-GAN 论文里 PSNR 不一定优于 VQ-VAE，但 perceptual (LPIPS / FID) 远好。<strong>面试常被反问"为什么 SOTA tokenizer 的 PSNR 反而下降"</strong>——这是 distortion-perception tradeoff。</p></div>
 <h2 id="12-25-高频面试题">§12 25 高频面试题</h2>
 <p>codex (gpt-5.5 xhigh) 作为顶级 lab 面试官视角列的，按难度分 3 档。每题点开看答案要点 + 易踩坑。</p>
@@ -1315,7 +1315,7 @@ KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, F
 <details>
 
 <summary>Q18.LPIPS 是什么？相比 MSE 优势？</summary>
-<ul><li>用预训练 VGG / AlexNet 中间层 feature 计算距离：$\sum_l w_l \|\phi_l(x) - \phi_l(\hat{x})\|^2$</li><li>$w_l$ 是学到的 channel-wise weight（Zhang et al. CVPR 2018）</li><li>比 pixel-MSE 更贴近人类感知判断</li><li>是 VQ-GAN / SD / 大部分 image GAN / diffusion 训练的标配</li><li>配合 distortion-perception tradeoff 用（Blau &amp; Michaeli ICML 2018）</li></ul>
+<ul><li>用预训练 VGG / AlexNet 中间层 feature 计算距离：$\sum_l w_l \|\phi_l(x) - \phi_l(\hat{x})\|^2$</li><li>$w_l$ 是学到的 channel-wise weight（Zhang et al. CVPR 2018）</li><li>比 pixel-MSE 更贴近人类感知判断</li><li>是 VQ-GAN / SD / 大部分 image GAN / diffusion 训练的标配</li><li>配合 distortion-perception tradeoff 用（Blau &amp; Michaeli CVPR 2018）</li></ul>
 <p>只说"用 VGG feature"，不说 learned channel weights / human study 拟合。</p>
 </details>
 <details>
@@ -1360,7 +1360,7 @@ KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, F
 <details>
 
 <summary>Q25.Reconstruction-perception tradeoff 是什么？对 VQ-GAN / SD VAE 有什么含义？</summary>
-<ul><li>Blau &amp; Michaeli (ICML 2018) 证明：<strong>MSE / PSNR (distortion) 与 perceptual 距离 (perception) 之间存在严格 Pareto 边界</strong></li><li>降低 distortion → 必然提升或不降 perception 损失，反之亦然</li><li><strong>不存在同时最优</strong>：VQ-GAN / SD VAE 引入 LPIPS + adversarial 是<strong>主动牺牲 PSNR 换 perceptual 质量</strong></li><li>含义：评估 tokenizer 不应只看 PSNR / MSE；FID / IS / KID 等 perceptual 指标更重要</li><li>工业实践：在 8×-32× 高压缩下，perceptual loss 是 VQ-GAN / SD VAE 不糊的关键</li></ul>
+<ul><li>Blau &amp; Michaeli (CVPR 2018) 证明：<strong>MSE / PSNR (distortion) 与 perceptual 距离 (perception) 之间存在严格 Pareto 边界</strong></li><li>降低 distortion → 必然提升或不降 perception 损失，反之亦然</li><li><strong>不存在同时最优</strong>：VQ-GAN / SD VAE 引入 LPIPS + adversarial 是<strong>主动牺牲 PSNR 换 perceptual 质量</strong></li><li>含义：评估 tokenizer 不应只看 PSNR / MSE；FID / IS / KID 等 perceptual 指标更重要</li><li>工业实践：在 8×-32× 高压缩下，perceptual loss 是 VQ-GAN / SD VAE 不糊的关键</li></ul>
 <p>只答"PSNR 不是好指标"，没说背后是严格的 Pareto bound。</p>
 </details>
 <h2 id="a-附录完整-from-scratch-代码骨架--sanity-check">§A 附录：完整 from-scratch 代码骨架 + sanity check</h2>
@@ -1383,8 +1383,8 @@ KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, F
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/vae_vqvae_vqgan_tutorial.md</code> ·
-  SHA256 <code>826ba28b7bb7</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>516738c39ed4</code> ·
+  generated at 2026-06-29 10:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

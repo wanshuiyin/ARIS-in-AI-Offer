@@ -694,13 +694,13 @@ Gao, Schulman, Hilton 2023 ICML *Scaling Laws for Reward Model Overoptimization*
 
 For 7B base, fp16 forward + fp32 master, AdamW (typical RLHF):
 
-| Copy | Use | bf16 weights | fp32 optimizer state | Total |
+| Copy | Use | bf16 weights + grads | fp32 (master + Adam m,v) | Total |
 | --- | --- | --- | --- | --- |
-| Policy $\pi_\theta$ | trainable | 14 GB | 28+14+14=56 GB | **70 GB** |
-| Value $V_\phi$ | trainable | 14 GB | 56 GB | **70 GB** |
+| Policy $\pi_\theta$ | trainable | 14+14=28 GB | 28+28+28=84 GB | **112 GB** |
+| Value $V_\phi$ | trainable | 28 GB | 84 GB | **112 GB** |
 | Reference $\pi_\text{ref}$ | frozen | 14 GB | — | 14 GB |
 | Reward $r_\psi$ | frozen | 14 GB | — | 14 GB |
-| **Total** | | | | **~170 GB** |
+| **Total** | | | | **~252 GB** (each trainable model = 16 B/param ×7B = 112 GB; matches the distributed-training tutorial) |
 
 Plus activation, KV cache, generation buffer, a single 80GB card is hard to fit; typically using ZeRO-3 + offload or multi-machine sharding.
 

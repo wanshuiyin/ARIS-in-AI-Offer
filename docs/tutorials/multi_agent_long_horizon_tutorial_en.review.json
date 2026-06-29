@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/multi_agent_long_horizon_tutorial_en.md",
-  "source_sha256": "aa11d2b3cce743673d7b9b1a00331f3c5ca5f489982bee8bfed5381e4b8db68f",
+  "source_sha256": "c652195aea1d35463dc3a1c6b0fc8d4729abdd297ff37869b7a23cf0b4483f43",
   "output": "docs/tutorials/multi_agent_long_horizon_tutorial_en.html",
   "zh_source": "docs/tutorials/multi_agent_long_horizon_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -15,5 +15,14 @@
     "issues": [],
     "summary": "Independent cross-model VERIFY confirms the EN-fidelity fix to docs/tutorials/multi_agent_long_horizon_tutorial_en.md. The previously-flagged §3.2 extract_answer regex divergence is now resolved: the EN code's regex is byte-identical to the ZH source. Codex (fresh GPT-5.5 xhigh, thread 019e7ccb-1e1a-7420-9b4a-9e92df645b6e) returned verdict PASS with no issues. My own pre-delegation check corroborates: (1) /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/multi_agent_long_horizon_tutorial.md line 214 and /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/multi_agent_long_horizon_tutorial_e"
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "MoA venue corrected NeurIPS 2024 to ICLR 2025 (Spotlight) at section 2.5 and Q6 (section 0 was already right); FrugalGPT re-attributed Yue to Chen, Zaharia & Zou; MLE-bench 16.9% AIDE model corrected GPT-4o to o1-preview (matches the agent-foundations tutorial); Devin Mar-2024 13.9% noted to be on the ORIGINAL SWE-bench (Verified launched 2024-08). (EN edition mirrors the ZH fix.)",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

@@ -131,7 +131,7 @@ CT (Consistency Training) 原本质量远低于 CD。iCT 改进四件事：
 - L2 对 outlier 敏感、训练不稳
 - Pseudo-Huber $\sqrt{\|a-b\|^2 + c^2} - c$：小残差时 ≈ $\|a-b\|^2/(2c)$（L2），大残差时 ≈ $\|a-b\|$（L1）——**自适应 robust**
 
-**结果**：iCT 在 CIFAR-10 **1-step FID 2.51 / 2-step FID 2.24**（论文摘要数字），且**不依赖 teacher**——彻底打开 from-scratch consistency training 的天花板。
+**结果**：iCT 在 CIFAR-10 **1-step FID 2.83 / 2-step FID 2.46**（论文摘要数字；更深的 iCT-deep 进一步到 2.51 / 2.24），且**不依赖 teacher**——彻底打开 from-scratch consistency training 的天花板。
 
 ### 2.4　sCM / TrigFlow (Lu-Song 2024 OpenAI, arXiv:2410.11081)
 

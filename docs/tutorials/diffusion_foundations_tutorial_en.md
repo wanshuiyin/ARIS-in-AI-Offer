@@ -18,7 +18,7 @@
 
 8. **Production**: SD/SDXL use VAE latent + UNet; SD3 / FLUX.1 switch to **Rectified Flow + MM-DiT**; ControlNet adds a trainable side branch to a frozen UNet; DiT replaces the UNet entirely with a Transformer.
 
-9. **Acceleration**: DPM-Solver++ compresses NFE to 10-20; Consistency Models learn $f_\theta(x_t, t) \mapsto x_0$ for 1-4 step sampling; LCM / LCM-LoRA / SDXL-Turbo / SD3-Turbo (ADD) bring distillation to the entire Stable Diffusion family.
+9. **Acceleration**: DPM-Solver++ compresses NFE to 10-20; Consistency Models learn $f_\theta(x_t, t) \mapsto x_0$ for 1-4 step sampling; LCM / LCM-LoRA / SDXL-Turbo (ADD) / SD3-Turbo (LADD) bring distillation to the entire Stable Diffusion family.
 
 ## §1 Intuition & three views
 
@@ -629,13 +629,13 @@ with $c_\text{skip}, c_\text{out}$ designed so that $f_\theta \equiv x$ at $\sig
 
 **LCM-LoRA**: package LCM training as a LoRA adapter — a single LoRA file lets any SD 1.5 / SDXL fine-tune generate in 4 steps. **Huge ecosystem value**: users don't need to swap base models.
 
-### 12.4　Adversarial Diffusion Distillation (ADD) — SDXL-Turbo / SD3-Turbo (Sauer 2023/2024)
+### 12.4　Adversarial Diffusion Distillation: ADD (SDXL-Turbo) / LADD (SD3-Turbo) (Sauer 2023/2024)
 
 **ADD training objective**:
 
 $$L_\text{ADD} = L_\text{adv}(\text{student}) + \lambda L_\text{distill}(\text{student}, \text{teacher})$$
 
-- $L_\text{adv}$: discriminator backbone is a pretrained vision model (DINOv2)
+- $L_\text{adv}$: **ADD (SDXL-Turbo)** uses a pretrained vision model (DINOv2) as the discriminator; **LADD (SD3-Turbo)** instead uses the teacher diffusion-transformer's own latent features as the discriminator (no DINOv2; discrimination happens in latent space)
 - $L_\text{distill}$: student multi-step ODE should match teacher multi-step ODE
 
 **Results**: SDXL-Turbo 1-step 1024 px, SD3-Turbo 4-step 1024 px. Quality slightly below multi-step but real-time (~100ms / image).

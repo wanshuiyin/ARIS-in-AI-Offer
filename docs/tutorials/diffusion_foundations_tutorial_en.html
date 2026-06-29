@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_foundations_tutorial_en.md">
-<meta name="aris:source-sha256" content="5f3b3e8403e8abdc6cbd6ec2c8d893bc9c2919733358f4837062708d53549727">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="472f945ffb064405f5ef17ad3cbf7ca4e0da2ad0f455ef7e5adc70784dcbd94e">
+<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -613,7 +613,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#121-progressive-distillation-salimans-ho-2022">12.1　Progressive Distillation (Salimans-Ho 2022)</a></li>
 <li><a href="#122-consistency-models-song-2023-icml">12.2　Consistency Models (Song 2023 ICML)</a></li>
 <li><a href="#123-lcm--lcm-lora-luo-2023">12.3　LCM / LCM-LoRA (Luo 2023)</a></li>
-<li><a href="#124-adversarial-diffusion-distillation-add--sdxl-turbo--sd3-turbo-sauer-20232024">12.4　Adversarial Diffusion Distillation (ADD) — SDXL-Turbo / SD3-Turbo (Sauer 2023/2024)</a></li>
+<li><a href="#124-adversarial-diffusion-distillation-add-sdxl-turbo--ladd-sd3-turbo-sauer-20232024">12.4　Adversarial Diffusion Distillation: ADD (SDXL-Turbo) / LADD (SD3-Turbo) (Sauer 2023/2024)</a></li>
 </ul>
 </li>
 <li><a href="#13-the-bridge-to-flow-matching">§13 The bridge to Flow Matching</a>
@@ -652,15 +652,15 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_foundations_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>5f3b3e8403e8</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>472f945ffb06</code></span>
+    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr">§0 TL;DR</h2>
 <div class="callout callout-info"><div class="callout-title">Diffusion fundamentals in 9 sentences</div><p>one-page interview essentials (full derivations in §1-§13).</p></div>
-<ol><li><strong>DDPM (Ho 2020)</strong>: forward $q(x_t|x_0) = \mathcal{N}(\sqrt{\bar\alpha_t} x_0, (1-\bar\alpha_t) I)$ admits closed-form sampling; reverse $p_\theta(x_{t-1}|x_t) = \mathcal{N}(\mu_\theta, \Sigma_\theta)$ learns the reverse Gaussian; the ELBO simplifies to $L_\text{simple} = \mathbb{E}\|\epsilon - \epsilon_\theta(x_t, t)\|^2$ ($\epsilon$-prediction).</li><li><strong>Three equivalent views</strong>: DDPM's $\epsilon$, score-based $s = \nabla \log p_t$, and flow matching's $v$ are linearly invertible under the Gaussian path — $s_\theta = -\epsilon_\theta / \sigma_t$, $v = \alpha'x_0 + \sigma'\epsilon$.</li><li><strong>Tweedie's formula</strong>: $\mathbb{E}[x_0 | x_t] = x_t + \sigma_t^2 \nabla_{x_t} \log p_t(x_t)$ — a one-line bridge between denoiser and score.</li><li><strong>Score SDE (Song 2021)</strong>: a unified VP-SDE / VE-SDE framework; the <strong>reverse-time SDE</strong> and the <strong>probability flow ODE</strong> share the same family of marginals, and the ODE form directly yields FM's vector field.</li><li><strong>DDIM (Song 2020 / ICLR 2021)</strong>: a non-Markovian forward leads to a deterministic sampler with <strong>the same marginals as DDPM</strong> but a controllable sampling path ($\eta=0$ deterministic; $\eta=1$ over the full $T$ steps degenerates to DDPM ancestral, but with skipped steps it only matches DDPM variance, not strict equivalence).</li><li><strong>EDM (Karras 2022)</strong>: preconditioning makes the network output have unit variance: $D_\theta(x;\sigma) = c_\text{skip}(\sigma) x + c_\text{out}(\sigma) F_\theta(c_\text{in}(\sigma) x, c_\text{noise}(\sigma))$; combined with a $\sigma$-schedule + Heun 2nd-order sampler, <strong>SOTA FID with NFE down to 18-35</strong>.</li><li><strong>CFG (Ho-Salimans 2022)</strong>: during training drop the condition with probability $p_\text{drop}$ → the same net learns conditional/unconditional; at inference $\tilde\epsilon = (1+w)\epsilon_\theta(x,c) - w\epsilon_\theta(x,\emptyset)$, with $w \in [3, 7]$ being the workhorse range for text-to-image.</li><li><strong>Production</strong>: SD/SDXL use VAE latent + UNet; SD3 / FLUX.1 switch to <strong>Rectified Flow + MM-DiT</strong>; ControlNet adds a trainable side branch to a frozen UNet; DiT replaces the UNet entirely with a Transformer.</li><li><strong>Acceleration</strong>: DPM-Solver++ compresses NFE to 10-20; Consistency Models learn $f_\theta(x_t, t) \mapsto x_0$ for 1-4 step sampling; LCM / LCM-LoRA / SDXL-Turbo / SD3-Turbo (ADD) bring distillation to the entire Stable Diffusion family.</li></ol>
+<ol><li><strong>DDPM (Ho 2020)</strong>: forward $q(x_t|x_0) = \mathcal{N}(\sqrt{\bar\alpha_t} x_0, (1-\bar\alpha_t) I)$ admits closed-form sampling; reverse $p_\theta(x_{t-1}|x_t) = \mathcal{N}(\mu_\theta, \Sigma_\theta)$ learns the reverse Gaussian; the ELBO simplifies to $L_\text{simple} = \mathbb{E}\|\epsilon - \epsilon_\theta(x_t, t)\|^2$ ($\epsilon$-prediction).</li><li><strong>Three equivalent views</strong>: DDPM's $\epsilon$, score-based $s = \nabla \log p_t$, and flow matching's $v$ are linearly invertible under the Gaussian path — $s_\theta = -\epsilon_\theta / \sigma_t$, $v = \alpha'x_0 + \sigma'\epsilon$.</li><li><strong>Tweedie's formula</strong>: $\mathbb{E}[x_0 | x_t] = x_t + \sigma_t^2 \nabla_{x_t} \log p_t(x_t)$ — a one-line bridge between denoiser and score.</li><li><strong>Score SDE (Song 2021)</strong>: a unified VP-SDE / VE-SDE framework; the <strong>reverse-time SDE</strong> and the <strong>probability flow ODE</strong> share the same family of marginals, and the ODE form directly yields FM's vector field.</li><li><strong>DDIM (Song 2020 / ICLR 2021)</strong>: a non-Markovian forward leads to a deterministic sampler with <strong>the same marginals as DDPM</strong> but a controllable sampling path ($\eta=0$ deterministic; $\eta=1$ over the full $T$ steps degenerates to DDPM ancestral, but with skipped steps it only matches DDPM variance, not strict equivalence).</li><li><strong>EDM (Karras 2022)</strong>: preconditioning makes the network output have unit variance: $D_\theta(x;\sigma) = c_\text{skip}(\sigma) x + c_\text{out}(\sigma) F_\theta(c_\text{in}(\sigma) x, c_\text{noise}(\sigma))$; combined with a $\sigma$-schedule + Heun 2nd-order sampler, <strong>SOTA FID with NFE down to 18-35</strong>.</li><li><strong>CFG (Ho-Salimans 2022)</strong>: during training drop the condition with probability $p_\text{drop}$ → the same net learns conditional/unconditional; at inference $\tilde\epsilon = (1+w)\epsilon_\theta(x,c) - w\epsilon_\theta(x,\emptyset)$, with $w \in [3, 7]$ being the workhorse range for text-to-image.</li><li><strong>Production</strong>: SD/SDXL use VAE latent + UNet; SD3 / FLUX.1 switch to <strong>Rectified Flow + MM-DiT</strong>; ControlNet adds a trainable side branch to a frozen UNet; DiT replaces the UNet entirely with a Transformer.</li><li><strong>Acceleration</strong>: DPM-Solver++ compresses NFE to 10-20; Consistency Models learn $f_\theta(x_t, t) \mapsto x_0$ for 1-4 step sampling; LCM / LCM-LoRA / SDXL-Turbo (ADD) / SD3-Turbo (LADD) bring distillation to the entire Stable Diffusion family.</li></ol>
 <h2 id="1-intuition--three-views">§1 Intuition &amp; three views</h2>
 <h3 id="11-one-sentence-intuition">1.1　One-sentence intuition</h3>
 <p><strong>Diffusion = learning to "denoise"</strong>: progressively noise data from clean to pure Gaussian (forward), then learn to reverse it step-by-step from noise back to data (reverse). All diffusion papers differ on just three things:</p>
@@ -944,10 +944,10 @@ else:
 <p><strong>Latent Consistency Model</strong>: apply Consistency Models to latent diffusion (SD 1.5 / SDXL):</p>
 <ul><li>Teacher = pretrained SD (DDIM as ODE solver)</li><li>Student = LCM, 4-8 step generation</li></ul>
 <p><strong>LCM-LoRA</strong>: package LCM training as a LoRA adapter — a single LoRA file lets any SD 1.5 / SDXL fine-tune generate in 4 steps. <strong>Huge ecosystem value</strong>: users don't need to swap base models.</p>
-<h3 id="124-adversarial-diffusion-distillation-add--sdxl-turbo--sd3-turbo-sauer-20232024">12.4　Adversarial Diffusion Distillation (ADD) — SDXL-Turbo / SD3-Turbo (Sauer 2023/2024)</h3>
+<h3 id="124-adversarial-diffusion-distillation-add-sdxl-turbo--ladd-sd3-turbo-sauer-20232024">12.4　Adversarial Diffusion Distillation: ADD (SDXL-Turbo) / LADD (SD3-Turbo) (Sauer 2023/2024)</h3>
 <p><strong>ADD training objective</strong>:</p>
 <p>$$L_\text{ADD} = L_\text{adv}(\text{student}) + \lambda L_\text{distill}(\text{student}, \text{teacher})$$</p>
-<ul><li>$L_\text{adv}$: discriminator backbone is a pretrained vision model (DINOv2)</li><li>$L_\text{distill}$: student multi-step ODE should match teacher multi-step ODE</li></ul>
+<ul><li>$L_\text{adv}$: <strong>ADD (SDXL-Turbo)</strong> uses a pretrained vision model (DINOv2) as the discriminator; <strong>LADD (SD3-Turbo)</strong> instead uses the teacher diffusion-transformer's own latent features as the discriminator (no DINOv2; discrimination happens in latent space)</li><li>$L_\text{distill}$: student multi-step ODE should match teacher multi-step ODE</li></ul>
 <p><strong>Results</strong>: SDXL-Turbo 1-step 1024 px, SD3-Turbo 4-step 1024 px. Quality slightly below multi-step but real-time (~100ms / image).</p>
 <h2 id="13-the-bridge-to-flow-matching">§13 The bridge to Flow Matching</h2>
 <h3 id="131-score-vs-vector-field--same-information-different-parametrization">13.1　Score vs vector field — same information, different parametrization</h3>
@@ -1425,8 +1425,8 @@ def pf_ode_sample_euler(eps_model, sched: DDPMSchedule, shape, device, num_steps
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_foundations_tutorial_en.md</code> ·
-  SHA256 <code>5f3b3e8403e8</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>472f945ffb06</code> ·
+  generated at 2026-06-29 10:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

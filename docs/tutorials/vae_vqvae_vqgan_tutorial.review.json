@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/vae_vqvae_vqgan_tutorial.md",
-  "source_sha256": "826ba28b7bb7ff38ca137ceebd48b0f4395a58dfb4081bb9f874234f2a61899c",
+  "source_sha256": "516738c39ed47d9a19f540aee2ef8f3f6ce94258ed4d7995404364aac3a515b6",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/vae_vqvae_vqgan_tutorial.html",
   "topic": "VAE / VQ-VAE / VQ-GAN / FSQ (latent variable models + discrete tokenizers)",
@@ -65,5 +65,14 @@
     ]
   },
   "summary": "VAE tutorial: original draft (no subagent rounds — agent hung twice). Main-session DIY did 1 substantive round catching 6 real issues (FSQ even-level bug in both math + code, VQ-GAN generator vs discriminator loss separation, lambda gradient norm, CVCV→CVPR typo, 7 callout spacings). Render review caught 1 more (TOC markdown leak). All fixed. 1396 lines.",
-  "rendered_at": "2026-05-19"
+  "rendered_at": "2026-05-19",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Blau & Michaeli venue corrected ICML 2018 to CVPR 2018 (Perception-Distortion Tradeoff), x2; Gumbel-Max section 8.2 notation made self-consistent under the logits reading (dropped the spurious log on pi, matching the softmax(pi) result and the code).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

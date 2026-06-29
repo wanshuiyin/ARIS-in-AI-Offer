@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/moe_tutorial.md",
-  "source_sha256": "e860589270ed447981c868a7e0f0ba51ac8917a8908580825403af8205baf3b1",
+  "source_sha256": "9c77f99fe677adb0a0ed3cc47c02fdaf7388aba6fc37b6b064d19dc0a5b4e433",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/moe_tutorial.html",
   "topic": "MoE (Mixture-of-Experts) — DeepSeek-V3 / Mixtral / Llama 4 / Qwen-MoE",
@@ -52,5 +52,14 @@
     ]
   },
   "summary": "MoE tutorial: original draft (no subagent rounds) received first independent codex review from main session. Caught 4 substantive issues (Q20 arithmetic, §4.4 missing Jacobian terms, capacity int vs ceil, H100 memory). All fixed. Final 13/13 render PASS. 1023+ lines.",
-  "rendered_at": "2026-05-19"
+  "rendered_at": "2026-05-19",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Qwen2-57B-A14B shared-expert count corrected 0 to 1 (it has a shared-expert path, inherited from Qwen1.5-MoE; only Qwen3 dropped shared experts).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

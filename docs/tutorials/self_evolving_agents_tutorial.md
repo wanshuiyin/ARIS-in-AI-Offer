@@ -162,7 +162,7 @@ Native Evolution 的 K 还会显式存：
 
 进入 2024-2026 前沿之前，必须先把三个奠基 work 嚼透——面试官十有八九会问 baseline。
 
-### 4.1　Voyager（Wang 2023 NeurIPS, NVIDIA + Caltech）
+### 4.1　Voyager（Wang 2023 TMLR, NVIDIA + Caltech）
 
 第一个真正意义上的"自动 curriculum + skill library"端到端 agent：在 Minecraft 里跑 GPT-4，让它自己出任务、写 JS code（每段 code 是一个 skill）、自检、并把成功的 skill 存进 library。
 
@@ -935,7 +935,7 @@ Self-evolving agent：在使用过程中持续更新某一层（参数 / skill m
 
 <summary>Q3. Voyager 的三件套是什么？为什么不更新 GPT-4 权重？</summary>
 
-Voyager (Wang et al. NeurIPS 2023, NVIDIA + Caltech)：
+Voyager (Wang et al. TMLR 2023, NVIDIA + Caltech)：
 
 - **Automatic Curriculum**：根据 inventory 自动出下一个 task
 - **Skill Library**：每个 skill 是 JS function，按 description embedding 检索

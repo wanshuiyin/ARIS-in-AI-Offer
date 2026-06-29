@@ -18,7 +18,7 @@
 
 8. **Production**：SD/SDXL 用 VAE latent + UNet；SD3 / FLUX.1 改用 **Rectified Flow + MM-DiT**；ControlNet 给 frozen UNet 加可训练 side branch；DiT 把 UNet 全换 Transformer。
 
-9. **加速**：DPM-Solver++ 把 NFE 压到 10-20；Consistency Models 学 $f_\theta(x_t, t) \mapsto x_0$ 做到 1-4 步；LCM / LCM-LoRA / SDXL-Turbo / SD3-Turbo (ADD) 让蒸馏在 Stable Diffusion 全家桶可用。
+9. **加速**：DPM-Solver++ 把 NFE 压到 10-20；Consistency Models 学 $f_\theta(x_t, t) \mapsto x_0$ 做到 1-4 步；LCM / LCM-LoRA / SDXL-Turbo (ADD) / SD3-Turbo (LADD) 让蒸馏在 Stable Diffusion 全家桶可用。
 
 ## §1 直觉 & 三种视角
 
@@ -629,13 +629,13 @@ $c_\text{skip}, c_\text{out}$ 设计让 $\sigma = \sigma_\text{min}$ 时 $f_\the
 
 **LCM-LoRA**：把 LCM 训练写成 LoRA adapter——单 LoRA 文件即可让任意 SD 1.5 / SDXL fine-tune 用 4 step 出图。**生态价值巨大**：用户不需要换 base model。
 
-### 12.4　Adversarial Diffusion Distillation (ADD) — SDXL-Turbo / SD3-Turbo (Sauer 2023/2024)
+### 12.4　Adversarial Diffusion Distillation：ADD (SDXL-Turbo) / LADD (SD3-Turbo)（Sauer 2023/2024）
 
 **ADD 训练目标**：
 
 $$L_\text{ADD} = L_\text{adv}(\text{student}) + \lambda L_\text{distill}(\text{student}, \text{teacher})$$
 
-- $L_\text{adv}$：用 pretrained vision model（DINOv2）当 discriminator backbone
+- $L_\text{adv}$：**ADD（SDXL-Turbo）** 用 pretrained vision model（DINOv2）当判别器；**LADD（SD3-Turbo）** 改用 teacher diffusion-transformer 自身的 latent 特征当判别器（不再用 DINOv2，判别发生在 latent 空间）
 - $L_\text{distill}$：student 多步 ODE 应该匹配 teacher 多步 ODE
 
 **结果**：SDXL-Turbo 1-step 1024 px、SD3-Turbo 4-step 1024 px。质量略低于 multi-step 但实时（~100ms / image）。

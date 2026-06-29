@@ -151,7 +151,7 @@ QAEngineer      → Test Cases
 
 ### 2.5　Mixture-of-Agents (MoA) — 2024 NeurIPS 最 catchy 工作
 
-MoA (Wang et al., NeurIPS 2024, arXiv 2406.04692, Together AI) 的核心 idea **简单到没人会信**：
+MoA (Wang et al., ICLR 2025 Spotlight, arXiv 2406.04692, Together AI) 的核心 idea **简单到没人会信**：
 
 ```
         ┌─ proposer_1 (Qwen2-72B)
@@ -353,7 +353,7 @@ def multi_agent_debate(query, agents, num_rounds=3):
 - **Cline**：plan mode = orchestrator 思考，act mode = worker 执行（同一 LLM 不同 prompt）。
 - **Aider**：自动 split 大改成 small commit，每个 commit 是一个 sub-conversation。
 
-> 💡 **orchestrator-worker 的成本结构** — orchestrator 用大模型（Claude 4.6 Sonnet 级别）决策，worker 用便宜模型（Haiku / Sonnet）执行——叫 **"cascading inference"**（Yue 2023 FrugalGPT 提出, arXiv 2305.05176）。1 次 orchestrator call + 10 次 worker call 比 11 次 orchestrator call 便宜 5-10×。
+> 💡 **orchestrator-worker 的成本结构** — orchestrator 用大模型（Claude 4.6 Sonnet 级别）决策，worker 用便宜模型（Haiku / Sonnet）执行——叫 **"cascading inference"**（Chen, Zaharia & Zou 2023 "FrugalGPT", arXiv 2305.05176）。1 次 orchestrator call + 10 次 worker call 比 11 次 orchestrator call 便宜 5-10×。
 
 ### 4.4　Sub-agent blame-shifting (常见 bug)
 
@@ -756,7 +756,7 @@ def lats_search(initial_state, llm_propose, llm_propose_one, llm_value, env_step
 | **WebArena** | Zhou et al., ICLR 2024, arXiv 2307.13854 | self-hosted web (Reddit-clone, Gitea, etc.) | 5-30 | GPT-4 ≈ 14.4% (2024)，2026 头部 ~ 50% |
 | **VisualWebArena** | Koh et al., ACL 2024, arXiv 2401.13649 | WebArena + 视觉理解 | 10-30 | GPT-4V ≈ 16.4% |
 | **SWE-bench / Verified** | Jimenez et al., ICLR 2024, arXiv 2310.06770 | 2294 真实 GitHub issue (Python repos) | 多文件多 commit | Claude 4.6 Sonnet (2026-05) ~ 75% (Verified) |
-| **MLE-bench** | Chan et al., 2024 (OpenAI), arXiv 2410.07095 | 75 Kaggle ML 比赛任务 | 24h compute budget | GPT-4o + AIDE ≈ 16.9% medals |
+| **MLE-bench** | Chan et al., 2024 (OpenAI), arXiv 2410.07095 | 75 Kaggle ML 比赛任务 | 24h compute budget | o1-preview + AIDE ≈ 16.9% medals |
 | **SWE-Lancer** | OpenAI, 2025, arXiv 2502.12115 | 1488 真实 Upwork freelance task ($1M+ payout) | 持续 hours-days | GPT-4o ≈ 8% (managerial), 26% (IC) |
 | **Adventure / TextWorld** | Yuan et al., AAAI 2019, arXiv 1806.11532 | text adventure game | 50-500 | RL-trained baseline + LLM > 80% on Coin Collector |
 
@@ -1103,7 +1103,7 @@ LATS / Agent-Q 类的 tree search at inference：
 
 ### 13.3　Cognition Devin / SWE-Agent
 
-- **Devin** (Cognition, Mar 2024 demo)：第一个商业化"AI 软件工程师" demo，能 plan + code + debug + browser 全 stack。**SWE-bench Verified ~ 13.9%** (Mar 2024)→ ~ 50% (2025-late, Devin 3.0)。
+- **Devin** (Cognition, Mar 2024 demo)：第一个商业化"AI 软件工程师" demo，能 plan + code + debug + browser 全 stack。**SWE-bench（原版）~ 13.9%** (Mar 2024；注：SWE-bench *Verified* 子集 2024-08 才推出)→ ~ 50% (2025-late, Devin 3.0)。
 - **SWE-Agent** (Yang et al., NeurIPS 2024, arXiv 2405.15793, Princeton)：开源 SWE-bench agent，提出 **Agent-Computer Interface (ACI)** 概念——给 LLM 设计专门 file-edit / shell / search 接口（不是直接给 bash），SWE-bench Lite 上 18.0%。
 
 ### 13.4　Cursor / Cline / Aider / Continue
@@ -1205,7 +1205,7 @@ Action 2: ...
 
 <summary>Q6. MoA 是什么？为什么用 N 个 proposer + 1 个 aggregator 而不是 best-of-N？</summary>
 
-**MoA (Mixture-of-Agents, Wang et al. NeurIPS 2024, arXiv 2406.04692)**：N 个 LLM 各自给 response，把 N 个 response **concat 进 prompt**喂给 aggregator LLM 让它 synthesize。
+**MoA (Mixture-of-Agents, Wang et al. ICLR 2025 Spotlight, arXiv 2406.04692)**：N 个 LLM 各自给 response，把 N 个 response **concat 进 prompt**喂给 aggregator LLM 让它 synthesize。
 
 为什么比 best-of-N 好：
 

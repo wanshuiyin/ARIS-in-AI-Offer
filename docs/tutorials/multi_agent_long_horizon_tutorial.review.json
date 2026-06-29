@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/multi_agent_long_horizon_tutorial.md",
-  "source_sha256": "b0be93d29409b81e5bf5e3e896e8ee3b9ae84d0c1a17e72e5ca46476f1d5c065",
+  "source_sha256": "bcaa78e30f03cd4c2041e9685b7b93234323c3709dcae7b49c91e39a5184c34b",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/multi_agent_long_horizon_tutorial.html",
   "topic": "Multi-Agent & Long-Horizon Agents (CAMEL / AutoGen / MetaGPT / MoA / Debate / MemGPT / LATS / SWE-Agent)",
@@ -60,5 +60,14 @@
     ]
   },
   "summary": "Multi-Agent & Long-Horizon tutorial: subagent stalled at 86KB draft; main-session DIY did 1 strict math/code round catching 4 substantive errors (debate Banach claim, 3 citation venues, LATS policy/value conflation, missing code helpers). All fixed. Render review 13/13 PASS. 1769 lines (content-dense WARN accepted).",
-  "rendered_at": "2026-05-19"
+  "rendered_at": "2026-05-19",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "MoA venue corrected NeurIPS 2024 to ICLR 2025 (Spotlight) at section 2.5 and Q6 (section 0 was already right); FrugalGPT re-attributed Yue to Chen, Zaharia & Zou; MLE-bench 16.9% AIDE model corrected GPT-4o to o1-preview (matches the agent-foundations tutorial); Devin Mar-2024 13.9% noted to be on the ORIGINAL SWE-bench (Verified launched 2024-08).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

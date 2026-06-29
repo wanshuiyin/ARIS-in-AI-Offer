@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md",
-  "source_sha256": "67ea410d68e2504164d7d17556f41bf5c4535ebf520c2790b433851a034a78ad",
+  "source_sha256": "66c23bf73856367d2df2ccf093e4771189fc67cc59ccaa1ff767fb2ff09f7159",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.html",
   "topic": "RLHF / DPO / GRPO / PPO (post-training alignment)",
@@ -67,5 +67,14 @@
     ]
   },
   "summary": "RLHF tutorial: subagent 1 round, main-session DIY math/code review pass with 7 callout-spacing fixes. Render review caught real `<t` HTML escape bug (fixed via `\\lt`). 1118 lines, fits target. PASS.",
-  "rendered_at": "2026-05-19"
+  "rendered_at": "2026-05-19",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Section 9.2 RLHF memory table corrected: included the omitted gradient term and fixed Adam m,v (28 GB each, not 14), so each trainable 7B model = 16 B/param = 112 GB and total ~252 GB (was an inconsistent ~170 GB that contradicted the repo distributed-training tutorial).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

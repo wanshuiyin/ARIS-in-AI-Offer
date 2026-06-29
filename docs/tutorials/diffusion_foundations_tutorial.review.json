@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/diffusion_foundations_tutorial.md",
-  "source_sha256_prefix": "95c1efc6f9296783",
+  "source_sha256_prefix": "c72317f75533ee8b",
   "output": "docs/tutorials/diffusion_foundations_tutorial.html",
   "topic": "Diffusion Foundations (DDPM / Score / DDIM / EDM / CFG / Consistency Models)",
   "effort": "max",
@@ -52,5 +52,15 @@
     ]
   },
   "summary": "3-round math/code review settled at WARN (math/code/citations PASS; length 1481 lines exceeds 1000±20% target but content substantive — per spec accepted as WARN). 2-round render review settled at PASS. All blocking issues fixed: DPM-Solver g(t) sign, VP velocity formula, PF-ODE drift coefficient (1/2 vs full), PF-ODE likelihood sign, EDM churn formula, ConditionedEpsNet code bug, CFG conventions, DDIM/SDXL citations, iCT description, Q21 list-numbering rendering bug, and all recruitment-context personal-info leaks.",
-  "rendered_at": "2026-05-19"
+  "rendered_at": "2026-05-19",
+  "source_sha256": "c72317f75533ee8bbab65af66cdc1bb6d7773563123b6001e5888f3571e7acfe",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Section 12.4 and section 0 distinguished ADD (SDXL-Turbo, DINOv2 discriminator) from LADD (SD3-Turbo, teacher latent-feature discriminator, NOT DINOv2) — previously lumped SD3-Turbo under DINOv2-ADD.",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

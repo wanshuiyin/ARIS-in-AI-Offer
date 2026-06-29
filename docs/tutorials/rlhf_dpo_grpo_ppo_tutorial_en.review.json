@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/rlhf_dpo_grpo_ppo_tutorial_en.md",
-  "source_sha256": "8bb9e76ac3dcac46b409bdc418c8ca576d110346f956265d0a7620386427d5b6",
+  "source_sha256": "cea0133f61d32c38df6df98194e3242b9a6811265ec8970b4e6db6c47bd69a2b",
   "output": "docs/tutorials/rlhf_dpo_grpo_ppo_tutorial_en.html",
   "zh_source": "docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -17,5 +17,14 @@
     ],
     "summary": "Fresh cross-model Codex (GPT-5.5 xhigh) translation-fidelity verify of the EN edition vs its ZH source of truth. Verdict: WARN. Both targeted fixes LANDED: (1) the dropped code-framework sentence is restored in the EN appendix — it lists TRL / OpenRLHF / verl (ByteDance Seed) / Axolotl / LLaMA-Factory / SimplePO and states verl is mainstream for GRPO/RLOO/DAPO; (2) §8.1 now uses the exact \"70\" (no \"~70\" / \"approximately 70\") in both the markdown and the HTML render. The EN is otherwise faithful: numbers, formulas, code logic, tensor/shape notation, citations, model/framework names, headings, a"
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Section 9.2 RLHF memory table corrected: included the omitted gradient term and fixed Adam m,v (28 GB each, not 14), so each trainable 7B model = 16 B/param = 112 GB and total ~252 GB (was an inconsistent ~170 GB that contradicted the repo distributed-training tutorial). (EN edition mirrors the ZH fix.)",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

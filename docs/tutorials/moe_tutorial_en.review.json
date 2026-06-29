@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/moe_tutorial_en.md",
-  "source_sha256": "c0214eed718070285a8feb2b8e346bced55b9baf4f51f408da869d5ef6b9a65f",
+  "source_sha256": "0a6fed1518a5af3dde885a37accae4ee87b9d98255eb42ea84ad806aa554add2",
   "output": "docs/tutorials/moe_tutorial_en.html",
   "zh_source": "docs/tutorials/moe_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -15,5 +15,14 @@
     "issues": [],
     "summary": "Fresh cross-model Codex audit (GPT-5.5 xhigh, thread 019e7cbe-4cd6-75b1-9ea4-5e27e8a29cd8) verified the English MoE tutorial is a FAITHFUL translation of the cross-model-verified Chinese source of truth. Codex read all three files (docs/tutorials/moe_tutorial.md [ZH], docs/tutorials/moe_tutorial_en.md [EN], docs/tutorials/moe_tutorial_en.html [EN render]) and returned a clean PASS with zero issues. (a) Facts: every number, formula, code block, tensor shape, citation (author/year/venue), and model name in the EN matches the ZH. (b) Completeness: no section, claim, caveat, table row, or intervie"
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Qwen2-57B-A14B shared-expert count corrected 0 to 1 (it has a shared-expert path, inherited from Qwen1.5-MoE; only Qwen3 dropped shared experts). (EN edition mirrors the ZH fix.)",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

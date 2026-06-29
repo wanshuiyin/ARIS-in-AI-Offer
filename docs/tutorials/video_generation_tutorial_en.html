@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/video_generation_tutorial_en.md">
-<meta name="aris:source-sha256" content="4fa0ce035daf77d9b135b7c0d4e328c1f5977598cc414e89c98dcf067ed9f3a0">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="ad4399f70b8db47dd9d8b130e63e836581691d6b34bd318a4524c2d8ab2dfb5f">
+<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -623,8 +623,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/video_generation_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>4fa0ce035daf</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>ad4399f70b8d</code></span>
+    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
     
   </div>
 </header>
@@ -638,7 +638,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>For an $H{\times}W{\times}T$ video, the pixel count grows linearly with $T$, and the token count (after patchification) also grows linearly. <strong>Attention complexity is quadratic in token count</strong> — meaning full 3D attention in raw pixel space already explodes for $T \ge 16$. So the core engineering problem of video generation is:</p>
 <ul><li><strong>Compression</strong>: 3D VAE compresses token count in both spatial and temporal dimensions (typically $8 \times 8 \times 4$)</li><li><strong>Architecture</strong>: run attention on the latent (spatiotemporal patterns are the design point)</li><li><strong>Generative paradigm</strong>: DDPM / Rectified Flow / FM (v-prediction is mainstream; SD3-style)</li></ul>
 <h3 id="12-2024-2025-timeline-by-release-order">1.2 2024-2025 timeline (by release order)</h3>
-<table><thead><tr><th>Time</th><th>Model</th><th>Source</th><th>Key contribution</th></tr></thead><tbody><tr><td>2023-07 → ICLR'24</td><td><strong>AnimateDiff</strong></td><td>Guo et al.</td><td>T2I backbone + plug-in motion module; the open-source ancestor of I2V/T2V</td></tr><tr><td>2023-11</td><td><strong>SVD</strong></td><td>Stability</td><td>I2V open-source baseline; SD2.1 + temporal layers</td></tr><tr><td>2024-01</td><td><strong>Latte</strong></td><td>Ma et al.</td><td>Early DiT-Video; factorized spatial+temporal</td></tr><tr><td>2024-02</td><td><strong>Sora</strong></td><td>OpenAI</td><td>DiT + spacetime patches + large-scale captioning; closed source</td></tr><tr><td>2024-05</td><td><strong>Veo</strong></td><td>Google DeepMind</td><td>Closed-source 1080p / 1 minute</td></tr><tr><td>2024-06</td><td><strong>Kling</strong></td><td>Kuaishou</td><td>Closed-source from China, up to 2 minutes</td></tr><tr><td>2024-08</td><td><strong>CogVideoX</strong> (arXiv)</td><td>Zhipu/THU</td><td>Open-source 5B/15B; Expert Transformer + 3D VAE</td></tr><tr><td>2024-10</td><td><strong>Movie Gen</strong></td><td>Meta</td><td>30B; joint video + audio; DiT + FM</td></tr><tr><td>2024-10</td><td><strong>Mochi-1</strong></td><td>Genmo</td><td>10B open source; AsymmDiT asymmetric MM-DiT</td></tr><tr><td>2024-11</td><td><strong>LTX-Video</strong></td><td>Lightricks</td><td>Real-time (2B); strong-compression VAE + DiT</td></tr><tr><td>2024-12</td><td><strong>Hunyuan-Video</strong></td><td>Tencent</td><td>13B open-source SoTA; 3D Causal VAE + MM-DiT + prompt rewriter</td></tr><tr><td>2024-12</td><td><strong>Veo 2</strong></td><td>Google</td><td>4K / 2 minutes</td></tr><tr><td>2025-02</td><td><strong>Wan 2.1</strong></td><td>Alibaba (Team Wan)</td><td>14B open source; dual T2V + I2V</td></tr><tr><td>2025-07</td><td><strong>Wan 2.2</strong></td><td>Alibaba</td><td>Upgraded; MoE experts + longer temporal range</td></tr><tr><td>2024-2025</td><td><strong>OpenSora / OpenSora-Plan</strong></td><td>HPC-AI / PKU</td><td>Fully open-source training stack replicating the Sora pipeline</td></tr></tbody></table>
+<table><thead><tr><th>Time</th><th>Model</th><th>Source</th><th>Key contribution</th></tr></thead><tbody><tr><td>2023-07 → ICLR'24</td><td><strong>AnimateDiff</strong></td><td>Guo et al.</td><td>T2I backbone + plug-in motion module; the open-source ancestor of I2V/T2V</td></tr><tr><td>2023-11</td><td><strong>SVD</strong></td><td>Stability</td><td>I2V open-source baseline; SD2.1 + temporal layers</td></tr><tr><td>2024-01</td><td><strong>Latte</strong></td><td>Ma et al.</td><td>Early DiT-Video; factorized spatial+temporal</td></tr><tr><td>2024-02</td><td><strong>Sora</strong></td><td>OpenAI</td><td>DiT + spacetime patches + large-scale captioning; closed source</td></tr><tr><td>2024-05</td><td><strong>Veo</strong></td><td>Google DeepMind</td><td>Closed-source 1080p / 1 minute</td></tr><tr><td>2024-06</td><td><strong>Kling</strong></td><td>Kuaishou</td><td>Closed-source from China, up to 2 minutes</td></tr><tr><td>2024-08</td><td><strong>CogVideoX</strong> (arXiv)</td><td>Zhipu/THU</td><td>Open-source 2B/5B; Expert Transformer + 3D VAE</td></tr><tr><td>2024-10</td><td><strong>Movie Gen</strong></td><td>Meta</td><td>30B; joint video + audio; DiT + FM</td></tr><tr><td>2024-10</td><td><strong>Mochi-1</strong></td><td>Genmo</td><td>10B open source; AsymmDiT asymmetric MM-DiT</td></tr><tr><td>2024-11</td><td><strong>LTX-Video</strong></td><td>Lightricks</td><td>Real-time (2B); strong-compression VAE + DiT</td></tr><tr><td>2024-12</td><td><strong>Hunyuan-Video</strong></td><td>Tencent</td><td>13B open-source SoTA; 3D Causal VAE + MM-DiT + prompt rewriter</td></tr><tr><td>2024-12</td><td><strong>Veo 2</strong></td><td>Google</td><td>4K / 2 minutes</td></tr><tr><td>2025-02</td><td><strong>Wan 2.1</strong></td><td>Alibaba (Team Wan)</td><td>14B open source; dual T2V + I2V</td></tr><tr><td>2025-07</td><td><strong>Wan 2.2</strong></td><td>Alibaba</td><td>Upgraded; MoE experts + longer temporal range</td></tr><tr><td>2024-2025</td><td><strong>OpenSora / OpenSora-Plan</strong></td><td>HPC-AI / PKU</td><td>Fully open-source training stack replicating the Sora pipeline</td></tr></tbody></table>
 <div class="callout callout-warn"><div class="callout-title">Closed vs open source</div><p>Sora / Veo / Kling / Movie Gen do not release weights; all architectural details are based on official technical reports. When interviewing, do not take internal ablations as hard numbers; explicitly say "according to their report".</p></div>
 <h3 id="13-overall-pipeline-the-common-skeleton">1.3 Overall pipeline (the common skeleton)</h3>
 <pre><code>Text  --T5/CLIP/MLLM--&gt;  text tokens [B, L_t, D]
@@ -1155,7 +1155,7 @@ def chunk_autoregressive(rf_sample_fn, vae, text, num_chunks, chunk_t_lat=4, ove
 <details>
 
 <summary>Q9. Which of Sora / Hunyuan-Video / Mochi-1 / Kling are open source?</summary>
-<ul><li><strong>Open source</strong>: Hunyuan-Video (13B, 2024-12), Mochi-1 (10B, 2024-10), CogVideoX (5B/15B, arXiv 2024-08), OpenSora / OpenSora-Plan, LTX-Video (2B, 2024-11), Wan 2.1/2.2 (14B, 2025), SVD (2023-11)</li><li><strong>Closed source</strong>: Sora (2024-02), Veo / Veo 2 (Google), Kling (Kuaishou 2024-06), Movie Gen (Meta, 30B)</li><li>Domestic Chinese open-source mainstays: Hunyuan / Wan / CogVideoX</li></ul>
+<ul><li><strong>Open source</strong>: Hunyuan-Video (13B, 2024-12), Mochi-1 (10B, 2024-10), CogVideoX (2B/5B, arXiv 2024-08), OpenSora / OpenSora-Plan, LTX-Video (2B, 2024-11), Wan 2.1/2.2 (14B, 2025), SVD (2023-11)</li><li><strong>Closed source</strong>: Sora (2024-02), Veo / Veo 2 (Google), Kling (Kuaishou 2024-06), Movie Gen (Meta, 30B)</li><li>Domestic Chinese open-source mainstays: Hunyuan / Wan / CogVideoX</li></ul>
 <p>Pitfall: only remembering Sora and SVD — you must know both open and closed timelines.</p>
 </details>
 <details>
@@ -1356,8 +1356,8 @@ def video_gen_sample(model, text, t_lat=12, h_lat=90, w_lat=160, steps=50,
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/video_generation_tutorial_en.md</code> ·
-  SHA256 <code>4fa0ce035daf</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>ad4399f70b8d</code> ·
+  generated at 2026-06-29 10:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

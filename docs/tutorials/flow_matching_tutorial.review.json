@@ -1,7 +1,7 @@
 {
   "skill": "render-html",
   "source": "docs/tutorials/flow_matching_tutorial.md",
-  "source_sha256_prefix": "435d9a5281b792c9",
+  "source_sha256_prefix": "1c7c8052399a7e64",
   "output": "docs/tutorials/flow_matching_tutorial.html",
   "author": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread per run (never codex-reply)",
@@ -46,6 +46,15 @@
   ],
   "summary": "Single-round PASS after pre-render structural cleanup (callout-list separation) and personal-info redaction.",
   "rendered_at": "2026-05-19",
-  "source_sha256": "435d9a5281b792c9796dffb814c5dd474e15a4173d514405fe3589e22e4b3982",
-  "thread_id": "019e7c8b-45c7-7ba3-9666-71445c16c485"
+  "source_sha256": "1c7c8052399a7e641a715a081dd03e392988a9860bb4e65b80e882ccd9b15355",
+  "thread_id": "019e7c8b-45c7-7ba3-9666-71445c16c485",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Reflow / Rectified Flow venue corrected ICLR 2022 to ICLR 2023 (arXiv was 2022).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

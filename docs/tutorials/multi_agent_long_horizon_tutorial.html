@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/multi_agent_long_horizon_tutorial.md">
-<meta name="aris:source-sha256" content="b0be93d29409b81e5bf5e3e896e8ee3b9ae84d0c1a17e72e5ca46476f1d5c065">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="bcaa78e30f03cd4c2041e9685b7b93234323c3709dcae7b49c91e39a5184c34b">
+<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -643,8 +643,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/multi_agent_long_horizon_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>b0be93d29409</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>bcaa78e30f03</code></span>
+    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
     
   </div>
 </header>
@@ -721,7 +721,7 @@ QAEngineer      → Test Cases</code></pre>
 <ul><li><strong>ChatDev</strong> (Qian et al., ACL 2024, arXiv 2307.07924)：和 MetaGPT 思路类似，软件开发 multi-agent，<strong>chat chain</strong> 串起 design / coding / testing 三阶段。代码量小（~7B token），但开源得早，被广泛 fork。</li><li><strong>AgentVerse</strong> (Chen et al., ICLR 2024, arXiv 2308.10848)：提出 expert recruitment + collaborative decision-making + individual action + evaluation 四阶段框架。expert 角色由 LLM <strong>动态生成</strong>（不是 fixed pool），适合任务多样场景。</li><li><strong>Generative Agents</strong> (Park et al., UIST 2023, arXiv 2304.03442, Stanford + Google)：25 个 agent 在 sandbox 小镇里<strong>自由生活</strong>，每个 agent 有 daily routine + memory stream + reflection。涌现出生日 party、约会、竞选市长等社会行为——<strong>第一次让 LLM agent 表现出 social emergence</strong>。</li></ul>
 <div class="callout callout-warn"><div class="callout-title">Generative Agents 的 emergence 不等于真智能</div><p>Park 2023 强调这是 "believable behavior"（让人觉得像真人），不是有意识或有 agency。Reddit / Twitter 上常被夸大成 "AI village"，面试时要克制：<strong>这是一个 prompt 工程极致的 case study，不是 AGI 雏形</strong>。</p></div>
 <h3 id="25-mixture-of-agents-moa--2024-neurips-最-catchy-工作">2.5　Mixture-of-Agents (MoA) — 2024 NeurIPS 最 catchy 工作</h3>
-<p>MoA (Wang et al., NeurIPS 2024, arXiv 2406.04692, Together AI) 的核心 idea <strong>简单到没人会信</strong>：</p>
+<p>MoA (Wang et al., ICLR 2025 Spotlight, arXiv 2406.04692, Together AI) 的核心 idea <strong>简单到没人会信</strong>：</p>
 <pre class="diagram"><code>        ┌─ proposer_1 (Qwen2-72B)
 prompt ─┼─ proposer_2 (LLaMA3-70B)  ──→ aggregator (Qwen2-72B):
         ├─ proposer_3 (WizardLM)         &quot;把这 N 个 response 综合
@@ -852,7 +852,7 @@ def multi_agent_debate(query, agents, num_rounds=3):
     └────────┘  └────────┘  └────────┘</code></pre>
 <p><strong>Claude Code Agent / Cline / Aider</strong> 都是这个模式：</p>
 <ul><li><strong>Claude Code Agent</strong>：main loop = orchestrator，TaskCreate 调出 subagent（不同 system prompt + 工具子集），完成后 subagent 把 final message 回传 orchestrator。</li><li><strong>Cline</strong>：plan mode = orchestrator 思考，act mode = worker 执行（同一 LLM 不同 prompt）。</li><li><strong>Aider</strong>：自动 split 大改成 small commit，每个 commit 是一个 sub-conversation。</li></ul>
-<div class="callout callout-info"><div class="callout-title">orchestrator-worker 的成本结构</div><p>orchestrator 用大模型（Claude 4.6 Sonnet 级别）决策，worker 用便宜模型（Haiku / Sonnet）执行——叫 <strong>"cascading inference"</strong>（Yue 2023 FrugalGPT 提出, arXiv 2305.05176）。1 次 orchestrator call + 10 次 worker call 比 11 次 orchestrator call 便宜 5-10×。</p></div>
+<div class="callout callout-info"><div class="callout-title">orchestrator-worker 的成本结构</div><p>orchestrator 用大模型（Claude 4.6 Sonnet 级别）决策，worker 用便宜模型（Haiku / Sonnet）执行——叫 <strong>"cascading inference"</strong>（Chen, Zaharia &amp; Zou 2023 "FrugalGPT", arXiv 2305.05176）。1 次 orchestrator call + 10 次 worker call 比 11 次 orchestrator call 便宜 5-10×。</p></div>
 <h3 id="44-sub-agent-blame-shifting-常见-bug">4.4　Sub-agent blame-shifting (常见 bug)</h3>
 <pre><code>Orchestrator: &quot;任务失败了。&quot;
 Worker A: &quot;我已经写完代码了，是 Worker B 的 test 没写好。&quot;
@@ -1121,7 +1121,7 @@ def lats_search(initial_state, llm_propose, llm_propose_one, llm_value, env_step
 <div class="callout callout-warn"><div class="callout-title">LATS 实现陷阱</div><p>(1) <code>simulate</code> 必须从 parent + action 推（不复用 select leaf 的 state）；(2) <strong>policy（<code>llm_propose_one</code>）和 value（<code>llm_value</code>）必须分开传</strong>——之前版本误把 value 当 policy 用，rollout 行为退化为只看 state value 不选 action；(3) <code>expand</code> 时 prior 用 <code>softmax(LLM_logp)</code> 归一化；(4) <strong>terminal 判定要严格</strong>，否则 rollout 无限循环；(5) PUCT 系数 c 典型 1.0-3.0；(6) 生产里加 wall-time budget 检查，避免 50-iter 跑超时。</p></div>
 <h2 id="7-long-horizon-evaluation-benchmarks">§7 long-horizon evaluation benchmarks</h2>
 <h3 id="71-benchmark-对比表2024-2026">7.1　Benchmark 对比表（2024-2026）</h3>
-<table><thead><tr><th>Benchmark</th><th>论文</th><th>任务类型</th><th>步长</th><th>2026-05 SOTA</th></tr></thead><tbody><tr><td><strong>AgentBench</strong></td><td>Liu et al., ICLR 2024, arXiv 2308.03688</td><td>8 envs (OS, DB, WebShop, HouseHold...)</td><td>10-50</td><td>GPT-4 ≈ 4.0/10 overall</td></tr><tr><td><strong>τ-bench (TAU-bench)</strong></td><td>Yao et al., 2024, arXiv 2406.12045</td><td>customer service multi-turn (retail, airline)</td><td>20-50</td><td>Claude 3.5 Sonnet ≈ 45-55% (retail)</td></tr><tr><td><strong>OSWorld</strong></td><td>Xie et al., NeurIPS 2024, arXiv 2404.07972</td><td>real OS GUI (Linux/macOS/Win, ≈ 369 任务)</td><td>5-100</td><td>Anthropic Claude (2026-05) ≈ 60% (subset)</td></tr><tr><td><strong>WebArena</strong></td><td>Zhou et al., ICLR 2024, arXiv 2307.13854</td><td>self-hosted web (Reddit-clone, Gitea, etc.)</td><td>5-30</td><td>GPT-4 ≈ 14.4% (2024)，2026 头部 ~ 50%</td></tr><tr><td><strong>VisualWebArena</strong></td><td>Koh et al., ACL 2024, arXiv 2401.13649</td><td>WebArena + 视觉理解</td><td>10-30</td><td>GPT-4V ≈ 16.4%</td></tr><tr><td><strong>SWE-bench / Verified</strong></td><td>Jimenez et al., ICLR 2024, arXiv 2310.06770</td><td>2294 真实 GitHub issue (Python repos)</td><td>多文件多 commit</td><td>Claude 4.6 Sonnet (2026-05) ~ 75% (Verified)</td></tr><tr><td><strong>MLE-bench</strong></td><td>Chan et al., 2024 (OpenAI), arXiv 2410.07095</td><td>75 Kaggle ML 比赛任务</td><td>24h compute budget</td><td>GPT-4o + AIDE ≈ 16.9% medals</td></tr><tr><td><strong>SWE-Lancer</strong></td><td>OpenAI, 2025, arXiv 2502.12115</td><td>1488 真实 Upwork freelance task ($1M+ payout)</td><td>持续 hours-days</td><td>GPT-4o ≈ 8% (managerial), 26% (IC)</td></tr><tr><td><strong>Adventure / TextWorld</strong></td><td>Yuan et al., AAAI 2019, arXiv 1806.11532</td><td>text adventure game</td><td>50-500</td><td>RL-trained baseline + LLM &gt; 80% on Coin Collector</td></tr></tbody></table>
+<table><thead><tr><th>Benchmark</th><th>论文</th><th>任务类型</th><th>步长</th><th>2026-05 SOTA</th></tr></thead><tbody><tr><td><strong>AgentBench</strong></td><td>Liu et al., ICLR 2024, arXiv 2308.03688</td><td>8 envs (OS, DB, WebShop, HouseHold...)</td><td>10-50</td><td>GPT-4 ≈ 4.0/10 overall</td></tr><tr><td><strong>τ-bench (TAU-bench)</strong></td><td>Yao et al., 2024, arXiv 2406.12045</td><td>customer service multi-turn (retail, airline)</td><td>20-50</td><td>Claude 3.5 Sonnet ≈ 45-55% (retail)</td></tr><tr><td><strong>OSWorld</strong></td><td>Xie et al., NeurIPS 2024, arXiv 2404.07972</td><td>real OS GUI (Linux/macOS/Win, ≈ 369 任务)</td><td>5-100</td><td>Anthropic Claude (2026-05) ≈ 60% (subset)</td></tr><tr><td><strong>WebArena</strong></td><td>Zhou et al., ICLR 2024, arXiv 2307.13854</td><td>self-hosted web (Reddit-clone, Gitea, etc.)</td><td>5-30</td><td>GPT-4 ≈ 14.4% (2024)，2026 头部 ~ 50%</td></tr><tr><td><strong>VisualWebArena</strong></td><td>Koh et al., ACL 2024, arXiv 2401.13649</td><td>WebArena + 视觉理解</td><td>10-30</td><td>GPT-4V ≈ 16.4%</td></tr><tr><td><strong>SWE-bench / Verified</strong></td><td>Jimenez et al., ICLR 2024, arXiv 2310.06770</td><td>2294 真实 GitHub issue (Python repos)</td><td>多文件多 commit</td><td>Claude 4.6 Sonnet (2026-05) ~ 75% (Verified)</td></tr><tr><td><strong>MLE-bench</strong></td><td>Chan et al., 2024 (OpenAI), arXiv 2410.07095</td><td>75 Kaggle ML 比赛任务</td><td>24h compute budget</td><td>o1-preview + AIDE ≈ 16.9% medals</td></tr><tr><td><strong>SWE-Lancer</strong></td><td>OpenAI, 2025, arXiv 2502.12115</td><td>1488 真实 Upwork freelance task ($1M+ payout)</td><td>持续 hours-days</td><td>GPT-4o ≈ 8% (managerial), 26% (IC)</td></tr><tr><td><strong>Adventure / TextWorld</strong></td><td>Yuan et al., AAAI 2019, arXiv 1806.11532</td><td>text adventure game</td><td>50-500</td><td>RL-trained baseline + LLM &gt; 80% on Coin Collector</td></tr></tbody></table>
 <h3 id="72-benchmark-选择决策表">7.2　benchmark 选择决策表</h3>
 <table><thead><tr><th>想测什么</th><th>选哪个</th></tr></thead><tbody><tr><td>通用 agent 能力</td><td>AgentBench</td></tr><tr><td>客服对话 + 工具调用准确率</td><td>TAU-bench</td></tr><tr><td>真实 GUI 操作（最难）</td><td>OSWorld</td></tr><tr><td>编程 agent + 真实 repo 修复</td><td>SWE-bench Verified</td></tr><tr><td>长达数天的 ML 工作</td><td>MLE-bench</td></tr><tr><td>经济价值实测</td><td>SWE-Lancer</td></tr><tr><td>Web navigation</td><td>WebArena / VisualWebArena</td></tr></tbody></table>
 <h3 id="73-benchmark-的-horizon-长度对失败模式的暗示">7.3　benchmark 的 horizon 长度对失败模式的暗示</h3>
@@ -1296,7 +1296,7 @@ class Orchestrator:
 <h3 id="132-openai-operator--agents-sdk">13.2　OpenAI Operator / Agents SDK</h3>
 <ul><li><strong>Operator</strong> (Jan 2025)：Anthropic Computer Use 的对标产品，但用 <strong>CUA (Computer-Using Agent)</strong> 训练专门 vision policy（不是通用 Claude），WebArena 准确率 ≈ 58.1%。</li><li><strong>OpenAI Agents SDK</strong> (Mar 2025)：Python framework，提供 handoff / guardrail / tracing 抽象。<strong>handoff</strong> = orchestrator 把任务"递交"给另一个 agent（不只是 tool call）。</li></ul>
 <h3 id="133-cognition-devin--swe-agent">13.3　Cognition Devin / SWE-Agent</h3>
-<ul><li><strong>Devin</strong> (Cognition, Mar 2024 demo)：第一个商业化"AI 软件工程师" demo，能 plan + code + debug + browser 全 stack。<strong>SWE-bench Verified ~ 13.9%</strong> (Mar 2024)→ ~ 50% (2025-late, Devin 3.0)。</li><li><strong>SWE-Agent</strong> (Yang et al., NeurIPS 2024, arXiv 2405.15793, Princeton)：开源 SWE-bench agent，提出 <strong>Agent-Computer Interface (ACI)</strong> 概念——给 LLM 设计专门 file-edit / shell / search 接口（不是直接给 bash），SWE-bench Lite 上 18.0%。</li></ul>
+<ul><li><strong>Devin</strong> (Cognition, Mar 2024 demo)：第一个商业化"AI 软件工程师" demo，能 plan + code + debug + browser 全 stack。<strong>SWE-bench（原版）~ 13.9%</strong> (Mar 2024；注：SWE-bench <em>Verified</em> 子集 2024-08 才推出)→ ~ 50% (2025-late, Devin 3.0)。</li><li><strong>SWE-Agent</strong> (Yang et al., NeurIPS 2024, arXiv 2405.15793, Princeton)：开源 SWE-bench agent，提出 <strong>Agent-Computer Interface (ACI)</strong> 概念——给 LLM 设计专门 file-edit / shell / search 接口（不是直接给 bash），SWE-bench Lite 上 18.0%。</li></ul>
 <h3 id="134-cursor--cline--aider--continue">13.4　Cursor / Cline / Aider / Continue</h3>
 <ul><li><strong>Cursor</strong> (Anysphere)：commercial IDE-integrated agent，plan/act mode 切换，Composer 是 multi-file edit subagent。</li><li><strong>Cline</strong> (开源, originally Claude Dev)：VS Code extension，open-source orchestrator + worker，2025 GitHub stars 增至 30K+。</li><li><strong>Aider</strong>：CLI tool，repo-map + LLM auto-commit；<strong>auto-split large change</strong> 到 small commit 是 long-horizon 工程典范。</li><li><strong>Continue</strong>：自托管 alternative，可接 self-hosted LLM。</li></ul>
 <div class="callout callout-info"><div class="callout-title">production agent 工具链汇总（面试可背）</div><p>commercial: Cursor, Devin, GitHub Copilot Agent, Claude Code open-source CLI: Cline, Aider, Continue framework: AutoGen (MS), CrewAI, LangGraph (LangChain), LlamaIndex AgentWorkflow</p></div>
@@ -1349,7 +1349,7 @@ Action 2: ...</code></pre>
 <details>
 
 <summary>Q6. MoA 是什么？为什么用 N 个 proposer + 1 个 aggregator 而不是 best-of-N？</summary>
-<p><strong>MoA (Mixture-of-Agents, Wang et al. NeurIPS 2024, arXiv 2406.04692)</strong>：N 个 LLM 各自给 response，把 N 个 response <strong>concat 进 prompt</strong>喂给 aggregator LLM 让它 synthesize。</p>
+<p><strong>MoA (Mixture-of-Agents, Wang et al. ICLR 2025 Spotlight, arXiv 2406.04692)</strong>：N 个 LLM 各自给 response，把 N 个 response <strong>concat 进 prompt</strong>喂给 aggregator LLM 让它 synthesize。</p>
 <p>为什么比 best-of-N 好：</p>
 <ul><li>best-of-N：用 reward model 选<strong>一个最高分</strong>的 response —— 丢弃了其他 N-1 个的<strong>互补信息</strong></li><li>MoA：让 aggregator LLM 看到所有 N 个 perspective，在 prompt 空间做 <strong>latent reasoning + synthesis</strong></li></ul>
 <p><strong>结果</strong>：6× open-source model 的 MoA 在 AlpacaEval 2.0 LC win rate 65.1% &gt; GPT-4 Omni 57.5%。</p>
@@ -1595,8 +1595,8 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/multi_agent_long_horizon_tutorial.md</code> ·
-  SHA256 <code>b0be93d29409</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>bcaa78e30f03</code> ·
+  generated at 2026-06-29 10:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

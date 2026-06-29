@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/reasoning_models_tutorial_en.md">
-<meta name="aris:source-sha256" content="b715479af7c02b90154fee431938f4086e3a5f9542b4a4f2bb99e5a9e579b2bd">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="9fd1406479c2117ba3de7cdd0d4fc987cf73cda97868b5fbf4e689290afcdf8c">
+<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -608,8 +608,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/reasoning_models_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>b715479af7c0</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>9fd1406479c2</code></span>
+    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
     
   </div>
 </header>
@@ -693,7 +693,7 @@ The answer is 11.</code></pre>
 <p>These backtracking / reflection tokens are rare in base models; only via <strong>repeated sampling + reward signal</strong> in RL can they be amplified into stable behavior. R1-Zero's reported "aha moment" is when this behavior suddenly emerges during RL training.</p>
 <h2 id="3-prm-vs-orm-two-routes-for-reasoning-verifiers">§3 PRM vs ORM: Two Routes for Reasoning Verifiers</h2>
 <h3 id="31-definition">3.1　Definition</h3>
-<table><thead><tr><th>Dimension</th><th>ORM (Outcome Reward Model)</th><th>PRM (Process Reward Model)</th></tr></thead><tbody><tr><td>Supervision granularity</td><td>one reward per whole trace</td><td>one reward per step</td></tr><tr><td>Label source</td><td>answer correct → +1, wrong → 0</td><td>human-labeled (PRM800K) or MCTS rollout estimated (Math-Shepherd)</td></tr><tr><td>Training objective</td><td>$\max \mathbb{E}[r(\text{trace})]$</td><td>$\max \sum_t \mathbb{E}[r_t(\text{step}_t)]$</td></tr><tr><td>Advantages</td><td>cheap to label (only ground-truth answer needed)</td><td>dense signal; can localize wrong steps</td></tr><tr><td>Disadvantages</td><td>sparse reward, hard credit assignment</td><td>expensive labeling; step boundary hard to define</td></tr></tbody></table>
+<table><thead><tr><th>Dimension</th><th>ORM (Outcome Reward Model)</th><th>PRM (Process Reward Model)</th></tr></thead><tbody><tr><td>Supervision granularity</td><td>one reward per whole trace</td><td>one reward per step</td></tr><tr><td>Label source</td><td>answer correct → +1, wrong → 0</td><td>human-labeled (PRM800K) or MC completion rollout estimated (Math-Shepherd)</td></tr><tr><td>Training objective</td><td>$\max \mathbb{E}[r(\text{trace})]$</td><td>$\max \sum_t \mathbb{E}[r_t(\text{step}_t)]$</td></tr><tr><td>Advantages</td><td>cheap to label (only ground-truth answer needed)</td><td>dense signal; can localize wrong steps</td></tr><tr><td>Disadvantages</td><td>sparse reward, hard credit assignment</td><td>expensive labeling; step boundary hard to define</td></tr></tbody></table>
 <h3 id="32-prm800k-lightman-et-al-2023-arxiv-230520050">3.2　PRM800K (Lightman et al. 2023, arXiv 2305.20050)</h3>
 <p>OpenAI human-labeled 800K step-level labels on the MATH dataset: each step is <code>positive</code> / <code>neutral</code> / <code>negative</code>.</p>
 <p>Training objective (per-step classification):</p>
@@ -704,7 +704,7 @@ The answer is 11.</code></pre>
 <p>(The product form is more standard; the min form is more pessimistic but catches the weakest step.)</p>
 <div class="callout callout-good"><div class="callout-title">Key finding</div><p>Lightman 2023 reported: using PRM800K as verifier in best-of-1024, achieves 78% on MATH test (vs 72% ORM, 70% majority vote). <strong>PRM &gt; ORM &gt; self-consistency</strong>, but at the cost of 800K human annotations.</p></div>
 <h3 id="33-math-shepherd-wang-et-al-2023-arxiv-231208935--auto-labeling-step-labels">3.3　Math-Shepherd (Wang et al. 2023, arXiv 2312.08935) — auto-labeling step labels</h3>
-<p>Human labels are expensive; how to scale? Math-Shepherd's idea: <strong>use MCTS rollouts to estimate each step's "potential correctness rate"</strong>.</p>
+<p>Human labels are expensive; how to scale? Math-Shepherd's idea: <strong>use Monte Carlo completion rollouts to estimate each step's "potential correctness rate"</strong>.</p>
 <pre><code>For each step s_t (partial reasoning):
   rollout K completions from s_t
   count how many final answers are correct
@@ -1262,7 +1262,7 @@ Deployment budget?
 </details>
 <h2 id="a-appendix-core-paper-timeline--one-line-summaries">§A Appendix: Core paper timeline + one-line summaries</h2>
 <p>Reverse chronological:</p>
-<table><thead><tr><th>Date</th><th>Paper</th><th>arXiv</th><th>One-line contribution</th></tr></thead><tbody><tr><td>2025-04</td><td>DeepSeek-Prover-V2</td><td>2504.21801</td><td>subgoal decomposition + Lean 4 RL, MiniF2F 88.9%</td></tr><tr><td>2025-02</td><td>Claude 3.7 Sonnet</td><td>(no arXiv)</td><td>hybrid model, extended thinking budget user-controllable</td></tr><tr><td>2025-02</td><td>s1: Simple Test-Time Scaling</td><td>2501.19393</td><td>1K SFT + "Wait" budget forcing surpasses o1-preview</td></tr><tr><td>2025-01</td><td>DeepSeek-R1 / R1-Zero</td><td>2501.12948</td><td>pure RL (GRPO + rule reward) emerges reasoning; R1 = 4-stage pipeline</td></tr><tr><td>2025-01</td><td>rStar-Math</td><td>2501.04519</td><td>MCTS + PPM self-evolution, 7B approaches o1-preview</td></tr><tr><td>2024-12</td><td>o3 (OpenAI)</td><td>(no arXiv)</td><td>ARC-AGI 75.7%-87.5%, first abstract reasoning approaching human</td></tr><tr><td>2024-12</td><td>Gemini 2.0 Flash Thinking</td><td>(no arXiv)</td><td>Google's first reasoning model, thinking explicitly visible</td></tr><tr><td>2024-09</td><td>o1 (OpenAI)</td><td>(no arXiv)</td><td>first commercial reasoning model, hidden CoT + RL</td></tr><tr><td>2024-08</td><td>Snell et al. Test-Time Compute</td><td>2408.03314</td><td>optimized test-time compute &gt; 14× model scaling</td></tr><tr><td>2024-08</td><td>rStar</td><td>2408.06195</td><td>MCTS + mutual reasoning, large improvement for small LMs</td></tr><tr><td>2024-02</td><td>DeepSeekMath / GRPO</td><td>2402.03300</td><td>GRPO algorithm first proposed, removes critic</td></tr><tr><td>2023-12</td><td>Math-Shepherd</td><td>2312.08935</td><td>MCTS rollouts auto-label PRM</td></tr><tr><td>2023-05</td><td>Tree of Thoughts</td><td>2305.10601</td><td>explicit tree search + LLM evaluator</td></tr><tr><td>2023-05</td><td>Let's Verify Step by Step</td><td>2305.20050</td><td>PRM &gt; ORM &gt; majority vote; PRM800K dataset</td></tr><tr><td>2022-03</td><td>Self-Consistency</td><td>2203.11171</td><td>sample N + majority vote, GSM8K +17.9%</td></tr><tr><td>2022-05</td><td>Zero-shot CoT (Kojima)</td><td>2205.11916</td><td>"Let's think step by step", zero-shot triggers CoT</td></tr><tr><td>2022-01</td><td>Chain-of-Thought (Wei)</td><td>2201.11903</td><td>few-shot step-by-step demonstration, CoT emerges on large models</td></tr></tbody></table>
+<table><thead><tr><th>Date</th><th>Paper</th><th>arXiv</th><th>One-line contribution</th></tr></thead><tbody><tr><td>2025-04</td><td>DeepSeek-Prover-V2</td><td>2504.21801</td><td>subgoal decomposition + Lean 4 RL, MiniF2F 88.9%</td></tr><tr><td>2025-02</td><td>Claude 3.7 Sonnet</td><td>(no arXiv)</td><td>hybrid model, extended thinking budget user-controllable</td></tr><tr><td>2025-02</td><td>s1: Simple Test-Time Scaling</td><td>2501.19393</td><td>1K SFT + "Wait" budget forcing surpasses o1-preview</td></tr><tr><td>2025-01</td><td>DeepSeek-R1 / R1-Zero</td><td>2501.12948</td><td>pure RL (GRPO + rule reward) emerges reasoning; R1 = 4-stage pipeline</td></tr><tr><td>2025-01</td><td>rStar-Math</td><td>2501.04519</td><td>MCTS + PPM self-evolution, 7B approaches o1-preview</td></tr><tr><td>2024-12</td><td>o3 (OpenAI)</td><td>(no arXiv)</td><td>ARC-AGI 75.7%-87.5%, first abstract reasoning approaching human</td></tr><tr><td>2024-12</td><td>Gemini 2.0 Flash Thinking</td><td>(no arXiv)</td><td>Google's first reasoning model, thinking explicitly visible</td></tr><tr><td>2024-09</td><td>o1 (OpenAI)</td><td>(no arXiv)</td><td>first commercial reasoning model, hidden CoT + RL</td></tr><tr><td>2024-08</td><td>Snell et al. Test-Time Compute</td><td>2408.03314</td><td>optimized test-time compute &gt; 14× model scaling</td></tr><tr><td>2024-08</td><td>rStar</td><td>2408.06195</td><td>MCTS + mutual reasoning, large improvement for small LMs</td></tr><tr><td>2024-02</td><td>DeepSeekMath / GRPO</td><td>2402.03300</td><td>GRPO algorithm first proposed, removes critic</td></tr><tr><td>2023-12</td><td>Math-Shepherd</td><td>2312.08935</td><td>MC completion rollouts auto-label PRM</td></tr><tr><td>2023-05</td><td>Tree of Thoughts</td><td>2305.10601</td><td>explicit tree search + LLM evaluator</td></tr><tr><td>2023-05</td><td>Let's Verify Step by Step</td><td>2305.20050</td><td>PRM &gt; ORM &gt; majority vote; PRM800K dataset</td></tr><tr><td>2022-03</td><td>Self-Consistency</td><td>2203.11171</td><td>sample N + majority vote, GSM8K +17.9%</td></tr><tr><td>2022-05</td><td>Zero-shot CoT (Kojima)</td><td>2205.11916</td><td>"Let's think step by step", zero-shot triggers CoT</td></tr><tr><td>2022-01</td><td>Chain-of-Thought (Wei)</td><td>2201.11903</td><td>few-shot step-by-step demonstration, CoT emerges on large models</td></tr></tbody></table>
 <div class="callout callout-info"><div class="callout-title">Recommend reading 4 papers carefully</div><p>when interview prep time is limited, read in this priority:</p></div>
 <ol><li>DeepSeek-R1 (2501.12948) —— covers GRPO + 4 stages + R1-Zero "aha moment"</li><li>DeepSeekMath (2402.03300) —— original GRPO algorithm paper</li><li>Let's Verify Step by Step (2305.20050) —— PRM foundations</li><li>Snell et al. (2408.03314) —— test-time compute scaling paradigm</li></ol>
 <p>After reading these 4 + this cheat sheet, reasoning model interview questions should cover 80%+.</p>
@@ -1271,8 +1271,8 @@ Deployment budget?
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/reasoning_models_tutorial_en.md</code> ·
-  SHA256 <code>b715479af7c0</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>9fd1406479c2</code> ·
+  generated at 2026-06-29 10:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

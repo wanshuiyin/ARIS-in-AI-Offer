@@ -390,7 +390,7 @@ $$\mathcal{L} = \mathbb{E}[r_t A_t] - \beta_k \cdot \text{KL}(\pi_{\theta_\text{
 - If $d > d_\text{target} \times 1.5$: $\beta \leftarrow \beta \times 2$ (KL above target, tighten)
 - Otherwise β unchanged
 
-Intuition: treat β as the P term of a PID controller with target = expected KL (e.g. $d_\text{target} = 0.01$). This approach also appeared in InstructGPT and later Anthropic work (Anthropic's helpfulness/harmlessness reports after 1707.06347 contain similar adaptive-β descriptions).
+Intuition: treat β as the P term of a PID controller with target = expected KL (e.g. $d_\text{target} = 0.01$). This approach also appeared in InstructGPT and later Anthropic work (Anthropic's helpfulness/harmlessness reports also contain similar adaptive-β descriptions).
 
 ### 4.3　β annealing schedule — analogous to learning rate schedule
 
@@ -635,7 +635,7 @@ Gao 2023 ran large-scale experiments over RM size + KL distance, giving a fitted
 
 $$R_g(d) = d \cdot (\alpha_g - \gamma_g \cdot d) \quad \text{(BoN)}$$
 
-$$R_g(d) = d \cdot (\alpha_g - \gamma_g \cdot d) - \delta_g\, d^{3/2}\quad \text{(PPO, an extra higher-order term)}$$
+$$R_g(d) = d \cdot (\alpha_g - \beta_g \cdot \log d)\quad \text{(PPO/RL: a log term, not a higher-order polynomial)}$$
 
 where $\alpha_g, \gamma_g, \delta_g$ are coefficients dependent on RM size; larger RM → smaller "higher-order / quadratic" weight → slower overoptimization.
 
@@ -1368,7 +1368,7 @@ Corresponding KL distance: $\text{KL}_\text{peak} = d_\text{peak}^2 = \alpha_g^2
 
 **Larger RM, peak further right**: Gao 2023's scaling law shows $\alpha_g, \gamma_g$ depend on RM size (fit coefficients themselves depend on RM scale and data); larger RM has $\text{KL}_\text{peak}$ further right, with a higher $R_g(\text{peak})$ as well. This is why a larger RM both "rewards the budget" and reaches higher gold.
 
-**PPO slightly more complex than BoN**: $R_g(d) = d(\alpha_g - \gamma_g d) - \delta_g d^{3/2}$; the third-order term shifts the peak slightly left.
+**PPO slightly more complex than BoN**: $R_g(d) = d(\alpha_g - \beta_g \log d)$; the log term gives a distinct (RL-specific) shape vs BoN.
 
 Application: in practice, cap measured KL at $\text{KL}_\text{peak} \cdot 0.5$ for early stop, i.e. "$\sqrt{\text{KL}}$ < $d_\text{peak}/2$".
 

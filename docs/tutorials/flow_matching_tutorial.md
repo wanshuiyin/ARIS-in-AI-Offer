@@ -431,7 +431,7 @@ $$s_\theta(t, x_t) = -\epsilon_\theta(t, x_t) / \sigma(t)$$
 
 ## §7 高级话题
 
-### 7.1　Reflow（Liu et al. 2022, ICLR）
+### 7.1　Reflow（Liu et al., ICLR 2023）
 
 Rectified Flow 之所以能少步数生成，关键是 **reflow 算法**：
 

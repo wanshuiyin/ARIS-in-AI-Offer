@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/long_context_rope_yarn_mla_tutorial_en.md",
-  "source_sha256": "b6f16119c1a73c85a5ca7a6afc0849f4d2ba534114ffcb0f56bec2ec17d33c57",
+  "source_sha256": "9456c1754ce1358ab9652e8e40baa2c29acf8458fb3e252551070fbed59c45eb",
   "output": "docs/tutorials/long_context_rope_yarn_mla_tutorial_en.html",
   "zh_source": "docs/tutorials/long_context_rope_yarn_mla_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -23,6 +23,13 @@
       "date": "2026-06-29",
       "fix": "Fixed the §9 intro MLA ratio from a loose ≈50× to the full-cache ≈57× (d_c+d_r=576), consistent with this tutorial's own §9.6 / §12.3 table (57×) and the kv-cache tutorial; noted the bare-latent 64× caveat. (EN edition mirrors the ZH fix.)",
       "note": "Cross-tutorial consistency fix (2026-06-29), surfaced by a holistic collection audit (structural + a cross-tutorial consistency pass). Orchestrator-verified (arithmetic 32768/576≈57; the warmup reasoning re-checked). Tiny factual/clarity correction — the original gating verdicts (math/code/render or translation-fidelity) remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Differential Transformer cost corrected: not +50% params/compute — the paper halves the head count so params/FLOPs match a standard Transformer (~0 overhead). (EN edition mirrors the ZH fix.)",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/self_evolving_agents_tutorial.md",
-  "source_sha256": "b863a1d3abfdb3512a3e5907947e3bb9281a00ddf4546199218fb469c965296e",
+  "source_sha256": "54d12af77efd62930756e829385fbdfa344a7cf23a4160d6c01767afde24ebcd",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/self_evolving_agents_tutorial.html",
   "topic": "Self-Evolving Agents — Ctx2Skill / Native Evolution / A²RD / Voyager / Reflexion / STaR",
@@ -62,5 +62,14 @@
     ]
   },
   "summary": "Self-Evolving Agents tutorial: subagent did deep paper-number verification before codex stall (Qwen3-30B WebWalker 22.04→40.91, etc.); main-session DIY did 1 strict math/code round catching 7 substantive issues (personal info leak ×2, Cross-Time Replay code, laplace_smoothed_rate context, Native Evolution C, A²RD topo, Q21 martingale direction). All fixed. Render review 13/13 PASS. 1527 lines.",
-  "rendered_at": "2026-05-19"
+  "rendered_at": "2026-05-19",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Voyager venue corrected NeurIPS 2023 to TMLR (it appeared in TMLR plus a NeurIPS workshop, not the main track).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

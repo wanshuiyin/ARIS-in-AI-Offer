@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/diffusion_distillation_tutorial_en.md",
-  "source_sha256": "cceb6c61f1f5be01eacd4f25cf2ef79067c1093da76e75e4a92df0a3e3c84877",
+  "source_sha256": "7972e2659c869cbaedfac76b38431acc65ed482b9d2f123301e4fd5a6315eff5",
   "output": "docs/tutorials/diffusion_distillation_tutorial_en.html",
   "zh_source": "docs/tutorials/diffusion_distillation_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -15,5 +15,14 @@
     "issues": [],
     "summary": "Fresh cross-model translation-fidelity audit by Codex (GPT-5.5 xhigh, thread 019e7cb8-304b-7a41-9555-4f8c6954668a, read-only/detect-only) of the English tutorial docs/tutorials/diffusion_distillation_tutorial_en.md against the cross-model-verified Chinese source of truth docs/tutorials/diffusion_distillation_tutorial.md and the rendered docs/tutorials/diffusion_distillation_tutorial_en.html. Verdict: PASS, zero issues. Both MD files are 1672 lines (line-aligned translation). (a) Numeric/factual fidelity: every number, equation/LaTeX, code block (variable names, hyperparameters, tensor shapes),"
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "iCT CIFAR-10 FID corrected: 2.51/2.24 are iCT-DEEP; plain iCT is 2.83/2.46 (resolves the self-contradiction with section 10 Q3). (EN edition mirrors the ZH fix.)",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

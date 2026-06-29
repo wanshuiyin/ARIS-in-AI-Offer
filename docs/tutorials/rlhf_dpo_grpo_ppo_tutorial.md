@@ -694,13 +694,13 @@ Gao, Schulman, Hilton 2023 ICML *Scaling Laws for Reward Model Overoptimization*
 
 以 7B base、fp16 forward + fp32 master、AdamW 为例（典型 RLHF）：
 
-| 副本 | 用途 | bf16 weights | fp32 optimizer state | 合计 |
+| 副本 | 用途 | bf16 权重 + 梯度 | fp32 (master + Adam m,v) | 合计 |
 | --- | --- | --- | --- | --- |
-| Policy $\pi_\theta$ | trainable | 14 GB | 28+14+14=56 GB | **70 GB** |
-| Value $V_\phi$ | trainable | 14 GB | 56 GB | **70 GB** |
+| Policy $\pi_\theta$ | trainable | 14+14=28 GB | 28+28+28=84 GB | **112 GB** |
+| Value $V_\phi$ | trainable | 28 GB | 84 GB | **112 GB** |
 | Reference $\pi_\text{ref}$ | frozen | 14 GB | — | 14 GB |
 | Reward $r_\psi$ | frozen | 14 GB | — | 14 GB |
-| **合计** | | | | **~170 GB** |
+| **合计** | | | | **~252 GB**（每 trainable 模型 16 B/param ×7B = 112 GB；与分布式训练篇一致） |
 
 加上 activation、KV cache、generation buffer，单卡 80GB 极难放下；通常用 ZeRO-3 + offload 或多机分片。
 

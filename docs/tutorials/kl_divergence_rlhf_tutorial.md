@@ -390,7 +390,7 @@ $$\mathcal{L} = \mathbb{E}[r_t A_t] - \beta_k \cdot \text{KL}(\pi_{\theta_\text{
 - 若 $d > d_\text{target} \times 1.5$：$\beta \leftarrow \beta \times 2$（KL 比目标高，加压）
 - 否则 β 不变
 
-直觉：把 β 当 PID controller 的 P term，target 是预期 KL（比如 $d_\text{target} = 0.01$）。这条思路在 InstructGPT 和后续 Anthropic 工作里也出现过（Anthropic 论文 1707.06347 之后的 helpfulness/harmlessness 报告里有类似 adaptive β 描述）。
+直觉：把 β 当 PID controller 的 P term，target 是预期 KL（比如 $d_\text{target} = 0.01$）。这条思路在 InstructGPT 和后续 Anthropic 工作里也出现过（Anthropic 的 helpfulness/harmlessness 报告里也有类似 adaptive β 描述）。
 
 ### 4.3　β annealing schedule —— 类似 learning rate schedule
 
@@ -635,7 +635,7 @@ Gao 2023 用大量 RM size + KL 实验，给出 gold reward 关于 KL 距离 $d$
 
 $$R_g(d) = d \cdot (\alpha_g - \gamma_g \cdot d) \quad \text{(BoN)}$$
 
-$$R_g(d) = d \cdot (\alpha_g - \gamma_g \cdot d) - \delta_g\, d^{3/2}\quad \text{(PPO, 多了高阶项)}$$
+$$R_g(d) = d \cdot (\alpha_g - \beta_g \cdot \log d)\quad \text{(PPO/RL：log 项，不是高阶多项式)}$$
 
 其中 $\alpha_g, \gamma_g, \delta_g$ 是与 RM size 相关的系数；RM 越大，"高阶项 / 二次项"权重越小，过优化越慢。
 

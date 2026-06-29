@@ -759,7 +759,7 @@ $$\mathrm{Diff} = \mathrm{softmax}(Q_1 K_1^\top / \sqrt{d}) - \lambda \cdot \mat
 
 - **Intuition**: the first term learns "signal", the second learns "noise"; the difference is sharper.
 - **Effect**: significant improvement on long-context needle-in-haystack tasks over vanilla attention.
-- **Cost**: each head needs an extra set of Q/K projections (+ 50% parameters and computation).
+- **Cost**: each head computes an extra set of Q/K projections, but the paper **halves the head count** so total params / FLOPs roughly **match** a standard Transformer (≈0 overhead, not +50%).
 
 > 💡 **Whether to use** — Differential Attention is a new direction from late 2024; industry adoption is still low (DeepSeek-V3 does not use it, Llama-3 does not either), but it is interesting research. When asked about "new long-context directions" in interviews, you can mention it.
 

@@ -145,7 +145,7 @@ ToT 需要外部搜索框架（递归 prompt + state management）。**o1 / R1 �
 | 维度 | ORM（Outcome Reward Model） | PRM（Process Reward Model） |
 | --- | --- | --- |
 | 监督粒度 | 整条 trace 一个 reward | 每个 step 一个 reward |
-| Label 来源 | answer 对 → +1，错 → 0 | 人工标 (PRM800K) 或 MCTS rollout 估计 (Math-Shepherd) |
+| Label 来源 | answer 对 → +1，错 → 0 | 人工标 (PRM800K) 或 MC completion rollout 估计 (Math-Shepherd) |
 | 训练目标 | $\max \mathbb{E}[r(\text{trace})]$ | $\max \sum_t \mathbb{E}[r_t(\text{step}_t)]$ |
 | 优势 | 标注便宜（只要 ground-truth answer） | 信号密集；能定位错误步 |
 | 劣势 | 稀疏 reward，credit assignment 难 | 标注昂贵；step boundary 难定义 |
@@ -170,7 +170,7 @@ $$\text{score}(\text{trace}) = \prod_{t} p_\phi(\ell_t = +\mid s_{\leq t}) \quad
 
 ### 3.3　Math-Shepherd（Wang et al. 2023, arXiv 2312.08935）—— 自动标 step label
 
-人标贵，怎么 scale？Math-Shepherd 思路：**用 MCTS rollout 估每个 step 的"潜在正确率"**。
+人标贵，怎么 scale？Math-Shepherd 思路：**用 Monte Carlo completion rollout 估每个 step 的"潜在正确率"**。
 
 ```
 对每个 step s_t（部分推理）：

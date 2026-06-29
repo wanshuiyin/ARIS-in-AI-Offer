@@ -38,7 +38,7 @@ For an $H{\times}W{\times}T$ video, the pixel count grows linearly with $T$, and
 | 2024-02 | **Sora** | OpenAI | DiT + spacetime patches + large-scale captioning; closed source |
 | 2024-05 | **Veo** | Google DeepMind | Closed-source 1080p / 1 minute |
 | 2024-06 | **Kling** | Kuaishou | Closed-source from China, up to 2 minutes |
-| 2024-08 | **CogVideoX** (arXiv) | Zhipu/THU | Open-source 5B/15B; Expert Transformer + 3D VAE |
+| 2024-08 | **CogVideoX** (arXiv) | Zhipu/THU | Open-source 2B/5B; Expert Transformer + 3D VAE |
 | 2024-10 | **Movie Gen** | Meta | 30B; joint video + audio; DiT + FM |
 | 2024-10 | **Mochi-1** | Genmo | 10B open source; AsymmDiT asymmetric MM-DiT |
 | 2024-11 | **LTX-Video** | Lightricks | Real-time (2B); strong-compression VAE + DiT |
@@ -820,7 +820,7 @@ Pitfall: only knowing FVD without VBench — a big gap after 2024.
 
 <summary>Q9. Which of Sora / Hunyuan-Video / Mochi-1 / Kling are open source?</summary>
 
-- **Open source**: Hunyuan-Video (13B, 2024-12), Mochi-1 (10B, 2024-10), CogVideoX (5B/15B, arXiv 2024-08), OpenSora / OpenSora-Plan, LTX-Video (2B, 2024-11), Wan 2.1/2.2 (14B, 2025), SVD (2023-11)
+- **Open source**: Hunyuan-Video (13B, 2024-12), Mochi-1 (10B, 2024-10), CogVideoX (2B/5B, arXiv 2024-08), OpenSora / OpenSora-Plan, LTX-Video (2B, 2024-11), Wan 2.1/2.2 (14B, 2025), SVD (2023-11)
 - **Closed source**: Sora (2024-02), Veo / Veo 2 (Google), Kling (Kuaishou 2024-06), Movie Gen (Meta, 30B)
 - Domestic Chinese open-source mainstays: Hunyuan / Wan / CogVideoX
 

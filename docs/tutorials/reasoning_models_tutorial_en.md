@@ -145,7 +145,7 @@ These backtracking / reflection tokens are rare in base models; only via **repea
 | Dimension | ORM (Outcome Reward Model) | PRM (Process Reward Model) |
 | --- | --- | --- |
 | Supervision granularity | one reward per whole trace | one reward per step |
-| Label source | answer correct → +1, wrong → 0 | human-labeled (PRM800K) or MCTS rollout estimated (Math-Shepherd) |
+| Label source | answer correct → +1, wrong → 0 | human-labeled (PRM800K) or MC completion rollout estimated (Math-Shepherd) |
 | Training objective | $\max \mathbb{E}[r(\text{trace})]$ | $\max \sum_t \mathbb{E}[r_t(\text{step}_t)]$ |
 | Advantages | cheap to label (only ground-truth answer needed) | dense signal; can localize wrong steps |
 | Disadvantages | sparse reward, hard credit assignment | expensive labeling; step boundary hard to define |
@@ -170,7 +170,7 @@ $$\text{score}(\text{trace}) = \prod_{t} p_\phi(\ell_t = +\mid s_{\leq t}) \quad
 
 ### 3.3　Math-Shepherd (Wang et al. 2023, arXiv 2312.08935) — auto-labeling step labels
 
-Human labels are expensive; how to scale? Math-Shepherd's idea: **use MCTS rollouts to estimate each step's "potential correctness rate"**.
+Human labels are expensive; how to scale? Math-Shepherd's idea: **use Monte Carlo completion rollouts to estimate each step's "potential correctness rate"**.
 
 ```
 For each step s_t (partial reasoning):
@@ -1266,7 +1266,7 @@ Reverse chronological:
 | 2024-08 | Snell et al. Test-Time Compute | 2408.03314 | optimized test-time compute > 14× model scaling |
 | 2024-08 | rStar | 2408.06195 | MCTS + mutual reasoning, large improvement for small LMs |
 | 2024-02 | DeepSeekMath / GRPO | 2402.03300 | GRPO algorithm first proposed, removes critic |
-| 2023-12 | Math-Shepherd | 2312.08935 | MCTS rollouts auto-label PRM |
+| 2023-12 | Math-Shepherd | 2312.08935 | MC completion rollouts auto-label PRM |
 | 2023-05 | Tree of Thoughts | 2305.10601 | explicit tree search + LLM evaluator |
 | 2023-05 | Let's Verify Step by Step | 2305.20050 | PRM > ORM > majority vote; PRM800K dataset |
 | 2022-03 | Self-Consistency | 2203.11171 | sample N + majority vote, GSM8K +17.9% |

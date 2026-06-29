@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/kl_divergence_rlhf_tutorial.md",
-  "source_sha256": "f0b8b5e62023c40790eecc3c8e2e1afdf9fceea26ffa5b9859d0d4382cb7ea4a",
+  "source_sha256": "41d43aea2812bbdefdf9f6d0fc8e0f526b40f1335fc4bfdd35332f8d03eb7c92",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-20); not a new codex review",
   "output": "docs/tutorials/kl_divergence_rlhf_tutorial.html",
   "topic": "KL Divergence in RLHF — Schulman k1/k2/k3, PPO/GRPO/DPO/RLOO KL, forward vs reverse, Rethinking KL + Comedy of Estimators",
@@ -53,5 +53,14 @@
   },
   "summary": "KL Divergence in RLHF tutorial: 5 rounds of cross-model codex gpt-5.5 xhigh review. Caught 1 CRITICAL (k3-as-loss recommendation conflation) + 14 MAJOR (forward/reverse mis-label, k3 sign error, missing §3.6 placement analysis, Q16 wrong Taylor sampling distribution, sequence KL framing, PPO detach missing, DPO 'KL margin' misframing, paper citation errors, multiple interview-answer residuals). New §3.6 added analyzing P1/P2/P3 placement gradient bias with Rethinking KL (arXiv 2510.01555) citation. Paper references corrected: Rethinking KL = Kezhao Liu et al. 2510.01555; Comedy of Estimators = Vedant Shah et al. 2512.21852. All fixes substantive per user no-defer policy.",
   "no_defer_compliance": true,
-  "rendered_at": "2026-05-20"
+  "rendered_at": "2026-05-20",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Section 4.4 removed the Anthropic-paper 1707.06347 misattribution (1707.06347 is Schulman PPO); section 6.4.2 Gao-2023 RL/PPO overoptimization fit corrected from d(a-gd)-delta*d^1.5 to the published d(a - b*log d).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/reasoning_models_tutorial_en.md",
-  "source_sha256": "b715479af7c02b90154fee431938f4086e3a5f9542b4a4f2bb99e5a9e579b2bd",
+  "source_sha256": "9fd1406479c2117ba3de7cdd0d4fc987cf73cda97868b5fbf4e689290afcdf8c",
   "output": "docs/tutorials/reasoning_models_tutorial_en.html",
   "zh_source": "docs/tutorials/reasoning_models_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -19,5 +19,14 @@
     ],
     "summary": "Fresh cross-model (Codex GPT-5.5 xhigh, read-only) translation-fidelity verify of the EN reasoning-models tutorial against its cross-model-verified ZH source-of-truth. ADJUDICATED VERDICT: WARN (translation fidelity PASSES; one shared cosmetic render quirk). The §5.2 GRPO compute fix LANDED correctly: ZH line 336 \"无需 value network：直接省一半显存 + 一倍计算\" and EN line 336 \"No value network needed: directly saves half memory + saves a model's worth of compute\" both state that removing the critic/value-network SAVES compute — no \"doubles compute\" residue anywhere. EN is otherwise faithful to ZH on every c"
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Math-Shepherd relabeled MCTS to Monte-Carlo completion rollouts in section 3.3, the section-3 table, and the timeline (it uses plain MC rollouts, not tree search — resolves the self-contradiction with section 0/Q4/Q17; rStar-Math genuine MCTS usage left unchanged). (EN edition mirrors the ZH fix.)",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

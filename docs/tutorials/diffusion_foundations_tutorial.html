@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_foundations_tutorial.md">
-<meta name="aris:source-sha256" content="95c1efc6f929678361bb3b54ef684da7def546002107412458fd14673ebbef67">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="c72317f75533ee8bbab65af66cdc1bb6d7773563123b6001e5888f3571e7acfe">
+<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -613,7 +613,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#121-progressive-distillation-salimans-ho-2022">12.1　Progressive Distillation (Salimans-Ho 2022)</a></li>
 <li><a href="#122-consistency-models-song-2023-icml">12.2　Consistency Models (Song 2023 ICML)</a></li>
 <li><a href="#123-lcm--lcm-lora-luo-2023">12.3　LCM / LCM-LoRA (Luo 2023)</a></li>
-<li><a href="#124-adversarial-diffusion-distillation-add--sdxl-turbo--sd3-turbo-sauer-20232024">12.4　Adversarial Diffusion Distillation (ADD) — SDXL-Turbo / SD3-Turbo (Sauer 2023/2024)</a></li>
+<li><a href="#124-adversarial-diffusion-distillationadd-sdxl-turbo--ladd-sd3-turbosauer-20232024">12.4　Adversarial Diffusion Distillation：ADD (SDXL-Turbo) / LADD (SD3-Turbo)（Sauer 2023/2024）</a></li>
 </ul>
 </li>
 <li><a href="#13-与-flow-matching-的桥">§13 与 Flow Matching 的桥</a>
@@ -652,15 +652,15 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_foundations_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>95c1efc6f929</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>c72317f75533</code></span>
+    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr">§0 TL;DR</h2>
 <div class="callout callout-info"><div class="callout-title">9 句话搞定 Diffusion 基础</div><p>一页拿下面试核心要点（详见 §1–§13 推导）。</p></div>
-<ol><li><strong>DDPM (Ho 2020)</strong>：forward $q(x_t|x_0) = \mathcal{N}(\sqrt{\bar\alpha_t} x_0, (1-\bar\alpha_t) I)$ 闭式可采样；reverse $p_\theta(x_{t-1}|x_t) = \mathcal{N}(\mu_\theta, \Sigma_\theta)$ 学反向 Gaussian；ELBO 化简到 $L_\text{simple} = \mathbb{E}\|\epsilon - \epsilon_\theta(x_t, t)\|^2$（$\epsilon$-prediction）。</li><li><strong>三种视角等价</strong>：DDPM 的 $\epsilon$、score-based 的 $s = \nabla \log p_t$、flow matching 的 $v$ 在 Gaussian path 下线性可逆 —— $s_\theta = -\epsilon_\theta / \sigma_t$，$v = \alpha'x_0 + \sigma'\epsilon$。</li><li><strong>Tweedie 公式</strong>：$\mathbb{E}[x_0 | x_t] = x_t + \sigma_t^2 \nabla_{x_t} \log p_t(x_t)$ —— 一行式连接 denoiser 与 score。</li><li><strong>Score SDE (Song 2021)</strong>：VP-SDE / VE-SDE 统一框架；<strong>reverse-time SDE</strong> 与 <strong>probability flow ODE</strong> 共享同一族边缘分布，ODE 形式直接给出 FM 的 vector field。</li><li><strong>DDIM (Song 2020 / ICLR 2021)</strong>：non-Markovian forward 推出 deterministic sampler，<strong>marginal 与 DDPM 相同</strong>但采样路径可控（$\eta=0$ 确定性；$\eta=1$ + 走完整 $T$ 步退化为 DDPM ancestral，skip 步下则只是匹配 DDPM 方差，不严格等价）。</li><li><strong>EDM (Karras 2022)</strong>：preconditioning 让网络输出方差恒为 1：$D_\theta(x;\sigma) = c_\text{skip}(\sigma) x + c_\text{out}(\sigma) F_\theta(c_\text{in}(\sigma) x, c_\text{noise}(\sigma))$；配合 $\sigma$-schedule + Heun 2nd-order，<strong>FID SOTA 同时 NFE 降到 18-35</strong>。</li><li><strong>CFG (Ho-Salimans 2022)</strong>：训练时以概率 $p_\text{drop}$ drop 条件 → 同一 net 学 conditional/unconditional；推理 $\tilde\epsilon = (1+w)\epsilon_\theta(x,c) - w\epsilon_\theta(x,\emptyset)$，$w \in [3, 7]$ 是 text-to-image 主力。</li><li><strong>Production</strong>：SD/SDXL 用 VAE latent + UNet；SD3 / FLUX.1 改用 <strong>Rectified Flow + MM-DiT</strong>；ControlNet 给 frozen UNet 加可训练 side branch；DiT 把 UNet 全换 Transformer。</li><li><strong>加速</strong>：DPM-Solver++ 把 NFE 压到 10-20；Consistency Models 学 $f_\theta(x_t, t) \mapsto x_0$ 做到 1-4 步；LCM / LCM-LoRA / SDXL-Turbo / SD3-Turbo (ADD) 让蒸馏在 Stable Diffusion 全家桶可用。</li></ol>
+<ol><li><strong>DDPM (Ho 2020)</strong>：forward $q(x_t|x_0) = \mathcal{N}(\sqrt{\bar\alpha_t} x_0, (1-\bar\alpha_t) I)$ 闭式可采样；reverse $p_\theta(x_{t-1}|x_t) = \mathcal{N}(\mu_\theta, \Sigma_\theta)$ 学反向 Gaussian；ELBO 化简到 $L_\text{simple} = \mathbb{E}\|\epsilon - \epsilon_\theta(x_t, t)\|^2$（$\epsilon$-prediction）。</li><li><strong>三种视角等价</strong>：DDPM 的 $\epsilon$、score-based 的 $s = \nabla \log p_t$、flow matching 的 $v$ 在 Gaussian path 下线性可逆 —— $s_\theta = -\epsilon_\theta / \sigma_t$，$v = \alpha'x_0 + \sigma'\epsilon$。</li><li><strong>Tweedie 公式</strong>：$\mathbb{E}[x_0 | x_t] = x_t + \sigma_t^2 \nabla_{x_t} \log p_t(x_t)$ —— 一行式连接 denoiser 与 score。</li><li><strong>Score SDE (Song 2021)</strong>：VP-SDE / VE-SDE 统一框架；<strong>reverse-time SDE</strong> 与 <strong>probability flow ODE</strong> 共享同一族边缘分布，ODE 形式直接给出 FM 的 vector field。</li><li><strong>DDIM (Song 2020 / ICLR 2021)</strong>：non-Markovian forward 推出 deterministic sampler，<strong>marginal 与 DDPM 相同</strong>但采样路径可控（$\eta=0$ 确定性；$\eta=1$ + 走完整 $T$ 步退化为 DDPM ancestral，skip 步下则只是匹配 DDPM 方差，不严格等价）。</li><li><strong>EDM (Karras 2022)</strong>：preconditioning 让网络输出方差恒为 1：$D_\theta(x;\sigma) = c_\text{skip}(\sigma) x + c_\text{out}(\sigma) F_\theta(c_\text{in}(\sigma) x, c_\text{noise}(\sigma))$；配合 $\sigma$-schedule + Heun 2nd-order，<strong>FID SOTA 同时 NFE 降到 18-35</strong>。</li><li><strong>CFG (Ho-Salimans 2022)</strong>：训练时以概率 $p_\text{drop}$ drop 条件 → 同一 net 学 conditional/unconditional；推理 $\tilde\epsilon = (1+w)\epsilon_\theta(x,c) - w\epsilon_\theta(x,\emptyset)$，$w \in [3, 7]$ 是 text-to-image 主力。</li><li><strong>Production</strong>：SD/SDXL 用 VAE latent + UNet；SD3 / FLUX.1 改用 <strong>Rectified Flow + MM-DiT</strong>；ControlNet 给 frozen UNet 加可训练 side branch；DiT 把 UNet 全换 Transformer。</li><li><strong>加速</strong>：DPM-Solver++ 把 NFE 压到 10-20；Consistency Models 学 $f_\theta(x_t, t) \mapsto x_0$ 做到 1-4 步；LCM / LCM-LoRA / SDXL-Turbo (ADD) / SD3-Turbo (LADD) 让蒸馏在 Stable Diffusion 全家桶可用。</li></ol>
 <h2 id="1-直觉--三种视角">§1 直觉 &amp; 三种视角</h2>
 <h3 id="11-一句话直觉">1.1　一句话直觉</h3>
 <p><strong>Diffusion = 学会"去噪"</strong>：把数据从干净逐渐加噪到纯 Gaussian（forward），然后学会反过来从噪声一步步还原数据（reverse）。所有 diffusion 论文的差异都在三件事：</p>
@@ -944,10 +944,10 @@ else:
 <p><strong>Latent Consistency Model</strong>：把 Consistency Models 套到 latent diffusion（SD 1.5 / SDXL）：</p>
 <ul><li>Teacher = pretrained SD（用 DDIM 当 ODE solver）</li><li>Student = LCM，4-8 step 出图</li></ul>
 <p><strong>LCM-LoRA</strong>：把 LCM 训练写成 LoRA adapter——单 LoRA 文件即可让任意 SD 1.5 / SDXL fine-tune 用 4 step 出图。<strong>生态价值巨大</strong>：用户不需要换 base model。</p>
-<h3 id="124-adversarial-diffusion-distillation-add--sdxl-turbo--sd3-turbo-sauer-20232024">12.4　Adversarial Diffusion Distillation (ADD) — SDXL-Turbo / SD3-Turbo (Sauer 2023/2024)</h3>
+<h3 id="124-adversarial-diffusion-distillationadd-sdxl-turbo--ladd-sd3-turbosauer-20232024">12.4　Adversarial Diffusion Distillation：ADD (SDXL-Turbo) / LADD (SD3-Turbo)（Sauer 2023/2024）</h3>
 <p><strong>ADD 训练目标</strong>：</p>
 <p>$$L_\text{ADD} = L_\text{adv}(\text{student}) + \lambda L_\text{distill}(\text{student}, \text{teacher})$$</p>
-<ul><li>$L_\text{adv}$：用 pretrained vision model（DINOv2）当 discriminator backbone</li><li>$L_\text{distill}$：student 多步 ODE 应该匹配 teacher 多步 ODE</li></ul>
+<ul><li>$L_\text{adv}$：<strong>ADD（SDXL-Turbo）</strong> 用 pretrained vision model（DINOv2）当判别器；<strong>LADD（SD3-Turbo）</strong> 改用 teacher diffusion-transformer 自身的 latent 特征当判别器（不再用 DINOv2，判别发生在 latent 空间）</li><li>$L_\text{distill}$：student 多步 ODE 应该匹配 teacher 多步 ODE</li></ul>
 <p><strong>结果</strong>：SDXL-Turbo 1-step 1024 px、SD3-Turbo 4-step 1024 px。质量略低于 multi-step 但实时（~100ms / image）。</p>
 <h2 id="13-与-flow-matching-的桥">§13 与 Flow Matching 的桥</h2>
 <h3 id="131-score-vs-vector-field--同信息不同参数化">13.1　Score vs Vector Field —— 同信息不同参数化</h3>
@@ -1425,8 +1425,8 @@ def pf_ode_sample_euler(eps_model, sched: DDPMSchedule, shape, device, num_steps
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_foundations_tutorial.md</code> ·
-  SHA256 <code>95c1efc6f929</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>c72317f75533</code> ·
+  generated at 2026-06-29 10:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

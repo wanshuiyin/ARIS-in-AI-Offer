@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/multi_agent_long_horizon_tutorial_en.md">
-<meta name="aris:source-sha256" content="aa11d2b3cce743673d7b9b1a00331f3c5ca5f489982bee8bfed5381e4b8db68f">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="c652195aea1d35463dc3a1c6b0fc8d4729abdd297ff37869b7a23cf0b4483f43">
+<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -643,8 +643,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/multi_agent_long_horizon_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>aa11d2b3cce7</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>c652195aea1d</code></span>
+    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
     
   </div>
 </header>
@@ -724,7 +724,7 @@ QAEngineer      → Test Cases</code></pre>
 <ul><li><strong>ChatDev</strong> (Qian et al., ACL 2024, arXiv 2307.07924): similar in spirit to MetaGPT, software-development multi-agent, with a <strong>chat chain</strong> linking design / coding / testing across three phases. The codebase is small (~7B tokens) but was open-sourced early and has been widely forked.</li><li><strong>AgentVerse</strong> (Chen et al., ICLR 2024, arXiv 2308.10848): proposes a four-stage framework — expert recruitment + collaborative decision-making + individual action + evaluation. Expert roles are <strong>dynamically generated</strong> by an LLM (not from a fixed pool), suiting diverse-task scenarios.</li><li><strong>Generative Agents</strong> (Park et al., UIST 2023, arXiv 2304.03442, Stanford + Google): 25 agents <strong>live freely</strong> in a sandbox town, each with a daily routine + memory stream + reflection. Birthday parties, dates, mayoral campaigns, and other social behaviors emerge — <strong>the first time LLM agents have exhibited social emergence</strong>.</li></ul>
 <div class="callout callout-warn"><div class="callout-title">Generative Agents&#x27; emergence ≠ real intelligence</div><p>Park 2023 emphasizes this is "believable behavior" (something that feels human-like), not consciousness or agency. On Reddit / Twitter it is often hyped as an "AI village"; in interviews stay restrained: <strong>this is a prompt-engineering case study taken to its limit, not an embryonic AGI</strong>.</p></div>
 <h3 id="25-mixture-of-agents-moa--the-catchiest-work-at-neurips-2024">2.5 Mixture-of-Agents (MoA) — the catchiest work at NeurIPS 2024</h3>
-<p>The core idea of MoA (Wang et al., NeurIPS 2024, arXiv 2406.04692, Together AI) is <strong>so simple no one would believe it</strong>:</p>
+<p>The core idea of MoA (Wang et al., ICLR 2025 Spotlight, arXiv 2406.04692, Together AI) is <strong>so simple no one would believe it</strong>:</p>
 <pre class="diagram"><code>        ┌─ proposer_1 (Qwen2-72B)
 prompt ─┼─ proposer_2 (LLaMA3-70B)  ──→ aggregator (Qwen2-72B):
         ├─ proposer_3 (WizardLM)         &quot;synthesize these N responses
@@ -856,7 +856,7 @@ def multi_agent_debate(query, agents, num_rounds=3):
     └────────┘  └────────┘  └────────┘</code></pre>
 <p><strong>Claude Code Agent / Cline / Aider</strong> all follow this pattern:</p>
 <ul><li><strong>Claude Code Agent</strong>: main loop = orchestrator; TaskCreate spins up a subagent (different system prompt + subset of tools), and on completion the subagent passes its final message back to the orchestrator.</li><li><strong>Cline</strong>: plan mode = orchestrator thinking, act mode = worker execution (same LLM, different prompt).</li><li><strong>Aider</strong>: automatically splits large changes into small commits; each commit is a sub-conversation.</li></ul>
-<div class="callout callout-info"><div class="callout-title">Cost structure of orchestrator-worker</div><p>orchestrators use big models (Claude 4.6 Sonnet class) for decisions; workers use cheap models (Haiku / Sonnet) for execution — known as <strong>"cascading inference"</strong> (Yue 2023 FrugalGPT, arXiv 2305.05176). 1 orchestrator call + 10 worker calls is 5-10× cheaper than 11 orchestrator calls.</p></div>
+<div class="callout callout-info"><div class="callout-title">Cost structure of orchestrator-worker</div><p>orchestrators use big models (Claude 4.6 Sonnet class) for decisions; workers use cheap models (Haiku / Sonnet) for execution — known as <strong>"cascading inference"</strong> (Chen, Zaharia &amp; Zou 2023 "FrugalGPT", arXiv 2305.05176). 1 orchestrator call + 10 worker calls is 5-10× cheaper than 11 orchestrator calls.</p></div>
 <h3 id="44-sub-agent-blame-shifting-a-common-bug">4.4 Sub-agent blame-shifting (a common bug)</h3>
 <pre><code>Orchestrator: &quot;Task failed.&quot;
 Worker A: &quot;I finished the code. Worker B&#x27;s tests are broken.&quot;
@@ -1125,7 +1125,7 @@ def lats_search(initial_state, llm_propose, llm_propose_one, llm_value, env_step
 <div class="callout callout-warn"><div class="callout-title">LATS implementation pitfalls</div><p>(1) <code>simulate</code> must roll from parent + action (not reuse the select-leaf state); (2) <strong>policy (<code>llm_propose_one</code>) and value (<code>llm_value</code>) must be passed separately</strong> — an earlier version mistakenly used value as policy, and the rollout behavior degenerated into looking at state value without picking an action; (3) prior in <code>expand</code> should be normalized via <code>softmax(LLM_logp)</code>; (4) <strong>terminal detection must be strict</strong>, otherwise rollout loops forever; (5) typical PUCT coefficient c is 1.0-3.0; (6) production should add wall-time budget checks to prevent a 50-iteration run from timing out.</p></div>
 <h2 id="7-long-horizon-evaluation-benchmarks">§7 Long-horizon evaluation benchmarks</h2>
 <h3 id="71-benchmark-comparison-table-2024-2026">7.1 Benchmark comparison table (2024-2026)</h3>
-<table><thead><tr><th>Benchmark</th><th>Paper</th><th>Task type</th><th>Steps</th><th>2026-05 SOTA</th></tr></thead><tbody><tr><td><strong>AgentBench</strong></td><td>Liu et al., ICLR 2024, arXiv 2308.03688</td><td>8 envs (OS, DB, WebShop, HouseHold...)</td><td>10-50</td><td>GPT-4 ≈ 4.0/10 overall</td></tr><tr><td><strong>τ-bench (TAU-bench)</strong></td><td>Yao et al., 2024, arXiv 2406.12045</td><td>customer service multi-turn (retail, airline)</td><td>20-50</td><td>Claude 3.5 Sonnet ≈ 45-55% (retail)</td></tr><tr><td><strong>OSWorld</strong></td><td>Xie et al., NeurIPS 2024, arXiv 2404.07972</td><td>real OS GUI (Linux/macOS/Win, ≈ 369 tasks)</td><td>5-100</td><td>Anthropic Claude (2026-05) ≈ 60% (subset)</td></tr><tr><td><strong>WebArena</strong></td><td>Zhou et al., ICLR 2024, arXiv 2307.13854</td><td>self-hosted web (Reddit-clone, Gitea, etc.)</td><td>5-30</td><td>GPT-4 ≈ 14.4% (2024); top in 2026 ~ 50%</td></tr><tr><td><strong>VisualWebArena</strong></td><td>Koh et al., ACL 2024, arXiv 2401.13649</td><td>WebArena + visual understanding</td><td>10-30</td><td>GPT-4V ≈ 16.4%</td></tr><tr><td><strong>SWE-bench / Verified</strong></td><td>Jimenez et al., ICLR 2024, arXiv 2310.06770</td><td>2294 real GitHub issues (Python repos)</td><td>multi-file multi-commit</td><td>Claude 4.6 Sonnet (2026-05) ~ 75% (Verified)</td></tr><tr><td><strong>MLE-bench</strong></td><td>Chan et al., 2024 (OpenAI), arXiv 2410.07095</td><td>75 Kaggle ML competition tasks</td><td>24h compute budget</td><td>GPT-4o + AIDE ≈ 16.9% medals</td></tr><tr><td><strong>SWE-Lancer</strong></td><td>OpenAI, 2025, arXiv 2502.12115</td><td>1488 real Upwork freelance tasks ($1M+ payout)</td><td>hours-days</td><td>GPT-4o ≈ 8% (managerial), 26% (IC)</td></tr><tr><td><strong>Adventure / TextWorld</strong></td><td>Yuan et al., AAAI 2019, arXiv 1806.11532</td><td>text adventure game</td><td>50-500</td><td>RL-trained baseline + LLM &gt; 80% on Coin Collector</td></tr></tbody></table>
+<table><thead><tr><th>Benchmark</th><th>Paper</th><th>Task type</th><th>Steps</th><th>2026-05 SOTA</th></tr></thead><tbody><tr><td><strong>AgentBench</strong></td><td>Liu et al., ICLR 2024, arXiv 2308.03688</td><td>8 envs (OS, DB, WebShop, HouseHold...)</td><td>10-50</td><td>GPT-4 ≈ 4.0/10 overall</td></tr><tr><td><strong>τ-bench (TAU-bench)</strong></td><td>Yao et al., 2024, arXiv 2406.12045</td><td>customer service multi-turn (retail, airline)</td><td>20-50</td><td>Claude 3.5 Sonnet ≈ 45-55% (retail)</td></tr><tr><td><strong>OSWorld</strong></td><td>Xie et al., NeurIPS 2024, arXiv 2404.07972</td><td>real OS GUI (Linux/macOS/Win, ≈ 369 tasks)</td><td>5-100</td><td>Anthropic Claude (2026-05) ≈ 60% (subset)</td></tr><tr><td><strong>WebArena</strong></td><td>Zhou et al., ICLR 2024, arXiv 2307.13854</td><td>self-hosted web (Reddit-clone, Gitea, etc.)</td><td>5-30</td><td>GPT-4 ≈ 14.4% (2024); top in 2026 ~ 50%</td></tr><tr><td><strong>VisualWebArena</strong></td><td>Koh et al., ACL 2024, arXiv 2401.13649</td><td>WebArena + visual understanding</td><td>10-30</td><td>GPT-4V ≈ 16.4%</td></tr><tr><td><strong>SWE-bench / Verified</strong></td><td>Jimenez et al., ICLR 2024, arXiv 2310.06770</td><td>2294 real GitHub issues (Python repos)</td><td>multi-file multi-commit</td><td>Claude 4.6 Sonnet (2026-05) ~ 75% (Verified)</td></tr><tr><td><strong>MLE-bench</strong></td><td>Chan et al., 2024 (OpenAI), arXiv 2410.07095</td><td>75 Kaggle ML competition tasks</td><td>24h compute budget</td><td>o1-preview + AIDE ≈ 16.9% medals</td></tr><tr><td><strong>SWE-Lancer</strong></td><td>OpenAI, 2025, arXiv 2502.12115</td><td>1488 real Upwork freelance tasks ($1M+ payout)</td><td>hours-days</td><td>GPT-4o ≈ 8% (managerial), 26% (IC)</td></tr><tr><td><strong>Adventure / TextWorld</strong></td><td>Yuan et al., AAAI 2019, arXiv 1806.11532</td><td>text adventure game</td><td>50-500</td><td>RL-trained baseline + LLM &gt; 80% on Coin Collector</td></tr></tbody></table>
 <h3 id="72-benchmark-selection-decision-table">7.2 Benchmark selection decision table</h3>
 <table><thead><tr><th>What you want to measure</th><th>Pick</th></tr></thead><tbody><tr><td>General agent capability</td><td>AgentBench</td></tr><tr><td>Customer-service dialogue + tool-call accuracy</td><td>TAU-bench</td></tr><tr><td>Real GUI operation (hardest)</td><td>OSWorld</td></tr><tr><td>Coding agent + real-repo fix</td><td>SWE-bench Verified</td></tr><tr><td>Multi-day ML work</td><td>MLE-bench</td></tr><tr><td>Economic value (measured)</td><td>SWE-Lancer</td></tr><tr><td>Web navigation</td><td>WebArena / VisualWebArena</td></tr></tbody></table>
 <h3 id="73-what-benchmark-horizon-length-implies-about-failure-modes">7.3 What benchmark horizon length implies about failure modes</h3>
@@ -1300,7 +1300,7 @@ class Orchestrator:
 <h3 id="132-openai-operator--agents-sdk">13.2 OpenAI Operator / Agents SDK</h3>
 <ul><li><strong>Operator</strong> (Jan 2025): the counterpart to Anthropic Computer Use, but with a <strong>CUA (Computer-Using Agent)</strong> trained specifically as a vision policy (not general Claude); WebArena accuracy ≈ 58.1%.</li><li><strong>OpenAI Agents SDK</strong> (Mar 2025): a Python framework providing handoff / guardrail / tracing abstractions. <strong>Handoff</strong> = the orchestrator "handing off" the task to another agent (more than a tool call).</li></ul>
 <h3 id="133-cognition-devin--swe-agent">13.3 Cognition Devin / SWE-Agent</h3>
-<ul><li><strong>Devin</strong> (Cognition, Mar 2024 demo): the first commercial "AI software engineer" demo, capable of plan + code + debug + browser end-to-end. <strong>SWE-bench Verified ~ 13.9%</strong> (Mar 2024) → ~ 50% (late 2025, Devin 3.0).</li><li><strong>SWE-Agent</strong> (Yang et al., NeurIPS 2024, arXiv 2405.15793, Princeton): an open-source SWE-bench agent that proposed the <strong>Agent-Computer Interface (ACI)</strong> concept — designing a dedicated file-edit / shell / search interface for the LLM (not giving it bash directly), reaching 18.0% on SWE-bench Lite.</li></ul>
+<ul><li><strong>Devin</strong> (Cognition, Mar 2024 demo): the first commercial "AI software engineer" demo, capable of plan + code + debug + browser end-to-end. <strong>SWE-bench (original) ~ 13.9%</strong> (Mar 2024; note: the <em>Verified</em> subset only launched 2024-08) → ~ 50% (late 2025, Devin 3.0).</li><li><strong>SWE-Agent</strong> (Yang et al., NeurIPS 2024, arXiv 2405.15793, Princeton): an open-source SWE-bench agent that proposed the <strong>Agent-Computer Interface (ACI)</strong> concept — designing a dedicated file-edit / shell / search interface for the LLM (not giving it bash directly), reaching 18.0% on SWE-bench Lite.</li></ul>
 <h3 id="134-cursor--cline--aider--continue">13.4 Cursor / Cline / Aider / Continue</h3>
 <ul><li><strong>Cursor</strong> (Anysphere): commercial IDE-integrated agent, with plan/act mode switching; Composer is a multi-file-edit subagent.</li><li><strong>Cline</strong> (open-source, originally Claude Dev): VS Code extension, open-source orchestrator + worker, GitHub stars grew to 30K+ in 2025.</li><li><strong>Aider</strong>: CLI tool; repo-map + LLM auto-commit; <strong>automatically splitting large changes into small commits</strong> is a benchmark of long-horizon engineering.</li><li><strong>Continue</strong>: a self-hosted alternative, can be wired to a self-hosted LLM.</li></ul>
 <div class="callout callout-info"><div class="callout-title">Production agent toolchain summary (memorize for interviews)</div><p>commercial: Cursor, Devin, GitHub Copilot Agent, Claude Code open-source CLI: Cline, Aider, Continue framework: AutoGen (MS), CrewAI, LangGraph (LangChain), LlamaIndex AgentWorkflow</p></div>
@@ -1353,7 +1353,7 @@ Action 2: ...</code></pre>
 <details>
 
 <summary>Q6. What is MoA? Why N proposers + 1 aggregator rather than best-of-N?</summary>
-<p><strong>MoA (Mixture-of-Agents, Wang et al. NeurIPS 2024, arXiv 2406.04692)</strong>: N LLMs each give a response, the N responses are <strong>concatenated into the prompt</strong> fed to an aggregator LLM that synthesizes.</p>
+<p><strong>MoA (Mixture-of-Agents, Wang et al. ICLR 2025 Spotlight, arXiv 2406.04692)</strong>: N LLMs each give a response, the N responses are <strong>concatenated into the prompt</strong> fed to an aggregator LLM that synthesizes.</p>
 <p>Why it beats best-of-N:</p>
 <ul><li>best-of-N: a reward model picks <strong>the single highest-scoring</strong> response — discards the <strong>complementary information</strong> in the other N-1</li><li>MoA: lets the aggregator LLM see all N perspectives and do <strong>latent reasoning + synthesis</strong> in prompt space</li></ul>
 <p><strong>Result</strong>: 6× open-source models in MoA achieve 65.1% LC win rate on AlpacaEval 2.0 &gt; 57.5% for GPT-4 Omni.</p>
@@ -1599,8 +1599,8 @@ Agent: calls old endpoint → 403 forbidden → confused → keeps retrying</cod
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/multi_agent_long_horizon_tutorial_en.md</code> ·
-  SHA256 <code>aa11d2b3cce7</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>c652195aea1d</code> ·
+  generated at 2026-06-29 10:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

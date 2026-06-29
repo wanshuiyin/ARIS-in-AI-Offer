@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/reasoning_models_tutorial.md",
-  "source_sha256": "549e2f7e241c94ec0b8f2203727ae759afe568daa1c62d507051768725890e63",
+  "source_sha256": "356c5d884550a6f02e5f9568d14597efe17d6b4de013f21ffaf09ba8d3c221dc",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/reasoning_models_tutorial.html",
   "topic": "Reasoning Models (o1 / R1 / Test-Time Compute / PRM / GRPO)",
@@ -64,5 +64,14 @@
   },
   "summary": "Reasoning Models tutorial: subagent did 3 rounds before hang, main-session DIY did 1 substantive round catching 9 errors (Q22 RM semantics, Snell 4× description, Math-Shepherd MCTS→MC fix, extract_answer parser, grpo_loss detach, prm_beam edge case, KL penalty edge case, 7 callout-list spacings). Final 13/13 render PASS. 1254 lines content-dense (WARN).",
   "rendered_at": "2026-05-19",
-  "notes": "Subagent was killed during continuation due to codex MCP concurrency hang. Substantive review + fixes + render + render review completed in main session DIY."
+  "notes": "Subagent was killed during continuation due to codex MCP concurrency hang. Substantive review + fixes + render + render review completed in main session DIY.",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Math-Shepherd relabeled MCTS to Monte-Carlo completion rollouts in section 3.3, the section-3 table, and the timeline (it uses plain MC rollouts, not tree search — resolves the self-contradiction with section 0/Q4/Q17; rStar-Math genuine MCTS usage left unchanged).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

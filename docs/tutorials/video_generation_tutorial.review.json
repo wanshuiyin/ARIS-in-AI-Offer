@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/video_generation_tutorial.md",
-  "source_sha256_prefix": "4aaa64ff3f54473d",
+  "source_sha256_prefix": "bbbe603b2b44ec4b",
   "output": "docs/tutorials/video_generation_tutorial.html",
   "topic": "Video Generation (Sora / Hunyuan-Video / Kling / Wan / Mochi / Movie Gen / OpenSora)",
   "effort": "max",
@@ -68,5 +68,15 @@
     ]
   },
   "summary": "5-round math/code review (4 FAIL → 1 PASS) + 2-round render review (1 FAIL → 1 PASS). Issues caught: I2V time-axis confusion, multiple arithmetic errors in attention/VAE complexity tables, Q11 causal Conv3d T=1 derivation, model-citation timeline corrections (Kling / CogVideoX / AnimateDiff / Wan 2.2), Sora/SD3-Video over-attribution, A.2/A.3 I2V noise/clamp trick, RoPE-3D block-diagonal vs matrix-product, Q12 summary raw-markdown leak.",
-  "rendered_at": "2026-05-19"
+  "rendered_at": "2026-05-19",
+  "source_sha256": "bbbe603b2b44ec4b1e5e7bdbbec1967d0c0cad4b9654a6b87e664ecb9ed78bde",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "CogVideoX open-source sizes corrected 5B/15B to 2B/5B (no 15B release exists).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/vae_vqvae_vqgan_tutorial_en.md">
-<meta name="aris:source-sha256" content="30ec2764cc2c896ea77751d2f8ba1ad40c2e2fbf40f4c4d69865993dd46fe51a">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="dd163f95024f8af9e32b70b615509f7acf9ed59024b6873209eb28d017cc7edb">
+<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -618,8 +618,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/vae_vqvae_vqgan_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>30ec2764cc2c</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>dd163f95024f</code></span>
+    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
     
   </div>
 </header>
@@ -1050,10 +1050,10 @@ def hinge_g_loss(fake_logits):
 <h3 id="82-gumbel-softmax-derivation">8.2　Gumbel-Softmax derivation</h3>
 <p><strong>Goal</strong>: make categorical sampling differentiable.</p>
 <p><strong>Gumbel-Max trick</strong>: for logits $\pi = (\pi_1, \ldots, \pi_K)$ add independent Gumbel(0,1) noise $g_k = -\log(-\log u_k), u_k \sim \mathcal{U}(0, 1)$, then:</p>
-<p>$$\arg\max_k \{\log \pi_k + g_k\}$$</p>
+<p>$$\arg\max_k \{\pi_k + g_k\}$$</p>
 <p>follows categorical(softmax($\pi$)). Proof uses Gumbel CDF property: $P(\max_k X_k = X_j) = e^{\pi_j} / \sum_k e^{\pi_k}$.</p>
 <p><strong>Gumbel-softmax (Jang et al., ICLR 2017; Maddison et al., ICLR 2017 concurrent)</strong>: replace the non-differentiable argmax <strong>with</strong> softmax:</p>
-<p>$$\boxed{\;y_k = \frac{\exp((\log \pi_k + g_k) / \tau)}{\sum_j \exp((\log \pi_j + g_j) / \tau)}\;}$$</p>
+<p>$$\boxed{\;y_k = \frac{\exp((\pi_k + g_k) / \tau)}{\sum_j \exp((\pi_j + g_j) / \tau)}\;}$$</p>
 <ul><li>$\tau \to 0$: $y$ approaches one-hot (close to categorical sampling)</li><li>$\tau \to \infty$: $y$ approaches uniform (good gradients but deviation)</li><li>During training $\tau$ is annealed: $1.0 \to 0.1$ progressive decrease</li></ul>
 <p><strong>Straight-Through Gumbel-Softmax</strong>: forward uses argmax (discrete), backward uses softmax gradient — same idea as VQ-VAE's STE.</p>
 <pre><code class="language-python">def gumbel_softmax_sample(logits, tau=1.0, hard=False, dim=-1):
@@ -1203,7 +1203,7 @@ FSQ    →   discrete token grid  →   Transformer AR  (Cosmos, OpenMagViT2)
 LFQ    →   binary token grid →   AR / bit predictor (MAGVIT-v2, VideoPoet)
 KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, FLUX)</code></pre>
 <h3 id="113-reconstruction-perception-tradeoff-advanced-question">11.3　Reconstruction-Perception Tradeoff (advanced question)</h3>
-<p>Blau &amp; Michaeli (ICML 2018) proved: <strong>between reconstruction (MSE / PSNR) and perception (perceptual / FID) there is a strict Pareto boundary</strong>. VQ-GAN / SD VAE introduces LPIPS + adversarial <strong>to trade higher perceptual quality for slightly worse PSNR</strong>.</p>
+<p>Blau &amp; Michaeli (CVPR 2018) proved: <strong>between reconstruction (MSE / PSNR) and perception (perceptual / FID) there is a strict Pareto boundary</strong>. VQ-GAN / SD VAE introduces LPIPS + adversarial <strong>to trade higher perceptual quality for slightly worse PSNR</strong>.</p>
 <div class="callout callout-warn"><div class="callout-title">PSNR doesn&#x27;t equal &quot;looks good&quot;</div><p>VQ-GAN paper's PSNR is not necessarily better than VQ-VAE, but perceptual (LPIPS / FID) is much better. <strong>In interviews, often asked "why does SOTA tokenizer have lower PSNR"</strong> — this is distortion-perception tradeoff.</p></div>
 <h2 id="12-25-frequently-asked-interview-questions">§12 25 Frequently-Asked Interview Questions</h2>
 <p>Listed from the perspective of a top-lab interviewer by codex (gpt-5.5 xhigh), divided into 3 tiers by difficulty. Each question expands to answer points + common pitfalls.</p>
@@ -1314,7 +1314,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 <details>
 
 <summary>Q18. What is LPIPS? Advantages over MSE?</summary>
-<ul><li>Compute distance using intermediate-layer features of pretrained VGG / AlexNet: $\sum_l w_l \|\phi_l(x) - \phi_l(\hat{x})\|^2$</li><li>$w_l$ is the learned channel-wise weight (Zhang et al. CVPR 2018)</li><li>Closer to human perception than pixel-MSE</li><li>Standard for VQ-GAN / SD / most image GAN / diffusion training</li><li>Used with distortion-perception tradeoff (Blau &amp; Michaeli ICML 2018)</li></ul>
+<ul><li>Compute distance using intermediate-layer features of pretrained VGG / AlexNet: $\sum_l w_l \|\phi_l(x) - \phi_l(\hat{x})\|^2$</li><li>$w_l$ is the learned channel-wise weight (Zhang et al. CVPR 2018)</li><li>Closer to human perception than pixel-MSE</li><li>Standard for VQ-GAN / SD / most image GAN / diffusion training</li><li>Used with distortion-perception tradeoff (Blau &amp; Michaeli CVPR 2018)</li></ul>
 <p>Pitfalls: only saying "uses VGG features," not learned channel weights / fit to human study.</p>
 </details>
 <details>
@@ -1359,7 +1359,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 <details>
 
 <summary>Q25. What is the reconstruction-perception tradeoff? What does it imply for VQ-GAN / SD VAE?</summary>
-<ul><li>Blau &amp; Michaeli (ICML 2018) proved: <strong>between MSE / PSNR (distortion) and perceptual distance (perception) there is a strict Pareto boundary</strong></li><li>Lower distortion → necessarily raises or maintains perception loss, and vice versa</li><li><strong>No simultaneous optimum</strong>: VQ-GAN / SD VAE introducing LPIPS + adversarial is <strong>actively sacrificing PSNR to gain perceptual quality</strong></li><li>Implication: evaluating tokenizers should not only look at PSNR / MSE; FID / IS / KID and other perceptual metrics are more important</li><li>Industrial practice: at 8×-32× high compression, perceptual loss is the key to VQ-GAN / SD VAE not being blurry</li></ul>
+<ul><li>Blau &amp; Michaeli (CVPR 2018) proved: <strong>between MSE / PSNR (distortion) and perceptual distance (perception) there is a strict Pareto boundary</strong></li><li>Lower distortion → necessarily raises or maintains perception loss, and vice versa</li><li><strong>No simultaneous optimum</strong>: VQ-GAN / SD VAE introducing LPIPS + adversarial is <strong>actively sacrificing PSNR to gain perceptual quality</strong></li><li>Implication: evaluating tokenizers should not only look at PSNR / MSE; FID / IS / KID and other perceptual metrics are more important</li><li>Industrial practice: at 8×-32× high compression, perceptual loss is the key to VQ-GAN / SD VAE not being blurry</li></ul>
 <p>Pitfalls: only answering "PSNR is not a good metric," without saying the underlying strict Pareto bound.</p>
 </details>
 <h2 id="a-appendix-complete-from-scratch-code-skeleton--sanity-check">§A Appendix: Complete from-scratch code skeleton + sanity check</h2>
@@ -1382,8 +1382,8 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/vae_vqvae_vqgan_tutorial_en.md</code> ·
-  SHA256 <code>30ec2764cc2c</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>dd163f95024f</code> ·
+  generated at 2026-06-29 10:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

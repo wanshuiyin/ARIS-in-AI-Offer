@@ -38,7 +38,7 @@
 | 2024-02 | **Sora** | OpenAI | DiT + spacetime patches + 大规模 caption；闭源 |
 | 2024-05 | **Veo** | Google DeepMind | 闭源 1080p / 1 分钟 |
 | 2024-06 | **Kling** | Kuaishou | 国产闭源，时长 2 分钟 |
-| 2024-08 | **CogVideoX** (arXiv) | Zhipu/THU | 开源 5B/15B；Expert Transformer + 3D VAE |
+| 2024-08 | **CogVideoX** (arXiv) | Zhipu/THU | 开源 2B/5B；Expert Transformer + 3D VAE |
 | 2024-10 | **Movie Gen** | Meta | 30B；视频 + 音频联合；DiT + FM |
 | 2024-10 | **Mochi-1** | Genmo | 10B 开源；AsymmDiT 非对称 MM-DiT |
 | 2024-11 | **LTX-Video** | Lightricks | 实时（2B）；强压缩 VAE + DiT |
@@ -820,7 +820,7 @@ $$\text{FVD} = \|\mu_g - \mu_r\|^2 + \text{Tr}\!\left(\Sigma_g + \Sigma_r - 2\sq
 
 <summary>Q9. Sora / Hunyuan-Video / Mochi-1 / Kling 哪些开源？</summary>
 
-- **开源**：Hunyuan-Video (13B, 2024-12), Mochi-1 (10B, 2024-10), CogVideoX (5B/15B, arXiv 2024-08), OpenSora / OpenSora-Plan, LTX-Video (2B, 2024-11), Wan 2.1/2.2 (14B, 2025), SVD (2023-11)
+- **开源**：Hunyuan-Video (13B, 2024-12), Mochi-1 (10B, 2024-10), CogVideoX (2B/5B, arXiv 2024-08), OpenSora / OpenSora-Plan, LTX-Video (2B, 2024-11), Wan 2.1/2.2 (14B, 2025), SVD (2023-11)
 - **闭源**：Sora (2024-02), Veo / Veo 2 (Google), Kling (Kuaishou 2024-06), Movie Gen (Meta, 30B)
 - 国内开源主力：Hunyuan / Wan / CogVideoX
 

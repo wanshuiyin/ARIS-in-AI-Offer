@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/long_context_rope_yarn_mla_tutorial.md",
-  "source_sha256_prefix": "efc2e3009ca95468",
+  "source_sha256_prefix": "8adc3b0e3df387be",
   "output": "docs/tutorials/long_context_rope_yarn_mla_tutorial.html",
   "topic": "Long Context: RoPE / YaRN / NTK / MLA / Sliding Window",
   "effort": "max",
@@ -128,7 +128,7 @@
   },
   "summary": "Three round math/code review (FAIL/FAIL/FAIL) on a 1209-line draft of Long Context cheat sheet. Each round fixed real issues: YaRN temperature direction, KV-cache numerics, MLA imports, streaming_decode cache semantics, table structure, ABF prose. Post-round-3 fixes patched the last two issues (§6.4 wording + streaming edge case) without re-review per hard 3-round budget. Remaining warnings are cosmetic (length +9 lines, citation venue normalization).",
   "rendered_at": "2026-05-19",
-  "source_sha256": "efc2e3009ca954687677d0e64c1e97131006eba20e788c3b7d567bdceb6c7266",
+  "source_sha256": "8adc3b0e3df387bebfbfba969b892dcf2a2173522f0636cd3ac7fd28bd291716",
   "thread_id": "019e7ca6-5cca-7c71-812f-3bfa824bd72e",
   "post_ship_review": [
     {
@@ -137,6 +137,13 @@
       "date": "2026-06-29",
       "fix": "Fixed the §9 intro MLA ratio from a loose ≈50× to the full-cache ≈57× (d_c+d_r=576), consistent with this tutorial's own §9.6 / §12.3 table (57×) and the kv-cache tutorial; noted the bare-latent 64× caveat.",
       "note": "Cross-tutorial consistency fix (2026-06-29), surfaced by a holistic collection audit (structural + a cross-tutorial consistency pass). Orchestrator-verified (arithmetic 32768/576≈57; the warmup reasoning re-checked). Tiny factual/clarity correction — the original gating verdicts (math/code/render or translation-fidelity) remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Differential Transformer cost corrected: not +50% params/compute — the paper halves the head count so params/FLOPs match a standard Transformer (~0 overhead).",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
     }
   ]
 }

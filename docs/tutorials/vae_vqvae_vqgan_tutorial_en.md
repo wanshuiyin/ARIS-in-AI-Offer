@@ -672,13 +672,13 @@ DALL·E uses **dVAE (discrete VAE)** as image tokenizer:
 
 **Gumbel-Max trick**: for logits $\pi = (\pi_1, \ldots, \pi_K)$ add independent Gumbel(0,1) noise $g_k = -\log(-\log u_k), u_k \sim \mathcal{U}(0, 1)$, then:
 
-$$\arg\max_k \{\log \pi_k + g_k\}$$
+$$\arg\max_k \{\pi_k + g_k\}$$
 
 follows categorical(softmax($\pi$)). Proof uses Gumbel CDF property: $P(\max_k X_k = X_j) = e^{\pi_j} / \sum_k e^{\pi_k}$.
 
 **Gumbel-softmax (Jang et al., ICLR 2017; Maddison et al., ICLR 2017 concurrent)**: replace the non-differentiable argmax **with** softmax:
 
-$$\boxed{\;y_k = \frac{\exp((\log \pi_k + g_k) / \tau)}{\sum_j \exp((\log \pi_j + g_j) / \tau)}\;}$$
+$$\boxed{\;y_k = \frac{\exp((\pi_k + g_k) / \tau)}{\sum_j \exp((\pi_j + g_j) / \tau)}\;}$$
 
 - $\tau \to 0$: $y$ approaches one-hot (close to categorical sampling)
 - $\tau \to \infty$: $y$ approaches uniform (good gradients but deviation)
@@ -940,7 +940,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 
 ### 11.3　Reconstruction-Perception Tradeoff (advanced question)
 
-Blau & Michaeli (ICML 2018) proved: **between reconstruction (MSE / PSNR) and perception (perceptual / FID) there is a strict Pareto boundary**. VQ-GAN / SD VAE introduces LPIPS + adversarial **to trade higher perceptual quality for slightly worse PSNR**.
+Blau & Michaeli (CVPR 2018) proved: **between reconstruction (MSE / PSNR) and perception (perceptual / FID) there is a strict Pareto boundary**. VQ-GAN / SD VAE introduces LPIPS + adversarial **to trade higher perceptual quality for slightly worse PSNR**.
 
 > ⚠️ **PSNR doesn't equal "looks good"** — VQ-GAN paper's PSNR is not necessarily better than VQ-VAE, but perceptual (LPIPS / FID) is much better. **In interviews, often asked "why does SOTA tokenizer have lower PSNR"** — this is distortion-perception tradeoff.
 
@@ -1244,7 +1244,7 @@ Pitfalls: thinking PatchGAN is attention-based; or saying it's only used in imag
 
 - Standard for VQ-GAN / SD / most image GAN / diffusion training
 
-- Used with distortion-perception tradeoff (Blau & Michaeli ICML 2018)
+- Used with distortion-perception tradeoff (Blau & Michaeli CVPR 2018)
 
 Pitfalls: only saying "uses VGG features," not learned channel weights / fit to human study.
 
@@ -1369,7 +1369,7 @@ Pitfalls: only answering "uses ResNet architecture," without mentioning the prob
 
 <summary>Q25. What is the reconstruction-perception tradeoff? What does it imply for VQ-GAN / SD VAE?</summary>
 
-- Blau & Michaeli (ICML 2018) proved: **between MSE / PSNR (distortion) and perceptual distance (perception) there is a strict Pareto boundary**
+- Blau & Michaeli (CVPR 2018) proved: **between MSE / PSNR (distortion) and perceptual distance (perception) there is a strict Pareto boundary**
 
 - Lower distortion → necessarily raises or maintains perception loss, and vice versa
 

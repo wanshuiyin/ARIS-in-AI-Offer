@@ -131,7 +131,7 @@ CT (Consistency Training) originally had quality far below CD. iCT improves four
 - L2 is sensitive to outliers and unstable to train
 - Pseudo-Huber $\sqrt{\|a-b\|^2 + c^2} - c$: for small residuals ≈ $\|a-b\|^2/(2c)$ (L2), for large residuals ≈ $\|a-b\|$ (L1) — **adaptively robust**
 
-**Results**: iCT achieves **1-step FID 2.51 / 2-step FID 2.24** on CIFAR-10 (paper abstract numbers), and **doesn't depend on a teacher** — fully opening the ceiling for from-scratch consistency training.
+**Results**: iCT achieves **1-step FID 2.83 / 2-step FID 2.46** on CIFAR-10 (paper abstract numbers; the deeper iCT-deep reaches 2.51 / 2.24), and **doesn't depend on a teacher** — fully opening the ceiling for from-scratch consistency training.
 
 ### 2.4　sCM / TrigFlow (Lu-Song 2024 OpenAI, arXiv:2410.11081)
 

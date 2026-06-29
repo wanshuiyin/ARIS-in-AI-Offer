@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/diffusion_foundations_tutorial_en.md",
-  "source_sha256": "5f3b3e8403e8abdc6cbd6ec2c8d893bc9c2919733358f4837062708d53549727",
+  "source_sha256": "472f945ffb064405f5ef17ad3cbf7ca4e0da2ad0f455ef7e5adc70784dcbd94e",
   "output": "docs/tutorials/diffusion_foundations_tutorial_en.html",
   "zh_source": "docs/tutorials/diffusion_foundations_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -15,5 +15,14 @@
     "issues": [],
     "summary": "Fresh independent cross-model translation-fidelity audit (Codex, GPT-5.5 xhigh, thread 019e7cb8-42eb-7ee2-abab-ed4f29f774c0, read-only sandbox) of the English edition /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/diffusion_foundations_tutorial_en.md against the cross-model-verified Chinese source of truth /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/diffusion_foundations_tutorial.md, plus the rendered /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/diffusion_foundations_tutorial_en.html. VERDICT: PASS, zero issues. Both .md files are 1481 lines and align section-by-section."
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Section 12.4 and section 0 distinguished ADD (SDXL-Turbo, DINOv2 discriminator) from LADD (SD3-Turbo, teacher latent-feature discriminator, NOT DINOv2) — previously lumped SD3-Turbo under DINOv2-ADD. (EN edition mirrors the ZH fix.)",
+      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }
