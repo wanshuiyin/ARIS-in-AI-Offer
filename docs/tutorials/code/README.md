@@ -17,6 +17,7 @@
 | `rag_embedding.py` | 双塔 `DualEncoder` + InfoNCE（in-batch / 难负例）+ BM25 + RRF 混合召回 + 6 个 assert | [rag_embedding_retrieval_tutorial.md](../rag_embedding_retrieval_tutorial.md) | <5s |
 | `linear_sparse_attention.py` | linear attention 递推/chunkwise 等价 + delta rule（DeltaNet 改写式更新）+ block-sparse top-k（NSA/MoBA select）+ 6 个 assert | [linear_sparse_attention_tutorial.md](../linear_sparse_attention_tutorial.md) | <5s |
 | `normalization.py` | LayerNorm/RMSNorm from-scratch vs `torch` + RMSNorm 去 re-centering + BatchNorm train≠eval + Pre/Post-LN 梯度 top-heavy + Kaiming/Xavier 二阶矩 E[y²] + GPT-2 残差 1/√(2N) + 6 个 assert | [normalization_init_tutorial.md](../normalization_init_tutorial.md) | <5s |
+| `optimizer_lr_schedule.py` | SGD-momentum/Adam/AdamW from-scratch vs `torch.optim` + **AdamW≠Adam+L2**(解耦≠耦合) + bias correction 方向(首步 3.16× 偏大) + cosine-warmup 调度 + 动量加速病态二次 + 6 个 assert | [optimizer_lr_schedule_tutorial.md](../optimizer_lr_schedule_tutorial.md) | <5s |
 
 ## 运行
 
@@ -31,6 +32,7 @@ python lora.py
 python rag_embedding.py
 python linear_sparse_attention.py
 python normalization.py
+python optimizer_lr_schedule.py
 ```
 
 每个脚本都自带 sanity check：shape 验证 + 数值合理性检查 + 必要时跟 PyTorch

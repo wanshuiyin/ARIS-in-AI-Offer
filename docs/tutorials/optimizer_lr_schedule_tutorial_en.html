@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optimizer Lr Schedule Tutorial En</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/optimizer_lr_schedule_tutorial_en.md">
+<meta name="aris:source-sha256" content="be44cb57449825eb5da66745c9b39b460df8e45ea4fd9dc65552c60cf7866ca0">
+<meta name="aris:generated-at" content="2026-06-29 06:22 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-why-we-need-optimizers-beyond-sgd">§1 Why we need optimizers beyond SGD</a>
+</li>
+<li><a href="#2-sgd--momentum--nesterov">§2 SGD / Momentum / Nesterov</a>
+<ul>
+<li><a href="#21-plain-sgd-and-heavy-ball-momentum">2.1　Plain SGD and heavy-ball momentum</a></li>
+<li><a href="#22-nesterov-accelerated-gradient-nag">2.2　Nesterov accelerated gradient (NAG)</a></li>
+<li><a href="#23-momentum--an-exponential-moving-average-of-gradients">2.3　Momentum ≈ an exponential moving average of gradients</a></li>
+</ul>
+</li>
+<li><a href="#3-adagrad--rmsprop--adam-the-adaptive-lineage">§3 AdaGrad → RMSProp → Adam (the adaptive lineage)</a>
+<ul>
+<li><a href="#31-adagrad-per-coordinate-adaptive-but-learns-to-death">3.1　AdaGrad: per-coordinate adaptive, but &quot;learns to death&quot;</a></li>
+<li><a href="#32-rmsprop-replace-the-cumulative-sum-with-an-ema">3.2　RMSProp: replace the cumulative sum with an EMA</a></li>
+<li><a href="#33-adam--rmsprop--momentum--bias-correction">3.3　Adam = RMSProp + momentum + bias correction</a></li>
+</ul>
+</li>
+<li><a href="#4-adam-in-depth">§4 Adam in depth</a>
+<ul>
+<li><a href="#41-the-full-update">4.1　The full update</a></li>
+<li><a href="#42-why-bias-correction-is-needed">4.2　Why bias correction is needed</a></li>
+</ul>
+</li>
+<li><a href="#5-adamw-the-most-probed-section">§5 AdamW (the most-probed section)</a>
+<ul>
+<li><a href="#51-adams-l2-regularization-ne-weight-decay">5.1　Adam&#x27;s L2 regularization $\ne$ weight decay</a></li>
+<li><a href="#52-adamw-decoupled-weight-decay">5.2　AdamW: decoupled weight decay</a></li>
+</ul>
+</li>
+<li><a href="#6-frontier-optimizers">§6 Frontier optimizers</a>
+<ul>
+<li><a href="#61-muon-orthogonalize-the-momentum">6.1　Muon: orthogonalize the momentum</a></li>
+<li><a href="#62-lion-sign-momentum-single-state">6.2　Lion: sign momentum, single state</a></li>
+<li><a href="#63-shampoo--soap-full-matrix-preconditioning">6.3　Shampoo / SOAP: full-matrix preconditioning</a></li>
+<li><a href="#64-adafactor--lamb--sophia">6.4　Adafactor / LAMB / Sophia</a></li>
+</ul>
+</li>
+<li><a href="#7-learning-rate-schedules">§7 Learning-rate schedules</a>
+<ul>
+<li><a href="#71-warmup-why-start-slow">7.1　Warmup: why start slow</a></li>
+<li><a href="#72-cosine-annealing--warm-restarts">7.2　Cosine annealing (+ warm restarts)</a></li>
+<li><a href="#73-inverse-sqrt--noam-the-original-transformer-schedule">7.3　Inverse-sqrt / Noam (the original Transformer schedule)</a></li>
+<li><a href="#74-wsd-warmup-stable-decay">7.4　WSD: Warmup-Stable-Decay</a></li>
+<li><a href="#75-one-cycle--super-convergence">7.5　One-cycle / super-convergence</a></li>
+</ul>
+</li>
+<li><a href="#8-weight-decay--lr-batch-scaling--no-decay-groups">§8 Weight decay + LR-batch scaling + no-decay groups</a>
+<ul>
+<li><a href="#81-what-weight-decay-does-incl-a-modern-view">8.1　What weight decay does (incl. a modern view)</a></li>
+<li><a href="#82-scaling-lr-with-batch-size">8.2　Scaling LR with batch size</a></li>
+<li><a href="#83-no-decay-parameter-groups">8.3　No-decay parameter groups</a></li>
+</ul>
+</li>
+<li><a href="#9-gradient-clipping--llm-hyperparameter-details">§9 Gradient clipping + LLM hyperparameter details</a>
+<ul>
+<li><a href="#91-gradient-clipping-global-norm-vs-by-value">9.1　Gradient clipping: global norm vs by value</a></li>
+<li><a href="#92-adam-hyperparameter-defaults-for-llm-training">9.2　Adam hyperparameter defaults for LLM training</a></li>
+</ul>
+</li>
+<li><a href="#10-picking-an-optimizer--the-memory-bill">§10 Picking an optimizer + the memory bill</a>
+<ul>
+<li><a href="#101-optimizer-state-memory">10.1　Optimizer-state memory</a></li>
+<li><a href="#102-when-to-use-which">10.2　When to use which</a></li>
+</ul>
+</li>
+<li><a href="#11-engineering-comparison--common-misconceptions">§11 Engineering comparison + common misconceptions</a>
+<ul>
+<li><a href="#111-optimizer-comparison-table">11.1　Optimizer comparison table</a></li>
+<li><a href="#112-common-footguns">11.2　Common footguns</a></li>
+</ul>
+</li>
+<li><a href="#12-25-high-frequency-interview-questions">§12 25 high-frequency interview questions</a>
+<ul>
+<li><a href="#l1-must-know">L1 must-know</a></li>
+<li><a href="#l2-advanced">L2 advanced</a></li>
+<li><a href="#l3-advanced">L3 advanced</a></li>
+</ul>
+</li>
+<li><a href="#a-appendix-sanity-check">§A Appendix: sanity check</a>
+</li>
+<li><a href="#references">📚 References</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  
+  <h1>Optimizer Lr Schedule Tutorial En</h1>
+  
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/optimizer_lr_schedule_tutorial_en.md</code></span>
+    <span><strong>SHA256:</strong> <code>be44cb574498</code></span>
+    <span><strong>Rendered:</strong> 2026-06-29 06:22 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">Optimizers / LR Schedules in 9 lines</div><p>the interview core on one page (derivations in §1–§11 below).</p></div>
+<ol><li><strong>Why not just plain SGD</strong>: real loss landscapes are <strong>ill-conditioned</strong> (Hessian condition number $\kappa=\lambda_{\max}/\lambda_{\min}$ huge), so plain gradient descent <strong>oscillates</strong> on steep directions and <strong>crawls</strong> on shallow ones. Two cures: <strong>momentum</strong> (accumulate along consistent directions, cancel oscillations) + <strong>per-parameter adaptive step</strong> (diagonal preconditioning, evening out per-coordinate curvature mismatch). The optimizer lineage is "SGD → +momentum → +adaptive → Adam (both)".</li><li><strong>SGD / Momentum / Nesterov</strong>: plain SGD $\theta_t=\theta_{t-1}-\eta g_t$; heavy-ball momentum $v_t=\mu v_{t-1}+g_t,\ \theta_t=\theta_{t-1}-\eta v_t$ (damps oscillation, accelerates consistent directions); Nesterov evaluates the gradient at the <strong>look-ahead point</strong> $\theta-\eta\mu v$ (corrects overshoot). Momentum $\approx$ an <strong>exponential moving average</strong> of gradients with window $\sim 1/(1-\mu)$.</li><li><strong>AdaGrad → RMSProp → Adam</strong>: AdaGrad's per-coordinate step $\propto 1/\sqrt{\sum g^2}$ (<strong>accumulates all history</strong> → LR monotonically → 0, "can't learn" on long training); RMSProp replaces the sum with an <strong>EMA</strong> (fixes the monotonic decay); Adam = RMSProp's second-moment EMA + <strong>first-moment momentum</strong> + <strong>bias correction</strong>.</li><li><strong>Adam bias correction</strong>: $m,v$ start at 0, biased early (toward 0); dividing by $1-\beta^t$ de-biases. Since $\beta_2$ (0.999) is closer to 1 than $\beta_1$ (0.9), $v$ is biased more → <strong>without correction the early step is too LARGE</strong> (with default $\beta$ the first step $\approx\frac{1-\beta_1}{\sqrt{1-\beta_2}}=3.16$× $\eta$), correction returns the first step to $\eta$. Note $\epsilon$ is <strong>outside</strong> the sqrt (PyTorch).</li><li><strong>AdamW decoupled weight decay</strong>: <strong>Adam's L2 regularization $\ne$ weight decay</strong>. L2 adds $\lambda\theta$ to the <strong>gradient</strong> → it gets scaled by $1/\sqrt{\hat v}$ → params with large historical gradients get decayed less (decoupling broken). AdamW (Loshchilov &amp; Hutter) <strong>decouples</strong>: subtract $\eta\lambda\theta$ directly from the weights, outside the Adam step. This is the modern default; the two coincide for SGD but not for Adam.</li><li><strong>Frontier optimizers</strong>: <strong>Muon</strong> (<strong>orthogonalize</strong> the momentum of 2D weights via Newton-Schulz iterations, hidden 2D layers only, used by Kimi-K2), <strong>Lion</strong> (<strong>sign momentum</strong>, single state → half Adam's memory), <strong>Shampoo</strong> (Kronecker-factored <strong>full-matrix preconditioner</strong>), <strong>SOAP</strong> (run Adam in Shampoo's eigenbasis), <strong>Adafactor</strong> (factored second moment → sublinear memory), <strong>LAMB</strong> (layer-wise adaptive, huge batch), <strong>Sophia</strong> (light second-order, diagonal Hessian).</li><li><strong>LR schedule</strong>: <strong>warmup</strong> (early $\hat v$ has high variance + large-batch/Post-LN instability → ramp up linearly); <strong>cosine</strong> (smooth decay to ~0, + warm restarts, <strong>needs the total step count up front</strong>); <strong>inverse-sqrt / Noam</strong> (the original Transformer schedule); <strong>WSD</strong> (warmup-stable-decay, a constant phase + a short final decay → <strong>no need to pre-commit the total step count</strong>, supports continual training and mid-run checkpoints); <strong>one-cycle</strong> (super-convergence).</li><li><strong>Weight decay + LR-batch scaling + no-decay groups</strong>: wd does regularization (recently also a "wd $\approx$ effective-LR controller" view); the <strong>linear scaling rule</strong> (batch ×$k$ → LR ×$k$, SGD; Adam commonly $\sqrt k$); <strong>LayerNorm/RMSNorm gains, biases, embeddings get NO wd</strong> (split into decay/no-decay groups).</li><li><strong>Gradient clipping + LLM hyperparameters</strong>: clip by <strong>global norm</strong> (preserves direction) vs by value (changes direction), to prevent gradient explosion / loss spikes; LLM pretraining defaults to $\beta_2=\mathbf{0.95}$ (<strong>not</strong> 0.999 — long memory is too sluggish for spikes), $\beta_1=0.9$, $\epsilon=\text{1e-8}$, wd $=0.1$, grad-clip $=1.0$.</li></ol>
+<h2 id="1-why-we-need-optimizers-beyond-sgd">§1 Why we need optimizers beyond SGD</h2>
+<p><strong>Plain stochastic gradient descent (SGD)'s fundamental difficulty is that real loss landscapes are almost always "ill-conditioned."</strong> Expand the loss to second order near a minimum; the curvature is described by the Hessian $H$. Define the <strong>condition number</strong> $\kappa=\lambda_{\max}/\lambda_{\min}$ (ratio of $H$'s largest to smallest eigenvalue). Large $\kappa$ means hugely different curvature in different directions — some steep as a canyon wall, some flat as the valley floor. For a quadratic, gradient descent's convergence rate is about $\big(\tfrac{\kappa-1}{\kappa+1}\big)$, slower the larger $\kappa$ is.</p>
+<p>Intuitively, plain SGD <strong>oscillates</strong> in an ill-conditioned valley: with a single global $\eta$, to avoid diverging on the steep direction (large $\lambda$) $\eta$ must be tiny ($\eta\lt 2/\lambda_{\max}$); but that tiny $\eta$ then <strong>crawls</strong> on the shallow direction (small $\lambda$). The result is zig-zagging back and forth between the canyon walls while the valley-floor direction you actually want to progress along barely moves. Deep-net loss landscapes routinely have $\kappa\sim 10^4$ or more, so plain SGD is both slow and unstable.</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>Ill-conditioning = curvature mismatch across directions; one global LR can't please both ends</strong> Large-curvature directions need small steps (else oscillation/divergence); small-curvature directions need large steps (else crawling). A single scalar $\eta$ can't satisfy both → this is the root motivation for <strong>momentum</strong> and <strong>per-parameter adaptivity</strong>.</p></div>
+<p>The two complementary cures correspond to the two axes of the optimizer lineage:</p>
+<ul><li><strong>Momentum</strong>: accumulate a velocity of historical gradients. On oscillating directions the gradient flips sign repeatedly and <strong>cancels</strong> within the velocity; on consistent directions the gradient keeps the same sign and <strong>accumulates, accelerating</strong>. Equivalent to smoothing the update direction, improving GD's convergence constant from $\kappa$ to $\sqrt\kappa$ scale ($\tfrac{\sqrt\kappa-1}{\sqrt\kappa+1}$). <strong>Note</strong>: $\kappa\to\sqrt\kappa$ is the classic acceleration result for tuned heavy-ball/Nesterov on a <strong>strongly-convex quadratic</strong>; real deep nets have stochastic-gradient noise, non-convexity, and time-varying curvature, so it's an <strong>intuition, not a guarantee</strong>.</li><li><strong>Per-parameter adaptive step (adaptive / per-parameter LR)</strong>: scale each coordinate's step by its own gradient history — coordinates with persistently large gradients take small steps, persistently small ones take large steps. This acts as a <strong>diagonal preconditioner</strong>, evening out the per-coordinate effective curvature and directly easing the large-$\kappa$ disease.</li></ul>
+<p><strong>The lineage in one line</strong>: SGD (first-order gradient only) → + momentum (add a first-moment EMA) → + adaptivity (add a second-moment EMA) → <strong>Adam = momentum + adaptivity + bias correction</strong>. §2–§5 follow this line; §6 is the frontier (matrix preconditioning / sign / memory-saving); §7–§9 are the accompanying LR schedules, weight decay, and clipping.</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>"adaptive = diagonal preconditioner", not true second-order</strong> Adam-like methods only scale each coordinate (diagonal), missing cross-coordinate coupling (off-diagonal curvature). What truly approaches full-matrix preconditioning is Shampoo/SOAP (§6). Calling Adam "approximate Newton" is inaccurate — it's only a <strong>diagonal</strong> preconditioner, and it uses the gradient's second moment, not the Hessian.</p></div>
+<h2 id="2-sgd--momentum--nesterov">§2 SGD / Momentum / Nesterov</h2>
+<h3 id="21-plain-sgd-and-heavy-ball-momentum">2.1　Plain SGD and heavy-ball momentum</h3>
+<p>Plain SGD looks only at the current mini-batch gradient $g_t$ each step:</p>
+<p>$$\theta_t = \theta_{t-1} - \eta\, g_t.$$</p>
+<p><strong>Heavy-ball momentum</strong> (Polyak, 1964) introduces a velocity buffer $v$, giving the update "inertia":</p>
+<p>$$\boxed{\;v_t = \mu\, v_{t-1} + g_t, \qquad \theta_t = \theta_{t-1} - \eta\, v_t\;}\qquad (\mu\ \text{typically }0.9).$$</p>
+<p>(This is PyTorch's <code>SGD(momentum=μ)</code> form: $v$ starts at 0, the first step gives $v_1=g_1$, no $(1-\mu)$ damping.) Why it helps:</p>
+<ul><li><strong>Oscillating directions</strong> (steep walls): adjacent-step gradients flip sign repeatedly, <strong>partially cancelling</strong> in the exponentially-weighted sum $v_t=\mu v_{t-1}+g_t$ → the zig-zag is suppressed.</li><li><strong>Consistent directions</strong> (valley floor): adjacent-step gradients share a sign and keep accumulating → velocity grows, <strong>accelerating forward</strong>.</li></ul>
+<h3 id="22-nesterov-accelerated-gradient-nag">2.2　Nesterov accelerated gradient (NAG)</h3>
+<p>Heavy-ball evaluates the gradient at the <strong>current point</strong> $\theta_{t-1}$. <strong>Nesterov accelerated gradient</strong> instead evaluates at the <strong>look-ahead point</strong> "where the momentum will carry you":</p>
+<p>$$v_t = \mu\, v_{t-1} + g\big(\theta_{t-1} - \eta\mu\, v_{t-1}\big), \qquad \theta_t = \theta_{t-1} - \eta\, v_t.$$</p>
+<p>Intuition: "peek at where momentum is about to push me, then compute the gradient there" — if you're about to overshoot, the look-ahead gradient gives an early correction, so NAG has a better convergence constant on convex problems. Sutskever et al. (ICML 2013) showed empirically: <strong>carefully designed (Nesterov-style) momentum is crucial for training deep nets</strong>; good momentum + initialization can train deep nets even without an adaptive optimizer.</p>
+<h3 id="23-momentum--an-exponential-moving-average-of-gradients">2.3　Momentum ≈ an exponential moving average of gradients</h3>
+<p>Unrolling the recurrence (with $v_0=0$):</p>
+<p>$$v_t = \sum_{i=1}^{t} \mu^{\,t-i}\, g_i.$$</p>
+<p>This is a <strong>geometric (exponential) weighted sum</strong> of historical gradients — more recent gradients weigh more, older ones decay as $\mu^{t-i}$. The effective averaging window is about $1/(1-\mu)$ ($\mu=0.9$ → ~10 steps, $\mu=0.99$ → ~100 steps). So momentum does something simple: <strong>average noisy instantaneous gradients into a smoother, more trustworthy descent direction</strong>, amplifying the consistent trend and washing out noise/oscillation.</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>Momentum's two faces</strong> Optimization view: improves the convergence constant for ill-conditioned problems ($\kappa\to\sqrt\kappa$). Statistical view: an EMA that denoises the gradient. Both explain why it's nearly a free default — add $\mu=0.9$ and you get faster + more stable.</p></div>
+<h2 id="3-adagrad--rmsprop--adam-the-adaptive-lineage">§3 AdaGrad → RMSProp → Adam (the adaptive lineage)</h2>
+<h3 id="31-adagrad-per-coordinate-adaptive-but-learns-to-death">3.1　AdaGrad: per-coordinate adaptive, but "learns to death"</h3>
+<p>AdaGrad (Duchi, Hazan &amp; Singer, JMLR 2011) gives each coordinate an <strong>independent</strong> step size that adapts to its gradient history. Maintain the per-coordinate <strong>cumulative sum of squares</strong> $G_t$:</p>
+<p>$$G_t = G_{t-1} + g_t^2 \ (\text{elementwise}), \qquad \theta_t = \theta_{t-1} - \frac{\eta}{\sqrt{G_t}+\epsilon}\odot g_t.$$</p>
+<p>Effect: coordinates with persistently large gradients have large $G$ → small step; sparse/rare features have small $G$ → large step. Very effective on convex optimization and sparse features (early NLP, recommendation). <strong>Fatal flaw</strong>: $G_t$ is a <strong>monotonically increasing</strong> cumulative sum, so the denominator $\sqrt{G_t}$ only grows → the effective learning rate monotonically tends to 0. On a deep net's long training run the step shrinks to nearly 0 partway through and it <strong>can't learn</strong> anymore (premature stagnation).</p>
+<h3 id="32-rmsprop-replace-the-cumulative-sum-with-an-ema">3.2　RMSProp: replace the cumulative sum with an EMA</h3>
+<p>RMSProp (Hinton, Coursera <em>Neural Networks for ML</em>, Lecture 6e, 2012, never formally published) gets straight to the point: the problem is "accumulating all history." Replace the cumulative sum with an <strong>exponential moving average</strong>, so old gradients are forgotten:</p>
+<p>$$E[g^2]_t = \rho\, E[g^2]_{t-1} + (1-\rho)\, g_t^2, \qquad \theta_t = \theta_{t-1} - \frac{\eta}{\sqrt{E[g^2]_t}+\epsilon}\odot g_t.$$</p>
+<p>The EMA denominator no longer grows unboundedly (it tracks the "recent" gradient-square scale), so the <strong>effective LR doesn't decay to 0</strong> — AdaGrad's deadlock is undone. This is the direct precursor of Adam's second-moment term.</p>
+<h3 id="33-adam--rmsprop--momentum--bias-correction">3.3　Adam = RMSProp + momentum + bias correction</h3>
+<p>Adam (Kingma &amp; Ba, 2014) merges the two axes: RMSProp's <strong>second-moment EMA</strong> (adaptive step) + heavy-ball's <strong>first-moment EMA</strong> (momentum) + a crucial <strong>bias correction</strong> (§4). One-line mnemonic:</p>
+<p>$$\textbf{Adam} = \underbrace{\text{RMSProp}}_{\text{second-moment EMA}} + \underbrace{\text{momentum}}_{\text{first-moment EMA}} + \underbrace{\text{bias correction}}_{\text{remove early bias}}.$$</p>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>Each step patches the previous one's hole</strong> AdaGrad gave "per-coordinate adaptivity" but dies → RMSProp revives it with an EMA → Adam stacks momentum for denoising + bias correction to stabilize early steps. Telling this "who fixed whom" chain in an interview beats reciting Adam's formula.</p></div>
+<h2 id="4-adam-in-depth">§4 Adam in depth</h2>
+<h3 id="41-the-full-update">4.1　The full update</h3>
+<p>$$m_t = \beta_1 m_{t-1} + (1-\beta_1)\, g_t \qquad (\text{first moment / momentum, EMA}),$$</p>
+<p>$$v_t = \beta_2 v_{t-1} + (1-\beta_2)\, g_t^2 \qquad (\text{second moment / adaptive, EMA}),$$</p>
+<p>$$\hat m_t = \frac{m_t}{1-\beta_1^{\,t}}, \qquad \hat v_t = \frac{v_t}{1-\beta_2^{\,t}} \qquad (\textbf{bias correction}),$$</p>
+<p>$$\boxed{\;\theta_t = \theta_{t-1} - \eta\,\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon}\;}\qquad (\epsilon\ \text{outside the sqrt, PyTorch}).$$</p>
+<p>Defaults $\beta_1=0.9,\ \beta_2=0.999,\ \epsilon=10^{-8}$. $m_0=v_0=0$.</p>
+<h3 id="42-why-bias-correction-is-needed">4.2　Why bias correction is needed</h3>
+<p>$m,v$ both initialize at 0. Early on they are <strong>biased</strong> estimates of the true moments — biased toward 0, and the closer $\beta$ is to 1 the longer the bias lasts. Taking the expectation for stationary gradients: $\mathbb{E}[m_t]=(1-\beta_1^t)\,\mathbb{E}[g]$, so $\hat m_t=m_t/(1-\beta_1^t)$ exactly de-biases; $\hat v_t$ likewise.</p>
+<p>The key point, also frequently probed deeply: <strong>without correction, the early effective step is not too small, but too large.</strong> Look at the first step ($t=1$):</p>
+<p>$$\frac{m_1}{\sqrt{v_1}} = \frac{(1-\beta_1)\,g_1}{\sqrt{(1-\beta_2)}\,\lvert g_1\rvert} = \frac{1-\beta_1}{\sqrt{1-\beta_2}}\,\mathrm{sign}(g_1).$$</p>
+<p>Plugging in defaults: $\frac{1-0.9}{\sqrt{1-0.999}}=\frac{0.1}{0.0316}\approx 3.16$. That is, <strong>the uncorrected first step is about 3.16× the target $\eta$</strong> — because $v$ (with $\beta_2$ closer to 1) is pushed toward 0 harder than $m$, the denominator $\sqrt{v}$ is too small, which inflates the step instead. Bias correction restores $\hat m_1=g_1,\ \hat v_1=g_1^2$, returning the first step exactly to $\eta\cdot\mathrm{sign}(g_1)$, of magnitude $\eta$. (§A's [d] verifies this 3.16 numerically.)</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Don't blurt out "without correction the step is too small"</strong> The naive intuition only watches the numerator $m$ biased toward 0 → assumes the step is too small, <strong>missing that the denominator $v$ is biased harder</strong>. For standard $\beta_2=0.999$, the net effect is an early step that's too <strong>large</strong> ($\approx 3.16\eta$), which can cause early instability/divergence — another reason early training pairs with warmup (§7). Getting the direction backwards is a top-lab favorite to catch.</p></div>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>$\epsilon$ outside the sqrt (PyTorch convention)</strong> Adam's denominator is $\sqrt{\hat v_t}+\epsilon$, $\epsilon$ <strong>outside</strong> the sqrt — it both prevents division by zero and <strong>caps the step at</strong> $\eta/\epsilon$ (no blow-up to an infinite step when the gradient is tiny). Some implementations (e.g. Adafactor) put it <strong>inside</strong>, $\sqrt{\hat v_t+\epsilon}$, with slightly different numerics. Too small an $\epsilon$ in fp16/bf16 makes the denominator $\approx 0$ and easily overflows.</p></div>
+<h2 id="5-adamw-the-most-probed-section">§5 AdamW (the most-probed section)</h2>
+<h3 id="51-adams-l2-regularization-ne-weight-decay">5.1　Adam's L2 regularization $\ne$ weight decay</h3>
+<p>The classic <strong>L2 regularization</strong> approach: add $\frac{\lambda}{2}\lVert\theta\rVert^2$ to the loss, equivalent to adding $\lambda\theta$ to the gradient:</p>
+<p>$$g_t' = g_t + \lambda\,\theta_{t-1}.$$</p>
+<p>For plain SGD this is exactly weight decay: $\theta_t=\theta_{t-1}-\eta(g_t+\lambda\theta_{t-1})=(1-\eta\lambda)\theta_{t-1}-\eta g_t$ — each step shrinks the weight by $(1-\eta\lambda)$. <strong>But for Adam, disaster strikes</strong>: this $\lambda\theta$ is stuffed into $g'$, so it flows into $m,v$ and ends up scaled by $1/(\sqrt{\hat v}+\epsilon)$:</p>
+<p>$$\theta_t = \theta_{t-1} - \eta\,\frac{\widehat{m'_t}}{\sqrt{\hat v_t}+\epsilon},\qquad m'\ \text{contains the }\lambda\theta\ \text{contribution}.$$</p>
+<p>Consequence: <strong>params with large historical gradients ($\hat v$ large) get LESS effective decay</strong>, params with small gradients get more — the decay strength is distorted by $\hat v$, completely divorced from the regularizer's intent of "applying a uniform shrinkage to all weights." This is "L2 and weight decay are no longer equivalent under an adaptive optimizer."</p>
+<h3 id="52-adamw-decoupled-weight-decay">5.2　AdamW: decoupled weight decay</h3>
+<p>AdamW (Loshchilov &amp; Hutter, <em>Decoupled Weight Decay Regularization</em>, 1711.05101) fixes it minimally — <strong>take weight decay out of the gradient, bypass the adaptive denominator, and apply it directly to the weights</strong>:</p>
+<p>$$\boxed{\;\theta_t = \theta_{t-1} - \eta\Big(\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon} + \lambda\,\theta_{t-1}\Big)\;}$$</p>
+<p>i.e. compute the Adam step on the raw gradient $g$ (<strong>without</strong> $\lambda\theta$), then separately subtract an $\eta\lambda\theta_{t-1}$. Equivalently $\theta_t=(1-\eta\lambda)\theta_{t-1}-\eta\,\hat m_t/(\sqrt{\hat v_t}+\epsilon)$ — a clean, <strong>$\hat v$-independent</strong> uniform shrinkage (PyTorch's <code>AdamW</code> multiplies the decay by lr).</p>
+<p>Why it's usually better (more controllable): after decoupling, <strong>all params receive the same relative shrinkage $\lambda$</strong>, the regularization strength is no longer distorted by each param's gradient history, more faithful to "controlling the weight norm"; Loshchilov &amp; Hutter showed empirically that AdamW is <strong>often</strong> stably better than Adam+L2 across tasks, and the optimal LR and wd are easier to tune decoupled (no need to absolutize it to "more generalizing on all tasks," but it is the more controllable, more common default). <strong>Why SGD makes them coincide</strong>: SGD has no $1/\sqrt{\hat v}$ adaptive scaling layer, so $\lambda\theta$ added to the gradient is used as-is, which is exactly uniform shrinkage; once there's an adaptive denominator, adding to the gradient (L2) and shrinking directly (decay) part ways.</p>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>The modern default IS AdamW</strong> Transformer/LLM training almost always uses AdamW (not Adam). Asked "the difference between Adam and AdamW," the standard answer is "<strong>L2 goes through the $1/\sqrt{\hat v}$ scaling, decoupled decay doesn't</strong>; they coincide for SGD, differ for Adam." Answering only "AdamW adds weight decay" misses the point (Adam can also take a weight_decay, but that's L2).</p></div>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>In PyTorch, <code>Adam(weight_decay=λ)</code> is L2, not AdamW</strong> <code>torch.optim.Adam(weight_decay=λ)</code> does <strong>coupled L2</strong> (adds $\lambda\theta$ to the gradient); for decoupled decay you must use <code>torch.optim.AdamW</code>. The two produce <strong>different</strong> updates at the same $\lambda$ (§A's [c] shows $\lVert\Delta\rVert\gt 0$ numerically). Getting this API wrong means you never actually used AdamW.</p></div>
+<h2 id="6-frontier-optimizers">§6 Frontier optimizers</h2>
+<p>Remember just <strong>one core idea</strong> for each — being able to state "which part of Adam it changes" in an interview is enough.</p>
+<h3 id="61-muon-orthogonalize-the-momentum">6.1　Muon: orthogonalize the momentum</h3>
+<p><strong>Muon</strong> (Keller Jordan, 2024 tech blog) targets <strong>2D weight matrices</strong>: first compute the update matrix $M$ from momentum, then use a few <strong>Newton-Schulz iterations</strong> to <strong>orthogonalize</strong> it into $O\approx\mathrm{NewtonSchulz}(M)$ (mathematically approximating $UV^\top$ of $M=U\Sigma V^\top$, i.e. the nearest semi-orthogonal matrix, replacing an expensive SVD with iteration), and update the weight with $O$. Intuition: orthogonalization makes the update push <strong>equally on all singular directions</strong>, not dominated by a few large singular values → more balanced updates, faster effective learning. <strong>Only for hidden-layer 2D matrices</strong>; embeddings, the output head, norm gains, biases still go through AdamW (orthogonalization is meaningless for them). Moonshot's Kimi-K2 trains with Muon; for scalability see <em>Muon is Scalable for LLM Training</em> (2502.16982).</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>The original Muon is mostly a blog, with no formal arXiv</strong> Muon first appeared as Keller Jordan's tech-blog writeup (no standalone arXiv paper); the one with a formal arXiv is Moonshot's scaling work (2502.16982). Distinguish them when citing — don't invent an arXiv id for the original Muon.</p></div>
+<h3 id="62-lion-sign-momentum-single-state">6.2　Lion: sign momentum, single state</h3>
+<p><strong>Lion</strong> (Chen et al., <em>Symbolic Discovery of Optimization Algorithms</em>, 2302.06675) was discovered automatically by <strong>symbolic program search</strong>. The update takes the <strong>sign</strong> of the momentum: $u_t=\mathrm{sign}(\beta_1 m_{t-1}+(1-\beta_1)g_t)$, $\theta_t=\theta_{t-1}-\eta(u_t+\lambda\theta_{t-1})$, then updates the momentum $m_t=\beta_2 m_{t-1}+(1-\beta_2)g_t$. It <strong>stores only 1 state (momentum)</strong> → optimizer memory is <strong>half</strong> Adam's (which stores both $m,v$). The sign makes every coordinate take an equal-magnitude step; usually paired with a smaller LR and a larger wd.</p>
+<h3 id="63-shampoo--soap-full-matrix-preconditioning">6.3　Shampoo / SOAP: full-matrix preconditioning</h3>
+<ul><li><strong>Shampoo</strong> (Gupta, Koren &amp; Singer, 1802.09568): goes beyond Adam's <strong>diagonal</strong> preconditioning to <strong>full-matrix / Kronecker-factored</strong> preconditioning. For a weight matrix it maintains left and right preconditioners $L=\sum GG^\top$, $R=\sum G^\top G$, and updates with $L^{-1/4} G\, R^{-1/4}$ — approximating full-matrix AdaGrad with a Kronecker product, capturing cross-coordinate coupling. Converges faster but each step is expensive (computing matrix inverse-roots).</li><li><strong>SOAP</strong> (Vyas et al., 2409.11321): runs Adam in <strong>Shampoo's (slowly-changing) eigenbasis</strong> — rotate the gradient into Shampoo's preconditioner's eigenspace, do standard Adam there, rotate back. It connects Shampoo with Adam/Adafactor, more stable with fewer hyperparameters.</li></ul>
+<h3 id="64-adafactor--lamb--sophia">6.4　Adafactor / LAMB / Sophia</h3>
+<ul><li><strong>Adafactor</strong> (Shazeer &amp; Stern, 1804.04235): <strong>factorize</strong> the second-moment matrix $v\in\mathbb{R}^{m\times n}$ into row and column vectors (rank-1 reconstruction $v\approx rc^\top$) → memory drops from $O(mn)$ to $O(m+n)$ (<strong>sublinear</strong>). T5 used it to train a large model on limited memory.</li><li><strong>LAMB</strong> (You et al., 1904.00962): on top of Adam's update direction, apply a further <strong>layer-wise adaptation</strong> — scale by each layer's $\lVert\theta\rVert/\lVert\text{update}\rVert$ (trust ratio) (the Adam version of LARS). Stabilizes <strong>very large batch</strong> training (BERT in 76 minutes).</li><li><strong>Sophia</strong> (Liu et al., 2305.14342): <strong>light second-order</strong>. Uses a diagonal Hessian estimate (Gauss-Newton-Bartlett or Hutchinson) for preconditioning + clipping the update, updating the Hessian only every $k$ steps → converges faster than AdamW with the second-order cost amortized.</li></ul>
+<h2 id="7-learning-rate-schedules">§7 Learning-rate schedules</h2>
+<h3 id="71-warmup-why-start-slow">7.1　Warmup: why start slow</h3>
+<p><strong>Warmup</strong> linearly ramps the LR from 0 (or very small) <strong>up to the peak</strong> over the first few hundred ~ few thousand steps, then hands off to the subsequent decay. Two motivations:</p>
+<ol><li><strong>Adam's early variance is high</strong>: $\hat v$ is estimated from very few samples in the first steps, with <strong>high variance</strong>, making the adaptive step jittery or even too large (the 3.16× effect of §4.2). Use a small LR first to let $m,v$'s statistics "warm up" to reliability, then scale up the step.</li><li><strong>Large-batch / Post-LN instability</strong>: large-batch early gradients are large in scale; Post-LN Transformers have naturally large top-layer gradients (see the normalization tutorial, §5) — hitting them with a large LR right away easily diverges. Warmup suppresses early instability.</li></ol>
+<h3 id="72-cosine-annealing--warm-restarts">7.2　Cosine annealing (+ warm restarts)</h3>
+<p>Cosine (Loshchilov &amp; Hutter, <em>SGDR</em>, 1608.03983) decays the LR <strong>smoothly with a cosine</strong> from the peak to $\sim\eta_{\min}$:</p>
+<p>$$\eta_t = \eta_{\min} + \tfrac12(\eta_{\max}-\eta_{\min})\Big(1+\cos\big(\pi\, t/T\big)\Big).$$</p>
+<p>Early large LR explores quickly, late small LR refines convergence (less noise, easier to settle into a flatter minimum). SGDR also adds <strong>warm restarts</strong>: periodically pull the LR back to the peak to help escape local solutions. <strong>Cost: you must fix the total step count $T$ in advance</strong> ($\cos$ needs to know the endpoint) — exactly the pain point WSD solves.</p>
+<h3 id="73-inverse-sqrt--noam-the-original-transformer-schedule">7.3　Inverse-sqrt / Noam (the original Transformer schedule)</h3>
+<p>The schedule the original Transformer (Vaswani et al., 1706.03762) used, first a <strong>linear warmup</strong> then a <strong>$1/\sqrt t$ decay</strong>:</p>
+<p>$$\eta_t = d_{\text{model}}^{-1/2}\cdot\min\!\Big(t^{-1/2},\ t\cdot t_{\text{warmup}}^{-3/2}\Big).$$</p>
+<p>For $t\lt t_{\text{warmup}}$ the second term applies (linear rise), after that the first (decaying as $t^{-1/2}$). No need to pre-fix the total step count; it was the standard for early machine translation / language models.</p>
+<h3 id="74-wsd-warmup-stable-decay">7.4　WSD: Warmup-Stable-Decay</h3>
+<p>WSD (MiniCPM, Hu et al., 2404.06395) splits the schedule into three phases: <strong>warmup → a long constant phase (stable, at the peak LR) → a short final decay</strong>. The biggest selling point: <strong>no need to pre-commit the total step count</strong> — the constant phase can extend indefinitely, and you append a short decay only when you want to stop (loss drops sharply during the decay phase to a good level). Benefits:</p>
+<ul><li>supports <strong>continual training / adding data</strong> (the constant phase can resume anytime);</li><li>each decay yields a <strong>usable checkpoint</strong>, so you don't train a separate cosine run for each target step count;</li><li>makes it easy to explore "how long to train" under a fixed compute budget, instead of betting on $T$ once and for all.</li></ul>
+<h3 id="75-one-cycle--super-convergence">7.5　One-cycle / super-convergence</h3>
+<p>One-cycle (Smith, <em>Super-Convergence</em>, 1708.07120): the whole training is <strong>one cycle</strong> — the LR rises to a <strong>very large</strong> peak then falls to well below the initial value, while the momentum cycles inversely in sync (low momentum when LR is high). In some settings it achieves "super-convergence" (training very fast with a very large LR). Like cosine and WSD it's in the "rise then fall" family, distinguished by the single cycle + the very large peak LR.</p>
+<blockquote><p>🎯 <strong>Picking a schedule in one line</strong> Fixed budget, chasing peak quality → <strong>cosine</strong> (but pre-fix the step count); uncertain how long to train / want continual training / want mid-run checkpoints → <strong>WSD</strong>; classic Transformer reproduction → <strong>Noam</strong>; want to train super-fast with a very large LR → <strong>one-cycle</strong>. <strong>All of these should be preceded by warmup.</strong></p></blockquote>
+<h2 id="8-weight-decay--lr-batch-scaling--no-decay-groups">§8 Weight decay + LR-batch scaling + no-decay groups</h2>
+<h3 id="81-what-weight-decay-does-incl-a-modern-view">8.1　What weight decay does (incl. a modern view)</h3>
+<p>Classic view: weight decay is <strong>regularization</strong> — each step shrinks the weight toward 0, bounding the weight norm, limiting model complexity, resisting overfitting. <strong>Modern view</strong> (in nets with normalization layers): because LayerNorm/RMSNorm make the weights <strong>scale-invariant</strong> (multiply $W$ by a constant and the normalized output is unchanged), the weight's "absolute size" doesn't directly affect the function, so wd's real role is more like <strong>tuning the effective learning rate / controlling the weight-norm equilibrium</strong> — larger wd, smaller weight norm, relatively larger effective gradient step. This is an important observation in recent training-dynamics research (treating wd as an "effective-LR knob" rather than pure regularization).</p>
+<h3 id="82-scaling-lr-with-batch-size">8.2　Scaling LR with batch size</h3>
+<p>In large-batch training, LR must scale with the batch, else you waste compute or destabilize:</p>
+<ul><li><strong>Linear scaling rule</strong> (Goyal et al., 1706.02677): <strong>batch ×$k$ → LR ×$k$</strong> (for large-batch SGD), paired with warmup. Intuition: the mini-batch mean gradient's variance $\propto 1/B$, so enlarging the batch $k$× reduces the noise, letting you safely enlarge the step $k$× to keep "the effective update each sample contributes" roughly constant.</li><li><strong>Adam's $\sqrt k$ scaling</strong>: Adam's update is approximately normalized by $\sqrt{\hat v}$ (close to sign), so empirically scaling the batch by a <strong>square root</strong> (LR ×$\sqrt k$) is more stable than linear.</li><li>Relatedly, <strong>LARS</strong> (You et al., 1708.03888) / <strong>LAMB</strong> (§6.4) use a per-layer trust ratio to achieve adaptive scaling under very large batches.</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>These are empirical rules, not theorems</strong> Linear / $\sqrt{}$ scaling holds only within a certain batch range; beyond a certain point you enter the "diminishing returns" regime (past the critical batch size, more batch no longer speeds up linearly). When discussing scaling rules in an interview, add the "approximate / has a ceiling" caveat.</p></div>
+<h3 id="83-no-decay-parameter-groups">8.3　No-decay parameter groups</h3>
+<p><strong>Not all parameters should get weight decay.</strong> Standard practice splits params into two groups:</p>
+<ul><li><strong>with wd</strong>: each linear / conv layer's weight matrix.</li><li><strong>without wd (no-decay)</strong>: <strong>LayerNorm/RMSNorm gains $\gamma$, all biases, and (usually) embeddings</strong>.</li></ul>
+<p>Reason: these are <strong>scale / shift parameters</strong>, and shrinking them toward 0 directly harms representation — pushing an LN gain toward 0 wipes out that layer's activation scale; a bias shouldn't be regularized at all (it only handles shifts). Codebases like GPT/LLaMA explicitly construct decay / no-decay param groups.</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>Connection to μP (not re-derived here)</strong> μP (maximal update parametrization) makes the <strong>optimal LR width-invariant</strong>, so hyperparameters tuned at small width transfer zero-shot to a large model — another orthogonal thread on "how to pick the LR," details in the μP section of the normalization tutorial (§9), not expanded here.</p></div>
+<h2 id="9-gradient-clipping--llm-hyperparameter-details">§9 Gradient clipping + LLM hyperparameter details</h2>
+<h3 id="91-gradient-clipping-global-norm-vs-by-value">9.1　Gradient clipping: global norm vs by value</h3>
+<p>Occasional <strong>gradient explosions / loss spikes</strong> during training (especially RNNs, long sequences, large LR) can blow the weights away in one step or even produce NaN. Gradient clipping (Pascanu, Mikolov &amp; Bengio, 1211.5063) puts a gate on the gradient:</p>
+<ul><li><strong>Clip by global norm (most common)</strong>: concatenate all params' gradients into one big vector, compute its $\lVert g\rVert_2$; if it exceeds a threshold $c$, scale the whole thing $g\leftarrow g\cdot c/\lVert g\rVert_2$. <strong>Preserves the direction</strong>, only caps the magnitude.</li><li><strong>Clip by value</strong>: clamp each component to $[-v, v]$. This <strong>changes the gradient direction</strong> (different components are truncated differently), generally worse than global norm.</li></ul>
+<p>Why it stabilizes: occasional huge gradients are clamped within the threshold, the single-step update magnitude is bounded → one bad batch can't crash training. LLM pretraining almost always uses <strong>global-norm clip with threshold 1.0</strong>.</p>
+<h3 id="92-adam-hyperparameter-defaults-for-llm-training">9.2　Adam hyperparameter defaults for LLM training</h3>
+<p>The Adam/AdamW recipe for LLM pretraining differs from the "textbook defaults" in a few key places:</p>
+<table><thead><tr><th>Hyperparameter</th><th>Textbook default</th><th><strong>LLM pretraining common</strong></th><th>Why</th></tr></thead><tbody><tr><td>$\beta_1$</td><td>0.9</td><td>0.9</td><td>momentum window ~10 steps, enough</td></tr><tr><td>$\beta_2$</td><td>0.999</td><td><strong>0.95</strong> (or 0.99)</td><td>0.999's memory window ~1000 steps is <strong>too long</strong>, sluggish to loss spikes / non-stationarity, easily destabilized after a spike; 0.95 (window ~20 steps) reacts faster and more stably</td></tr><tr><td>$\epsilon$</td><td>1e-8</td><td>1e-8 (sometimes 1e-15)</td><td>prevents a zero denominator; too large weakens adaptivity</td></tr><tr><td>weight decay</td><td>0 ~ 1e-2</td><td><strong>0.1</strong></td><td>decoupled wd (AdamW), fairly strong</td></tr><tr><td>grad clip</td><td>none</td><td><strong>1.0</strong> (global norm)</td><td>suppress loss spikes</td></tr></tbody></table>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Carrying $\beta_2=0.999$ over to LLMs is a classic trap</strong> 0.999 is fine on vision / small models; but in large-scale LLM pretraining the gradient statistics are non-stationary with occasional spikes, and 0.999's long memory makes $\hat v$ update too slowly to recover quickly after a loss spike, so the common practice is to drop to <strong>$\beta_2=0.95$</strong>. This is the standard scoring point for "how do you tune Adam for LLMs" in interviews.</p></div>
+<h2 id="10-picking-an-optimizer--the-memory-bill">§10 Picking an optimizer + the memory bill</h2>
+<h3 id="101-optimizer-state-memory">10.1　Optimizer-state memory</h3>
+<p>In mixed-precision training, each <strong>trainable parameter</strong> costs roughly: bf16 weight 2 B + bf16 gradient 2 B + fp32 master 4 B + <strong>optimizer state</strong>. The optimizer state is exactly the watershed between methods:</p>
+<ul><li><strong>SGD+momentum</strong>: 1 state (the momentum $v$).</li><li><strong>Adam / AdamW</strong>: <strong>2 states ($m, v$)</strong>, $=8$ B/param in fp32 — often the big chunk, the source of the "save memory" motivation.</li><li><strong>Lion</strong>: 1 state (momentum) → half of Adam.</li><li><strong>Adafactor</strong>: factorized $v$ → sublinear, approximately leaving only "param-level" cost.</li></ul>
+<p>The memory-saving routes this spawns:</p>
+<ul><li><strong>8-bit Adam</strong> (Dettmers et al., 2110.02861): <strong>block-quantize</strong> $m,v$ to 8-bit storage (dequantize on use), dropping optimizer-state memory to about $1/4$, with nearly no quality loss.</li><li><strong>Adafactor</strong>: factorized second moment, sublinear memory (T5).</li><li><strong>Lion</strong>: one fewer state, directly halved.</li></ul>
+<h3 id="102-when-to-use-which">10.2　When to use which</h3>
+<blockquote><p>🎯 <strong>The "which optimizer" decision tree</strong></p>
+<ul><li><strong>Transformer / LLM fine-tuning or pretraining</strong>: <strong>AdamW</strong> (safe default, $\beta_2=0.95$, wd 0.1, grad-clip 1.0, with warmup+cosine/WSD).</li><li><strong>Classic vision (ResNet, etc.)</strong>: <strong>SGD+momentum</strong> often <strong>generalizes better</strong> and saves memory — much CV SOTA still uses it.</li><li><strong>Want extra training speedup / large scale</strong>: <strong>Muon</strong> (2D hidden layers), <strong>Shampoo/SOAP</strong> (full-matrix preconditioning, if you'll pay the per-step compute).</li><li><strong>Memory-constrained</strong>: <strong>8-bit Adam</strong> / <strong>Adafactor</strong> / <strong>Lion</strong>.</li><li><strong>Very large batch</strong>: <strong>LAMB / LARS</strong> (per-layer trust ratio).</li></ul></blockquote>
+<h2 id="11-engineering-comparison--common-misconceptions">§11 Engineering comparison + common misconceptions</h2>
+<h3 id="111-optimizer-comparison-table">11.1　Optimizer comparison table</h3>
+<table><thead><tr><th>Optimizer</th><th>Optimizer state (× params)</th><th>Extra compute</th><th>Core idea</th><th>Typical use</th></tr></thead><tbody><tr><td><strong>SGD+Momentum</strong></td><td>1× (momentum)</td><td>minimal</td><td>heavy-ball velocity EMA</td><td>classic vision, chasing generalization</td></tr><tr><td><strong>Adam / AdamW</strong></td><td>2× ($m,v$)</td><td>low (elementwise)</td><td>momentum + diagonal adaptive (+ decoupled wd)</td><td>Transformer / LLM default</td></tr><tr><td><strong>Lion</strong></td><td>1× (momentum)</td><td>low (take sign)</td><td>sign momentum, single state</td><td>memory-saving / large batch</td></tr><tr><td><strong>Muon</strong></td><td>1× (momentum) + NS iters</td><td>medium (a few small matmuls)</td><td>orthogonalize the momentum (Newton-Schulz)</td><td>LLM hidden 2D layer speedup</td></tr><tr><td><strong>Shampoo</strong></td><td>preconditioners $L,R$ (large)</td><td>high (matrix inverse-roots)</td><td>Kronecker full-matrix preconditioning</td><td>large-scale training speedup</td></tr><tr><td><strong>Adafactor</strong></td><td>sublinear (factorized $v$)</td><td>low</td><td>row/column-factorized second moment</td><td>memory-constrained / T5</td></tr></tbody></table>
+<div class="callout callout-info"><div class="callout-title">Reading the table</div><p>across the memory axis (SGD/Lion/Muon 1 state, Adam 2 states, Adafactor sublinear, Shampoo heaviest), and the cost axis (diagonal adaptive cheap, full-matrix preconditioning expensive). There is no "optimal optimizer," only "the most suitable for the current model × memory × compute budget."</p></div>
+<h3 id="112-common-footguns">11.2　Common footguns</h3>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 1: treating Adam's L2 as AdamW's decoupled decay</strong> <code>Adam(weight_decay=λ)</code> is coupled L2 (scaled by $1/\sqrt{\hat v}$), <code>AdamW</code> is decoupled decay. The two give <strong>different</strong> updates at the same $\lambda$ (§5, §A [c]).</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 2: forgetting bias correction / getting its direction backwards</strong> Dropping $1/(1-\beta^t)$ scrambles the early step; and without correction, at default $\beta$ the first step is too <strong>large</strong> ($\approx 3.16\eta$), not too small (§4.2).</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 3: weight-decaying LayerNorm/RMSNorm gains and biases</strong> These scale/shift params shouldn't be shrunk; use a no-decay group (§8.3).</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 4: using $\beta_2=0.999$ for LLM training</strong> The long memory is too sluggish for loss spikes and easily destabilizes; switch to <strong>0.95</strong> (§9.2).</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 5: not scaling LR with batch</strong> Scale by linear (SGD) / $\sqrt{}$ (Adam) and pair with warmup, else you waste compute or diverge (§8.2).</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 6: using cosine without knowing it needs the total step count up front</strong> Cosine needs the endpoint $T$; for mid-run continual training / uncertain step counts use <strong>WSD</strong> (§7.2, §7.4).</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 7: putting Adam's $\epsilon$ inside the sqrt</strong> PyTorch is $\sqrt{\hat v}+\epsilon$ ($\epsilon$ outside, also a step-size ceiling); getting the position backwards changes the numerics (§4.2).</p></div>
+<h2 id="12-25-high-frequency-interview-questions">§12 25 high-frequency interview questions</h2>
+<p>Sorted into three tiers; click for answer points + easy traps. L2/L3 are top-lab deep water (AdamW decoupling, bias-correction direction, $\beta_2$ choice, scaling rules, Muon/Shampoo/Lion/Sophia, etc.).</p>
+<h3 id="l1-must-know">L1 must-know</h3>
+<details>
+
+<summary>Q1. What's the difference between plain SGD and SGD with momentum? What does momentum do?</summary>
+<ul><li>Plain SGD: $\theta\mathrel{-}=\eta g$, looks only at the current gradient each step</li><li>Momentum: $v=\mu v+g,\ \theta\mathrel{-}=\eta v$, an accumulated (exponentially-weighted) velocity of historical gradients</li><li>Consistent directions accumulate/accelerate, oscillating directions cancel by sign-flip; effective averaging window $\sim 1/(1-\mu)$</li></ul>
+<p>Calling momentum just "a larger learning rate," unable to say "accumulate along consistent directions, cancel on oscillating ones."</p>
+</details>
+<details>
+
+<summary>Q2. Write Adam's full update.</summary>
+<ul><li>$m=\beta_1 m+(1-\beta_1)g$ (first-moment EMA), $v=\beta_2 v+(1-\beta_2)g^2$ (second-moment EMA)</li><li>Bias correction $\hat m=m/(1-\beta_1^t)$, $\hat v=v/(1-\beta_2^t)$</li><li>$\theta\mathrel{-}=\eta\,\hat m/(\sqrt{\hat v}+\epsilon)$, $\epsilon$ <strong>outside</strong> the sqrt (PyTorch)</li></ul>
+<p>Dropping bias correction; or putting $\epsilon$ inside the sqrt.</p>
+</details>
+<details>
+
+<summary>Q3. What is warmup for?</summary>
+<ul><li>Early in training <strong>ramp the LR linearly</strong> from 0/very-small to the peak (a few hundred ~ few thousand steps)</li><li>Early Adam's $\hat v$ uses few samples, high variance → adaptive step unstable/too large; large-batch and Post-LN early gradients are large</li><li>Warmup suppresses early instability, avoiding immediate divergence</li></ul>
+<p>Treating warmup as black magic, unable to state the "early high variance / large gradients" mechanism.</p>
+</details>
+<details>
+
+<summary>Q4. What is AdaGrad? Why does it "stop learning" on long training?</summary>
+<ul><li>Per-coordinate accumulation of <strong>all</strong> historical squared gradients $G=\sum g^2$, step $\propto\eta/\sqrt{G}$</li><li>$G$ monotonically grows → effective LR monotonically → 0 → after long training the step is nearly 0, stagnation</li><li>Good for convex / sparse features, bad for deep-net long training</li></ul>
+<p>Not knowing it's "accumulating all history" that decays the LR to 0.</p>
+</details>
+<details>
+
+<summary>Q5. What did RMSProp fix in AdaGrad?</summary>
+<ul><li>Replace the "cumulative sum" with an <strong>EMA</strong>: $E[g^2]=\rho E[g^2]+(1-\rho)g^2$</li><li>The EMA forgets old gradients → the denominator no longer grows unboundedly → LR doesn't decay to 0</li><li>This is the source of Adam's second-moment term</li></ul>
+<p>Saying only "RMSProp is faster," unable to state "EMA replaces the cumulative sum, fixing the LR decay."</p>
+</details>
+<details>
+
+<summary>Q6. Why use Adam instead of plain SGD?</summary>
+<ul><li>Per-parameter adaptive step (<strong>diagonal preconditioning</strong> by $\sqrt{\hat v}$) + momentum, more robust to ill-conditioning / mismatched per-coordinate scale</li><li>Fast convergence, less LR-sensitive, nearly tuning-free, suits Transformers</li><li>Cost: 2× optimizer-state memory, sometimes slightly worse generalization than SGD</li></ul>
+<p>Saying only "Adam converges fast," unable to answer "adaptive = diagonal preconditioner"; or calling it "approximate Newton" (it's only diagonal).</p>
+</details>
+<details>
+
+<summary>Q7. What do weight decay / L2 regularization intuitively do? Same for SGD and Adam?</summary>
+<ul><li>Each step shrinks the weight toward 0 → bounds the weight norm, controls complexity</li><li><strong>SGD</strong>: L2 and weight decay coincide ($\theta\mathrel{-}=\eta(g+\lambda\theta)=(1-\eta\lambda)\theta-\eta g$)</li><li><strong>Adam</strong>: the two are <strong>not</strong> equivalent (L2 is scaled by $1/\sqrt{\hat v}$), use AdamW, see Q11</li></ul>
+<p>Thinking L2 and weight decay are always the same thing (untrue for adaptive optimizers).</p>
+</details>
+<details>
+
+<summary>Q8. What is cosine annealing? Why decay the LR?</summary>
+<ul><li>$\eta_t=\eta_{\min}+\tfrac12(\eta_{\max}-\eta_{\min})(1+\cos(\pi t/T))$, smoothly down from the peak to $\sim 0$</li><li>Early large LR explores fast, late small LR refines convergence, reduces noise, helps settle into a flatter minimum</li><li>SGDR adds warm restarts (periodically back to the peak)</li></ul>
+<p>Not knowing it requires <strong>fixing the total step count $T$ in advance</strong>; or unable to say "why decay."</p>
+</details>
+<details>
+
+<summary>Q9. The difference between Nesterov and heavy-ball momentum?</summary>
+<ul><li>heavy-ball: evaluate the gradient at the <strong>current point</strong> $\theta$, $v=\mu v+g(\theta)$</li><li>Nesterov: evaluate the gradient at the <strong>look-ahead point</strong> $\theta-\eta\mu v$ "where momentum will carry you"</li><li>The look-ahead foresees overshoot and corrects it early, a better convergence constant (Sutskever 2013 stressed its importance for deep nets)</li></ul>
+<p>Unable to state that NAG's gradient is evaluated at the look-ahead point, not the current point.</p>
+</details>
+<details>
+
+<summary>Q10. Why is momentum ≈ an EMA of gradients?</summary>
+<ul><li>Unrolling $v_t=\sum_{i\le t}\mu^{t-i}g_i$ — an exponentially-weighted (geometric) sum of historical gradients</li><li>Equivalent to a moving average with window $\sim 1/(1-\mu)$ ($\mu=0.9\to\sim 10$ steps)</li><li>So momentum is "averaging out noise, keeping the consistent trend"</li></ul>
+<p>Treating momentum only as an "inertia" metaphor, unable to write the exponentially-weighted sum.</p>
+</details>
+<h3 id="l2-advanced">L2 advanced</h3>
+<details>
+
+<summary>Q11. AdamW vs Adam+L2: what exactly does decoupling decouple? (most frequent)</summary>
+<ul><li>Adam+L2: adds $\lambda\theta$ to the <strong>gradient</strong> → scaled by $m,v$'s $1/\sqrt{\hat v}$ → params with large historical gradients get decayed <strong>less</strong> (decoupling broken)</li><li>AdamW: subtracts $\eta\lambda\theta$ from the weights <strong>directly</strong>, outside the Adam step (bypassing the adaptive denominator): $\theta\mathrel{-}=\eta(\hat m/(\sqrt{\hat v}+\epsilon)+\lambda\theta)$</li><li>After decoupling all params get the same shrinkage, generalizes better; coincide for SGD, differ for Adam</li></ul>
+<p>Saying "AdamW is just Adam plus weight decay," unable to state "L2 goes through the $\sqrt{\hat v}$ scaling" as the key difference.</p>
+</details>
+<details>
+
+<summary>Q12. Why does Adam need bias correction? What if you don't? Is the direction too large or too small?</summary>
+<ul><li>$m,v$ init at 0, biased toward 0 early, the closer $\beta$ to 1 the longer the bias</li><li>Since $\beta_2$(0.999) is closer to 1 than $\beta_1$(0.9), $v$ is biased more → denominator $\sqrt{v}$ too small → without correction the early step is <strong>too large</strong> (default $\beta$ gives a first step $\approx\frac{1-\beta_1}{\sqrt{1-\beta_2}}=3.16$× $\eta$)</li><li>Correction $\div(1-\beta^t)$ pulls the first step back to $\eta$</li></ul>
+<p>Blurting out "without correction the step is too small" — for standard $\beta_2=0.999$ it's exactly the opposite, too <strong>large</strong> (watching only the numerator, missing the denominator).</p>
+</details>
+<details>
+
+<summary>Q13. Cosine vs WSD, the trade-offs?</summary>
+<ul><li>Cosine: smoothly down to $\sim 0$, good quality, but <strong>must fix the total step count $T$ in advance</strong>, hard to do mid-run continual training / data addition</li><li>WSD: warmup → long constant → short final decay; <strong>no pre-committed step count</strong>, the constant phase extends arbitrarily, each decay yields a usable checkpoint</li><li>WSD suits continual training / uncertain budget; cosine suits a fixed-budget one-shot run</li></ul>
+<p>Not knowing cosine needs $T$ in advance, while WSD's selling point is exactly not needing to pre-commit.</p>
+</details>
+<details>
+
+<summary>Q14. Why does LLM pretraining use $\beta_2=0.95$ instead of 0.999?</summary>
+<ul><li>$\beta_2=0.999$'s effective memory window $\sim 1/(1-\beta_2)=1000$ steps, too long, sluggish to loss spikes</li><li>LLM training gradients are non-stationary / spiky, 0.95 (window $\sim 20$ steps) reacts faster and more stably</li><li>Pairing $\beta_1=0.9,\ \epsilon=\text{1e-8},\ \text{wd}=0.1,\ \text{grad-clip}=1.0$ is a common LLM recipe</li></ul>
+<p>Copying vision / small-model 0.999, hard to recover from a loss spike.</p>
+</details>
+<details>
+
+<summary>Q15. What is the linear scaling rule? Why does Adam commonly use $\sqrt{}$ scaling?</summary>
+<ul><li>Goyal: large-batch SGD, batch ×$k$ → LR ×$k$ (keep the effective per-sample update), paired with warmup</li><li>Intuition: mini-batch mean gradient variance $\propto 1/B$, scale LR linearly to maintain SNR / step size</li><li>Adam's update is approximately normalized by $\sqrt{\hat v}$ → empirically $\sqrt k$ (square-root) scaling is more stable</li></ul>
+<p>Not scaling LR with large batch (wasting compute); or forcing linear $k$ on Adam too; forgetting diminishing returns past the critical batch size.</p>
+</details>
+<details>
+
+<summary>Q16. Gradient clipping: global norm vs by value, why does it stabilize?</summary>
+<ul><li>Global norm: if $\lVert g\rVert\gt c$, scale the whole thing $g\leftarrow g\cdot c/\lVert g\rVert$, <strong>preserves the direction</strong>, only caps magnitude</li><li>By value: clamp each component to $[-v,v]$, <strong>changes the direction</strong></li><li>Clamps occasional gradient explosions / spikes → prevents loss blow-up, prevents NaN (Pascanu 2013); LLMs commonly use global-norm with threshold 1.0</li></ul>
+<p>Saying "just clip," unable to distinguish global norm (preserves direction) from by-value (changes direction).</p>
+</details>
+<details>
+
+<summary>Q17. No-decay parameter groups: which params get no weight decay? Why?</summary>
+<ul><li>LayerNorm/RMSNorm gains $\gamma$, all biases, and (usually) embeddings get no wd</li><li>They're scale / shift params, shrinking them toward 0 crushes representation (e.g. LN gain→0 wipes out the activation scale)</li><li>Standard practice: split params into decay / no-decay groups (GPT/LLaMA code all do this)</li></ul>
+<p>Blindly applying uniform wd to all params, decaying norm gains / biases too.</p>
+</details>
+<details>
+
+<summary>Q18. AdaGrad → RMSProp → Adam, what did each step fix in the previous?</summary>
+<ul><li>AdaGrad: accumulates <strong>all</strong> $g^2$ → LR monotonically → 0 (dies on long training)</li><li>RMSProp: switches to an <strong>EMA</strong> → fixes the LR decay (doesn't die)</li><li>Adam: RMSProp + <strong>first-moment momentum</strong> + <strong>bias correction</strong> → fast and stable</li></ul>
+<p>Able to recite the three names but unable to connect them into the "each fixed which flaw of the previous" chain.</p>
+</details>
+<details>
+
+<summary>Q19. Where does $\epsilon$ go in Adam, and what does it do?</summary>
+<ul><li>PyTorch: $\theta\mathrel{-}=\eta\,\hat m/(\sqrt{\hat v}+\epsilon)$, $\epsilon$ <strong>outside</strong> the sqrt</li><li>Role: prevents a zero denominator, <strong>and caps the step at</strong> $\eta/\epsilon$ (no blow-up when the gradient is tiny)</li><li>Some implementations / Adafactor put it inside $\sqrt{\hat v+\epsilon}$, slightly different numerics; LLMs commonly 1e-8, sometimes 1e-15</li></ul>
+<p>Getting $\epsilon$'s position backwards; or thinking it only "prevents division by zero," ignoring that it caps the max step.</p>
+</details>
+<details>
+
+<summary>Q20. Why does Adam sometimes generalize worse than SGD? Does Adam have convergence issues?</summary>
+<ul><li>Adaptive methods tend to converge to different (sometimes "sharper") minima, generalizing worse than SGD+M on some vision tasks</li><li><strong>AMSGrad</strong> (Reddi 2018) gives a counterexample where Adam doesn't converge: the EMA of $v$ can let the effective LR rise again, breaking convergence; the fix takes the historical max of $v$</li><li>In practice: Transformers still prefer AdamW; CV classic nets often do better with SGD+M</li></ul>
+<p>Absolutizing "Adam is always best"; not knowing Adam has a convergence counterexample (AMSGrad).</p>
+</details>
+<h3 id="l3-advanced">L3 advanced</h3>
+<details>
+
+<summary>Q21. What is Muon? Why orthogonalize the momentum, and why only for 2D layers?</summary>
+<ul><li>Orthogonalize a 2D weight's momentum $M$, $O\approx\mathrm{NewtonSchulz}(M)$ ($\approx$ the $UV^\top$ of SVD, a few Newton-Schulz iterations replacing the SVD)</li><li>Intuition: make the update push "equally" on all singular directions, not dominated by a few large singular values → more balanced updates, faster training</li><li>Only hidden 2D matrices; embeddings / output head / scalars still use AdamW; Kimi-K2 uses it; the original Muon is a blog (no standalone arXiv)</li></ul>
+<p>Saying "Muon orthogonalizes all params" (wrong, only hidden 2D layers); or not knowing it replaces the SVD with Newton-Schulz.</p>
+</details>
+<details>
+
+<summary>Q22. What do Shampoo and SOAP do? How do they essentially differ from Adam's "adaptivity"?</summary>
+<ul><li>Shampoo: <strong>full-matrix / Kronecker-factored</strong> preconditioning — maintain left/right preconditioners $L=\sum GG^\top,\ R=\sum G^\top G$, update with $L^{-1/4}GR^{-1/4}$</li><li>Closer to full-matrix AdaGrad than Adam's <strong>diagonal</strong> preconditioning (captures coordinate coupling), converges faster but each step is expensive (matrix inverse-roots)</li><li>SOAP: run Adam in Shampoo's (slowly-changing) <strong>eigenbasis</strong> → connects Shampoo with Adam, more stable, fewer hyperparameters to tune</li></ul>
+<p>Treating Shampoo as "another diagonal adaptive," missing "full-matrix / Kronecker preconditioning."</p>
+</details>
+<details>
+
+<summary>Q23. Lion's update and memory? Where did it come from?</summary>
+<ul><li>Lion = sign of momentum: $u=\mathrm{sign}(\beta_1 m+(1-\beta_1)g)$, $\theta\mathrel{-}=\eta(u+\lambda\theta)$, then $m=\beta_2 m+(1-\beta_2)g$</li><li>Stores only <strong>1 state (momentum)</strong> → optimizer memory is <strong>half</strong> Adam's ($m,v$, two)</li><li>Discovered by symbolic regression / program search (Chen 2023); the sign makes coordinates take equal-magnitude steps (usually paired with smaller LR, larger wd)</li></ul>
+<p>Thinking Lion also stores a second moment; or not knowing it's "sign momentum, single state."</p>
+</details>
+<details>
+
+<summary>Q24. How do you save optimizer state under memory constraints?</summary>
+<ul><li>Adam stores $m,v=2\times$ params (fp32 $\sim 8$ B/param), plus the fp32 master is the big chunk</li><li><strong>8-bit Adam</strong> (Dettmers 2021): block-quantize $m,v$ to 8-bit → optimizer state down to about $1/4$</li><li><strong>Adafactor</strong>: row/column-factorize the second moment $v$ (rank-1 reconstruction) → sublinear memory (T5); <strong>Lion</strong>: 1 state, halved</li></ul>
+<p>Knowing only "use Adam," unable to answer 8-bit / Adafactor / Lion when asked about memory constraints.</p>
+</details>
+<details>
+
+<summary>Q25. A few frontier / theory points: Sophia, weight-decay-as-effective-LR, μP's LR transfer.</summary>
+<ul><li><strong>Sophia</strong> (Liu 2023): light second-order, uses a diagonal Hessian estimate for preconditioning + clipping, updating the Hessian every $k$ steps → faster than AdamW</li><li><strong>New view of weight decay</strong>: in nets with normalization (scale-invariant), wd mainly tunes the "effective learning rate / weight-norm equilibrium," rather than traditional regularization</li><li><strong>μP</strong>: scale init / LR / output multiplier by fan_in → the optimal LR is width-invariant, tune on a small model and zero-shot transfer to a large one (see the normalization tutorial §9, not re-derived)</li></ul>
+<p>Treating these as black magic; especially not knowing "wd $\approx$ effective-LR controller" and "μP makes the LR transferable across width."</p>
+</details>
+<h2 id="a-appendix-sanity-check">§A Appendix: sanity check</h2>
+<p>This tutorial's from-scratch implementations should satisfy the following key invariants (verifiable with a short pure-PyTorch script, a few seconds on CPU):</p>
+<ol><li><strong>[a] from-scratch SGD+momentum == <code>torch.optim.SGD</code></strong>: with $v_t=\mu v_{t-1}+g_t,\ \theta\mathrel{-}=\eta v_t$ (PyTorch convention: $v$ init 0, no damping), after a few steps the two are elementwise equal within float error (<code>atol≈1e-5</code>).</li><li><strong>[b] from-scratch Adam == <code>torch.optim.Adam</code></strong>: $\hat m=m/(1-\beta_1^t),\ \hat v=v/(1-\beta_2^t),\ \theta\mathrel{-}=\eta\hat m/(\sqrt{\hat v}+\epsilon)$ ($\epsilon$ outside the sqrt) should match PyTorch elementwise.</li><li><strong>[c] AdamW $\ne$ Adam+L2, and from-scratch decoupled decay == <code>torch.optim.AdamW</code></strong>: at the same <code>weight_decay=λ</code>, <code>torch.optim.AdamW</code> (decoupled) and <code>torch.optim.Adam(weight_decay=λ)</code> (L2) produce <strong>different</strong> updates ($\lVert\Delta\rVert\gt 0$); the from-scratch "Adam step first, then subtract $\eta\lambda\theta$" decoupled implementation should match <code>AdamW</code>. This is the core of §5.</li><li><strong>[d] bias correction returns the first step to $\eta$</strong>: at $t=1$ the <strong>uncorrected</strong> effective step $\approx 3.16\eta$ ($=\frac{1-\beta_1}{\sqrt{1-\beta_2}}$, because $v$ is pushed toward 0 harder by $\beta_2$ than $m$ → denominator too small → step <strong>too large</strong>), corrected it returns to $\eta$. Verify the corrected/uncorrected ratio $=\frac{\sqrt{1-\beta_2}}{1-\beta_1}\approx 0.316$.</li><li><strong>[e] cosine-with-warmup schedule shape</strong>: $\eta(0)\approx 0$, the peak $\eta_{\max}$ is hit at the warmup boundary, decays to $\sim\eta_{\min}$ at the end, and is monotonically non-increasing after warmup.</li><li><strong>[f] momentum accelerates an ill-conditioned quadratic</strong>: on a quadratic with large condition number $\kappa$, using a <strong>small</strong> $\eta$ inside the stability bound for $N$ steps, GD+momentum's final loss is markedly lower than plain GD's (momentum accumulates and accelerates on the shallow direction).</li></ol>
+<p>Below are a few illustrative snippets (CPU-runnable, English comments, with shape/numeric notes; they demonstrate several of the invariants — the full 6 of [a]–[f] are in the standalone script below).</p>
+<p><strong>[a]/[b] SGD+momentum and Adam from scratch, aligned with <code>torch.optim</code>:</strong></p>
+<pre><code class="language-python">import torch
+
+def sgd_momentum_from_scratch(params, grads, lr=0.1, mu=0.9, steps=5):
+    &quot;&quot;&quot;heavy-ball: v = mu*v + g; theta -= lr*v. v init 0 (first step v=g), aligned with PyTorch SGD.&quot;&quot;&quot;
+    theta = params.clone()                      # [d] params
+    v = torch.zeros_like(theta)                 # [d] momentum buffer
+    for t in range(steps):
+        g = grads[t]                            # [d] step-t gradient (a fixed sequence here, for alignment)
+        v = mu * v + g                          # velocity = momentum*old velocity + current gradient
+        theta = theta - lr * v                  # update along the velocity
+    return theta
+
+def adam_from_scratch(grads, theta0, lr=0.1, b1=0.9, b2=0.999, eps=1e-8, steps=5):
+    &quot;&quot;&quot;EMA of m,v + bias correction + eps outside the sqrt, aligned elementwise with PyTorch Adam.&quot;&quot;&quot;
+    theta = theta0.clone()
+    m = torch.zeros_like(theta)                 # first moment [d]
+    v = torch.zeros_like(theta)                 # second moment [d]
+    for t in range(1, steps + 1):
+        g = grads[t - 1]                        # [d]
+        m = b1 * m + (1 - b1) * g               # momentum EMA
+        v = b2 * v + (1 - b2) * g * g           # squared-gradient EMA
+        m_hat = m / (1 - b1 ** t)               # bias correction (remove early bias toward 0)
+        v_hat = v / (1 - b2 ** t)
+        theta = theta - lr * m_hat / (v_hat.sqrt() + eps)   # eps outside the sqrt
+    return theta
+
+# Align with torch.optim (feed the same fixed gradient sequence to both):
+torch.manual_seed(0)
+d, steps = 8, 5
+theta0 = torch.randn(d)
+grads = [torch.randn(d) for _ in range(steps)]   # fixed gradient sequence, ensures comparability
+
+# --- SGD ---
+p = theta0.clone().requires_grad_(True)
+opt = torch.optim.SGD([p], lr=0.1, momentum=0.9)
+for t in range(steps):
+    opt.zero_grad(); p.grad = grads[t].clone(); opt.step()
+ref_sgd = p.detach()
+mine_sgd = sgd_momentum_from_scratch(theta0, grads, lr=0.1, mu=0.9, steps=steps)
+assert torch.allclose(mine_sgd, ref_sgd, atol=1e-6)    # from-scratch == torch.optim.SGD</code></pre>
+<p><strong>[d] bias correction: uncorrected first step too large (at default $\beta$ $\approx 3.16\eta$), corrected $=\eta$:</strong></p>
+<pre><code class="language-python">import torch
+
+b1, b2, eps = 0.9, 0.999, 1e-8
+g1 = torch.tensor([2.0])                          # any nonzero first-step gradient
+m1 = (1 - b1) * g1                                # uncorrected first moment
+v1 = (1 - b2) * g1 * g1                           # uncorrected second moment
+uncorrected = (m1 / (v1.sqrt() + eps)).item()     # uncorrected effective step / lr
+corrected = ((m1 / (1 - b1)) / ((v1 / (1 - b2)).sqrt() + eps)).item()  # after correction
+ratio = (1 - b1) / (1 - b2) ** 0.5                # = 3.162..., the theoretical first-step inflation
+# invariant: uncorrected ≈ ratio ≈ 3.16 (too large), corrected ≈ 1.0 (= lr scale)
+assert abs(uncorrected - ratio) &lt; 1e-3
+assert abs(corrected - 1.0) &lt; 1e-3</code></pre>
+<p><strong>[c] AdamW (decoupled decay) $\ne$ Adam+L2 (coupled), from-scratch decoupled == <code>torch.optim.AdamW</code>:</strong></p>
+<pre><code class="language-python">import torch
+
+def adamw_decoupled_from_scratch(grads, theta0, lr=0.1, b1=0.9, b2=0.999,
+                                 eps=1e-8, wd=0.05, steps=5):
+    &quot;&quot;&quot;Decoupled: do the Adam step on the raw gradient g, then subtract lr*wd*theta directly (bypassing the adaptive denom).&quot;&quot;&quot;
+    theta = theta0.clone()
+    m = torch.zeros_like(theta); v = torch.zeros_like(theta)
+    for t in range(1, steps + 1):
+        g = grads[t - 1]                          # raw gradient without wd
+        m = b1 * m + (1 - b1) * g
+        v = b2 * v + (1 - b2) * g * g
+        m_hat = m / (1 - b1 ** t); v_hat = v / (1 - b2 ** t)
+        theta = theta - lr * (m_hat / (v_hat.sqrt() + eps) + wd * theta)  # decoupled decay
+    return theta
+
+torch.manual_seed(0)
+d, steps, wd = 8, 5, 0.05
+theta0 = torch.randn(d)
+grads = [torch.randn(d) for _ in range(steps)]
+
+# torch.optim.AdamW (decoupled) vs torch.optim.Adam(weight_decay=) (L2/coupled)
+def run(opt_cls, **kw):
+    p = theta0.clone().requires_grad_(True)
+    opt = opt_cls([p], lr=0.1, betas=(0.9, 0.999), eps=1e-8, weight_decay=wd, **kw)
+    for t in range(steps):
+        opt.zero_grad(); p.grad = grads[t].clone(); opt.step()
+    return p.detach()
+
+ref_adamw = run(torch.optim.AdamW)
+ref_adam_l2 = run(torch.optim.Adam)
+assert (ref_adamw - ref_adam_l2).norm() &gt; 1e-4         # AdamW != Adam+L2 (differ at the same wd)
+mine = adamw_decoupled_from_scratch(grads, theta0, wd=wd, steps=steps)
+assert torch.allclose(mine, ref_adamw, atol=1e-6)      # from-scratch decoupled == torch.optim.AdamW</code></pre>
+<p><strong>[e] cosine-with-warmup schedule (check first/peak/end + monotonicity):</strong></p>
+<pre><code class="language-python">import math
+
+def cosine_warmup_lr(step, warmup, total, lr_max, lr_min=0.0):
+    &quot;&quot;&quot;Linear warmup to lr_max, then cosine decay to lr_min. Needs the total step count `total` up front.&quot;&quot;&quot;
+    if step &lt; warmup:
+        return lr_max * step / warmup                       # linear rise (step=0 -&gt; ~0)
+    progress = (step - warmup) / (total - warmup)           # 0 -&gt; 1
+    return lr_min + 0.5 * (lr_max - lr_min) * (1 + math.cos(math.pi * progress))
+
+warmup, total, lr_max = 100, 1000, 1.0
+lrs = [cosine_warmup_lr(t, warmup, total, lr_max) for t in range(total + 1)]
+assert lrs[0] &lt; 1e-9                                        # start ~0
+assert abs(lrs[warmup] - lr_max) &lt; 1e-9                     # peak hit at the warmup boundary
+assert lrs[-1] &lt; 1e-6                                       # decays to ~lr_min(=0) at the end
+assert all(lrs[i] &gt;= lrs[i + 1] - 1e-12 for i in range(warmup, total))  # monotonically non-increasing after warmup</code></pre>
+<p>The full runnable script is at <a href="code/optimizer_lr_schedule.py"><code>code/optimizer_lr_schedule.py</code></a> (pure PyTorch, a few seconds on CPU, 6 <code>assert</code>s covering [a]–[f]). The <strong>real output</strong> of running <code>python code/optimizer_lr_schedule.py</code>:</p>
+<pre><code class="language-text">[a] SGD+momentum from scratch vs torch.optim.SGD: max|Δ| = 1.19e-07  OK
+[b] Adam from scratch vs torch.optim.Adam: max|Δ| = 1.19e-07  OK
+[c] AdamW vs Adam+L2 (same wd=0.1): max|Δ| = 2.13e-01 (DIFFER, decoupled≠coupled); from-scratch decoupled vs AdamW = 2.16e-07 (MATCH)  OK
+[d] bias correction at step 1: corrected/uncorrected = 0.316 (= √(1-β2)/(1-β1) ≈ 0.316); without it the under-estimated v̂ makes the first step ~3.2× too large  OK
+[e] cosine+warmup lr: t=0 -&gt; 0.000, t=warmup -&gt; 1.000 (peak), t=end -&gt; 0.000 (min); linear warmup midpoint -&gt; 0.500  OK
+[f] ill-conditioned quadratic (κ=20) after 100 steps: GD loss = 4.04e-02  vs  GD+momentum loss = 1.46e-05  (momentum lower)  OK
+
+all optimizer / LR-schedule sanity checks passed ✓</code></pre>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>Reading the numbers</strong></p>
+<ul><li><strong>[a]/[b]</strong> from-scratch SGD/Adam match <code>torch.optim</code> numerically (max$|\Delta|$=1.2e-7), implementation correct.</li><li><strong>[c]</strong> <strong>AdamW $\ne$ Adam+L2</strong>: at the same wd the two differ by $0.21$ (decoupled≠coupled), while the from-scratch decoupled implementation matches <code>AdamW</code> (2.2e-7) — the core of §5, executable proof.</li><li><strong>[d]</strong> bias-correction direction: corrected/uncorrected $=0.316=\frac{\sqrt{1-\beta_2}}{1-\beta_1}$, i.e. the <strong>uncorrected first step is about $3.2\times$ too large</strong> (§4.2, not too small) — a top-lab favorite direction question.</li><li><strong>[e]</strong> cosine-warmup first($\to0$)/peak($\to1$)/end($\to0$)/warmup-midpoint($\to0.5$) shape correct (§7.2).</li><li><strong>[f]</strong> on the ill-conditioned quadratic ($\kappa=20$) GD+momentum's loss (1.5e-5) is ~2700× lower than plain GD's (4e-2) — momentum accumulates and accelerates on the shallow direction (§2).</li></ul></div>
+<h2 id="references">📚 References</h2>
+<ul><li><strong>Adam</strong> — Kingma &amp; Ba, <em>Adam: A Method for Stochastic Optimization</em>, arXiv 1412.6980 (2014), ICLR 2015.</li><li><strong>AdamW (Decoupled Weight Decay)</strong> — Loshchilov &amp; Hutter, <em>Decoupled Weight Decay Regularization</em>, arXiv 1711.05101 (2017), ICLR 2019.</li><li><strong>AdaGrad</strong> — Duchi, Hazan &amp; Singer, <em>Adaptive Subgradient Methods for Online Learning and Stochastic Optimization</em>, JMLR 12 (2011) (<strong>no arXiv id</strong>, cited by JMLR venue).</li><li><strong>RMSProp</strong> — Hinton, <em>Neural Networks for Machine Learning</em>, Coursera Lecture 6e (2012) (course lecture, <strong>no formal paper / arXiv id</strong>).</li><li><strong>Nesterov accelerated gradient</strong> — Nesterov, <em>A method of solving a convex programming problem with convergence rate $O(1/k^2)$</em>, Soviet Math. Doklady 27 (1983) (<strong>no arXiv id</strong>).</li><li><strong>Momentum for deep nets</strong> — Sutskever, Martens, Dahl &amp; Hinton, <em>On the importance of initialization and momentum in deep learning</em>, ICML 2013 (PMLR proceedings; <strong>no standalone arXiv id</strong>, cited by venue).</li><li><strong>AMSGrad (Adam convergence)</strong> — Reddi, Kale &amp; Kumar, <em>On the Convergence of Adam and Beyond</em>, ICLR 2018 (OpenReview; no confirmed standalone arXiv id, cited by venue).</li><li><strong>SGDR / cosine annealing</strong> — Loshchilov &amp; Hutter, <em>SGDR: Stochastic Gradient Descent with Warm Restarts</em>, arXiv 1608.03983 (2016), ICLR 2017.</li><li><strong>Transformer / Noam schedule</strong> — Vaswani et al., <em>Attention Is All You Need</em>, arXiv 1706.03762 (2017), NeurIPS 2017.</li><li><strong>Linear scaling rule</strong> — Goyal et al., <em>Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour</em>, arXiv 1706.02677 (2017).</li><li><strong>LARS</strong> — You, Gitman &amp; Ginsburg, <em>Large Batch Training of Convolutional Networks</em>, arXiv 1708.03888 (2017).</li><li><strong>LAMB</strong> — You et al., <em>Large Batch Optimization for Deep Learning: Training BERT in 76 minutes</em>, arXiv 1904.00962 (2019), ICLR 2020.</li><li><strong>Lion</strong> — Chen et al., <em>Symbolic Discovery of Optimization Algorithms</em>, arXiv 2302.06675 (2023), NeurIPS 2023.</li><li><strong>Shampoo</strong> — Gupta, Koren &amp; Singer, <em>Shampoo: Preconditioned Stochastic Tensor Optimization</em>, arXiv 1802.09568 (2018), ICML 2018.</li><li><strong>SOAP</strong> — Vyas et al., <em>SOAP: Improving and Stabilizing Shampoo using Adam</em>, arXiv 2409.11321 (2024).</li><li><strong>Adafactor</strong> — Shazeer &amp; Stern, <em>Adafactor: Adaptive Learning Rates with Sublinear Memory Cost</em>, arXiv 1804.04235 (2018), ICML 2018.</li><li><strong>Sophia</strong> — Liu et al., <em>Sophia: A Scalable Stochastic Second-order Optimizer for Language Model Pre-training</em>, arXiv 2305.14342 (2023), ICLR 2024.</li><li><strong>One-cycle / Super-Convergence</strong> — Smith &amp; Topin, <em>Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates</em>, arXiv 1708.07120 (2017).</li><li><strong>WSD / MiniCPM</strong> — Hu et al., <em>MiniCPM: Unveiling the Potential of Small Language Models with Scalable Training Strategies</em>, arXiv 2404.06395 (2024), COLM 2024.</li><li><strong>8-bit Adam</strong> — Dettmers et al., <em>8-bit Optimizers via Block-wise Quantization</em>, arXiv 2110.02861 (2021), ICLR 2022.</li><li><strong>Gradient clipping</strong> — Pascanu, Mikolov &amp; Bengio, <em>On the difficulty of training Recurrent Neural Networks</em>, arXiv 1211.5063 (2012), ICML 2013.</li><li><strong>Muon (scaling)</strong> — Liu et al. (Moonshot AI), <em>Muon is Scalable for LLM Training</em>, arXiv 2502.16982 (2025).</li><li><strong>Muon (original writeup)</strong> — Keller Jordan et al., <em>Muon: An optimizer for the hidden layers of neural networks</em>, 2024 tech blog (<strong>no standalone arXiv paper</strong>, cited as a blog writeup).</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/optimizer_lr_schedule_tutorial_en.md</code> ·
+  SHA256 <code>be44cb574498</code> ·
+  generated at 2026-06-29 06:22 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

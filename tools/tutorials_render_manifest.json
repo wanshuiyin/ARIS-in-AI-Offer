@@ -226,6 +226,18 @@
     "md": "docs/tutorials/normalization_init_tutorial_en.md",
     "title": "Normalization Init Tutorial En"
   },
+  "docs/tutorials/optimizer_lr_schedule_tutorial.html": {
+    "eyebrow": "Interview Prep · 优化器 / 学习率调度 (Optimizer / LR Schedule)",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/optimizer_lr_schedule_tutorial.md",
+    "subtitle": "SGD·Momentum·Nesterov / Adam·AdamW(解耦衰减) / Muon·Lion·Shampoo·SOAP·Adafactor / warmup·cosine·WSD / weight decay·LR-batch·grad-clip / LLM 超参 + 公式推导 + From-Scratch PyTorch + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "title": "优化器 / LR Schedule 面试 Cheat Sheet"
+  },
+  "docs/tutorials/optimizer_lr_schedule_tutorial_en.html": {
+    "lang": "en",
+    "md": "docs/tutorials/optimizer_lr_schedule_tutorial_en.md",
+    "title": "Optimizer Lr Schedule Tutorial En"
+  },
   "docs/tutorials/quantization_tutorial.html": {
     "eyebrow": "Interview Prep · Quantization for LLM Inference",
     "lang": "zh-CN",

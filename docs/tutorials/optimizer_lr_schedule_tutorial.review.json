@@ -1,0 +1,76 @@
+{
+  "skill": "interview-cheatsheet",
+  "source": "docs/tutorials/optimizer_lr_schedule_tutorial.md",
+  "source_sha256": "52c3c7509834e0111f6ab2fc180fbf9ad7cb3857e594b1f3eeea01190c9e6edd",
+  "output": "docs/tutorials/optimizer_lr_schedule_tutorial.html",
+  "runnable_code": "docs/tutorials/code/optimizer_lr_schedule.py",
+  "topic": "优化器 / LR Schedule — SGD·Momentum·Nesterov / AdaGrad→RMSProp→Adam / Adam bias correction / AdamW(解耦权重衰减) / 前沿(Muon·Lion·Shampoo·SOAP·Adafactor·LAMB·Sophia) / LR schedule(warmup·cosine·Noam·WSD·one-cycle) / weight decay·LR-batch 缩放·no-decay 组 / grad clipping / LLM 超参(β2=0.95) / 显存(8-bit Adam)",
+  "effort": "max",
+  "reviewer": "codex gpt-5.5 xhigh, fresh thread per batch",
+  "drafted_by": "subagent (general-purpose), then orchestrator self-verified the hard math + ran the full cross-model review + reconciled §A to the standalone script",
+  "math_code_review": {
+    "verdict": "PASS (6 batches: math + 2 citation + code + answers + overall — all clean; 1 bad citation id removed)",
+    "rounds": [
+      {
+        "run": 1,
+        "scope": "math — bias-correction direction, AdamW decoupling, momentum √κ, Adam update, AdaGrad/RMSProp, Lion, Shampoo",
+        "verdict": "PASS",
+        "thread_id": "019f11d2-4dbc-7f40-bf69-cee6030a2ac1",
+        "confirmed_correct": "Adam bias-correction DIRECTION: uncorrected step-1 = (1-β1)/√(1-β2)·sign(g)≈3.16× too LARGE (v's 1/(1-β2) bias dominates m's), corrected→η, ratio √(1-β2)/(1-β1)≈0.316 — the subagent INDEPENDENTLY caught this (brief said 'too small', which is wrong); AdamW decoupling (L2 adds λθ to grad → scaled by 1/√v̂; AdamW bypasses adaptive denom; SGD coincides, Adam doesn't); momentum κ→√κ heavy-ball constant + EMA window 1/(1-μ); Adam update + ε outside sqrt; AdaGrad monotonic G dies, RMSProp EMA fixes; Lion sign-momentum 1-state; Shampoo L^{-1/4}G R^{-1/4} Kronecker."
+      },
+      {
+        "run": 2,
+        "scope": "citations batch 1 (12 load-bearing)",
+        "verdict": "PASS",
+        "thread_id": "019f11d3-e216-7c42-9656-87409e529b01",
+        "notes": "All 12 confirmed: Adam 1412.6980, AdamW 1711.05101, SGDR 1608.03983, Transformer 1706.03762, Goyal 1706.02677, LARS 1708.03888, LAMB 1904.00962, Lion 2302.06675, Shampoo 1802.09568, Adafactor 1804.04235, Sophia 2305.14342, grad-clip Pascanu 1211.5063."
+      },
+      {
+        "run": 3,
+        "scope": "citations batch 2 (11 incl. unsure / no-arXiv)",
+        "verdict": "PASS (1 bad id removed)",
+        "thread_id": "019f11d4-636b-7441-8599-9e88908252da",
+        "notes": "SOAP 2409.11321, one-cycle 1708.07120, WSD/MiniCPM 2404.06395, 8-bit Adam 2110.02861 confirmed; Muon-scaling 2502.16982 unsure-but-kept; AdaGrad/RMSProp/Nesterov/Sutskever/original-Muon confirmed no-standalone-arXiv (cited by venue, as written). FIX: AMSGrad — the subagent had flagged arXiv 1904.09237 'to-verify'; Codex confirmed it's WRONG (a 2019 id, not the 2018 ICLR paper) → removed the id, cite ICLR 2018 / OpenReview venue-only. (Did NOT add Codex's suggested Sutskever id 1302.0543 — unverifiable and Codex citation suggestions have been wrong before; kept venue-only as the safe choice.)"
+      },
+      {
+        "run": 4,
+        "scope": "code — optimizer_lr_schedule.py + §A blocks",
+        "verdict": "PASS",
+        "thread_id": "019f11d5-80f4-7ae2-9164-38a3ee64a90b",
+        "confirmed_correct": "from-scratch sgd_momentum/adam/adamw match torch.optim exactly (buffer init 0, dampening 0; Adam bias-corrected, eps outside sqrt; AdamW decoupled p*=(1-lr*wd) then Adam on raw grad); [c] AdamW vs Adam(weight_decay) DIFFER 0.213 & from-scratch decoupled matches AdamW 2.16e-7; [d] bias-correction ratio √(1-β2)/(1-β1)≈0.316 (uncorrected 3.16× too large); [e] cosine-warmup peak at boundary; [f] momentum demo valid (small lr inside 2/κ bound lets momentum accelerate; a too-large lr=1/κ would overshoot). All 6 asserts pass on Server5 (torch 2.10). NOTE: orchestrator caught & fixed two of its OWN [d]/[f] config errors during Server5 verification (bias-correction ratio direction, momentum lr) before shipping."
+      },
+      {
+        "run": 5,
+        "scope": "answers — L2/L3 conceptual claims",
+        "verdict": "PASS",
+        "thread_id": "019f11d6-dbd4-7261-93ab-8258b0aee06e",
+        "notes": "All fine: Muon (Newton-Schulz orthogonalize 2D momentum, hidden 2D only, Kimi-K2), Shampoo/SOAP (Kronecker full-matrix vs SOAP Adam-in-eigenbasis), Lion (sign-momentum 1-state), β2=0.95 for LLMs (0.999 too sluggish for spikes), WSD (no pre-commit total steps), no-decay groups (LN/bias/embedding), AMSGrad (non-convergence counterexample + max-of-v fix), weight-decay-as-effective-LR (scale-invariant nets), ε outside sqrt = step-size ceiling η/ε."
+      },
+      {
+        "run": 6,
+        "scope": "overall — top-level framing, lineage, LLM hyperparam table",
+        "verdict": "PASS (2 calibration hedges applied)",
+        "thread_id": "019f11fe-812d-7113-ab7d-e58061771cc1",
+        "notes": "No errors. The 'diagonal preconditioner ≠ Hessian/Newton' caveat was already in §1's ⚠️ callout. Applied: (1) qualified 'momentum κ→√κ' as the strongly-convex-quadratic heavy-ball result (intuition not guarantee in noisy/non-convex DL); (2) softened 'AdamW generalizes better' to 'usually more controllable/preferred, not absolutized to all tasks'."
+      }
+    ]
+  },
+  "render_review": {
+    "verdict": "PASS",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "PASS",
+        "thread_id": "019f1201-4bb1-7c20-bde2-201b820a9a2a",
+        "notes": "Fidelity confirmed. 14 §-sections, 25 Q&A (HTML 27/25 +2 template constant), 5 <pre> (4 python + 1 §A real-output), 2 <table> (§9 LLM-hyperparam + §11 optimizer comparison), 24 callouts, 46 TOC, embedded sha matches. 333 math spans, ZERO raw </> inside math — #18-class footgun avoided. Spot-checks: \\boxed display math, \\gt → '>', \\mathrel{-}=, §A python char-exact, the two tables, and the real-output ```text block all faithful; no injection."
+      }
+    ]
+  },
+  "runnable_code_check": {
+    "verdict": "PASS",
+    "notes": "docs/tutorials/code/optimizer_lr_schedule.py (pure PyTorch, English comments) ran on Server5 (dllm, torch 2.10). Six asserts pass: [a] SGD+momentum vs torch 1.19e-7; [b] Adam vs torch 1.19e-7; [c] AdamW vs Adam+L2 DIFFER 0.213 / from-scratch decoupled vs AdamW 2.16e-7; [d] bias-correction ratio 0.316=√(1-β2)/(1-β1) (uncorrected 3.16× too large); [e] cosine+warmup t=0→0/peak→1/end→0/mid→0.5; [f] ill-conditioned quadratic κ=20 GD 4.04e-2 vs GD+momentum 1.46e-5. §A real-output is this run, verbatim. Orchestrator found & fixed two of its own demo-config errors on Server5 (bias-correction ratio direction; momentum lr must be well inside 2/κ) before shipping.",
+    "headline": "[c] AdamW != Adam+L2 — the most-probed optimizer point — is verified executable (decoupled vs coupled differ by 0.21, from-scratch decoupled matches torch.optim.AdamW)."
+  },
+  "summary": "Optimizer / LR Schedule cheat sheet (effort=max, ~825 lines, subagent-drafted then orchestrator-verified): full cross-model review on codex gpt-5.5 xhigh — math (bias-correction direction, AdamW decoupling, momentum √κ, Lion/Shampoo all re-derived correct; the subagent INDEPENDENTLY corrected the brief's wrong 'bias correction → step too small' to the right 'too large ≈3.16×', matching the orchestrator's Server5 finding), 2 citation batches (23 refs; removed a wrong AMSGrad arXiv id the subagent had flagged, all else confirmed or safely venue-only), code (from-scratch SGD/Adam/AdamW match torch.optim; AdamW≠Adam+L2 verified), answers (all fine), overall (2 calibration hedges). Runnable code re-ran clean on Server5 with §A output captured verbatim. The AdamW-vs-Adam-L2 decoupling, bias-correction direction, β2=0.95, Muon, are all interview-accurate.",
+  "rendered_at": "2026-06-29"
+}

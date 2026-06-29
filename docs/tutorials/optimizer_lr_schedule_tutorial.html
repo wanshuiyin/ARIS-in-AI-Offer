@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>优化器 / LR Schedule 面试 Cheat Sheet</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/optimizer_lr_schedule_tutorial.md">
+<meta name="aris:source-sha256" content="52c3c7509834e0111f6ab2fc180fbf9ad7cb3857e594b1f3eeea01190c9e6edd">
+<meta name="aris:generated-at" content="2026-06-29 06:11 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-为什么需要-sgd-之外的优化器">§1 为什么需要 SGD 之外的优化器</a>
+</li>
+<li><a href="#2-sgd--momentum--nesterov">§2 SGD / Momentum / Nesterov</a>
+<ul>
+<li><a href="#21-裸-sgd-与-heavy-ball-动量">2.1　裸 SGD 与 heavy-ball 动量</a></li>
+<li><a href="#22-nesterov-加速梯度nag">2.2　Nesterov 加速梯度（NAG）</a></li>
+<li><a href="#23-动量--梯度的指数加权平均">2.3　动量 ≈ 梯度的指数加权平均</a></li>
+</ul>
+</li>
+<li><a href="#3-adagrad--rmsprop--adam自适应谱系">§3 AdaGrad → RMSProp → Adam（自适应谱系）</a>
+<ul>
+<li><a href="#31-adagrad逐坐标自适应但会学到死">3.1　AdaGrad：逐坐标自适应，但会&quot;学到死&quot;</a></li>
+<li><a href="#32-rmsprop把累加和换成-ema">3.2　RMSProp：把累加和换成 EMA</a></li>
+<li><a href="#33-adam--rmsprop--动量--偏差修正">3.3　Adam = RMSProp + 动量 + 偏差修正</a></li>
+</ul>
+</li>
+<li><a href="#4-adam-深入">§4 Adam 深入</a>
+<ul>
+<li><a href="#41-完整更新式">4.1　完整更新式</a></li>
+<li><a href="#42-为什么需要偏差修正">4.2　为什么需要偏差修正</a></li>
+</ul>
+</li>
+<li><a href="#5-adamw最高频的一节">§5 AdamW（最高频的一节）</a>
+<ul>
+<li><a href="#51-adam-的-l2-正则-ne-权重衰减">5.1　Adam 的 L2 正则 $\ne$ 权重衰减</a></li>
+<li><a href="#52-adamw解耦权重衰减">5.2　AdamW：解耦权重衰减</a></li>
+</ul>
+</li>
+<li><a href="#6-前沿优化器">§6 前沿优化器</a>
+<ul>
+<li><a href="#61-muon把动量正交化">6.1　Muon：把动量正交化</a></li>
+<li><a href="#62-lion符号动量单状态">6.2　Lion：符号动量，单状态</a></li>
+<li><a href="#63-shampoo--soap全矩阵预条件">6.3　Shampoo / SOAP：全矩阵预条件</a></li>
+<li><a href="#64-adafactor--lamb--sophia">6.4　Adafactor / LAMB / Sophia</a></li>
+</ul>
+</li>
+<li><a href="#7-学习率调度">§7 学习率调度</a>
+<ul>
+<li><a href="#71-warmup为什么开头要慢">7.1　Warmup：为什么开头要慢</a></li>
+<li><a href="#72-cosine-退火-warm-restart">7.2　Cosine 退火（+ warm restart）</a></li>
+<li><a href="#73-inverse-sqrt--noam原始-transformer-调度">7.3　Inverse-sqrt / Noam（原始 Transformer 调度）</a></li>
+<li><a href="#74-wsdwarmup-stable-decay">7.4　WSD：Warmup-Stable-Decay</a></li>
+<li><a href="#75-one-cycle--super-convergence">7.5　One-cycle / super-convergence</a></li>
+</ul>
+</li>
+<li><a href="#8-权重衰减--lr-batch-缩放--no-decay-组">§8 权重衰减 + LR-batch 缩放 + no-decay 组</a>
+<ul>
+<li><a href="#81-权重衰减做什么含一个现代视角">8.1　权重衰减做什么（含一个现代视角）</a></li>
+<li><a href="#82-lr-随-batch-size-缩放">8.2　LR 随 batch size 缩放</a></li>
+<li><a href="#83-no-decay-参数组">8.3　no-decay 参数组</a></li>
+</ul>
+</li>
+<li><a href="#9-梯度裁剪--llm-超参细节">§9 梯度裁剪 + LLM 超参细节</a>
+<ul>
+<li><a href="#91-梯度裁剪全局范数-vs-按值">9.1　梯度裁剪：全局范数 vs 按值</a></li>
+<li><a href="#92-llm-训练的-adam-超参默认">9.2　LLM 训练的 Adam 超参默认</a></li>
+</ul>
+</li>
+<li><a href="#10-选优化器--显存账">§10 选优化器 + 显存账</a>
+<ul>
+<li><a href="#101-优化器状态的显存">10.1　优化器状态的显存</a></li>
+<li><a href="#102-什么时候用哪个">10.2　什么时候用哪个</a></li>
+</ul>
+</li>
+<li><a href="#11-工程对比--常见误区">§11 工程对比 + 常见误区</a>
+<ul>
+<li><a href="#111-优化器对比表">11.1　优化器对比表</a></li>
+<li><a href="#112-常见误区footguns">11.2　常见误区（footguns）</a></li>
+</ul>
+</li>
+<li><a href="#12-25-高频面试题">§12 25 高频面试题</a>
+<ul>
+<li><a href="#l1必会题">L1必会题</a></li>
+<li><a href="#l2进阶题">L2进阶题</a></li>
+<li><a href="#l3高级题">L3高级题</a></li>
+</ul>
+</li>
+<li><a href="#a-附录sanity-check">§A 附录：sanity check</a>
+</li>
+<li><a href="#参考文献">📚 参考文献</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Interview Prep · 优化器 / 学习率调度 (Optimizer / LR Schedule)</div>
+  <h1>优化器 / LR Schedule 面试 Cheat Sheet</h1>
+  <p class="subtitle">SGD·Momentum·Nesterov / Adam·AdamW(解耦衰减) / Muon·Lion·Shampoo·SOAP·Adafactor / warmup·cosine·WSD / weight decay·LR-batch·grad-clip / LLM 超参 + 公式推导 + From-Scratch PyTorch + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/optimizer_lr_schedule_tutorial.md</code></span>
+    <span><strong>SHA256:</strong> <code>52c3c7509834</code></span>
+    <span><strong>Rendered:</strong> 2026-06-29 06:11 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">9 句话搞定 Optimizer / LR Schedule</div><p>一页拿下面试核心要点（详见后文 §1–§11 推导）。</p></div>
+<ol><li><strong>为什么不止用裸 SGD</strong>：真实 loss 地形<strong>病态</strong>（Hessian 条件数 $\kappa=\lambda_{\max}/\lambda_{\min}$ 极大），裸梯度下降在陡方向来回<strong>震荡</strong>、在缓方向<strong>爬不动</strong>。两味药：<strong>动量</strong>（沿一致方向累积、震荡相消）+ <strong>逐参数自适应步长</strong>（对角预条件，拉平各坐标曲率失配）。优化器谱系就是"SGD → +动量 → +自适应 → Adam（两者都要）"。</li><li><strong>SGD / Momentum / Nesterov</strong>：裸 SGD $\theta_t=\theta_{t-1}-\eta g_t$；heavy-ball 动量 $v_t=\mu v_{t-1}+g_t,\ \theta_t=\theta_{t-1}-\eta v_t$（抑制震荡、加速一致方向）；Nesterov 在<strong>前瞻点</strong> $\theta-\eta\mu v$ 求梯度（look-ahead，纠过冲）。动量 $\approx$ 梯度的<strong>指数加权平均</strong>，窗口 $\sim 1/(1-\mu)$。</li><li><strong>AdaGrad → RMSProp → Adam</strong>：AdaGrad 逐坐标步长 $\propto 1/\sqrt{\sum g^2}$（<strong>累加全部历史</strong> → LR 单调趋 0，长训练"学不动"）；RMSProp 把累加和换成 <strong>EMA</strong>（修好单调衰减）；Adam = RMSProp 的二阶 EMA + <strong>一阶动量</strong> + <strong>偏差修正</strong>。</li><li><strong>Adam 偏差修正</strong>：$m,v$ 从 0 起步早期有偏（偏向 0），除以 $1-\beta^t$ 去偏。因 $\beta_2$（0.999）比 $\beta_1$（0.9）更接近 1，$v$ 偏得更重 → <strong>不修正时早期步长偏大</strong>（默认 $\beta$ 下首步 $\approx\frac{1-\beta_1}{\sqrt{1-\beta_2}}=3.16$ 倍 $\eta$），修正后首步回到 $\eta$。注意 $\epsilon$ 在根号<strong>外</strong>（PyTorch）。</li><li><strong>AdamW 解耦权重衰减</strong>：<strong>Adam 的 L2 正则 $\ne$ 权重衰减</strong>。L2 把 $\lambda\theta$ 加进<strong>梯度</strong> → 经 $1/\sqrt{\hat v}$ 缩放 → 历史梯度大的参数被衰减得更少（解耦被破坏）。AdamW（Loshchilov &amp; Hutter）<strong>解耦</strong>：Adam 步之外直接从权重减 $\eta\lambda\theta$。这是现代默认；SGD 下两者等价、Adam 下不等价。</li><li><strong>前沿优化器</strong>：<strong>Muon</strong>（把 2D 权重的动量经牛顿-舒尔茨迭代<strong>正交化</strong>，仅隐藏 2D 层，Kimi-K2 在用）、<strong>Lion</strong>（<strong>符号动量</strong>，单状态 → Adam 一半显存）、<strong>Shampoo</strong>（Kronecker 因子化的<strong>全矩阵预条件</strong>）、<strong>SOAP</strong>（在 Shampoo 特征基里跑 Adam）、<strong>Adafactor</strong>（因子化二阶矩 → 亚线性显存）、<strong>LAMB</strong>（逐层自适应，超大 batch）、<strong>Sophia</strong>（轻量二阶，对角 Hessian）。</li><li><strong>LR schedule</strong>：<strong>warmup</strong>（早期 $\hat v$ 方差大 + 大 batch/Post-LN 不稳 → 线性拉起）；<strong>cosine</strong>（平滑降到 ~0，+ warm restart，<strong>需预定总步数</strong>）；<strong>inverse-sqrt / Noam</strong>（原始 Transformer 调度）；<strong>WSD</strong>（warmup-stable-decay，恒定段 + 末段短衰减 → <strong>不用预定总步数</strong>、支持续训与中途 checkpoint）；<strong>one-cycle</strong>（super-convergence）。</li><li><strong>权重衰减 + LR-batch 缩放 + no-decay 组</strong>：wd 做正则（近来也有"wd $\approx$ 有效 LR 控制器"的视角）；<strong>线性缩放规则</strong>（batch ×$k$ → LR ×$k$，SGD；Adam 常用 $\sqrt k$）；<strong>LayerNorm/RMSNorm gain、bias、embedding 不加 wd</strong>（分 decay/no-decay 两组）。</li><li><strong>梯度裁剪 + LLM 超参</strong>：按<strong>全局范数</strong>裁（保方向）vs 按值裁（改方向），防梯度爆炸/loss spike；LLM 预训练默认 $\beta_2=\mathbf{0.95}$（<strong>不是</strong> 0.999，长记忆对尖峰太迟钝）、$\beta_1=0.9$、$\epsilon=\text{1e-8}$、wd $=0.1$、grad-clip $=1.0$。</li></ol>
+<h2 id="1-为什么需要-sgd-之外的优化器">§1 为什么需要 SGD 之外的优化器</h2>
+<p><strong>裸随机梯度下降（SGD）的根本困境，是真实 loss 地形几乎总是"病态"的。</strong> 把损失在一个极小点附近二阶展开，曲率由 Hessian $H$ 描述；定义<strong>条件数</strong> $\kappa=\lambda_{\max}/\lambda_{\min}$（$H$ 的最大与最小特征值之比）。$\kappa$ 大意味着不同方向的曲率差异巨大——某些方向陡峭如峡谷壁、某些方向平缓如谷底。对一个二次型，梯度下降的收敛速率约为 $\big(\tfrac{\kappa-1}{\kappa+1}\big)$，$\kappa$ 越大越慢。</p>
+<p>直觉上，裸 SGD 在病态谷里会<strong>来回震荡</strong>：固定一个全局 $\eta$，为了不在陡方向（大 $\lambda$）发散，$\eta$ 必须取得很小（$\eta\lt 2/\lambda_{\max}$）；但这个小 $\eta$ 在缓方向（小 $\lambda$）上又<strong>爬得极慢</strong>。结果是在峡谷壁之间锯齿形（zig-zag）反复横跳，真正想前进的谷底方向却几乎不动。深网络的 loss 地形动辄 $\kappa\sim 10^4$ 以上，裸 SGD 因此既慢又不稳。</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>病态 = 各方向曲率不匹配，单一全局 LR 必然两头不讨好</strong> 大曲率方向要小步（否则震荡/发散），小曲率方向要大步（否则爬不动）。一个标量 $\eta$ 没法同时满足 → 这是引入<strong>动量</strong>和<strong>逐参数自适应</strong>的根本动机。</p></div>
+<p>两味互补的药，正好对应优化器谱系的两条轴：</p>
+<ul><li><strong>动量（momentum）</strong>：累积历史梯度的速度。震荡方向上梯度反复反号、在速度里<strong>相互抵消</strong>；一致方向上梯度同号、在速度里<strong>累积加速</strong>。等价于把更新方向做了平滑，把 GD 的收敛常数从 $\kappa$ 改善到 $\sqrt\kappa$ 量级（$\tfrac{\sqrt\kappa-1}{\sqrt\kappa+1}$）。<strong>注意</strong>：$\kappa\to\sqrt\kappa$ 是<strong>强凸二次型</strong>上精调 heavy-ball/Nesterov 的经典加速结论；真实深网含随机梯度噪声、非凸、曲率含时，它是<strong>直觉而非保证</strong>。</li><li><strong>逐参数自适应步长（adaptive / per-parameter LR）</strong>：给每个坐标按它自己的梯度历史单独缩放步长——梯度一直很大的坐标用小步、一直很小的用大步。这相当于一个<strong>对角预条件子</strong>，把各坐标的有效曲率拉平，直接缓解 $\kappa$ 大的病。</li></ul>
+<p><strong>谱系一句话</strong>：SGD（只用一阶梯度）→ + 动量（加一阶 EMA）→ + 自适应（加二阶矩 EMA）→ <strong>Adam = 动量 + 自适应 + 偏差修正</strong>。后面 §2–§5 沿这条线走，§6 是前沿（矩阵预条件 / 符号 / 省显存），§7–§9 是配套的 LR 调度、权重衰减、裁剪。</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>"自适应 = 对角预条件"，不是真二阶</strong> Adam 这类只缩放每个坐标（对角），抓不到坐标间的耦合（off-diagonal 曲率）。真正逼近全矩阵预条件的是 Shampoo/SOAP（§6）。把 Adam 说成"近似牛顿法"不准确——它只是<strong>对角</strong>预条件，且用的是梯度二阶矩而非 Hessian。</p></div>
+<h2 id="2-sgd--momentum--nesterov">§2 SGD / Momentum / Nesterov</h2>
+<h3 id="21-裸-sgd-与-heavy-ball-动量">2.1　裸 SGD 与 heavy-ball 动量</h3>
+<p>裸 SGD 每步只看当前 mini-batch 梯度 $g_t$：</p>
+<p>$$\theta_t = \theta_{t-1} - \eta\, g_t.$$</p>
+<p><strong>heavy-ball 动量</strong>（Polyak, 1964）引入一个速度缓冲 $v$，让更新带"惯性"：</p>
+<p>$$\boxed{\;v_t = \mu\, v_{t-1} + g_t, \qquad \theta_t = \theta_{t-1} - \eta\, v_t\;}\qquad (\mu\ \text{典型 }0.9).$$</p>
+<p>（这是 PyTorch <code>SGD(momentum=μ)</code> 的形式：$v$ 初始为 0，首步 $v_1=g_1$，无 $(1-\mu)$ damping。）为什么有用：</p>
+<ul><li><strong>震荡方向</strong>（陡壁）：相邻步梯度反复反号，在 $v_t=\mu v_{t-1}+g_t$ 的指数加权和里<strong>部分相消</strong> → 横跳被压住。</li><li><strong>一致方向</strong>（谷底）：相邻步梯度同号、持续累积 → 速度变大、<strong>加速前进</strong>。</li></ul>
+<h3 id="22-nesterov-加速梯度nag">2.2　Nesterov 加速梯度（NAG）</h3>
+<p>heavy-ball 在<strong>当前点</strong> $\theta_{t-1}$ 求梯度。<strong>Nesterov accelerated gradient</strong> 改成在"动量将把你带去的"<strong>前瞻点</strong>求梯度：</p>
+<p>$$v_t = \mu\, v_{t-1} + g\big(\theta_{t-1} - \eta\mu\, v_{t-1}\big), \qquad \theta_t = \theta_{t-1} - \eta\, v_t.$$</p>
+<p>直觉："先看一眼动量要把我推到哪，再在那个点算梯度"——若前方要过冲，前瞻梯度会提前给出修正，所以 NAG 在凸问题上有更好的收敛常数。Sutskever et al.（ICML 2013）实证：<strong>精心设计的（Nesterov 式）动量对训练深网络至关重要</strong>，好的动量 + 初始化能让深网在没有自适应优化器时也训得起来。</p>
+<h3 id="23-动量--梯度的指数加权平均">2.3　动量 ≈ 梯度的指数加权平均</h3>
+<p>把递推展开（设 $v_0=0$）：</p>
+<p>$$v_t = \sum_{i=1}^{t} \mu^{\,t-i}\, g_i.$$</p>
+<p>这是历史梯度的<strong>几何（指数）加权和</strong>——越近的梯度权重越大，越远的按 $\mu^{t-i}$ 衰减。等效平均窗口约 $1/(1-\mu)$（$\mu=0.9$ → 约 10 步，$\mu=0.99$ → 约 100 步）。所以动量在做一件朴素的事：<strong>把含噪的瞬时梯度平均成一个更平滑、更可信的下降方向</strong>，顺带把一致趋势放大、把噪声/震荡抹掉。</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>动量的两副面孔</strong> 优化视角：改善病态问题的收敛常数（$\kappa\to\sqrt\kappa$）。统计视角：对梯度做 EMA 去噪。两者都解释了它为什么几乎是免费的标配——$\mu=0.9$ 一加，又快又稳。</p></div>
+<h2 id="3-adagrad--rmsprop--adam自适应谱系">§3 AdaGrad → RMSProp → Adam（自适应谱系）</h2>
+<h3 id="31-adagrad逐坐标自适应但会学到死">3.1　AdaGrad：逐坐标自适应，但会"学到死"</h3>
+<p>AdaGrad（Duchi, Hazan &amp; Singer, JMLR 2011）给每个坐标一个<strong>独立</strong>的、随历史梯度自适应的步长。维护逐坐标的<strong>累加平方和</strong> $G_t$：</p>
+<p>$$G_t = G_{t-1} + g_t^2 \ (\text{逐元素}), \qquad \theta_t = \theta_{t-1} - \frac{\eta}{\sqrt{G_t}+\epsilon}\odot g_t.$$</p>
+<p>效果：梯度一直很大的坐标 $G$ 大 → 步长小；稀疏/罕见特征 $G$ 小 → 步长大。在凸优化、稀疏特征（NLP 早期、推荐）上很有效。<strong>致命缺陷</strong>：$G_t$ 是<strong>单调递增</strong>的累加和，分母 $\sqrt{G_t}$ 只增不减 → 有效学习率单调趋于 0。在深网络的长训练里，跑着跑着步长就缩到几乎为 0，<strong>学不动了</strong>（学习过早停滞）。</p>
+<h3 id="32-rmsprop把累加和换成-ema">3.2　RMSProp：把累加和换成 EMA</h3>
+<p>RMSProp（Hinton, Coursera <em>Neural Networks for ML</em>, Lecture 6e, 2012，未正式发表）一针见血：问题出在"累加全部历史"。把累加和换成<strong>指数移动平均</strong>，让旧梯度被遗忘：</p>
+<p>$$E[g^2]_t = \rho\, E[g^2]_{t-1} + (1-\rho)\, g_t^2, \qquad \theta_t = \theta_{t-1} - \frac{\eta}{\sqrt{E[g^2]_t}+\epsilon}\odot g_t.$$</p>
+<p>EMA 的分母不再无界增长（它跟踪的是"最近的"梯度平方尺度），于是<strong>有效 LR 不会衰减到 0</strong>——AdaGrad 的死结被解开。这就是 Adam 二阶矩项的直接前身。</p>
+<h3 id="33-adam--rmsprop--动量--偏差修正">3.3　Adam = RMSProp + 动量 + 偏差修正</h3>
+<p>Adam（Kingma &amp; Ba, 2014）把两条轴合一：RMSProp 的<strong>二阶矩 EMA</strong>（自适应步长）+ heavy-ball 的<strong>一阶矩 EMA</strong>（动量）+ 一个关键的<strong>偏差修正</strong>（§4）。一句话记忆：</p>
+<p>$$\textbf{Adam} = \underbrace{\text{RMSProp}}_{\text{二阶矩 EMA}} + \underbrace{\text{momentum}}_{\text{一阶矩 EMA}} + \underbrace{\text{bias correction}}_{\text{去早期偏差}}.$$</p>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>每一步都在补前一步的洞</strong> AdaGrad 给了"逐坐标自适应"但会死 → RMSProp 用 EMA 救活 → Adam 再叠动量去噪 + 偏差修正稳住早期。面试能把这条"谁修了谁"的链讲清，比单背 Adam 公式强得多。</p></div>
+<h2 id="4-adam-深入">§4 Adam 深入</h2>
+<h3 id="41-完整更新式">4.1　完整更新式</h3>
+<p>$$m_t = \beta_1 m_{t-1} + (1-\beta_1)\, g_t \qquad (\text{一阶矩 / 动量, EMA}),$$</p>
+<p>$$v_t = \beta_2 v_{t-1} + (1-\beta_2)\, g_t^2 \qquad (\text{二阶矩 / 自适应, EMA}),$$</p>
+<p>$$\hat m_t = \frac{m_t}{1-\beta_1^{\,t}}, \qquad \hat v_t = \frac{v_t}{1-\beta_2^{\,t}} \qquad (\textbf{偏差修正}),$$</p>
+<p>$$\boxed{\;\theta_t = \theta_{t-1} - \eta\,\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon}\;}\qquad (\epsilon\ \text{在根号外，PyTorch}).$$</p>
+<p>默认 $\beta_1=0.9,\ \beta_2=0.999,\ \epsilon=10^{-8}$。$m_0=v_0=0$。</p>
+<h3 id="42-为什么需要偏差修正">4.2　为什么需要偏差修正</h3>
+<p>$m,v$ 都从 0 初始化。早期它们是对真实矩的<strong>有偏</strong>估计——偏向 0，且 $\beta$ 越接近 1 偏得越久。对平稳梯度取期望：$\mathbb{E}[m_t]=(1-\beta_1^t)\,\mathbb{E}[g]$，所以 $\hat m_t=m_t/(1-\beta_1^t)$ 恰好去偏；$\hat v_t$ 同理。</p>
+<p>关键、也是高频被深问的一点：<strong>不修正时，早期等效步长不是偏小，而是偏大。</strong> 看第一步（$t=1$）：</p>
+<p>$$\frac{m_1}{\sqrt{v_1}} = \frac{(1-\beta_1)\,g_1}{\sqrt{(1-\beta_2)}\,\lvert g_1\rvert} = \frac{1-\beta_1}{\sqrt{1-\beta_2}}\,\mathrm{sign}(g_1).$$</p>
+<p>代入默认值：$\frac{1-0.9}{\sqrt{1-0.999}}=\frac{0.1}{0.0316}\approx 3.16$。也就是说<strong>不修正的首步约为目标 $\eta$ 的 3.16 倍</strong>——因为 $v$（$\beta_2$ 更接近 1）被压向 0 比 $m$ 更狠，分母 $\sqrt{v}$ 太小，反而把步长放大了。偏差修正把 $\hat m_1=g_1,\ \hat v_1=g_1^2$ 还原，使首步严格回到 $\eta\cdot\mathrm{sign}(g_1)$，量级 $=\eta$。（§A 的 [d] 会数值印证这个 3.16。）</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>别顺口说"不修正步长太小"</strong> 朴素直觉只盯分子 $m$ 偏向 0 → 以为步太小，<strong>漏了分母 $v$ 偏得更狠</strong>。对标准 $\beta_2=0.999$，净效果是早期步长<strong>偏大</strong>（$\approx 3.16\eta$），可能导致初期不稳/发散——这也是为什么早期还要配 warmup（§7）。把方向答反是顶级 lab 最爱抓的点。</p></div>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>$\epsilon$ 在根号外（PyTorch 约定）</strong> Adam 的分母是 $\sqrt{\hat v_t}+\epsilon$，$\epsilon$ 在根号<strong>外</strong>——它既防除零，又<strong>给步长设了上界</strong> $\eta/\epsilon$（梯度极小时不至于炸出无穷大步）。有些实现（如 Adafactor）放在根号<strong>内</strong> $\sqrt{\hat v_t+\epsilon}$，数值行为略不同。$\epsilon$ 太小在 fp16/bf16 下分母 $\approx 0$ 易溢出。</p></div>
+<h2 id="5-adamw最高频的一节">§5 AdamW（最高频的一节）</h2>
+<h3 id="51-adam-的-l2-正则-ne-权重衰减">5.1　Adam 的 L2 正则 $\ne$ 权重衰减</h3>
+<p>经典 <strong>L2 正则</strong>的做法：在损失里加 $\frac{\lambda}{2}\lVert\theta\rVert^2$，等价于给梯度加一项 $\lambda\theta$：</p>
+<p>$$g_t' = g_t + \lambda\,\theta_{t-1}.$$</p>
+<p>对裸 SGD，这恰好就是权重衰减：$\theta_t=\theta_{t-1}-\eta(g_t+\lambda\theta_{t-1})=(1-\eta\lambda)\theta_{t-1}-\eta g_t$——每步把权重按 $(1-\eta\lambda)$ 收缩。<strong>但对 Adam，灾难发生了</strong>：这个 $\lambda\theta$ 被塞进 $g'$，于是它要一起进 $m,v$，最终被 $1/(\sqrt{\hat v}+\epsilon)$ 缩放：</p>
+<p>$$\theta_t = \theta_{t-1} - \eta\,\frac{\widehat{m'_t}}{\sqrt{\hat v_t}+\epsilon},\qquad m'\ \text{含 }\lambda\theta\ \text{的贡献}.$$</p>
+<p>后果：<strong>历史梯度大的参数（$\hat v$ 大）拿到的有效衰减反而更小</strong>，历史梯度小的参数被衰减更多——衰减强度被 $\hat v$ 扭曲，和"对所有权重施加均匀收缩"的正则本意完全脱节。这就是"L2 与 weight decay 在自适应优化器下不再等价"。</p>
+<h3 id="52-adamw解耦权重衰减">5.2　AdamW：解耦权重衰减</h3>
+<p>AdamW（Loshchilov &amp; Hutter, <em>Decoupled Weight Decay Regularization</em>, 1711.05101）的修法极简——<strong>把权重衰减从梯度里拿出来，绕过自适应分母，直接作用在权重上</strong>：</p>
+<p>$$\boxed{\;\theta_t = \theta_{t-1} - \eta\Big(\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon} + \lambda\,\theta_{t-1}\Big)\;}$$</p>
+<p>即先按原始梯度 $g$（<strong>不含</strong> $\lambda\theta$）算 Adam 步，再单独减一个 $\eta\lambda\theta_{t-1}$。等价写法 $\theta_t=(1-\eta\lambda)\theta_{t-1}-\eta\,\hat m_t/(\sqrt{\hat v_t}+\epsilon)$——一个干净的、<strong>与 $\hat v$ 无关</strong>的均匀收缩（PyTorch <code>AdamW</code> 即把衰减乘上 lr）。</p>
+<p>为什么通常更好（更可控）：解耦后<strong>所有参数受到同样的相对收缩 $\lambda$</strong>，正则强度不再被各参数的梯度历史扭曲，更符合"控制权重范数"的本意；Loshchilov &amp; Hutter 实证 AdamW 在多任务上<strong>往往</strong>稳定优于 Adam+L2，且 LR 与 wd 的最优值更容易解耦调参（不必绝对化成"所有任务都更泛化"，但它是更可控、更常用的默认）。<strong>为何 SGD 下两者重合</strong>：SGD 没有 $1/\sqrt{\hat v}$ 这层自适应缩放，$\lambda\theta$ 加进梯度后被原样使用，恰好就是均匀收缩；一旦有了自适应分母，加梯度（L2）和直接收缩（decay）就分道扬镳。</p>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>现代默认就是 AdamW</strong> Transformer/LLM 训练几乎一律用 AdamW（不是 Adam）。面试问"Adam 和 AdamW 区别"，标准答案是"<strong>L2 经过 $1/\sqrt{\hat v}$ 缩放、解耦衰减不经过</strong>；SGD 等价、Adam 不等价"。只答"AdamW 加了权重衰减"是没抓到点（Adam 也能加 weight_decay，只不过那是 L2）。</p></div>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>PyTorch 里 <code>Adam(weight_decay=λ)</code> 是 L2，不是 AdamW</strong> <code>torch.optim.Adam(weight_decay=λ)</code> 做的是<strong>耦合 L2</strong>（把 $\lambda\theta$ 加进梯度）；要解耦衰减必须用 <code>torch.optim.AdamW</code>。二者在相同 $\lambda$ 下产生<strong>不同</strong>更新（§A 的 [c] 会数值展示 $\lVert\Delta\rVert\gt 0$）。搞错这个 API 等于没用上 AdamW。</p></div>
+<h2 id="6-前沿优化器">§6 前沿优化器</h2>
+<p>每个只记<strong>一个核心 idea</strong>即可——面试报得出"它改了 Adam 的哪一块"就够。</p>
+<h3 id="61-muon把动量正交化">6.1　Muon：把动量正交化</h3>
+<p><strong>Muon</strong>（Keller Jordan, 2024 技术博客）针对<strong>2D 权重矩阵</strong>：先按动量算出更新矩阵 $M$，再用几次 <strong>Newton-Schulz 迭代</strong>把它<strong>正交化</strong>成 $O\approx\mathrm{NewtonSchulz}(M)$（数学上逼近 $M=U\Sigma V^\top$ 的 $UV^\top$，即最近的半正交矩阵，用迭代代替昂贵的 SVD），用 $O$ 去更新权重。直觉：正交化让更新在<strong>所有奇异方向上同等用力</strong>、不被少数大奇异值主导 → 更新更均衡、有效学习更快。<strong>只用于隐藏层的 2D 矩阵</strong>；embedding、输出头、norm gain、bias 这些仍走 AdamW（正交化对它们无意义）。Moonshot 的 Kimi-K2 用 Muon 训练；可扩展性见 <em>Muon is Scalable for LLM Training</em>（2502.16982）。</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>原始 Muon 多半是博客、无正式 arXiv</strong> Muon 的首发是 Keller Jordan 的技术博客 writeup（无独立 arXiv 论文），有正式 arXiv 的是 Moonshot 的 scaling 工作（2502.16982）。引用时要区分，别给原始 Muon 编一个 arXiv id。</p></div>
+<h3 id="62-lion符号动量单状态">6.2　Lion：符号动量，单状态</h3>
+<p><strong>Lion</strong>（Chen et al., <em>Symbolic Discovery of Optimization Algorithms</em>, 2302.06675）由<strong>符号程序搜索</strong>自动发现。更新取动量的<strong>符号</strong>：$u_t=\mathrm{sign}(\beta_1 m_{t-1}+(1-\beta_1)g_t)$，$\theta_t=\theta_{t-1}-\eta(u_t+\lambda\theta_{t-1})$，再更新动量 $m_t=\beta_2 m_{t-1}+(1-\beta_2)g_t$。<strong>只存 1 个状态（动量）</strong> → 优化器显存是 Adam（要存 $m,v$ 两个）的<strong>一半</strong>。sign 让每个坐标走等幅步长；通常配更小的 LR、更大的 wd。</p>
+<h3 id="63-shampoo--soap全矩阵预条件">6.3　Shampoo / SOAP：全矩阵预条件</h3>
+<ul><li><strong>Shampoo</strong>（Gupta, Koren &amp; Singer, 1802.09568）：超越 Adam 的<strong>对角</strong>预条件，做<strong>全矩阵 / Kronecker 因子化</strong>预条件。对一个权重矩阵维护左、右预条件子 $L=\sum GG^\top$、$R=\sum G^\top G$，用 $L^{-1/4} G\, R^{-1/4}$ 更新——以 Kronecker 积近似全矩阵 AdaGrad，捕捉坐标间耦合。收敛更快但每步贵（要算矩阵的逆根）。</li><li><strong>SOAP</strong>（Vyas et al., 2409.11321）：在 <strong>Shampoo 的（缓变）特征基</strong>里跑 Adam——把梯度旋到 Shampoo 预条件子的特征空间、在那里做标准 Adam，再旋回来。它把 Shampoo 与 Adam/Adafactor 联系起来，更稳、超参更少。</li></ul>
+<h3 id="64-adafactor--lamb--sophia">6.4　Adafactor / LAMB / Sophia</h3>
+<ul><li><strong>Adafactor</strong>（Shazeer &amp; Stern, 1804.04235）：把二阶矩矩阵 $v\in\mathbb{R}^{m\times n}$ <strong>因子化</strong>成行、列两个向量（秩-1 重构 $v\approx rc^\top$）→ 显存从 $O(mn)$ 降到 $O(m+n)$（<strong>亚线性</strong>）。T5 用它在有限显存上训大模型。</li><li><strong>LAMB</strong>（You et al., 1904.00962）：在 Adam 更新方向上再做<strong>逐层自适应</strong>——按每层的 $\lVert\theta\rVert/\lVert\text{update}\rVert$（trust ratio）缩放（LARS 的 Adam 版）。让<strong>超大 batch</strong> 训练稳定（76 分钟训 BERT）。</li><li><strong>Sophia</strong>（Liu et al., 2305.14342）：<strong>轻量二阶</strong>。用对角 Hessian 估计（Gauss-Newton-Bartlett 或 Hutchinson）做预条件 + 对更新裁剪，每 $k$ 步才更新一次 Hessian → 比 AdamW 更快收敛，二阶开销摊薄。</li></ul>
+<h2 id="7-学习率调度">§7 学习率调度</h2>
+<h3 id="71-warmup为什么开头要慢">7.1　Warmup：为什么开头要慢</h3>
+<p><strong>warmup</strong> 在训练最初的几百~几千步把 LR 从 0（或很小）<strong>线性拉到峰值</strong>，再交给后续衰减。动机有二：</p>
+<ol><li><strong>Adam 早期方差大</strong>：$\hat v$ 在前几步只用了极少样本估计，<strong>方差很大</strong>，导致自适应步长抖动甚至偏大（§4.2 的 3.16 倍效应）。先用小 LR 让 $m,v$ 的统计"热身"到可靠，再放大步长。</li><li><strong>大 batch / Post-LN 不稳</strong>：大 batch 初期梯度尺度大；Post-LN Transformer 顶层梯度天然偏大（见 normalization 篇 §5）——一上来就大 LR 容易发散。warmup 压住早期不稳。</li></ol>
+<h3 id="72-cosine-退火-warm-restart">7.2　Cosine 退火（+ warm restart）</h3>
+<p>cosine（Loshchilov &amp; Hutter, <em>SGDR</em>, 1608.03983）把 LR 从峰值<strong>平滑余弦衰减</strong>到 $\sim\eta_{\min}$：</p>
+<p>$$\eta_t = \eta_{\min} + \tfrac12(\eta_{\max}-\eta_{\min})\Big(1+\cos\big(\pi\, t/T\big)\Big).$$</p>
+<p>早期大 LR 快速探索、后期小 LR 精细收敛（噪声小、易落入更平的极小）。SGDR 还加 <strong>warm restart</strong>：周期性把 LR 拉回峰值，帮助跳出局部解。<strong>代价：必须预先确定总步数 $T$</strong>（$\cos$ 要知道终点）——这正是 WSD 想解决的痛点。</p>
+<h3 id="73-inverse-sqrt--noam原始-transformer-调度">7.3　Inverse-sqrt / Noam（原始 Transformer 调度）</h3>
+<p>原始 Transformer（Vaswani et al., 1706.03762）用的调度，先<strong>线性 warmup</strong> 再 <strong>$1/\sqrt t$ 衰减</strong>：</p>
+<p>$$\eta_t = d_{\text{model}}^{-1/2}\cdot\min\!\Big(t^{-1/2},\ t\cdot t_{\text{warmup}}^{-3/2}\Big).$$</p>
+<p>$t\lt t_{\text{warmup}}$ 时取后项（线性上升），之后取前项（按 $t^{-1/2}$ 下降）。无需预定总步数，是早期机器翻译/语言模型的标配。</p>
+<h3 id="74-wsdwarmup-stable-decay">7.4　WSD：Warmup-Stable-Decay</h3>
+<p>WSD（MiniCPM, Hu et al., 2404.06395）把调度切成三段：<strong>warmup → 长时间恒定（stable，峰值 LR）→ 末段短促 decay</strong>。最大卖点：<strong>不用预先 commit 总步数</strong>——恒定段可以无限延长，想停的时候才接一段短 decay（loss 在 decay 段会陡降到一个好水平）。好处：</p>
+<ul><li>支持<strong>持续训练 / 中途加数据</strong>（恒定段随时续）；</li><li>每做一次 decay 就得到一个<strong>可用的 checkpoint</strong>，不必为每个目标步数各训一条余弦；</li><li>便于在固定算力下探索"训多久"，而不是一次性赌死 $T$。</li></ul>
+<h3 id="75-one-cycle--super-convergence">7.5　One-cycle / super-convergence</h3>
+<p>one-cycle（Smith, <em>Super-Convergence</em>, 1708.07120）：整个训练就<strong>一个周期</strong>——LR 先升到一个<strong>很大</strong>的峰值再降到远低于初值，动量则反向同步循环（LR 高时动量低）。在某些设置下能"超收敛"（用很大的 LR 极快训完）。它和 cosine、WSD 一样是"先升后降"的家族，区别在单周期 + 超大峰值 LR。</p>
+<blockquote><p>🎯 <strong>选调度的一句话</strong> 固定预算、追极致质量 → <strong>cosine</strong>（但要预定步数）；不确定要训多久 / 要续训 / 要中途出 checkpoint → <strong>WSD</strong>；经典 Transformer 复现 → <strong>Noam</strong>；想用超大 LR 极速训 → <strong>one-cycle</strong>。所有这些<strong>前面都应接 warmup</strong>。</p></blockquote>
+<h2 id="8-权重衰减--lr-batch-缩放--no-decay-组">§8 权重衰减 + LR-batch 缩放 + no-decay 组</h2>
+<h3 id="81-权重衰减做什么含一个现代视角">8.1　权重衰减做什么（含一个现代视角）</h3>
+<p>经典视角：权重衰减是<strong>正则</strong>——每步把权重朝 0 收缩，限制权重范数、压模型复杂度、抗过拟合。<strong>现代视角</strong>（在有归一化层的网络里）：因为 LayerNorm/RMSNorm 让权重<strong>尺度不变</strong>（把 $W$ 乘个常数，归一化后输出不变），权重的"绝对大小"本身不直接影响函数，于是 wd 的真正作用更像是在<strong>调有效学习率 / 控制权重范数的平衡点</strong>——wd 越大、权重范数越小、等效梯度步长相对越大。这是近年训练动力学研究里的重要观察（把 wd 当"有效 LR 旋钮"而非单纯正则）。</p>
+<h3 id="82-lr-随-batch-size-缩放">8.2　LR 随 batch size 缩放</h3>
+<p>大 batch 训练里，LR 必须跟着 batch 调，否则白白浪费算力或不稳：</p>
+<ul><li><strong>线性缩放规则</strong>（Goyal et al., 1706.02677）：<strong>batch ×$k$ → LR ×$k$</strong>（用于大 batch SGD），并配 warmup。直觉：mini-batch 均值梯度的方差 $\propto 1/B$，把 batch 放大 $k$ 倍后噪声降低，可以放心把步长也放大 $k$ 倍以保持"每个样本贡献的有效更新"大致不变。</li><li><strong>Adam 的 $\sqrt k$ 缩放</strong>：Adam 的更新近似被 $\sqrt{\hat v}$ 归一化（接近符号化），经验上对 batch 用<strong>平方根</strong>缩放（LR ×$\sqrt k$）更稳，而非线性。</li><li>相关地，<strong>LARS</strong>（You et al., 1708.03888）/ <strong>LAMB</strong>（§6.4）用逐层 trust ratio 实现超大 batch 下的自适应缩放。</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>这些都是经验法则，不是定理</strong> 线性 / $\sqrt{}$ 缩放只在一定 batch 范围内成立；batch 大到一定程度会进入"收益递减"区（critical batch size 之外，再加 batch 不再线性提速）。面试讲缩放规则要带上"近似 / 有上限"的限定。</p></div>
+<h3 id="83-no-decay-参数组">8.3　no-decay 参数组</h3>
+<p><strong>不是所有参数都该加权重衰减。</strong> 标准实践把参数分成两组：</p>
+<ul><li><strong>加 wd</strong>：各线性层 / 卷积的权重矩阵。</li><li><strong>不加 wd（no-decay）</strong>：<strong>LayerNorm/RMSNorm 的 gain $\gamma$、所有 bias、（通常）embedding</strong>。</li></ul>
+<p>原因：这些是<strong>尺度 / 平移参数</strong>，把它们朝 0 收缩会直接损害表示——把 LN 的 gain 压向 0 等于抹掉该层激活的尺度；bias 本就不该被正则（它只管平移）。GPT/LLaMA 等代码库都显式构造 decay / no-decay 两个 param group。</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>与 μP 的连接（不在此重复推导）</strong> μP（maximal update parametrization）让<strong>最优 LR 在宽度上不变</strong>，从而小宽度调好的超参可 zero-shot 迁移到大模型——这是"如何选 LR"的另一条正交线索，细节见 normalization 篇的 μP 一节（§9），此处不再展开。</p></div>
+<h2 id="9-梯度裁剪--llm-超参细节">§9 梯度裁剪 + LLM 超参细节</h2>
+<h3 id="91-梯度裁剪全局范数-vs-按值">9.1　梯度裁剪：全局范数 vs 按值</h3>
+<p>训练里偶发的<strong>梯度爆炸 / loss 尖峰</strong>（尤其 RNN、长序列、大 LR）会一步把权重带飞甚至 NaN。梯度裁剪（Pascanu, Mikolov &amp; Bengio, 1211.5063）给梯度设一个闸：</p>
+<ul><li><strong>按全局范数裁（clip by global norm，最常用）</strong>：把所有参数的梯度拼成一个大向量，算其 $\lVert g\rVert_2$；若超过阈值 $c$，整体缩放 $g\leftarrow g\cdot c/\lVert g\rVert_2$。<strong>保持方向</strong>、只压幅度。</li><li><strong>按值裁（clip by value）</strong>：逐分量 clamp 到 $[-v, v]$。会<strong>改变梯度方向</strong>（不同分量被不同程度截断），一般不如全局范数。</li></ul>
+<p>为什么稳：偶发的超大梯度被钳到阈值内，单步更新幅度有界 → 不会因一个坏 batch 把训练带崩。LLM 预训练几乎都用 <strong>global-norm clip，阈值 1.0</strong>。</p>
+<h3 id="92-llm-训练的-adam-超参默认">9.2　LLM 训练的 Adam 超参默认</h3>
+<p>LLM 预训练的 Adam/AdamW 配方和"教科书默认"有几处关键不同：</p>
+<table><thead><tr><th>超参</th><th>教科书默认</th><th><strong>LLM 预训练常用</strong></th><th>为什么</th></tr></thead><tbody><tr><td>$\beta_1$</td><td>0.9</td><td>0.9</td><td>动量窗口 ~10 步，够用</td></tr><tr><td>$\beta_2$</td><td>0.999</td><td><strong>0.95</strong>（或 0.99）</td><td>0.999 记忆窗口 ~1000 步<strong>太长</strong>，对 loss spike / 非平稳反应迟钝、易在尖峰后失稳；0.95（窗口 ~20 步）反应更快更稳</td></tr><tr><td>$\epsilon$</td><td>1e-8</td><td>1e-8（有时 1e-15）</td><td>防分母为 0；过大会削弱自适应</td></tr><tr><td>weight decay</td><td>0 ~ 1e-2</td><td><strong>0.1</strong></td><td>解耦 wd（AdamW），较强</td></tr><tr><td>grad clip</td><td>无</td><td><strong>1.0</strong>（global norm）</td><td>压 loss 尖峰</td></tr></tbody></table>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>$\beta_2=0.999$ 搬到 LLM 上是经典坑</strong> 视觉/小模型上 0.999 没问题；但 LLM 大规模预训练里梯度统计非平稳、偶有尖峰，0.999 的长记忆让 $\hat v$ 更新太慢，遇到 loss spike 难以快速回稳，常见做法是降到 <strong>$\beta_2=0.95$</strong>。这是面试里"你怎么调 LLM 的 Adam"的标准得分点。</p></div>
+<h2 id="10-选优化器--显存账">§10 选优化器 + 显存账</h2>
+<h3 id="101-优化器状态的显存">10.1　优化器状态的显存</h3>
+<p>混合精度训练里，每个<strong>可训练参数</strong>的显存大致是：bf16 权重 2 B + bf16 梯度 2 B + fp32 master 4 B + <strong>优化器状态</strong>。优化器状态正是各方法的分水岭：</p>
+<ul><li><strong>SGD+momentum</strong>：1 个状态（动量 $v$）。</li><li><strong>Adam / AdamW</strong>：<strong>2 个状态（$m, v$）</strong>，fp32 下 $=8$ B/param——这往往是大头，是"省显存"动机的来源。</li><li><strong>Lion</strong>：1 个状态（动量）→ Adam 的一半。</li><li><strong>Adafactor</strong>：因子化 $v$ → 亚线性，近似只剩"参数级"开销。</li></ul>
+<p>由此催生的省显存路线：</p>
+<ul><li><strong>8-bit Adam</strong>（Dettmers et al., 2110.02861）：把 $m,v$ <strong>分块量化到 8-bit</strong> 存储（用时反量化），优化器状态显存降到约 $1/4$，质量几乎无损。</li><li><strong>Adafactor</strong>：因子化二阶矩，亚线性显存（T5）。</li><li><strong>Lion</strong>：少存一个状态，直接减半。</li></ul>
+<h3 id="102-什么时候用哪个">10.2　什么时候用哪个</h3>
+<blockquote><p>🎯 <strong>"用哪个优化器"决策树</strong></p>
+<ul><li><strong>Transformer / LLM 微调或预训练</strong>：<strong>AdamW</strong>（安全默认，$\beta_2=0.95$、wd 0.1、grad-clip 1.0、配 warmup+cosine/WSD）。</li><li><strong>经典视觉（ResNet 等）</strong>：<strong>SGD+momentum</strong> 常<strong>泛化更好</strong>、且省显存——CV 里仍有大量 SOTA 用它。</li><li><strong>想要额外训练加速 / 大规模</strong>：<strong>Muon</strong>（2D 隐藏层）、<strong>Shampoo/SOAP</strong>（全矩阵预条件，肯花每步算力）。</li><li><strong>显存受限</strong>：<strong>8-bit Adam</strong> / <strong>Adafactor</strong> / <strong>Lion</strong>。</li><li><strong>超大 batch</strong>：<strong>LAMB / LARS</strong>（逐层 trust ratio）。</li></ul></blockquote>
+<h2 id="11-工程对比--常见误区">§11 工程对比 + 常见误区</h2>
+<h3 id="111-优化器对比表">11.1　优化器对比表</h3>
+<table><thead><tr><th>优化器</th><th>优化器状态（× 参数）</th><th>额外计算</th><th>核心 idea</th><th>典型用途</th></tr></thead><tbody><tr><td><strong>SGD+Momentum</strong></td><td>1×（动量）</td><td>极低</td><td>heavy-ball 速度 EMA</td><td>经典视觉、追泛化</td></tr><tr><td><strong>Adam / AdamW</strong></td><td>2×（$m,v$）</td><td>低（逐元素）</td><td>动量 + 对角自适应（+ 解耦 wd）</td><td>Transformer / LLM 默认</td></tr><tr><td><strong>Lion</strong></td><td>1×（动量）</td><td>低（取 sign）</td><td>符号动量、单状态</td><td>省显存 / 大 batch</td></tr><tr><td><strong>Muon</strong></td><td>1×（动量）+ NS 迭代</td><td>中（几次小 matmul）</td><td>动量正交化（Newton-Schulz）</td><td>LLM 隐藏 2D 层提速</td></tr><tr><td><strong>Shampoo</strong></td><td>预条件子 $L,R$（较大）</td><td>高（矩阵逆根）</td><td>Kronecker 全矩阵预条件</td><td>大规模训练提速</td></tr><tr><td><strong>Adafactor</strong></td><td>亚线性（因子化 $v$）</td><td>低</td><td>行/列因子化二阶矩</td><td>显存受限 / T5</td></tr></tbody></table>
+<div class="callout callout-info"><div class="callout-title">读表</div><p>横看显存（SGD/Lion/Muon 1 状态、Adam 2 状态、Adafactor 亚线性、Shampoo 最重），竖看代价（对角自适应便宜、全矩阵预条件贵）。没有"最优优化器"，只有"对当前 模型 × 显存 × 算力 预算最合适的"。</p></div>
+<h3 id="112-常见误区footguns">11.2　常见误区（footguns）</h3>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 1：Adam 的 L2 当成 AdamW 的解耦衰减</strong> <code>Adam(weight_decay=λ)</code> 是耦合 L2（经 $1/\sqrt{\hat v}$ 缩放），<code>AdamW</code> 才是解耦衰减。相同 $\lambda$ 下两者更新<strong>不同</strong>（§5、§A [c]）。</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 2：忘了偏差修正 / 把它的方向讲反</strong> 漏掉 $1/(1-\beta^t)$ 会让早期步长错乱；且不修正时默认 $\beta$ 下首步是<strong>偏大</strong>（$\approx 3.16\eta$）不是偏小（§4.2）。</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 3：给 LayerNorm/RMSNorm gain、bias 加权重衰减</strong> 这些尺度/平移参数不该被收缩；要分 no-decay 组（§8.3）。</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 4：LLM 训练用 $\beta_2=0.999$</strong> 长记忆对 loss 尖峰太迟钝，易失稳；改 <strong>0.95</strong>（§9.2）。</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 5：大 batch 不调 LR</strong> 要按线性（SGD）/ $\sqrt{}$（Adam）缩放并配 warmup，否则浪费算力或发散（§8.2）。</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 6：用 cosine 却不知要预定总步数</strong> cosine 需要终点 $T$；想中途续训 / 不确定步数应用 <strong>WSD</strong>（§7.2、§7.4）。</p></div>
+<div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 7：把 Adam 的 $\epsilon$ 放进根号里</strong> PyTorch 是 $\sqrt{\hat v}+\epsilon$（根号外，兼作步长上界）；位置记反会改变数值行为（§4.2）。</p></div>
+<h2 id="12-25-高频面试题">§12 25 高频面试题</h2>
+<p>按难度分三档，点开看答案要点 + 易踩坑。L2/L3 是顶级 lab 深水区（AdamW 解耦、偏差修正方向、$\beta_2$ 选择、缩放规则、Muon/Shampoo/Lion/Sophia 等）。</p>
+<h3 id="l1必会题">L1必会题</h3>
+<details>
+
+<summary>Q1. 裸 SGD 和带动量的 SGD 有什么区别？动量做什么？</summary>
+<ul><li>裸 SGD：$\theta\mathrel{-}=\eta g$，每步只看当前梯度</li><li>动量：$v=\mu v+g,\ \theta\mathrel{-}=\eta v$，累积历史梯度的（指数加权）速度</li><li>一致方向累积加速、震荡方向反号相消；等效平均窗口 $\sim 1/(1-\mu)$</li></ul>
+<p>只把动量说成"加大学习率"，讲不出"沿一致方向累积、震荡方向相消"。</p>
+</details>
+<details>
+
+<summary>Q2. 写出 Adam 的完整更新式。</summary>
+<ul><li>$m=\beta_1 m+(1-\beta_1)g$（一阶 EMA），$v=\beta_2 v+(1-\beta_2)g^2$（二阶 EMA）</li><li>偏差修正 $\hat m=m/(1-\beta_1^t)$，$\hat v=v/(1-\beta_2^t)$</li><li>$\theta\mathrel{-}=\eta\,\hat m/(\sqrt{\hat v}+\epsilon)$，$\epsilon$ 在根号<strong>外</strong>（PyTorch）</li></ul>
+<p>漏掉偏差修正；或把 $\epsilon$ 放进根号里。</p>
+</details>
+<details>
+
+<summary>Q3. warmup 是干嘛的？</summary>
+<ul><li>训练初期把 LR 从 0/很小<strong>线性拉到峰值</strong>（几百~几千步）</li><li>早期 Adam 的 $\hat v$ 用样本少、方差大 → 自适应步长不稳/偏大；大 batch、Post-LN 初期梯度大</li><li>warmup 压住早期不稳，避免一上来就发散</li></ul>
+<p>把 warmup 当玄学，讲不出"早期方差大 / 梯度大"这个机理。</p>
+</details>
+<details>
+
+<summary>Q4. AdaGrad 是什么？为什么长训练会"学不动"？</summary>
+<ul><li>每坐标累加<strong>全部</strong>历史梯度平方 $G=\sum g^2$，步长 $\propto\eta/\sqrt{G}$</li><li>$G$ 单调增 → 有效 LR 单调趋 0 → 长训练后步长几乎为 0，停滞</li><li>适合凸 / 稀疏特征，不适合深网长训练</li></ul>
+<p>不知道是"累加全部历史"导致 LR 衰减到 0。</p>
+</details>
+<details>
+
+<summary>Q5. RMSProp 修了 AdaGrad 的什么？</summary>
+<ul><li>把"累加和"换成 <strong>EMA</strong>：$E[g^2]=\rho E[g^2]+(1-\rho)g^2$</li><li>EMA 会遗忘旧梯度 → 分母不再无界增长 → LR 不衰减到 0</li><li>这就是 Adam 二阶矩项的来源</li></ul>
+<p>只说"RMSProp 更快"，讲不出"EMA 替代累加和、修好 LR 衰减"。</p>
+</details>
+<details>
+
+<summary>Q6. 为什么常用 Adam 而不是裸 SGD？</summary>
+<ul><li>每参数自适应步长（按 $\sqrt{\hat v}$ 做<strong>对角预条件</strong>）+ 动量，对病态 / 各坐标尺度不一更鲁棒</li><li>收敛快、对 LR 不那么敏感、几乎免调，适合 Transformer</li><li>代价：2× 优化器状态显存、有时泛化略逊 SGD</li></ul>
+<p>只说"Adam 收敛快"，答不出"自适应 = 对角预条件"；或把它说成"近似牛顿法"（它只是对角）。</p>
+</details>
+<details>
+
+<summary>Q7. 权重衰减 / L2 正则直觉上做什么？对 SGD 和 Adam 一样吗？</summary>
+<ul><li>每步把权重朝 0 收缩 → 限制权重范数、控制复杂度</li><li><strong>SGD</strong>：L2 与 weight decay 等价（$\theta\mathrel{-}=\eta(g+\lambda\theta)=(1-\eta\lambda)\theta-\eta g$）</li><li><strong>Adam</strong>：两者<strong>不等价</strong>（L2 经 $1/\sqrt{\hat v}$ 缩放），要用 AdamW，见 Q11</li></ul>
+<p>以为 L2 和 weight decay 永远一回事（对自适应优化器不成立）。</p>
+</details>
+<details>
+
+<summary>Q8. 余弦退火是什么？为什么要衰减 LR？</summary>
+<ul><li>$\eta_t=\eta_{\min}+\tfrac12(\eta_{\max}-\eta_{\min})(1+\cos(\pi t/T))$，从峰值平滑降到 $\sim 0$</li><li>早期大 LR 快速探索，后期小 LR 精细收敛、减小噪声、利于落入更平的极小</li><li>SGDR 加 warm restart（周期性拉回峰值）</li></ul>
+<p>不知道要<strong>预先给定总步数 $T$</strong>；或答不出"为何要 decay"。</p>
+</details>
+<details>
+
+<summary>Q9. Nesterov 和 heavy-ball 动量的区别？</summary>
+<ul><li>heavy-ball：在<strong>当前点</strong> $\theta$ 算梯度，$v=\mu v+g(\theta)$</li><li>Nesterov：在"动量将带你去的"<strong>前瞻点</strong> $\theta-\eta\mu v$ 算梯度（look-ahead）</li><li>前瞻能提前看到过冲并纠正，收敛常数更好（Sutskever 2013 强调对深网重要）</li></ul>
+<p>说不清 NAG 的梯度是在前瞻点而非当前点求的。</p>
+</details>
+<details>
+
+<summary>Q10. 为什么说动量 ≈ 梯度的 EMA？</summary>
+<ul><li>展开 $v_t=\sum_{i\le t}\mu^{t-i}g_i$ —— 历史梯度的指数加权（几何）和</li><li>等效是一个窗口 $\sim 1/(1-\mu)$ 的滑动平均（$\mu=0.9\to\sim 10$ 步）</li><li>所以动量在"平均掉噪声、保留一致趋势"</li></ul>
+<p>只把动量当"惯性"比喻，写不出指数加权求和这个式子。</p>
+</details>
+<h3 id="l2进阶题">L2进阶题</h3>
+<details>
+
+<summary>Q11. AdamW vs Adam+L2：解耦到底解耦了什么？（最高频）</summary>
+<ul><li>Adam+L2：把 $\lambda\theta$ 加进<strong>梯度</strong> → 经 $m,v$ 的 $1/\sqrt{\hat v}$ 缩放 → 历史梯度大的参数被衰减得<strong>更少</strong>（解耦被破坏）</li><li>AdamW：Adam 步之外<strong>直接</strong>从权重减 $\eta\lambda\theta$（不过自适应分母）：$\theta\mathrel{-}=\eta(\hat m/(\sqrt{\hat v}+\epsilon)+\lambda\theta)$</li><li>解耦后所有参数受同样收缩，泛化更好；SGD 下两者等价、Adam 下不等价</li></ul>
+<p>说"AdamW 就是 Adam 加权重衰减"，讲不出"L2 经过 $\sqrt{\hat v}$ 缩放"这个关键差异。</p>
+</details>
+<details>
+
+<summary>Q12. Adam 为什么要偏差修正？不修会怎样？方向是偏大还是偏小？</summary>
+<ul><li>$m,v$ 初值 0，早期对真实矩有偏（偏向 0），$\beta$ 越接近 1 偏得越久</li><li>因 $\beta_2$(0.999) 比 $\beta_1$(0.9) 更接近 1，$v$ 偏得更重 → 分母 $\sqrt{v}$ 太小 → 不修正时早期步长<strong>偏大</strong>（默认 $\beta$ 下首步 $\approx\frac{1-\beta_1}{\sqrt{1-\beta_2}}=3.16$ 倍 $\eta$）</li><li>修正 $\div(1-\beta^t)$ 把首步拉回 $\eta$</li></ul>
+<p>顺口说"不修正步长太小"——对标准 $\beta_2=0.999$ 恰恰相反，是<strong>偏大</strong>（只盯分子漏了分母）。</p>
+</details>
+<details>
+
+<summary>Q13. 余弦 vs WSD，各自取舍？</summary>
+<ul><li>余弦：平滑降到 $\sim 0$，质量好，但<strong>必须预先确定总步数 $T$</strong>，难做中途续训 / 加数据</li><li>WSD：warmup → 长恒定 → 末段短 decay；<strong>不用预定总步数</strong>，恒定段可任意延长，每次 decay 出一个可用 checkpoint</li><li>WSD 适合持续训练 / 预算不确定；余弦适合固定预算的一次性训练</li></ul>
+<p>不知道余弦要预定 $T$，而 WSD 的卖点正是不用预定。</p>
+</details>
+<details>
+
+<summary>Q14. 为什么 LLM 预训练用 $\beta_2=0.95$ 而不是 0.999？</summary>
+<ul><li>$\beta_2=0.999$ 的有效记忆窗口 $\sim 1/(1-\beta_2)=1000$ 步，太长、对 loss spike 反应迟钝</li><li>LLM 训练梯度非平稳 / 有尖峰，0.95（窗口 $\sim 20$ 步）反应更快、更稳</li><li>配 $\beta_1=0.9,\ \epsilon=\text{1e-8},\ \text{wd}=0.1,\ \text{grad-clip}=1.0$ 是常见 LLM 配方</li></ul>
+<p>套视觉 / 小模型的 0.999，遇到 loss spike 难恢复。</p>
+</details>
+<details>
+
+<summary>Q15. 线性缩放规则是什么？为什么 Adam 常用 $\sqrt{}$ 缩放？</summary>
+<ul><li>Goyal：大 batch SGD，batch ×$k$ 则 LR ×$k$（保持每样本有效更新），配 warmup</li><li>直觉：mini-batch 均值梯度方差 $\propto 1/B$，线性放大 LR 维持 SNR / 步长</li><li>Adam 更新近似被 $\sqrt{\hat v}$ 归一化 → 经验上用 $\sqrt k$（平方根）缩放更稳</li></ul>
+<p>大 batch 不调 LR（浪费算力）；或对 Adam 也硬套线性 $k$；忘了 critical batch size 之外收益递减。</p>
+</details>
+<details>
+
+<summary>Q16. 梯度裁剪：按全局范数 vs 按值，为什么能稳？</summary>
+<ul><li>全局范数：$\lVert g\rVert\gt c$ 时整体缩放 $g\leftarrow g\cdot c/\lVert g\rVert$，<strong>保方向</strong>只压幅度</li><li>按值：逐分量 clamp 到 $[-v,v]$，会<strong>改方向</strong></li><li>裁掉偶发的梯度爆炸 / 尖峰 → 防 loss 飞、防 NaN（Pascanu 2013）；LLM 常用 global-norm 阈值 1.0</li></ul>
+<p>说"裁剪就行"，分不清全局范数（保方向）和按值（改方向）。</p>
+</details>
+<details>
+
+<summary>Q17. no-decay 参数组：哪些参数不加权重衰减？为什么？</summary>
+<ul><li>LayerNorm/RMSNorm 的 gain $\gamma$、所有 bias、（常）embedding 不加 wd</li><li>它们是尺度 / 平移参数，朝 0 收缩会压垮表示（如 LN gain→0 抹掉激活尺度）</li><li>标准做法：把参数分成 decay / no-decay 两组（GPT/LLaMA 代码皆如此）</li></ul>
+<p>对所有参数无脑统一 wd，把 norm gain / bias 也衰减了。</p>
+</details>
+<details>
+
+<summary>Q18. AdaGrad → RMSProp → Adam，每一步修了前者什么？</summary>
+<ul><li>AdaGrad：累加<strong>全部</strong> $g^2$ → LR 单调趋 0（长训练死）</li><li>RMSProp：换成 <strong>EMA</strong> → 修好 LR 衰减（不死）</li><li>Adam：RMSProp + <strong>一阶动量</strong> + <strong>偏差修正</strong> → 又快又稳</li></ul>
+<p>背得出三个名字，连不成"各修了前者哪个毛病"的链条。</p>
+</details>
+<details>
+
+<summary>Q19. Adam 里 $\epsilon$ 放哪、起什么作用？</summary>
+<ul><li>PyTorch：$\theta\mathrel{-}=\eta\,\hat m/(\sqrt{\hat v}+\epsilon)$，$\epsilon$ 在根号<strong>外</strong></li><li>作用：防分母为 0，<strong>且给步长设上界</strong> $\eta/\epsilon$（梯度极小时不炸）</li><li>有些实现 / Adafactor 放根号内 $\sqrt{\hat v+\epsilon}$，数值行为略不同；LLM 常 1e-8，有时 1e-15</li></ul>
+<p>把 $\epsilon$ 位置记反；或以为它只"防除零"，忽略它会限制最大步长。</p>
+</details>
+<details>
+
+<summary>Q20. 为什么 Adam 有时泛化不如 SGD？Adam 有收敛性问题吗？</summary>
+<ul><li>自适应方法倾向收敛到不同（有时更"尖"）的极小，某些视觉任务泛化逊于 SGD+M</li><li><strong>AMSGrad</strong>（Reddi 2018）给出 Adam 不收敛的反例：$v$ 的 EMA 会让有效 LR 偶尔回升、破坏收敛；修法是取 $v$ 的历史最大值</li><li>实务：Transformer 仍首选 AdamW；CV 经典网络 SGD+M 常更好</li></ul>
+<p>绝对化"Adam 一定最好"；不知道 Adam 有收敛反例（AMSGrad）。</p>
+</details>
+<h3 id="l3高级题">L3高级题</h3>
+<details>
+
+<summary>Q21. Muon 是什么？为什么把动量正交化、为什么只用于 2D 层？</summary>
+<ul><li>对 2D 权重的动量 $M$ 做正交化 $O\approx\mathrm{NewtonSchulz}(M)$（$\approx$ SVD 的 $UV^\top$，几次牛顿-舒尔茨迭代代替 SVD）</li><li>直觉：让更新在所有奇异方向上"同等用力"、不被少数大奇异值主导 → 更新更均衡、训练更快</li><li>仅隐藏 2D 矩阵；embedding / 输出头 / 标量仍用 AdamW；Kimi-K2 在用；原始 Muon 是博客（无独立 arXiv）</li></ul>
+<p>说"Muon 给所有参数正交化"（错，仅 2D 隐藏层）；或不知道用牛顿-舒尔茨代替 SVD。</p>
+</details>
+<details>
+
+<summary>Q22. Shampoo 和 SOAP 在做什么？和 Adam 的"自适应"有何本质不同？</summary>
+<ul><li>Shampoo：<strong>全矩阵 / Kronecker 因子化</strong>预条件——维护左 / 右预条件子 $L=\sum GG^\top,\ R=\sum G^\top G$，用 $L^{-1/4}GR^{-1/4}$ 更新</li><li>比 Adam 的<strong>对角</strong>预条件更接近全矩阵 AdaGrad（抓坐标耦合），收敛快但每步贵（矩阵逆根）</li><li>SOAP：在 Shampoo 的（缓变）<strong>特征基</strong>里跑 Adam → 连接 Shampoo 与 Adam，更稳更省调参</li></ul>
+<p>把 Shampoo 当成"另一个对角自适应"，没抓住"全矩阵 / Kronecker 预条件"。</p>
+</details>
+<details>
+
+<summary>Q23. Lion 的更新和内存？它怎么来的？</summary>
+<ul><li>Lion = sign of momentum：$u=\mathrm{sign}(\beta_1 m+(1-\beta_1)g)$，$\theta\mathrel{-}=\eta(u+\lambda\theta)$，再 $m=\beta_2 m+(1-\beta_2)g$</li><li>只存 <strong>1 个状态（动量）</strong> → 优化器显存是 Adam（$m,v$ 两个）的<strong>一半</strong></li><li>由符号回归 / 程序搜索自动发现（Chen 2023）；sign 让各坐标等幅更新（通常配更小 LR、更大 wd）</li></ul>
+<p>以为 Lion 也存二阶矩；或不知道它是"符号动量、单状态"。</p>
+</details>
+<details>
+
+<summary>Q24. 显存受限时怎么省优化器状态？</summary>
+<ul><li>Adam 存 $m,v=2\times$ 参数（fp32 $\sim 8$ B/param），加 fp32 master 是大头</li><li><strong>8-bit Adam</strong>（Dettmers 2021）：把 $m,v$ 分块量化到 8-bit → 优化器态减到约 $1/4$</li><li><strong>Adafactor</strong>：把二阶矩 $v$ 行 / 列因子化（秩-1 重构）→ 亚线性显存（T5）；<strong>Lion</strong>：1 状态减半</li></ul>
+<p>只知道"用 Adam"，被问显存受限怎么办答不出 8-bit / Adafactor / Lion。</p>
+</details>
+<details>
+
+<summary>Q25. 讲几个前沿 / 理论点：Sophia、权重衰减作为有效 LR、μP 的 LR 迁移。</summary>
+<ul><li><strong>Sophia</strong>（Liu 2023）：轻量二阶，用对角 Hessian 估计做预条件 + 裁剪，每 $k$ 步更新一次 Hessian → 比 AdamW 更快</li><li><strong>权重衰减新视角</strong>：在有归一化层（尺度不变）的网络里，wd 主要在调"有效学习率 / 权重范数平衡点"，而非传统正则</li><li><strong>μP</strong>：把 init / LR / 输出乘子按 fan_in 缩放 → 最优 LR 宽度不变，小模型调好 zero-shot 迁移到大模型（详见 normalization 篇 §9，不再推导）</li></ul>
+<p>把这些当玄学；尤其不知道"wd $\approx$ 有效 LR 控制器"和"μP 让 LR 可跨宽度迁移"。</p>
+</details>
+<h2 id="a-附录sanity-check">§A 附录：sanity check</h2>
+<p>本 tutorial 的从零实现应满足以下关键不变量（可写一段纯 PyTorch、CPU 几秒的脚本验证）：</p>
+<ol><li><strong>[a] 从零 SGD+momentum == <code>torch.optim.SGD</code></strong>：用 $v_t=\mu v_{t-1}+g_t,\ \theta\mathrel{-}=\eta v_t$（PyTorch 约定：$v$ 初值 0、无 damping），跑几步后两者逐元素在浮点误差内相等（<code>atol≈1e-5</code>）。</li><li><strong>[b] 从零 Adam == <code>torch.optim.Adam</code></strong>：$\hat m=m/(1-\beta_1^t),\ \hat v=v/(1-\beta_2^t),\ \theta\mathrel{-}=\eta\hat m/(\sqrt{\hat v}+\epsilon)$（$\epsilon$ 根号外）应与 PyTorch 逐元素一致。</li><li><strong>[c] AdamW $\ne$ Adam+L2，且从零解耦衰减 == <code>torch.optim.AdamW</code></strong>：相同 <code>weight_decay=λ</code> 下，<code>torch.optim.AdamW</code>（解耦）与 <code>torch.optim.Adam(weight_decay=λ)</code>（L2）产生<strong>不同</strong>更新（$\lVert\Delta\rVert\gt 0$）；从零"先 Adam 步、再减 $\eta\lambda\theta$"的解耦实现应与 <code>AdamW</code> 一致。这是 §5 的核心。</li><li><strong>[d] 偏差修正使首步回到 $\eta$</strong>：$t=1$ <strong>不修正</strong>的等效步长 $\approx 3.16\eta$（$=\frac{1-\beta_1}{\sqrt{1-\beta_2}}$，因 $v$ 被 $\beta_2$ 压向 0 比 $m$ 更狠 → 分母太小 → 步长<strong>偏大</strong>），修正后回到 $\eta$。验证 corrected/uncorrected 比 $=\frac{\sqrt{1-\beta_2}}{1-\beta_1}\approx 0.316$。</li><li><strong>[e] cosine-with-warmup 调度形状</strong>：$\eta(0)\approx 0$、在 warmup 边界处取到峰值 $\eta_{\max}$、末端衰减到 $\sim\eta_{\min}$，且 warmup 之后单调不增。</li><li><strong>[f] 动量加速病态二次</strong>：在条件数 $\kappa$ 大的二次型上、用稳定边界内的<strong>小</strong> $\eta$ 跑 $N$ 步，GD+momentum 的最终 loss 显著低于裸 GD（动量在缓方向累积加速）。</li></ol>
+<p>下面是几段示意代码（CPU 可跑、Chinese 注释、含形状/数值注释；演示其中几条不变量，完整 6 条 [a]–[f] 见下方独立脚本）。</p>
+<p><strong>[a]/[b] SGD+momentum 与 Adam 从零实现，并与 <code>torch.optim</code> 对齐：</strong></p>
+<pre><code class="language-python">import torch
+
+def sgd_momentum_from_scratch(params, grads, lr=0.1, mu=0.9, steps=5):
+    &quot;&quot;&quot;heavy-ball: v = mu*v + g; theta -= lr*v。v 初值 0（首步 v=g），对齐 PyTorch SGD。&quot;&quot;&quot;
+    theta = params.clone()                      # [d] 参数
+    v = torch.zeros_like(theta)                 # [d] 动量缓冲
+    for t in range(steps):
+        g = grads[t]                            # [d] 第 t 步梯度（这里用固定序列便于对齐）
+        v = mu * v + g                          # 速度 = 动量*旧速度 + 当前梯度
+        theta = theta - lr * v                  # 沿速度方向更新
+    return theta
+
+def adam_from_scratch(grads, theta0, lr=0.1, b1=0.9, b2=0.999, eps=1e-8, steps=5):
+    &quot;&quot;&quot;m,v 的 EMA + 偏差修正 + eps 在根号外，逐元素对齐 PyTorch Adam。&quot;&quot;&quot;
+    theta = theta0.clone()
+    m = torch.zeros_like(theta)                 # 一阶矩 [d]
+    v = torch.zeros_like(theta)                 # 二阶矩 [d]
+    for t in range(1, steps + 1):
+        g = grads[t - 1]                        # [d]
+        m = b1 * m + (1 - b1) * g               # 动量 EMA
+        v = b2 * v + (1 - b2) * g * g           # 平方梯度 EMA
+        m_hat = m / (1 - b1 ** t)               # 偏差修正（去早期偏向 0）
+        v_hat = v / (1 - b2 ** t)
+        theta = theta - lr * m_hat / (v_hat.sqrt() + eps)   # eps 在根号外
+    return theta
+
+# 与 torch.optim 对齐（同一固定梯度序列喂给两边）：
+torch.manual_seed(0)
+d, steps = 8, 5
+theta0 = torch.randn(d)
+grads = [torch.randn(d) for _ in range(steps)]   # 固定梯度序列，保证可比
+
+# --- SGD ---
+p = theta0.clone().requires_grad_(True)
+opt = torch.optim.SGD([p], lr=0.1, momentum=0.9)
+for t in range(steps):
+    opt.zero_grad(); p.grad = grads[t].clone(); opt.step()
+ref_sgd = p.detach()
+mine_sgd = sgd_momentum_from_scratch(theta0, grads, lr=0.1, mu=0.9, steps=steps)
+assert torch.allclose(mine_sgd, ref_sgd, atol=1e-6)    # 从零 == torch.optim.SGD</code></pre>
+<p><strong>[d] 偏差修正：不修正首步偏大（默认 $\beta$ 下 $\approx 3.16\eta$），修正后 $=\eta$：</strong></p>
+<pre><code class="language-python">import torch
+
+b1, b2, eps = 0.9, 0.999, 1e-8
+g1 = torch.tensor([2.0])                          # 任意非零首步梯度
+m1 = (1 - b1) * g1                                # 未修正一阶矩
+v1 = (1 - b2) * g1 * g1                           # 未修正二阶矩
+uncorrected = (m1 / (v1.sqrt() + eps)).item()     # 不修正的等效步长 / lr
+corrected = ((m1 / (1 - b1)) / ((v1 / (1 - b2)).sqrt() + eps)).item()  # 修正后
+ratio = (1 - b1) / (1 - b2) ** 0.5                # = 3.162...，理论首步放大倍数
+# 不变量：uncorrected ≈ ratio ≈ 3.16（偏大），corrected ≈ 1.0（= lr 量级）
+assert abs(uncorrected - ratio) &lt; 1e-3
+assert abs(corrected - 1.0) &lt; 1e-3</code></pre>
+<p><strong>[c] AdamW（解耦衰减）$\ne$ Adam+L2（耦合），从零解耦 == <code>torch.optim.AdamW</code>：</strong></p>
+<pre><code class="language-python">import torch
+
+def adamw_decoupled_from_scratch(grads, theta0, lr=0.1, b1=0.9, b2=0.999,
+                                 eps=1e-8, wd=0.05, steps=5):
+    &quot;&quot;&quot;解耦：先按原始梯度 g 做 Adam 步，再直接减 lr*wd*theta（不过自适应分母）。&quot;&quot;&quot;
+    theta = theta0.clone()
+    m = torch.zeros_like(theta); v = torch.zeros_like(theta)
+    for t in range(1, steps + 1):
+        g = grads[t - 1]                          # 不含 wd 的原始梯度
+        m = b1 * m + (1 - b1) * g
+        v = b2 * v + (1 - b2) * g * g
+        m_hat = m / (1 - b1 ** t); v_hat = v / (1 - b2 ** t)
+        theta = theta - lr * (m_hat / (v_hat.sqrt() + eps) + wd * theta)  # 解耦衰减
+    return theta
+
+torch.manual_seed(0)
+d, steps, wd = 8, 5, 0.05
+theta0 = torch.randn(d)
+grads = [torch.randn(d) for _ in range(steps)]
+
+# torch.optim.AdamW（解耦） vs torch.optim.Adam(weight_decay=)（L2/耦合）
+def run(opt_cls, **kw):
+    p = theta0.clone().requires_grad_(True)
+    opt = opt_cls([p], lr=0.1, betas=(0.9, 0.999), eps=1e-8, weight_decay=wd, **kw)
+    for t in range(steps):
+        opt.zero_grad(); p.grad = grads[t].clone(); opt.step()
+    return p.detach()
+
+ref_adamw = run(torch.optim.AdamW)
+ref_adam_l2 = run(torch.optim.Adam)
+assert (ref_adamw - ref_adam_l2).norm() &gt; 1e-4         # AdamW != Adam+L2（相同 wd 下不同）
+mine = adamw_decoupled_from_scratch(grads, theta0, wd=wd, steps=steps)
+assert torch.allclose(mine, ref_adamw, atol=1e-6)      # 从零解耦 == torch.optim.AdamW</code></pre>
+<p><strong>[e] cosine-with-warmup 调度（检查首/峰/末三点 + 单调）：</strong></p>
+<pre><code class="language-python">import math
+
+def cosine_warmup_lr(step, warmup, total, lr_max, lr_min=0.0):
+    &quot;&quot;&quot;线性 warmup 到 lr_max，再余弦衰减到 lr_min。需预定总步数 total。&quot;&quot;&quot;
+    if step &lt; warmup:
+        return lr_max * step / warmup                       # 线性上升（step=0 -&gt; ~0）
+    progress = (step - warmup) / (total - warmup)           # 0 -&gt; 1
+    return lr_min + 0.5 * (lr_max - lr_min) * (1 + math.cos(math.pi * progress))
+
+warmup, total, lr_max = 100, 1000, 1.0
+lrs = [cosine_warmup_lr(t, warmup, total, lr_max) for t in range(total + 1)]
+assert lrs[0] &lt; 1e-9                                        # 起点 ~0
+assert abs(lrs[warmup] - lr_max) &lt; 1e-9                     # warmup 边界处取峰值
+assert lrs[-1] &lt; 1e-6                                       # 末端衰减到 ~lr_min(=0)
+assert all(lrs[i] &gt;= lrs[i + 1] - 1e-12 for i in range(warmup, total))  # warmup 后单调不增</code></pre>
+<p>完整可跑脚本见 <a href="code/optimizer_lr_schedule.py"><code>code/optimizer_lr_schedule.py</code></a>（纯 PyTorch、CPU 几秒、6 个 <code>assert</code> 覆盖 [a]–[f]）。运行 <code>python code/optimizer_lr_schedule.py</code> 的<strong>真实输出</strong>：</p>
+<pre><code class="language-text">[a] SGD+momentum from scratch vs torch.optim.SGD: max|Δ| = 1.19e-07  OK
+[b] Adam from scratch vs torch.optim.Adam: max|Δ| = 1.19e-07  OK
+[c] AdamW vs Adam+L2 (same wd=0.1): max|Δ| = 2.13e-01 (DIFFER, decoupled≠coupled); from-scratch decoupled vs AdamW = 2.16e-07 (MATCH)  OK
+[d] bias correction at step 1: corrected/uncorrected = 0.316 (= √(1-β2)/(1-β1) ≈ 0.316); without it the under-estimated v̂ makes the first step ~3.2× too large  OK
+[e] cosine+warmup lr: t=0 -&gt; 0.000, t=warmup -&gt; 1.000 (peak), t=end -&gt; 0.000 (min); linear warmup midpoint -&gt; 0.500  OK
+[f] ill-conditioned quadratic (κ=20) after 100 steps: GD loss = 4.04e-02  vs  GD+momentum loss = 1.46e-05  (momentum lower)  OK
+
+all optimizer / LR-schedule sanity checks passed ✓</code></pre>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>读数解释</strong></p>
+<ul><li><strong>[a]/[b]</strong> 从零 SGD/Adam 与 <code>torch.optim</code> 数值一致（max$|\Delta|$=1.2e-7），实现无误。</li><li><strong>[c]</strong> <strong>AdamW $\ne$ Adam+L2</strong>：相同 wd 下两者差 $0.21$（解耦≠耦合），而从零解耦实现匹配 <code>AdamW</code>（2.2e-7）——§5 的核心，可执行印证。</li><li><strong>[d]</strong> 偏差修正方向：corrected/uncorrected $=0.316=\frac{\sqrt{1-\beta_2}}{1-\beta_1}$，即<strong>不修正首步约 $3.2\times$ 偏大</strong>（§4.2，不是偏小）——顶级 lab 最爱抓的方向题。</li><li><strong>[e]</strong> cosine-warmup 首($\to0$)/峰($\to1$)/末($\to0$)/暖身中点($\to0.5$)形状正确（§7.2）。</li><li><strong>[f]</strong> 病态二次（$\kappa=20$）上 GD+momentum 的 loss（1.5e-5）比裸 GD（4e-2）低约 2700×——动量在缓方向累积加速（§2）。</li></ul></div>
+<h2 id="参考文献">📚 参考文献</h2>
+<ul><li><strong>Adam</strong> — Kingma &amp; Ba, <em>Adam: A Method for Stochastic Optimization</em>, arXiv 1412.6980 (2014), ICLR 2015.</li><li><strong>AdamW (Decoupled Weight Decay)</strong> — Loshchilov &amp; Hutter, <em>Decoupled Weight Decay Regularization</em>, arXiv 1711.05101 (2017), ICLR 2019.</li><li><strong>AdaGrad</strong> — Duchi, Hazan &amp; Singer, <em>Adaptive Subgradient Methods for Online Learning and Stochastic Optimization</em>, JMLR 12 (2011)（<strong>无 arXiv id</strong>，按 JMLR 出处引用）.</li><li><strong>RMSProp</strong> — Hinton, <em>Neural Networks for Machine Learning</em>, Coursera Lecture 6e (2012)（课程讲义，<strong>无正式论文 / arXiv id</strong>）.</li><li><strong>Nesterov accelerated gradient</strong> — Nesterov, <em>A method of solving a convex programming problem with convergence rate $O(1/k^2)$</em>, Soviet Math. Doklady 27 (1983)（<strong>无 arXiv id</strong>）.</li><li><strong>Momentum for deep nets</strong> — Sutskever, Martens, Dahl &amp; Hinton, <em>On the importance of initialization and momentum in deep learning</em>, ICML 2013（PMLR proceedings；<strong>无独立 arXiv id</strong>，按会议出处引用）.</li><li><strong>AMSGrad (Adam 收敛性)</strong> — Reddi, Kale &amp; Kumar, <em>On the Convergence of Adam and Beyond</em>, ICLR 2018（OpenReview；无确认的独立 arXiv id，按会议出处引用）.</li><li><strong>SGDR / cosine annealing</strong> — Loshchilov &amp; Hutter, <em>SGDR: Stochastic Gradient Descent with Warm Restarts</em>, arXiv 1608.03983 (2016), ICLR 2017.</li><li><strong>Transformer / Noam schedule</strong> — Vaswani et al., <em>Attention Is All You Need</em>, arXiv 1706.03762 (2017), NeurIPS 2017.</li><li><strong>Linear scaling rule</strong> — Goyal et al., <em>Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour</em>, arXiv 1706.02677 (2017).</li><li><strong>LARS</strong> — You, Gitman &amp; Ginsburg, <em>Large Batch Training of Convolutional Networks</em>, arXiv 1708.03888 (2017).</li><li><strong>LAMB</strong> — You et al., <em>Large Batch Optimization for Deep Learning: Training BERT in 76 minutes</em>, arXiv 1904.00962 (2019), ICLR 2020.</li><li><strong>Lion</strong> — Chen et al., <em>Symbolic Discovery of Optimization Algorithms</em>, arXiv 2302.06675 (2023), NeurIPS 2023.</li><li><strong>Shampoo</strong> — Gupta, Koren &amp; Singer, <em>Shampoo: Preconditioned Stochastic Tensor Optimization</em>, arXiv 1802.09568 (2018), ICML 2018.</li><li><strong>SOAP</strong> — Vyas et al., <em>SOAP: Improving and Stabilizing Shampoo using Adam</em>, arXiv 2409.11321 (2024).</li><li><strong>Adafactor</strong> — Shazeer &amp; Stern, <em>Adafactor: Adaptive Learning Rates with Sublinear Memory Cost</em>, arXiv 1804.04235 (2018), ICML 2018.</li><li><strong>Sophia</strong> — Liu et al., <em>Sophia: A Scalable Stochastic Second-order Optimizer for Language Model Pre-training</em>, arXiv 2305.14342 (2023), ICLR 2024.</li><li><strong>One-cycle / Super-Convergence</strong> — Smith &amp; Topin, <em>Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates</em>, arXiv 1708.07120 (2017).</li><li><strong>WSD / MiniCPM</strong> — Hu et al., <em>MiniCPM: Unveiling the Potential of Small Language Models with Scalable Training Strategies</em>, arXiv 2404.06395 (2024), COLM 2024.</li><li><strong>8-bit Adam</strong> — Dettmers et al., <em>8-bit Optimizers via Block-wise Quantization</em>, arXiv 2110.02861 (2021), ICLR 2022.</li><li><strong>Gradient clipping</strong> — Pascanu, Mikolov &amp; Bengio, <em>On the difficulty of training Recurrent Neural Networks</em>, arXiv 1211.5063 (2012), ICML 2013.</li><li><strong>Muon (scaling)</strong> — Liu et al. (Moonshot AI), <em>Muon is Scalable for LLM Training</em>, arXiv 2502.16982 (2025).</li><li><strong>Muon (原始 writeup)</strong> — Keller Jordan et al., <em>Muon: An optimizer for the hidden layers of neural networks</em>, 2024 技术博客（<strong>无独立 arXiv 论文</strong>，按博客 writeup 引用）.</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/optimizer_lr_schedule_tutorial.md</code> ·
+  SHA256 <code>52c3c7509834</code> ·
+  generated at 2026-06-29 06:11 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>
