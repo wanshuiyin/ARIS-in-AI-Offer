@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/normalization_init_tutorial_en.md",
-  "source_sha256": "fc7d5402b92c4c0f476996731d924c4c6e42c2ec590cc3a41140d29cac0cfa2e",
+  "source_sha256": "2e2178eca151df42da5fa5972a30ea3fc15197495a0b5a547ab8eefd34e93ebe",
   "output": "docs/tutorials/normalization_init_tutorial_en.html",
   "zh_source": "docs/tutorials/normalization_init_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -29,5 +29,14 @@
     ]
   },
   "summary": "EN edition of the Normalization / Residual / Init cheat sheet (~830 lines). NOTE: the background translation subagent stalled and was stopped by the user before writing any file, so the orchestrator hand-translated the EN edition directly (more reliable). 14 §-sections + 25 Q&A preserved; math symbols byte-identical (embedded \\text{} labels correctly translated to English per convention); executable code byte-identical to ZH with English comments; §A real-run output verbatim. 1-round cross-model Codex GPT-5.5 xhigh translation-fidelity review: zero semantic divergence, all 22 references match, all hard-won ZH hedges (covariate-shift calibration, second-moment E[y^2], Pre/Post-LN gradient confound caveat, g^L-simplified-model) preserved.",
-  "rendered_at": "2026-06-19"
+  "rendered_at": "2026-06-19",
+  "post_ship_review": [
+    {
+      "scope": "cross-tutorial consistency fix",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Added a clarifying Note in the §5.2 Pre-vs-Post-LN callout that \"Pre-LN warmup-free\" removes only the Post-LN gradient-imbalance reason for warmup; modern Pre-LN LLMs (GPT-3/LLaMA) STILL use warmup for Adam early-step v̂ variance / large-batch reasons (consistent with the optimizer tutorial §7.1). (EN edition mirrors the ZH fix.)",
+      "note": "Cross-tutorial consistency fix (2026-06-29), surfaced by a holistic collection audit (structural + a cross-tutorial consistency pass). Orchestrator-verified (arithmetic 32768/576≈57; the warmup reasoning re-checked). Tiny factual/clarity correction — the original gating verdicts (math/code/render or translation-fidelity) remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

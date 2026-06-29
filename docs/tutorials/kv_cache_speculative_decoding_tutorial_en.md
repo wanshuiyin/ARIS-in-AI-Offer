@@ -186,7 +186,7 @@ $$c_t^Q = W^{DQ} h_t, \quad q_t^{C, (i)} = W^{UQ, (i)} c_t^Q$$
 | MQA | $2 \cdot d_\text{head}$ |
 | MLA (bare latent part) | $d_c$ (**a single vector, no $\times 2$** — because K and V share the same latent) |
 
-DeepSeek-V2 takes $d_c = 4 d_\text{head}$; relative to MHA ($2 H d_\text{head}$), compression ratio is about $H/2$ — for $H=128$ that's roughly 64×.
+DeepSeek-V2 takes $d_c = 4 d_\text{head}$; the **bare latent** relative to MHA ($2 H d_\text{head}$) compresses by about $H/2$ ($\approx 64×$ at $H=128$). But MLA's actual cache also carries a decoupled-RoPE component $d_r$ (DeepSeek-V2 $d_r = 64$), so the **full cache $=d_c+d_r=576$ compresses by about 57×** relative to MHA (matching the long-context tutorial §9's 57×; counting only the latent over-estimates it as 64×).
 
 #### 4.3.3　Inference equivalence transformation (the absorb trick)
 

@@ -164,6 +164,8 @@ Xiong et al. (*On Layer Normalization in the Transformer Architecture*, 2020, ar
 
 > ✅ **Grasp Pre vs Post in one line**
 > Pre-LN leaves the residual a **clean identity gradient path** (gradient bounded as $\sim 1/\sqrt L$, balanced across layers) → stable, warmup-free; Post-LN piles the gradient scale at the top (large, independent of $L$) → needs warmup, unstable when deep. That's why GPT/LLaMA are uniformly Pre-LN.
+>
+> **Note**: "Pre-LN is warmup-free" specifically means it removes the warmup that Post-LN needs because of **gradient imbalance**; in practice modern Pre-LN LLMs (GPT-3/LLaMA) **still use warmup** — for a **separate** reason (Adam's early-step $\hat v$ variance, large batch, etc., unrelated to LN placement; see the optimizer tutorial §7.1). Don't read "Pre-LN" as "needs no warmup at all."
 
 ### 5.3　Pre-LN's cost: the residual stream inflates with depth
 

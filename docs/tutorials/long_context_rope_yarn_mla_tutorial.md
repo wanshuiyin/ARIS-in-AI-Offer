@@ -435,7 +435,7 @@ $$\mathbf{k}_t^{(h)} = W_\text{UK}^{(h)}\, \mathbf{c}_t^{KV}, \qquad \mathbf{v}_
 
 其中 $W_\text{UK}^{(h)}, W_\text{UV}^{(h)} \in \mathbb{R}^{d_h \times d_c}$。
 
-**关键：cache 只存 $\mathbf{c}_t^{KV}$**（$d_c$ 维），不存 $\mathbf{k}, \mathbf{v}$ 本身。Per-token-per-layer cache 从 $2 N_h d_h$ 降到 $d_c$。DeepSeek-V2 选 $d_c = 4 d_h$（vs $N_h d_h = 128 d_h$ for $N_h = 128$），**KV cache 压缩 ≈ 50×**。
+**关键：cache 只存 $\mathbf{c}_t^{KV}$**（$d_c$ 维，外加一小段解耦-RoPE 分量 $d_r$，见 §9.6），不存 $\mathbf{k}, \mathbf{v}$ 本身。Per-token-per-layer cache 从 $2 N_h d_h$ 降到 $d_c+d_r$。DeepSeek-V2 选 $d_c = 4 d_h$（vs $2 N_h d_h$ for $N_h = 128$），**完整 cache 压缩约 57×**（精确算账见 §9.6 / 表 §12.3；只数裸 latent $d_c$ 则约 64×）。
 
 ### 9.3 Absorbing trick — 避免显式上投影
 

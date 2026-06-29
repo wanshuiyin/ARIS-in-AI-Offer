@@ -436,7 +436,7 @@ $$\mathbf{k}_t^{(h)} = W_\text{UK}^{(h)}\, \mathbf{c}_t^{KV}, \qquad \mathbf{v}_
 
 where $W_\text{UK}^{(h)}, W_\text{UV}^{(h)} \in \mathbb{R}^{d_h \times d_c}$.
 
-**Key: cache stores only $\mathbf{c}_t^{KV}$** ($d_c$-dimensional), not $\mathbf{k}, \mathbf{v}$ themselves. Per-token-per-layer cache drops from $2 N_h d_h$ to $d_c$. DeepSeek-V2 picks $d_c = 4 d_h$ (vs $N_h d_h = 128 d_h$ for $N_h = 128$), giving **≈ 50× KV cache compression**.
+**Key: cache stores only $\mathbf{c}_t^{KV}$** ($d_c$-dimensional, plus a small decoupled-RoPE component $d_r$, see §9.6), not $\mathbf{k}, \mathbf{v}$ themselves. Per-token-per-layer cache drops from $2 N_h d_h$ to $d_c+d_r$. DeepSeek-V2 picks $d_c = 4 d_h$ (vs $2 N_h d_h$ for $N_h = 128$), giving **≈ 57× full-cache compression** (precise accounting in §9.6 / the §12.3 table; counting only the bare latent $d_c$ over-estimates it as ≈ 64×).
 
 ### 9.3 Absorbing trick — avoid explicit up-projection
 

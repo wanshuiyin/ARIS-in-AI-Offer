@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/normalization_init_tutorial.md",
-  "source_sha256": "4f7256f57fc28cafadfedc64ea5128a67393cc89f358d2c0af5ba2f22e1a7ef7",
+  "source_sha256": "3363e09aa3ff1b0cac788ad03ea5c81a756ae3ef034db5bc8b6dcf6e43c90379",
   "output": "docs/tutorials/normalization_init_tutorial.html",
   "runnable_code": "docs/tutorials/code/normalization.py",
   "topic": "归一化 / 残差 / 初始化 — BatchNorm / LayerNorm / RMSNorm / GroupNorm / Pre-vs-Post-LN(Xiong 梯度论证) / DeepNorm / Sandwich / QK-Norm / 残差连接+缩放(LayerScale/ReZero/SkipInit) / Xavier·Kaiming(因子2) / GPT-2 残差 1/√(2N) / Fixup / μP / NFNets / DyT / covariate-shift debunk(Santurkar)",
@@ -74,5 +74,14 @@
     "notes": "docs/tutorials/code/normalization.py (pure PyTorch, English comments per code/README convention) ran on Server5 (dllm, torch 2.10). Six asserts pass: [a] LayerNorm max|Δ|=2.4e-7; [b] RMSNorm match + mean-shift LN 9.5e-7 vs RMS 3.05; [c] BatchNorm train≠eval (running_mean→0.70); [d] per-block weight-grad top/bottom ratio Pre-LN=0.40 vs Post-LN=2.35 (confound-free, with head); [e] Kaiming E[y^2]=1.00 vs Xavier 0.50; [f] residual var unscaled ×51 vs 1/√(2N) ×1.5. §A real-output block is this run, verbatim. Orchestrator caught & fixed the [d] output-normalization confound (Codex round 4) and the subagent's [e] Var-vs-second-moment slip before shipping."
   },
   "summary": "Normalization / Residual / Init cheat sheet (effort=max, ~830 lines, subagent-drafted then orchestrator-verified): full cross-model review on codex gpt-5.5 xhigh — math (Kaiming/Xavier/Xiong/DeepNorm/GPT-2 derivations re-derived correct, incl. the post-ReLU SECOND-MOMENT E[y^2]≈1 vs Var≈0.68 subtlety), 2 citation batches (22 refs; all confirmed or safely hedged; rejected a bad Codex T-Fixup id that collided with Xiong's), code (caught a real methodological confound: the Pre/Post-LN ||dL/dx|| demo was polluted by Post-LN output-normalization → redesigned to the loss-robust per-block weight-grad top/bottom ratio, 0.40 vs 2.35), answers (all fine), overall (3 calibration hedges). Runnable code re-ran clean on Server5 with §A output captured verbatim. The covariate-shift debunk, Pre/Post-LN gradient argument, μP, QK-Norm, DyT are all interview-accurate.",
-  "rendered_at": "2026-06-19"
+  "rendered_at": "2026-06-19",
+  "post_ship_review": [
+    {
+      "scope": "cross-tutorial consistency fix",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Added a clarifying Note in the §5.2 Pre-vs-Post-LN callout that \"Pre-LN warmup-free\" removes only the Post-LN gradient-imbalance reason for warmup; modern Pre-LN LLMs (GPT-3/LLaMA) STILL use warmup for Adam early-step v̂ variance / large-batch reasons (consistent with the optimizer tutorial §7.1).",
+      "note": "Cross-tutorial consistency fix (2026-06-29), surfaced by a holistic collection audit (structural + a cross-tutorial consistency pass). Orchestrator-verified (arithmetic 32768/576≈57; the warmup reasoning re-checked). Tiny factual/clarity correction — the original gating verdicts (math/code/render or translation-fidelity) remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

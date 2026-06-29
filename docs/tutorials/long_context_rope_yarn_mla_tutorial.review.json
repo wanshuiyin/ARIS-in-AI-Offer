@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/long_context_rope_yarn_mla_tutorial.md",
-  "source_sha256_prefix": "08d2eab9c93e8801",
+  "source_sha256_prefix": "efc2e3009ca95468",
   "output": "docs/tutorials/long_context_rope_yarn_mla_tutorial.html",
   "topic": "Long Context: RoPE / YaRN / NTK / MLA / Sliding Window",
   "effort": "max",
@@ -128,6 +128,15 @@
   },
   "summary": "Three round math/code review (FAIL/FAIL/FAIL) on a 1209-line draft of Long Context cheat sheet. Each round fixed real issues: YaRN temperature direction, KV-cache numerics, MLA imports, streaming_decode cache semantics, table structure, ABF prose. Post-round-3 fixes patched the last two issues (§6.4 wording + streaming edge case) without re-review per hard 3-round budget. Remaining warnings are cosmetic (length +9 lines, citation venue normalization).",
   "rendered_at": "2026-05-19",
-  "source_sha256": "08d2eab9c93e8801b2518541f3b12b40ffdfc6127d7745b3e3240d4d5b949cdc",
-  "thread_id": "019e7ca6-5cca-7c71-812f-3bfa824bd72e"
+  "source_sha256": "efc2e3009ca954687677d0e64c1e97131006eba20e788c3b7d567bdceb6c7266",
+  "thread_id": "019e7ca6-5cca-7c71-812f-3bfa824bd72e",
+  "post_ship_review": [
+    {
+      "scope": "cross-tutorial consistency fix",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Fixed the §9 intro MLA ratio from a loose ≈50× to the full-cache ≈57× (d_c+d_r=576), consistent with this tutorial's own §9.6 / §12.3 table (57×) and the kv-cache tutorial; noted the bare-latent 64× caveat.",
+      "note": "Cross-tutorial consistency fix (2026-06-29), surfaced by a holistic collection audit (structural + a cross-tutorial consistency pass). Orchestrator-verified (arithmetic 32768/576≈57; the warmup reasoning re-checked). Tiny factual/clarity correction — the original gating verdicts (math/code/render or translation-fidelity) remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

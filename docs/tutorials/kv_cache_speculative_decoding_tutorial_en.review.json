@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/kv_cache_speculative_decoding_tutorial_en.md",
-  "source_sha256": "3357e2dd8dc0b865cf18f49e60842241679e7af6c296d7d80820b6f6c1ebc292",
+  "source_sha256": "b751200ba28f2eefd0fe3c6a4bc56d2bd3b270c49529b68f5bdc9ef8a6a75dba",
   "output": "docs/tutorials/kv_cache_speculative_decoding_tutorial_en.html",
   "zh_source": "docs/tutorials/kv_cache_speculative_decoding_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -15,5 +15,14 @@
     "issues": [],
     "summary": "Fresh cross-model translation-fidelity audit of the English KV-cache / speculative-decoding tutorial against the cross-model-verified Chinese source of truth. A fresh GPT-5.5 xhigh Codex auditor (thread 019e7cbc-9afc-7a80-8874-5d6450af5bc5, sandbox read-only, approval never, model not overridden) read all three files at /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/: kv_cache_speculative_decoding_tutorial.md (ZH source), kv_cache_speculative_decoding_tutorial_en.md (EN under audit), and kv_cache_speculative_decoding_tutorial_en.html (rendered EN). Verdict: PASS with zero issues. The aud"
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "cross-tutorial consistency fix",
+      "verdict": "FIXED",
+      "date": "2026-06-29",
+      "fix": "Corrected the DeepSeek-V2 MLA compression ratio: the bare latent is ~64× but the FULL cache (d_c+d_r=576, incl. the decoupled-RoPE component) compresses ~57× — now aligned with the long-context tutorial §9 (57×), reconciling the 64×/57×/50× figures across the two MLA treatments. (EN edition mirrors the ZH fix.)",
+      "note": "Cross-tutorial consistency fix (2026-06-29), surfaced by a holistic collection audit (structural + a cross-tutorial consistency pass). Orchestrator-verified (arithmetic 32768/576≈57; the warmup reasoning re-checked). Tiny factual/clarity correction — the original gating verdicts (math/code/render or translation-fidelity) remain valid; source re-rendered, sidecar hash refreshed."
+    }
+  ]
 }

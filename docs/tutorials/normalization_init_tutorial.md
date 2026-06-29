@@ -164,6 +164,8 @@ Xiong et al.（*On Layer Normalization in the Transformer Architecture*, 2020, a
 
 > ✅ **一句话抓住 Pre vs Post**
 > Pre-LN 给残差留了**干净恒等梯度路**（梯度按 $\sim 1/\sqrt L$ 有界、跨层均衡）→ 稳、免 warmup；Post-LN 把梯度尺度堆在顶层（与 $L$ 无关地偏大）→ 需 warmup、深了不稳。这就是为什么 GPT/LLaMA 一律 Pre-LN。
+>
+> **注意**："Pre-LN 免 warmup"特指它去掉了 Post-LN 那种**梯度不均衡**导致的 warmup 刚需；实践中现代 Pre-LN 大模型（GPT-3/LLaMA）**仍然配 warmup**——那是 Adam 早期 $\hat v$ 方差大、大 batch 等**另一层**动机（与 LN 放置无关，见优化器篇 §7.1），别把"Pre-LN"读成"完全不需要 warmup"。
 
 ### 5.3　Pre-LN 的代价：残差流随深度膨胀
 

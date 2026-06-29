@@ -186,7 +186,7 @@ $$c_t^Q = W^{DQ} h_t, \quad q_t^{C, (i)} = W^{UQ, (i)} c_t^Q$$
 | MQA | $2 \cdot d_\text{head}$ |
 | MLA（裸 latent 部分） | $d_c$（**单个 vector，不乘 2**——因为 K 和 V 共享同一个 latent） |
 
-DeepSeek-V2 取 $d_c = 4 d_\text{head}$，相比 MHA（$2 H d_\text{head}$）压缩比约 $H/2$ 倍——配 $H=128$ 大概 64×。
+DeepSeek-V2 取 $d_c = 4 d_\text{head}$，**裸 latent** 相比 MHA（$2 H d_\text{head}$）压缩约 $H/2$ 倍（$H=128$ 时约 64×）。但 MLA 实际 cache 还要带一段解耦-RoPE 分量 $d_r$（DeepSeek-V2 $d_r = 64$），**完整 cache $=d_c+d_r=576$，相对 MHA 压缩约 57×**（与长上下文篇 §9 的 57× 一致；只数 latent 会高估成 64×）。
 
 #### 4.3.3　Inference 等价变换（absorb trick）
 
