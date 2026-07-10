@@ -298,6 +298,18 @@
     "md": "docs/tutorials/self_evolving_agents_tutorial_en.md",
     "title": "Self Evolving Agents Tutorial En"
   },
+  "docs/tutorials/tokenization_tutorial.html": {
+    "eyebrow": "Interview Prep · 分词器 (Tokenization)",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/tokenization_tutorial.md",
+    "subtitle": "BPE·WordPiece·Unigram(SentencePiece) / byte-level BPE 与 byte fallback / 词表大小·多语言 fertility·扩词表 / 生产陷阱（prefix instability·special token 注入·glitch token·offset mapping）/ tokenizer-free（ByT5·MegaByte·BLT）+ 公式推导 + From-Scratch 纯 Python + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "title": "Tokenization / 分词器 面试 Cheat Sheet"
+  },
+  "docs/tutorials/tokenization_tutorial_en.html": {
+    "lang": "en",
+    "md": "docs/tutorials/tokenization_tutorial_en.md",
+    "title": "Tokenization Tutorial En"
+  },
   "docs/tutorials/vae_vqvae_vqgan_tutorial.html": {
     "eyebrow": "Interview Prep · Latent Variable Models & Discrete Tokenizers",
     "lang": "zh-CN",

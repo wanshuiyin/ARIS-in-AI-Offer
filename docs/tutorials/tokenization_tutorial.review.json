@@ -1,0 +1,81 @@
+{
+ "skill": "interview-cheatsheet",
+ "source": "docs/tutorials/tokenization_tutorial.md",
+ "source_sha256": "8824f62111f0af1d57bde73d54ad23270a36d7d0f858d294440d308f50e662aa",
+ "output": "docs/tutorials/tokenization_tutorial.html",
+ "runnable_code": "docs/tutorials/code/tokenization.py",
+ "topic": "Tokenization / 分词器 — pipeline 心智模型 / BPE·WordPiece·Unigram(训练≠编码) / byte-level BPE(bytes_to_unicode)与 SentencePiece(▁·nmt_nfkc·byte_fallback) / fertility·BPB / 词表五量(mergeable·special·len·maxID+1·embedding行) / 多语言·扩词表(lexical vs control) / 生产陷阱(prefix instability·token healing·special 注入·glitch·offset mapping·版本化) / 推理栈对齐(spec-decode·KD·prefix cache) / tokenizer-free(ByT5·MegaByte·BLT)",
+ "effort": "max",
+ "reviewer": "codex gpt-5.6-sol (xhigh for batches, ultra for final overall), fresh thread per batch",
+ "drafted_by": "subagent (general-purpose) drafting AGAINST a pre-draft cross-model design review (81 numbered claims by gpt-5.6-sol); orchestrator independently verified the Unigram forward DP (0.22350625) by hand, ran the full cross-model review, fixed everything, and reconciled §A to the standalone script",
+ "design_review": {
+  "verdict": "adopted",
+  "thread_id": "019f4cc4-5edb-7e10-a138-5e92444e9df6",
+  "notes": "NEW for this tutorial: gpt-5.6-sol reviewed the outline BEFORE drafting — 14 missing topics (pipeline mental model, train-vs-encode, prefix instability, offset mapping, versioning, special-token injection...), 49 factual guardrails (Llama-3 128,000+256, cl100k ID holes, Qwen 151,643/151,646, WordPiece PMI-like-not-PMI...), 10 top-asked questions, 8 assert-specified code demos, ~895-line structure budget. Draft was written against these as hard constraints."
+ },
+ "math_code_review": {
+  "verdict": "PASS (final Codex verdict: SHIP, after 5 batches + 1 dispute round + 2 fix-verification rounds on the ultra thread)",
+  "rounds": [
+   {
+    "run": 1,
+    "scope": "math & facts — all formulas/derivations, worked examples, §4.3 vocab table cell-by-cell, §3 byte-level/SentencePiece claims, §5 pitfalls, §6 tokenizer-free",
+    "verdict": "FAIL (6 P0 / 20 P1 / 4 P2) -> all fixed",
+    "thread_id": "019f4cf6-36ec-7b71-a466-985ab72b3623",
+    "notes": "P0s fixed: BPB requires identical post-normalization byte stream; char-level is NOT zero-OOV (byte-level is); BMP hanzi 3 bytes vs supplementary-plane 4; Qwen embedding rows; Gemma-3 tokenizer 262,144 vs model embedding 262,208; NFKC Ａ→A keeps code-point count (example replaced with ﬃ→ffi). Confirmed correct: full Unigram forward/Viterbi DP table (f4=0.22350625, v4=0.16), BPE pair counts 7/4/1, WordPiece 0.06-vs-0.1 example, bytes_to_unicode 188 identity + 68 shifted (0x20→Ġ U+0120, 0x0A→Ċ U+010A), 👨‍👩‍👧 = 5 code points / 18 UTF-8 bytes / 1 grapheme, BERT 30,522/28,996, GPT-2 50,257, cl100k 100,256+5 maxID+1=100,277, o200k 199,998+2 maxID+1=200,019, Llama2 32,000, Llama3 128,000+256, Gemma-1/2 256,000, Vd arithmetic."
+   },
+   {
+    "run": 1.5,
+    "scope": "DISPUTE round on Qwen embedding rows (orchestrator challenged the reviewer)",
+    "verdict": "reviewer RETRACTED — orchestrator's version adopted",
+    "thread_id": "019f4cf6-36ec-7b71-a466-985ab72b3623",
+    "notes": "Reviewer had claimed 'Qwen2=151,936, Qwen2.5=152,064'. Orchestrator countered: embedding rows vary by CHECKPOINT SIZE (151,936 for 0.5B–3B, 152,064 for 7B+), same rule in both generations. Reviewer agreed and retracted; table row written per orchestrator's version with a config.vocab_size caveat. Also from this round: Gemma-3 1B left hedged (reviewer UNSURE); <unk> is a SentencePiece UNKNOWN piece, <s></s> are CONTROL (terminology fixed in Llama-2 row); BERT ordinary 30,517/28,991 arithmetic confirmed."
+   },
+   {
+    "run": 2,
+    "scope": "citations — 21 bibliography sources + 12 inline citations + ALL 18 <!-- VERIFY --> markers the drafter had flagged",
+    "verdict": "PASS-with-fixes (37 CONFIRM / 2 WRONG / 0 UNSURE) -> fixed",
+    "thread_id": "019f4d04-2068-7763-9f53-7e5d9bd15289",
+    "notes": "All 18 VERIFY markers CONFIRMED (drafter's memory was excellent). 2 fixes: GNMT title completed with ': Bridging the Gap...'; BLT inline author 'Meta'→'Pagnoni et al. (Meta)'. Also added T5 (1910.10683, JMLR 2020) and ALBERT (1909.11942, ICLR 2020) entries the reviewer noted were cited-but-unlisted. VERIFY markers then stripped."
+   },
+   {
+    "run": 3,
+    "scope": "code — tokenization.py all functions + assert strength + §7/§A consistency + portability",
+    "verdict": "FAIL (0 P0 / 6 P1 / 6 P2) -> all fixed",
+    "thread_id": "019f4d0f-00e7-7152-bd3c-5dd4248fad4b",
+    "notes": "Fixed: python -O silently skipping asserts (now guarded); greedy_encode special atomicity (normal token could swallow a later special — rewritten to split-on-specials-first, pinned by the reviewer's own counterexample assert); weak rank-conflict assert (added rank-reversal + leftmost-non-overlap asserts); weak bytes_to_unicode assert (now pins exact 188-identity + shifted mapping); weak WordPiece asserts (added longest-first-piece + no-backtracking dead-end cases); D08 mean-init story (proxy-text semantics made explicit); viterbi ValueError on no-segmentation; stdout UTF-8 reconfigure; 'one EM step' claim removed; codepoint-toy-BPE vs real GPT-2 labeling; linear-space DP caveat."
+   },
+   {
+    "run": 4,
+    "scope": "25 interview answers — factual bullets + 易踩坑 lines + missing points + difficulty placement",
+    "verdict": "FAIL (2 P0 / 10 P1 / 3 P2) -> all fixed",
+    "thread_id": "019f4d19-6b72-7f22-815e-964916def943",
+    "notes": "P0s: Q1 char-level zero-OOV overclaim; Q22 Ａ→A code-point-length error. P1s fixed across Q2/Q7/Q8/Q12/Q14/Q15/Q20/Q21/Q23/Q25 (BPE decode scope, PAD/EOS mask construction, round-trip sufficient-vs-necessary, oversized-vocab undertrained-rows cost, alpha=inverse temperature, parallel-corpus macro aggregation, LM-head softmax-denominator shift on extension, spec-decode bridging, glitch-token hedging, two-channel encoding as the real injection defense). 10 questions fully clean on first pass."
+   },
+   {
+    "run": 5,
+    "scope": "OVERALL final acceptance (ULTRA reasoning) — whole tutorial + script, post-fix state",
+    "verdict": "SHIP (after 2 fix-verification rounds)",
+    "thread_id": "019f4d38-3821-75b3-b992-e2077a716462",
+    "notes": "First pass: 0 P0 / 16 P1 / 7 P2 'SHIP-after-fixes' — incl. catching two errors INTRODUCED by round-1 fixes ('非幂等' term backwards → canonicalization-idempotent; '扩展区 4 byte' missing that Ext-A is BMP) plus pipeline order (chat template upstream, BOS/EOS post-processor), toy open-alphabet disclosure, E-step forward-backward precision, loss/token non-theorem, lexical-vs-control extension paths, multi-token healing FSM constraint, independent BPB computation. Fix-verification pass 1: 15 OK / 8 NOT-OK (residual wording). Fix-verification pass 2 after residuals: all OK, no new errors, verdict SHIP."
+   }
+  ]
+ },
+ "render_review": {
+  "verdict": "PASS",
+  "rounds": [
+   {
+    "run": 1,
+    "verdict": "FAIL -> fixed -> PASS",
+    "thread_id": "019f4d58-8900-7532-9279-58fe15391da9",
+    "notes": "Caught a REAL renderer footgun: escaped \\| inside table cells is not supported by this repo's renderer (naive split('|')) — the GPT-2/Qwen special-token cells rendered as 7/11 columns. Fixed by moving the piped literals (<|endoftext|> <|im_start|> <|im_end|>) out of cells into the prose below the table (house convention: no pipes in table cells). Re-render verified: all 10 rows exactly 5 columns; 37/37 TOC match; 118 math spans faithful (incl. \\ne \\lt \\gt \\propto ^{18} in cells); 25 <details> Q&A complete; §A output byte-faithful mod the template's trailing-LF convention; no injection; no personal info (footer GitHub org name + repo-relative source path are template-standard across all shipped files). Post-render ZH touch-up: §5.6 heading 三套→多套坐标系 (aligning the heading with its own body text, surfaced by the EN fidelity review); re-rendered, hash refreshed."
+   }
+  ]
+ },
+ "runnable_code_check": {
+  "verdict": "PASS",
+  "notes": "docs/tutorials/code/tokenization.py (pure stdlib, no torch, Python 3.9+, <1s CPU) ran clean locally AND on a remote box (Python 3.10.19): all 8 demos [D01]-[D08] pass — exact GPT-2 bytes_to_unicode (188 identity + 68 shifted, 0x20→Ġ, 0x0A→Ċ, full 256-byte round-trip incl. CJK/emoji/NUL), BPE ordered-merge trainer + frozen-rank encoder (rank-reversal + leftmost-non-overlap pinned), WordPiece whole-word [UNK] + no-backtracking dead-end, Unigram Viterbi 0.16 vs forward marginal 0.22350625 (hand-verified independently), NFKC lossiness vs byte-fallback round-trip, prefix instability minimal counterexample, fertility micro-average + independent BPB recovery from loss/token, vocab-extension regression (dense-ID assert, old IDs/encodings/specials frozen, mean-init proxy row, tied head identity, post-extension special atomicity). Script refuses to run under python -O (asserts would be stripped). §A real output is the remote run, verbatim.",
+  "headline": "The #1 hand-coding interview trap — BPE train-vs-encode semantics — is pinned by executable asserts (encode follows frozen rank, provably NOT runtime frequency re-counting)."
+ },
+ "summary": "Tokenization cheat sheet (effort=max, ~875 lines, bilingual pending EN): FIRST tutorial with a pre-draft cross-model design review — gpt-5.6-sol shaped the outline with 81 numbered claims before a line was written, then the draft went through 5 review batches + 1 dispute round + 2 fix-verification rounds on gpt-5.6-sol (fresh threads; ultra reasoning for final acceptance). Cross-model value demonstrated twice in one tutorial: the reviewer caught 6 P0 factual errors AND the orchestrator caught + reversed one reviewer error (Qwen embedding rows are size-dependent, not generation-dependent — reviewer retracted). All 18 drafter-flagged uncertain citations confirmed; 2 unflagged citation defects caught. Script asserts were adversarially strengthened until subtly-wrong implementations cannot pass. Final verdict: SHIP.",
+ "rendered_at": "2026-07-11"
+}

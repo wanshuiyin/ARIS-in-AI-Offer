@@ -1,0 +1,25 @@
+{
+ "skill": "interview-cheatsheet (EN translation-fidelity)",
+ "source": "docs/tutorials/tokenization_tutorial_en.md",
+ "source_sha256": "f8210dfad8c055ea7d796c73af8f7768d0fd28f65ab94bddeab4a9e22b9f6c7b",
+ "output": "docs/tutorials/tokenization_tutorial_en.html",
+ "zh_source": "docs/tutorials/tokenization_tutorial.md",
+ "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
+ "verdict": "PASS",
+ "thread_id": "019f4d88-c959-7051-b94c-44fecb0263ab",
+ "translated_by": "orchestrator (hand-translated; the EN subagent stalled mid-run — same failure mode as #27/#28 — so the orchestrator hand-translated all 875 lines directly, per the established fallback)",
+ "translation_fidelity_review": {
+  "verdict": "PASS (2 rounds)",
+  "date": "2026-07-11",
+  "rounds": [
+   {
+    "run": 1,
+    "verdict": "FAIL (1 P0 / 6 P1 / 8 P2) -> all fixed or adjudicated",
+    "thread_id": "019f4d88-c959-7051-b94c-44fecb0263ab",
+    "notes": "P0: 'pay more per token' inverted the billing semantics (should be 'more for the same content under per-token billing') — fixed in 2 spots. P1s fixed: 主流选择 over-strengthened to 'default'; 1.3亿/5.3亿 sharpened to 131M/525M (restored 130M/530M with Vd in both); Q8 carried an added claim the ZH had dropped; 'single-causally' grammar; Q20 special-init lost the mean-over-old-segmentation detail; §5.6 heading mismatch resolved on the ZH side (ZH heading 三套 was itself stale vs its fixed body 多套 — ZH heading updated, ZH re-rendered, ZH sidecar hash refreshed). P2s fixed: 2 dropped often/commonly hedges, 3 gloss doublings, §5 title interaction relation, semantic-proxy qualifier. ADJUDICATED as intended: translating Chinese inside math \\text{} and Python docstrings (the no-residual-Chinese rule wins over byte-identity — the reviewer itself flagged the rule conflict), and number-word translations (约5万→~50k etc.). Round 2: PASS, no new issues."
+   }
+  ]
+ },
+ "structural_parity": "## 11/11 · ### 26/26 · <details> 25/25 · fences 14/14 · $$ 12/12 · table dividers 9/9 · 875/875 lines; 7 CJK-containing lines all legitimate linguistic examples (example words, code-string literals, §A output block)",
+ "rendered_at": "2026-07-11"
+}

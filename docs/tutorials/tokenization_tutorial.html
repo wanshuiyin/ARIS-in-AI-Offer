@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokenization / 分词器 面试 Cheat Sheet</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/tokenization_tutorial.md">
+<meta name="aris:source-sha256" content="8824f62111f0af1d57bde73d54ad23270a36d7d0f858d294440d308f50e662aa">
+<meta name="aris:generated-at" content="2026-07-10 19:56 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-pipeline-心智模型--tldr-cheat-sheet">§0 Pipeline 心智模型 + TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-为什么需要-subword--怎么度量-tokenizer">§1 为什么需要 subword + 怎么度量 tokenizer</a>
+<ul>
+<li><a href="#11-word-level-与-char-level-的两难">1.1　word-level 与 char-level 的两难</a></li>
+<li><a href="#12-指标fertility-必须先说口径">1.2　指标：fertility 必须先说口径</a></li>
+<li><a href="#13-bpb跨-tokenizer-可比的-loss-口径需统一-byte-流与评分协议">1.3　BPB：跨 tokenizer 可比的 loss 口径（需统一 byte 流与评分协议）</a></li>
+</ul>
+</li>
+<li><a href="#2-三大算法bpe--wordpiece--unigram">§2 三大算法：BPE / WordPiece / Unigram</a>
+<ul>
+<li><a href="#21-bpe最高频-pair-迭代合并">2.1　BPE：最高频 pair 迭代合并</a></li>
+<li><a href="#22-wordpiece似然驱动的-merge--最长匹配编码">2.2　WordPiece：似然驱动的 merge + 最长匹配编码</a></li>
+<li><a href="#23-unigram概率模型--自顶向下剪枝">2.3　Unigram：概率模型 + 自顶向下剪枝</a></li>
+<li><a href="#24-三算法对照表--覆盖性">2.4　三算法对照表 + 覆盖性</a></li>
+</ul>
+</li>
+<li><a href="#3-byte-level-与-sentencepiece-工程">§3 Byte-level 与 SentencePiece 工程</a>
+<ul>
+<li><a href="#31-gpt-2-byte-level-bpe代理字母表--regex-pre-tokenization">3.1　GPT-2 byte-level BPE：代理字母表 + regex pre-tokenization</a></li>
+<li><a href="#32-sentencepiece框架不是算法">3.2　SentencePiece：框架，不是算法</a></li>
+<li><a href="#33-unicode-陷阱与可逆的精确条件">3.3　Unicode 陷阱与&quot;可逆&quot;的精确条件</a></li>
+</ul>
+</li>
+<li><a href="#4-训练语料词表大小多语言与扩词表">§4 训练语料、词表大小、多语言与扩词表</a>
+<ul>
+<li><a href="#41-tokenizer-的训练语料设计常比选哪个算法更重要">4.1　tokenizer 的训练语料设计常比&quot;选哪个算法&quot;更重要</a></li>
+<li><a href="#42-词表大小一笔两头的账">4.2　词表大小：一笔两头的账</a></li>
+<li><a href="#43-主流词表事实表五个数字别混">4.3　主流词表事实表：五个数字别混</a></li>
+<li><a href="#44-多语言中文不是按字还是按词的二选一">4.4　多语言：中文不是&quot;按字还是按词&quot;的二选一</a></li>
+<li><a href="#45-扩词表改-tokenizer-文件只是第一步">4.5　扩词表：改 tokenizer 文件只是第一步</a></li>
+</ul>
+</li>
+<li><a href="#5-生产陷阱与推理栈交互">§5 生产陷阱与推理栈交互</a>
+<ul>
+<li><a href="#51-数字三代切法与算术">5.1　数字：三代切法与算术</a></li>
+<li><a href="#52-代码空白就是语法">5.2　代码：空白就是语法</a></li>
+<li><a href="#53-glitch-token词表与语料的错配">5.3　glitch token：词表与语料的错配</a></li>
+<li><a href="#54-prefix-instability-与-token-healing">5.4　prefix instability 与 token healing</a></li>
+<li><a href="#55-special-token训练侧细节--注入边界">5.5　special token：训练侧细节 + 注入边界</a></li>
+<li><a href="#56-offset-mapping多套坐标系">5.6　offset mapping：多套坐标系</a></li>
+<li><a href="#57-推理栈哪些组件要求-tokenizer-对齐">5.7　推理栈：哪些组件要求 tokenizer 对齐</a></li>
+<li><a href="#58-tokenizer-版本化只存-vocabjson-是复现事故的开始">5.8　tokenizer 版本化：只存 vocab.json 是复现事故的开始</a></li>
+</ul>
+</li>
+<li><a href="#6-tokenizer-free-前沿">§6 Tokenizer-free 前沿</a>
+</li>
+<li><a href="#7-从零实现纯-python-标准库">§7 从零实现（纯 Python 标准库）</a>
+</li>
+<li><a href="#8-25-高频面试题">§8 25 高频面试题</a>
+<ul>
+<li><a href="#l1必会题">L1必会题</a></li>
+<li><a href="#l2进阶题">L2进阶题</a></li>
+<li><a href="#l3高级题">L3高级题</a></li>
+</ul>
+</li>
+<li><a href="#a-附录sanity-check">§A 附录：sanity check</a>
+</li>
+<li><a href="#参考文献">📚 参考文献</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Interview Prep · 分词器 (Tokenization)</div>
+  <h1>Tokenization / 分词器 面试 Cheat Sheet</h1>
+  <p class="subtitle">BPE·WordPiece·Unigram(SentencePiece) / byte-level BPE 与 byte fallback / 词表大小·多语言 fertility·扩词表 / 生产陷阱（prefix instability·special token 注入·glitch token·offset mapping）/ tokenizer-free（ByT5·MegaByte·BLT）+ 公式推导 + From-Scratch 纯 Python + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/tokenization_tutorial.md</code></span>
+    <span><strong>SHA256:</strong> <code>8824f62111f0</code></span>
+    <span><strong>Rendered:</strong> 2026-07-10 19:56 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-pipeline-心智模型--tldr-cheat-sheet">§0 Pipeline 心智模型 + TL;DR Cheat Sheet</h2>
+<p><strong>Tokenizer 不是"一个算法",而是一条流水线。</strong> 面试里大量混淆（"SentencePiece 就是 Unigram""byte-level 是一种分词目标"）都来自把整条流水线压缩成了一个名词。先立好这个心智模型：</p>
+<pre><code class="language-text">（上游：chat template 先把 messages 渲染成文本；registered special 在 API 启用/准入时于进入下面管线前被原子识别/旁路）
+原始文本
+  → ① normalization       （NFC/NFKC/identity；可能有损！）
+  → ② pre-tokenization    （regex 切块 / 空白处理；merge 不跨块边界）
+  → ③ 分词模型             （BPE 按 rank 合并 / WordPiece 最长匹配 / Unigram Viterbi）
+  → ④ ID mapping          （token → 整数 ID → embedding 行）
+  → ⑤ post-processing     （自动补 BOS/EOS/CLS/SEP 这类模板性 token）
+decode：ID → token 字符串拼接 →（byte 还原 / ▁→空格）→ 文本（反向，但不保证严格互逆）</code></pre>
+<div class="callout callout-info"><div class="callout-title">9 句话搞定 Tokenization</div><p>一页拿下面试核心要点（详见后文 §1–§7 推导）。</p></div>
+<ol><li><strong>流水线心智模型</strong>：chat template 与 special 识别在上游；tokenizer 主体 = normalization → pre-tokenization → 分词模型 → ID mapping →（BOS/EOS 类）post-processing；decode 反向。<strong>SentencePiece 是框架</strong>（Unigram/BPE 都是它的可选模型），<strong>byte-level 是字母表选择</strong>（不是独立算法）——两组概念不在同一层。</li><li><strong>为什么是 subword</strong>：word-level 有 OOV + 词表爆炸，char/byte-level 序列太长（BMP 汉字 1 字 = 3 byte、补充平面 4 byte）；subword 折中——高频词整存、低频词拆碎，配 byte 兜底可做到<strong>任何有效 UTF-8 文本零 OOV</strong>。指标必须说清口径：<strong>fertility</strong>（tokens/word？tokens/char？tokens/byte？）；跨 tokenizer 比较用 <strong>BPB</strong>（bits-per-byte）。</li><li><strong>BPE：训练 $\ne$ 编码</strong>。训练 = 每轮统计语料里最高频的相邻 pair、合并、<strong>按顺序记录 merge 表</strong>（局部贪心，非全局最优）；编码 = 按<strong>冻结的 merge rank</strong> 依次合并——既不重新数频率，也不是最长匹配。这是最高频的手写题陷阱。</li><li><strong>WordPiece</strong>：merge 依据似然改善（常见教学实现 score $= \frac{f(xy)}{f(x)f(y)}$，取 log 是 PMI-like）；编码用 <strong>longest-match-first</strong>（<code>##</code> 接续形式），任一位置匹配失败 → <strong>整个词</strong> 变 <code>[UNK]</code>（不是保留成功前缀）。</li><li><strong>Unigram 是反向做减法</strong>：从超大 seed 词表出发，EM 估计 piece 概率（E-step 用 forward-backward 汇总<strong>所有</strong> segmentation 的后验，不是只取 Viterbi）+ 按删除损失 prune；推理时才用 Viterbi 取最优切分；天然支持采样 segmentation（subword regularization）。</li><li><strong>byte-level 与 SentencePiece 是两条工程路线</strong>：GPT-2 把 256 个 byte 先映射到可打印代理字母表再跑 BPE（<code>Ġ</code> = 空格 byte 0x20 的代理字符，常出现在 token 开头是 regex 把空格附给后一块所致）；SentencePiece 用 <code>▁</code>（U+2581）把空格符号化，<code>byte_fallback</code> 只在普通 piece 覆盖不了时退回 <code>&lt;0xXX&gt;</code>——<strong>byte fallback $\ne$ byte-level BPE</strong>。</li><li><strong>词表大小是两头账</strong>：embedding $\approx Vd$、不共享输出头再加 $Vd$；V 大 →（其他条件相同时通常）fertility 降 → 序列短 → attention/KV cache 省；但 softmax/embedding 变贵。32k→100k→128k→200k→256k 是<strong>多目标设计点</strong>不是单调时间趋势；报数字要区分 mergeable 数、special 数、<code>len(tokenizer)</code>、max-ID+1、embedding 行数——五个量常常不相等。</li><li><strong>生产陷阱记四个</strong>：<strong>prefix instability</strong>（<code>encode(&quot;ab&quot;)</code> 未必是 <code>encode(&quot;abc&quot;)</code> 的 token 前缀 → token healing / 流式 / prefix cache 的共同根源）；<strong>数字与空白切分</strong>影响算术与代码；<strong>special token 注入</strong>（用户文本里的 <code>&lt;|assistant|&gt;</code> 是否被当 special ID 取决于 API 白名单）；<strong>glitch token</strong>（词表里有、训练中欠曝光，如 SolidGoldMagikarp）。</li><li><strong>tokenizer-free 前沿</strong>：ByT5（byte 直入）、MegaByte（固定 byte patch + global/local 分层）、BLT（entropy 驱动的动态 patch）；层次化缓解了 byte 序列过长，但训练效率、推理生态与缓存粒度仍是现实障碍——"tokenizer 已死"言之尚早。</li></ol>
+<h2 id="1-为什么需要-subword--怎么度量-tokenizer">§1 为什么需要 subword + 怎么度量 tokenizer</h2>
+<h3 id="11-word-level-与-char-level-的两难">1.1　word-level 与 char-level 的两难</h3>
+<ul><li><strong>word-level</strong>：词表随语料膨胀（形态丰富语言更炸），任何新词/拼错/罕见实体 → OOV <code>[UNK]</code>，信息直接丢失；且"run/running/runs"各占一行 embedding，浪费参数、不共享统计强度。</li><li><strong>char/byte-level</strong>：byte-level 零 OOV（char-level 词表覆盖不全时仍会 OOV），但序列长度暴涨——英文 1 词 $\approx$ 4–5 字符，BMP 汉字（含扩展 A）1 字 = 3 UTF-8 byte（补充平面、扩展 B 及之后 = 4 byte），attention 的 $O(L^2)$ 和 KV cache 的 $O(L)$ 都直接遭殃；模型还要用宝贵的层数去学"字母拼成词"这种本可白给的结构。</li><li><strong>subword 折中</strong>：高频词保持整 token（"the"、"人工智能"），低频词拆成统计上可复用的子串（"tokenization" → "token"+"ization"——有时恰好是词素，但三种算法都不保证语言学边界），罕见字符退到 byte。既控制词表规模，又保证覆盖。</li></ul>
+<p><strong>覆盖性（OOV 保证）分三档</strong>，面试常被追问：</p>
+<ol><li>传统 WordPiece（BERT 风格）：编码失败 → <strong>整词 <code>[UNK]</code></strong>，最弱；</li><li>Unigram/SentencePiece：字符覆盖不全（<code>character_coverage</code> $\lt 1$）仍会产出 <code>&lt;unk&gt;</code>；</li><li><strong>完整 256-byte 字母表</strong>（GPT-2 式）或<strong>正确启用 byte fallback</strong> 的 SentencePiece：任何有效 UTF-8 文本都可编码，<strong>强覆盖保证</strong>——零 OOV 不是 subword 的默认福利，是这两种设计换来的。</li></ol>
+<h3 id="12-指标fertility-必须先说口径">1.2　指标：fertility 必须先说口径</h3>
+<p><strong>fertility（分词粒度）</strong>：平均每个"单位"被切成多少 token。文献里狭义 fertility 常特指 tokens/<strong>word</strong>（tokens/char、tokens/byte 更常称压缩率口径），本文取宽义、但说这个词<strong>必须先声明分母</strong>——tokens/<strong>word</strong>、tokens/<strong>char</strong> 还是 tokens/<strong>byte</strong>？中文没有天然空格词界，"tokens/word"依赖外部分词器（不同分词标准结果不同），跨语言比较时优先<strong>同一评测文本</strong>上同时报告：</p>
+<table><thead><tr><th>指标</th><th>定义</th><th>适用</th></tr></thead><tbody><tr><td>UTF-8 <strong>bytes/token</strong></td><td>评测文本 byte 数 ÷ token 数</td><td>跨 tokenizer 最稳定的计量口径（byte 数与 tokenizer 无关；跨语言仍需平行语料+多指标）</td></tr><tr><td>Unicode <strong>chars/token</strong></td><td>code point 数 ÷ token 数</td><td>直觉友好，但 emoji/组合字符会骗人</td></tr><tr><td><strong>tokens/word</strong></td><td>token 数 ÷ 外部分词词数</td><td>仅在声明分词器后可比</td></tr><tr><td>UNK rate</td><td><code>&lt;unk&gt;</code> 占比</td><td>覆盖性检查</td></tr></tbody></table>
+<p>工程上还要看<strong>端到端</strong>：同一语料的总 token 数（直接决定训练/推理成本）、吞吐、首 token 延迟——tokenizer 的好坏最终是系统问题（§4.2）。</p>
+<h3 id="13-bpb跨-tokenizer-可比的-loss-口径需统一-byte-流与评分协议">1.3　BPB：跨 tokenizer 可比的 loss 口径（需统一 byte 流与评分协议）</h3>
+<p>不同 tokenizer 的 <strong>loss/token 和 perplexity 不可直接比较</strong>——分母（token 数）本身就不同：即使总 NLL 完全相同，仅 token 数不同就能让 loss/token 差出数倍；实际比较时还叠加模型质量本身的差异，两种效应混在一起。公平做法是把总负对数似然摊到<strong>同一份文本的 UTF-8 byte 数</strong> $B$ 上：</p>
+<p>$$\mathrm{BPB} = \frac{-\sum_i \log p(t_i \mid t_{\lt i})}{B \cdot \ln 2}\qquad(\log\ \text{取自然对数时除以}\ \ln 2\ \text{换算成 bits}).$$</p>
+<p>数值例子（§7 的 [D07] 可执行验证）：同一段文本、总 NLL 同为 4.0 nats、$B=8$ bytes，tokenizer A 切 2 个 token、B 切 4 个 → loss/token 分别为 <strong>2.0 和 1.0</strong>（差一倍！），BPB 却同为 $\frac{4.0}{8\ln 2}\approx 0.7213$——<strong>BPB 相同，loss/token 的"差距"纯属口径幻觉</strong>。</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>BPB 比较的前提：两边实际计分的是同一份 post-normalization byte 流</strong> 若某 tokenizer 带有损 normalization（NFKC 改写了字符），两边模型实际计分的文本已经不同——仅"输入同一 raw text"不够，必须保证送进模型的规范化后 byte 流完全一致，并用这份流的 byte 数作 $B$；BOS/EOS 处理、context 切分等评分协议也要对齐。BPB 是常用且可比的口径，不是无条件的"唯一公平"。</p></div>
+<h2 id="2-三大算法bpe--wordpiece--unigram">§2 三大算法：BPE / WordPiece / Unigram</h2>
+<p><strong>本节铁律：训练目标和编码算法分开讲。</strong> 三个算法各有"训练时学什么"和"编码时怎么用"两半，混在一起讲是最常见的失分方式。</p>
+<h3 id="21-bpe最高频-pair-迭代合并">2.1　BPE：最高频 pair 迭代合并</h3>
+<p>BPE 原本是 1994 年的字节压缩算法（Gage, 1994），Sennrich, Haddow &amp; Birch (2015, arXiv 1508.07909, ACL 2016) 把它引入 NMT 做 subword 切分，从此成为 GPT 系、Llama 系、Qwen 系的主流选择。</p>
+<p><strong>训练算法</strong>（自底向上做加法）：</p>
+<ol><li>把语料切成初始符号序列（字符或 byte），统计每个"词"的频次；</li><li>统计所有<strong>相邻符号 pair</strong> 的加权频次；</li><li>选<strong>最高频</strong>的 pair 合并成新符号，<strong>把这条 merge 按顺序记入 merge 表</strong>；</li><li>重复 2–3，直到达到目标 merge 数 / 词表大小。</li></ol>
+<p>三个必须挂在嘴边的细节：</p>
+<ul><li><strong>局部贪心</strong>：每轮只选当前最高频 pair，<strong>不保证</strong>最终序列长度全局最优——它是压缩启发式，不是最优化算法；</li><li><strong>tie-breaking 必须确定性</strong>：频次并列时要有固定规则（如字典序），否则同一语料训出不同 merge 表，复现性崩坏；</li><li><strong>重叠计数</strong>：<code>&quot;aaaa&quot;</code> 里 pair <code>(a,a)</code> 按滑窗数出现 3 次，但实际非重叠替换只能换 2 次——计数口径和替换语义要分开说。</li></ul>
+<p><strong>手算例子</strong>：语料 <code>{&quot;abab&quot;×3, &quot;abac&quot;×1}</code>，初始切分为字符。第一轮 pair 计数：</p>
+<table><thead><tr><th>pair</th><th>出现次数</th><th>加权频次</th></tr></thead><tbody><tr><td>$(a,b)$</td><td>"abab" 内 2 次 ×3 + "abac" 内 1 次 ×1</td><td>$2\times 3+1=\mathbf{7}$</td></tr><tr><td>$(b,a)$</td><td>"abab" 内 1 次 ×3 + "abac" 内 1 次 ×1</td><td>$3+1=4$</td></tr><tr><td>$(a,c)$</td><td>"abac" 内 1 次 ×1</td><td>$1$</td></tr></tbody></table>
+<p>→ <strong>merge₁ $=(a,b)\to$ <code>ab</code></strong>（频次 7）。第二轮：词变成 <code>ab ab</code>×3、<code>ab a c</code>×1，pair 计数 $(ab,ab)=3,\ (ab,a)=1,\ (a,c)=1$ → merge₂ $=(ab,ab)\to$ <code>abab</code>。merge 表 = <code>[(a,b), (ab,ab), ...]</code>——<strong>顺序就是 rank，rank 就是编码时的优先级</strong>。</p>
+<p><strong>编码算法</strong>（这是和训练完全不同的另一段程序）：给定冻结的 merge 表，把输入切成初始符号后，<strong>反复找当前序列中 rank 最小（最早学到）的可用 pair 合并</strong>，直到没有可用 merge：</p>
+<p>$$\text{encode}(x):\quad \text{while } \exists\ \text{pair} \in \text{merge 表}:\ \text{合并 rank 最小者（最左优先）}.$$</p>
+<p>例：merge 表 <code>[(a,b), (b,c)]</code>（rank 0、1），<code>encode(&quot;abc&quot;)</code>：$(a,b)$ 和 $(b,c)$ 都可用，<strong>rank 0 的 $(a,b)$ 赢</strong> → <code>[&quot;ab&quot;,&quot;c&quot;]</code>——即使你觉得 <code>(b,c)</code> "也很频繁"。编码阶段<strong>没有频率统计这回事</strong>。</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>手写 BPE 的第一陷阱：把 encode 写成"每次合并当前输入中最高频的 pair"</strong> 训练时统计频率，编码时只查 rank。写错的后果：同一字符串在不同上下文里编码不同、与训练时的切分分布脱节、和官方实现对不上。§7 的 [D02] 用 <code>assert bpe_encode(&quot;abc&quot;, [(&quot;a&quot;,&quot;b&quot;),(&quot;b&quot;,&quot;c&quot;)]) == [&quot;ab&quot;,&quot;c&quot;]</code> 把这个语义钉死。</p></div>
+<p><strong>decode</strong>：toy 语义下把 token 字符串直接拼接（byte-level 则再把 byte 还原成 UTF-8）；真实系统还要处理 <code>▁</code>/<code>@@</code> 这类边界标记与 byte 代理的还原。BPE 的 decode 仍是三者中最简单的——merge 出来的 token 天然是子串拼接。</p>
+<h3 id="22-wordpiece似然驱动的-merge--最长匹配编码">2.2　WordPiece：似然驱动的 merge + 最长匹配编码</h3>
+<p>WordPiece（Schuster &amp; Nakajima, ICASSP 2012；BERT 沿用，Devlin et al., 2018, arXiv 1810.04805）与 BPE 同为自底向上 merge，<strong>差别在选 pair 的评分</strong>。</p>
+<p><strong>训练目标</strong>：原始 WordPiece 以<strong>语言模型似然改善</strong>为目标选 merge；常见教学实现（如 HF tokenizers 文档）用的 score 是</p>
+<p>$$\mathrm{score}(x,y)=\frac{f(xy)}{f(x)\,f(y)},$$</p>
+<p>取 log 后 $\log f(xy)-\log f(x)-\log f(y)$，与 PMI 只差一个依赖总计数口径的常数——所以叫它 <strong>PMI-like</strong> 是准确的，直接说"就是 PMI"或"这是所有历史 WordPiece 的唯一精确定义"都过强（Google 的历史训练实现并未完整规范化公开）。</p>
+<p><strong>手算例子</strong>（BPE 与 WordPiece 选择不同 pair）：</p>
+<table><thead><tr><th>pair</th><th>$f(xy)$</th><th>$f(x)$</th><th>$f(y)$</th><th>BPE 依据（频次）</th><th>WordPiece score</th></tr></thead><tbody><tr><td>$(a,b)$</td><td>6</td><td>10</td><td>10</td><td><strong>6</strong>（BPE 选它）</td><td>$6/100=0.06$</td></tr><tr><td>$(q,u)$</td><td>2</td><td>2</td><td>10</td><td>2</td><td>$2/20=\mathbf{0.1}$（WordPiece 选它）</td></tr></tbody></table>
+<p>直觉：<code>q</code> 几乎只出现在 <code>qu</code> 里——归一化后的"黏着度"高，本例 WordPiece 因此选它；而 <code>a</code>、<code>b</code> 大量独立出现，<code>ab</code> 频次高只是"底数大"。<strong>BPE 看绝对频次，WordPiece 看黏着度</strong>（该 score 是 surrogate，不宜直接读成总似然增益）。</p>
+<p><strong>编码算法</strong>：与训练无关，用 <strong>longest-match-first（最长匹配优先）</strong>贪心：</p>
+<ol><li>从词首开始，找词表中能匹配的<strong>最长</strong>前缀（词首用普通形式，非词首用 <code>##</code> 接续形式，如 <code>##ing</code>）；</li><li>匹配上则前进，从剩余部分继续；</li><li><strong>任一位置找不到任何匹配 → 整个词输出 <code>[UNK]</code></strong>——不是保留已成功的前缀再补一个 <code>[UNK]</code>。</li></ol>
+<p>例（§7 脚本 [D03] 可执行验证）：词表 <code>{&quot;a&quot;, &quot;##b&quot;, &quot;##bc&quot;, &quot;[UNK]&quot;}</code> 时 <code>wp(&quot;abc&quot;) = [&quot;a&quot;, &quot;##bc&quot;]</code>（<code>##bc</code> 比 <code>##b</code> 长，赢）；把 <code>##bc</code> 移出词表且不加 <code>##c</code>，则 <code>wp(&quot;abc&quot;) = [&quot;[UNK]&quot;]</code>——<strong>整词失败</strong>。</p>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong><code>##</code> 是"我不是词首"的记号</strong> WordPiece 依赖 pre-tokenization 先按空格/标点切出"词"，<code>##</code> 标记 subword 在词内的接续位置，decode 时据此去掉。对中日韩文本，BERT pipeline 的常见做法是 BasicTokenizer 把 Han 表意字逐字隔开（假名/谚文并不逐字切，韩语本身也有空格）——这是实现策略而非算法硬约束，但也正是 SentencePiece 想摆脱的那类语言相关预处理（§3.2）。</p></div>
+<h3 id="23-unigram概率模型--自顶向下剪枝">2.3　Unigram：概率模型 + 自顶向下剪枝</h3>
+<p>Unigram LM 分词（Kudo, 2018, arXiv 1804.10959, ACL 2018）换了范式：<strong>不是学 merge 规则，而是学一个"piece 概率表"</strong>，切分是概率模型下的推断。</p>
+<p><strong>模型</strong>：词表 $V$ 中每个 piece $z_i$ 有概率 $p(z_i)$，$\sum_{z\in V}p(z)=1$；一个切分 $z=(z_1,\dots,z_k)$ 的概率是独立乘积 $P(z)=\prod_i p(z_i)$；<strong>一个字符串的（边际）概率是对所有合法切分求和</strong>：</p>
+<p>$$P(x)=\sum_{z\in S(x)}\prod_{i} p(z_i),\qquad \text{训练目标}\ \max_\theta \sum_{x\in\text{语料}}\log P(x).$$</p>
+<p><strong>训练</strong>（自顶向下做减法，与 BPE 方向相反）：</p>
+<ol><li>从<strong>过大的 seed 词表</strong>出发（如高频子串 + 全部单字符）；</li><li><strong>EM 估计概率</strong>：E-step 用 forward-backward 在 $S(x)$（所有切分）上汇总每个 piece 的<strong>后验期望计数</strong>——注意是对全部切分积分，<strong>不是只取 Viterbi 最优切分</strong>（那是 hard-EM，写错方向是高频扣分点）；M-step 归一化重估 $p(z)$；</li><li><strong>剪枝</strong>：对每个 piece 计算"删掉它后语料似然的近似损失"，删掉损失最小的一批（如 20%），回到 2；单字符、special、byte pieces 受<strong>保护</strong>不参与删除；</li><li>收敛到目标词表大小。</li></ol>
+<p><strong>推理（编码）</strong>：确定性分词才用 <strong>Viterbi</strong> 取最优切分：</p>
+<p>$$z^{*}=\arg\max_{z\in S(x)}\sum_i \log p(z_i).$$</p>
+<p><strong>手算例子</strong>（§7 的 [D04] 可执行验证）：概率表</p>
+<p>$$p(\text{a})=0.15,\quad p(\text{b})=0.15,\quad p(\text{ab})=0.40,\quad p(\text{aba})=0.20,\quad p(\text{bab})=0.10.$$</p>
+<p>对 <code>&quot;abab&quot;</code> 做两条 DP（$f_i$ = 前缀 $x_{1:i}$ 的<strong>全切分</strong>概率和；$v_i$ = 最优单一切分概率）：</p>
+<table><thead><tr><th>$i$</th><th>前缀</th><th>forward $f_i=\sum_j f_j\,p(x_{j+1:i})$</th><th>Viterbi $v_i$</th><th>$v_i$ 最优路径</th></tr></thead><tbody><tr><td>0</td><td>$\varepsilon$</td><td>1</td><td>1</td><td>—</td></tr><tr><td>1</td><td><code>a</code></td><td>$0.15$</td><td>$0.15$</td><td><code>a</code></td></tr><tr><td>2</td><td><code>ab</code></td><td>$0.40+0.15\times 0.15=0.4225$</td><td>$\max(0.40,\ 0.0225)=0.40$</td><td><code>ab</code></td></tr><tr><td>3</td><td><code>aba</code></td><td>$0.20+0.4225\times 0.15=0.263375$</td><td>$\max(0.20,\ 0.06)=0.20$</td><td><code>aba</code></td></tr><tr><td>4</td><td><code>abab</code></td><td>$0.015+0.169+0.0395\ldots=\mathbf{0.22350625}$</td><td>$\max(0.015,\ \mathbf{0.16},\ 0.03)=0.16$</td><td><code>ab</code>·<code>ab</code></td></tr></tbody></table>
+<p>其中 $f_4 = f_1\,p(\text{bab}) + f_2\,p(\text{ab}) + f_3\,p(\text{b}) = 0.15\times 0.10 + 0.4225\times 0.40 + 0.263375\times 0.15$。两个必背读数：<strong>Viterbi 最优切分 <code>[&quot;ab&quot;,&quot;ab&quot;]</code>（概率 0.16）</strong>；<strong>边际概率 0.2235 $\geq$ 最优路径概率</strong>（对所有切分求和必然不小于单条路径——这正是 E-step 基于全切分统计（forward-backward）而非单条 Viterbi 路径的原因）。</p>
+<p><strong>subword regularization 与 BPE-dropout</strong>（两个随机化机制，别混写）：</p>
+<ul><li><strong>Unigram 采样</strong>：训练 LLM 时按切分后验（或 n-best 近似）<strong>采样</strong> segmentation 而非固定 Viterbi，采样分布 $q(z)\propto P(z)^{\alpha}$，<code>alpha</code> 是<strong>逆温度/平滑系数</strong>（$\alpha$ 越大越接近 Viterbi、越小越随机，$T=1/\alpha$）——同一个词每个 epoch 可能切法不同，相当于数据增强 + 让模型见过碎片化拼法；</li><li><strong>BPE-dropout</strong>（Provilkov et al., 2019, arXiv 1910.13267, ACL 2020）：BPE 本身无概率模型，做法是编码时<strong>以概率 $p$ 随机跳过（阻断）部分 merge</strong>，制造更碎的切分。目的相似（鲁棒性），<strong>机制完全不同</strong>（采样后验 vs 阻断 merge）。</li></ul>
+<h3 id="24-三算法对照表--覆盖性">2.4　三算法对照表 + 覆盖性</h3>
+<table><thead><tr><th>维度</th><th>BPE</th><th>WordPiece</th><th>Unigram</th></tr></thead><tbody><tr><td>训练方向</td><td>自底向上<strong>加法</strong>（merge）</td><td>自底向上加法（merge）</td><td>自顶向下<strong>减法</strong>（prune）</td></tr><tr><td>训练目标</td><td>最高频 pair（贪心压缩）</td><td>似然改善 / PMI-like score</td><td>语料边际似然（EM）</td></tr><tr><td>训练产物</td><td><strong>有序 merge 表</strong></td><td>词表（含 <code>##</code> 形式）</td><td>piece <strong>概率表</strong></td></tr><tr><td>编码算法</td><td>按冻结 rank 依次合并</td><td>longest-match-first</td><td>Viterbi（可采样）</td></tr><tr><td>OOV 行为</td><td>byte-level 变体零 OOV；字符级可 OOV</td><td>失败 → <strong>整词 <code>[UNK]</code></strong></td><td>覆盖不全 → <code>&lt;unk&gt;</code>（可配 byte fallback）</td></tr><tr><td>随机化</td><td>BPE-dropout（阻断 merge）</td><td>—（标准实现无）</td><td>原生（采样 segmentation，<code>alpha</code> 温度）</td></tr><tr><td>代表模型</td><td>GPT 系 / Llama / Qwen</td><td>BERT 系</td><td>T5 / ALBERT（SentencePiece-Unigram）</td></tr></tbody></table>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>面试答"三者区别"的骨架</strong> 先说训练：BPE 数频次、WordPiece 算似然收益、Unigram 从大词表 EM+剪枝；再说编码：rank 合并 / 最长匹配 / Viterbi——<strong>训练和编码是两套独立程序</strong>；最后补一刀覆盖性与随机化（<code>[UNK]</code> 语义、Unigram 原生可采样）。三段说完，深度已经超过大多数候选人。</p></div>
+<h2 id="3-byte-level-与-sentencepiece-工程">§3 Byte-level 与 SentencePiece 工程</h2>
+<h3 id="31-gpt-2-byte-level-bpe代理字母表--regex-pre-tokenization">3.1　GPT-2 byte-level BPE：代理字母表 + regex pre-tokenization</h3>
+<p>GPT-2（Radford et al., 2019）的实际顺序是：<strong>原始文本 → regex pre-tokenization 切块 → 每块 UTF-8 编码 → <code>bytes_to_unicode</code> 映射到 256 个可打印 Unicode 字符的代理字母表 → 块内跑普通 BPE</strong>（先切块、再 byte 映射——顺序反了会改变切块结果）。原因很工程：直接在原始 byte 上跑，会有大量不可打印/控制字符，字符串处理和调试都痛苦；<code>bytes_to_unicode</code> 把可打印 byte 保持原样、其余 68 个 byte 平移到 <code>chr(256+n)</code>，构成一个 256↔256 的<strong>双射</strong>（可逆）。</p>
+<ul><li>这层映射只是<strong>实现桥梁</strong>，不意味着"每个最终 token 只含一个 byte"——merge 之后一个 token 可对应很多 byte；</li><li>空格 byte <code>0x20</code> 被映射为 <strong><code>Ġ</code></strong>（U+0120）、换行 <code>0x0A</code> 映射为 <code>Ċ</code>——所以可视化 GPT 系 token 时满屏的 <code>Ġ</code> 是空格 byte 的代理写法——<code>vocab.json</code> 里确实存着大量 <code>Ġthe</code> 这样的字符串条目，但那个 <code>Ġ</code> 是内部代理字符，不是原文中的 U+0120；</li><li><strong>regex pre-tokenization 先切块，BPE merge 不跨块边界</strong>。GPT-2 的 regex 按类别切（此处只示意关键片段，完整 regex 随版本演化、不建议默写）：</li></ul>
+<pre><code class="language-text">&#x27;s|&#x27;t|&#x27;re|&#x27;ve|&#x27;m|&#x27;ll|&#x27;d    # 英文缩略（contraction）单独成块
+ ?\p{L}+                   # （可带一个前导空格的）字母串 —— 这是 Ġword 的来源
+ ?\p{N}+                   # 数字串：GPT-2 不限长度（数字坑的根源，§5.1）
+ ?[^\s\p{L}\p{N}]+         # 标点/符号块
+\s+(?!\S)|\s+              # 空白（lookahead 分支影响多空格的归属，此处从简）</code></pre>
+<p>后续 encoding（cl100k_base / o200k_base / Llama 3 风格）的关键改动之一是把数字分支改成 <strong><code>\p{N}{1,3}</code>（至多 3 位一块）</strong>——注意"至多 3 位 pre-token"不等于"最终 token 一定 3 位"：BPE 仍可能在块内继续拆（<code>999</code> → <code>9</code>+<code>99</code>），只是<strong>不能跨块合并</strong>。</p>
+<h3 id="32-sentencepiece框架不是算法">3.2　SentencePiece：框架，不是算法</h3>
+<p><strong>SentencePiece（Kudo &amp; Richardson, 2018, arXiv 1808.06226, EMNLP 2018 demo）是一个 tokenizer 训练/编码框架</strong>，<code>model_type</code> 可选 <strong>unigram / bpe / char / word</strong>——它不是 Unigram 的别名（"SentencePiece 分词"这种说法在面试里要主动澄清用的是哪个模型）。关键工程特性：</p>
+<ul><li><strong>"无需 pre-tokenization"的准确含义</strong>：它不要求先用语言相关的 word tokenizer 切词，能直接从原始句子训练（对中日韩关键）；但 normalization、空白转义和可配置 split 规则<strong>仍然存在</strong>，说"完全没有预处理"是错的；</li><li><strong><code>▁</code>（U+2581，LOWER ONE EIGHTH BLOCK）</strong>：把空格提升为普通符号参与建模，decode 时 <code>▁</code>→空格。默认还会加 dummy prefix（句首补一个 <code>▁</code>）、可能折叠连续空白——<strong>这些默认配置意味着不能仅凭 <code>▁</code> 就宣称无损可逆</strong>；</li><li><strong>normalizer 默认 <code>nmt_nfkc</code></strong>：一套 NFKC 派生的规则集（不完全等于任何语言运行库的标准 NFKC）；很多现代模型显式改用 identity 或自定义规则以保住原文；</li><li><strong><code>byte_fallback=true</code></strong>：词表保留 256 个形如 <code>&lt;0xXX&gt;</code> 的 byte pieces；normalization 后无法被普通 piece 覆盖的 span 转成 UTF-8 bytes 编码，decode 时把连续 byte pieces 还原成字符。</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>byte fallback $\ne$ byte-level BPE</strong> SentencePiece 的 byte fallback 是<strong>兜底</strong>：只在普通 Unicode pieces 覆盖不了时才退回 <code>&lt;0xXX&gt;</code>；GPT-2 式 byte-level BPE 是<strong>地基</strong>：从第一步就在完整 256-byte 字母表上学 merge。且 byte fallback 救不回被有损 normalization 改写的原文——覆盖性和保真性是两个独立问题（§7 的 [D05] 用 NFKC 例子把两者切开）。</p></div>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong><code>Ġ</code> vs <code>▁</code>：两个"空格替身"一句话分清</strong> <code>Ġ</code> 是 byte <code>0x20</code> 经 GPT-2 代理字母表映射后的<strong>代理字符</strong>（byte-level 路线）；<code>▁</code> 是 SentencePiece 把空格<strong>显式符号化</strong>的 U+2581（框架路线）。来源机制不同，但都在说同一件事：空格信息必须显式保存，decode 才能复原。</p></div>
+<h3 id="33-unicode-陷阱与可逆的精确条件">3.3　Unicode 陷阱与"可逆"的精确条件</h3>
+<p><strong>用户眼里的一个"字"，可能是多个 code point、更多 byte</strong>——这是所有 offset/长度 bug 的祖宗：</p>
+<ul><li><strong>组合字符</strong>：<code>é</code> 可以是单 code point U+00E9，也可以是 <code>e</code>+U+0301（组合重音）——NFC 把后者规范合成为前者（单码点形式保持不变）；不做 normalization 时，两种写法在覆盖完备且保真的 tokenizer 下产生<strong>不同 token 序列</strong>；</li><li><strong>兼容字符</strong>：NFKC 把全角 <code>Ａ</code>→<code>A</code>、<code>①</code>→<code>1</code>（方便检索，但<strong>有损</strong>——原文写法永久丢失）；</li><li><strong>emoji ZWJ 序列</strong>：👨‍👩‍👧 是 5 个 code point（3 个 emoji + 2 个 U+200D 零宽连接符）= 18 个 UTF-8 byte，却是 1 个 grapheme cluster（用户感知的"1 个字符"）；</li><li><strong>variation selector</strong>（U+FE0F 等）、零宽空格 U+200B、不可见控制符：肉眼不可见，却真实影响 token 序列（前提是 normalizer 保留它们且词表覆盖；覆盖不足则塌成 <code>&lt;unk&gt;</code>）——安全审计和去重要同时检查 raw 与 normalized 两层。</li></ul>
+<p><strong>双向可逆性的条件</strong>（面试高频追问）：</p>
+<ul><li><code>decode(encode(x)) == x</code> <strong>并非默认成立</strong>。本质要求是<strong>整条 encode→decode 管线在目标输入域上信息保真</strong>：normalizer/pre-tokenizer 不丢信息、无 <code>&lt;unk&gt;</code> 吞字（byte 字母表或 byte fallback 兜底）、special/post-processing 行为对称、decoder 不做 cleanup"美化"。工程上最常用的一组<strong>充分配置</strong>：identity normalization（NFKC 一步就毁）+ 空白保真（dummy prefix / 连续空白折叠关掉）+ 完整覆盖 + 关闭 decoder cleanup——注意这是常用配置而非逻辑充要条件（如 dummy prefix 若能被 decoder 对称移除，也不破坏往返；反过来还要求 <code>▁</code> 这类内部标记/special surface 的转义是单射，否则原文里的字面 <code>▁</code> 会与空格转义碰撞）；</li><li><code>encode(decode(ids)) == ids</code> <strong>一般不保证</strong>：多个非规范 token 序列可以 decode 出同一字符串（<code>[&quot;a&quot;,&quot;b&quot;]</code> 和 <code>[&quot;ab&quot;]</code> 都还原 <code>&quot;ab&quot;</code>），re-encode 只会给出规范切分。这种 ID 往返不保真（encode∘decode 是 canonicalization——在典型规范化配置下它通常是幂等的）与 §5.4 的 prefix instability 是相关但不同的两个性质——后者才是 token healing 的直接根源。</li></ul>
+<h2 id="4-训练语料词表大小多语言与扩词表">§4 训练语料、词表大小、多语言与扩词表</h2>
+<h3 id="41-tokenizer-的训练语料设计常比选哪个算法更重要">4.1　tokenizer 的训练语料设计常比"选哪个算法"更重要</h3>
+<p>同一个 BPE 算法，喂不同语料训出的 tokenizer，fertility 可以差出数倍。实际要设计的旋钮：</p>
+<ul><li><strong>语言配比</strong>：tokenizer 语料里某语言占比低 → 该语言 merge 少 → fertility 高 → 同样内容烧更多 token（成本、上下文窗口双重惩罚）；</li><li><strong>代码/数学占比</strong>：决定缩进、运算符、常见标识符是否有整 token（§5.2）;</li><li><strong>去重与清洗</strong>：重复模板文本会把无意义长串顶进词表（glitch token 温床，§5.3）；</li><li><strong>normalization 一致性</strong>：训 tokenizer 和训模型必须用同一套 normalization，否则线上线下切分不一致；</li><li><strong>训练器旋钮按实现分</strong>：<code>character_coverage</code>/special 槽位是 SentencePiece 式旋钮，<code>min_frequency</code> 是 HF tokenizers 式 BPE/WordPiece trainer 旋钮；byte-level BPE 的基础覆盖固定为 256 bytes——别把旋钮笼统安到所有训练器头上。</li></ul>
+<h3 id="42-词表大小一笔两头的账">4.2　词表大小：一笔两头的账</h3>
+<p>设 hidden size 为 $d$、词表大小为 $V$：<strong>输入 embedding $\approx Vd$ 参数；输入输出不共享（untied）时再加一份 $Vd$ 的输出投影，合计 $\approx 2Vd$</strong>。共享（tied）省参数，但输出端 full softmax 的<strong>计算</strong>规模仍与 $Vd$ 相关。具体感受量级（$d=4096$）：$V=32{,}000$ 时 $Vd\approx 1.3$ 亿参数；$V=128{,}256$ 时 $Vd\approx 5.3$ 亿——untied 再翻倍。</p>
+<p>另一头：<strong>其他条件相同、词表近似增量扩展时，V 越大、merge 越多、fertility 通常越低 → 同一文本 token 数越少</strong> → attention（$\propto L^2$）、激活、KV cache（$\propto L$）、生成步数全线受益。两头方向相反，所以：</p>
+<blockquote><p>🎯 <strong>判断词表大小不看单一指标</strong> 端到端比较 tokens/s、首 token 延迟、显存占用和任务质量，而不是只看"压缩率"或只看"embedding 参数量"。32k→100k→128k→200k→256k <strong>不是行业单调时间趋势</strong>，而是语言覆盖、代码占比、模型宽度（$d$ 大才养得起大 $V$）、部署预算共同决定的<strong>多种设计点</strong>。</p></blockquote>
+<h3 id="43-主流词表事实表五个数字别混">4.3　主流词表事实表：五个数字别混</h3>
+<p><strong>同一个 tokenizer 有五个容易混淆的量</strong>：普通（mergeable）token 数、special token 数、<code>len(tokenizer)</code>、最大 token ID+1（可以有空洞）、模型 embedding 行数（可为对齐 padding 到更大值）。它们在下表里<strong>并不总相等</strong>。两条换算：<strong>有效条目数 = mergeable 数 + special 数</strong>；tiktoken 的 <code>n_vocab</code> = <strong>max ID + 1</strong>（ID 有空洞时它大于有效条目数），HF 的 <code>len(tokenizer)</code> 还受 added-token 语义影响：</p>
+<table><thead><tr><th>Tokenizer</th><th>普通/mergeable token</th><th>special token（公开）</th><th>tokenizer 有效条目</th><th>模型 vocab_size（embedding 行）</th></tr></thead><tbody><tr><td>bert-base-uncased（WordPiece）</td><td>30,517（含 ~1k <code>[unused]</code> 占位）</td><td>5（<code>[PAD]</code> <code>[UNK]</code> <code>[CLS]</code> <code>[SEP]</code> <code>[MASK]</code>）</td><td>30,522</td><td>30,522</td></tr><tr><td>bert-base-cased</td><td>28,991（同口径）</td><td>5</td><td>28,996</td><td>28,996</td></tr><tr><td>GPT-2（byte-level BPE）</td><td>50,256（256 byte 符号 + 约 5 万 merge）</td><td>1（end-of-text 记号）</td><td>50,257</td><td>50,257</td></tr><tr><td>cl100k_base（tiktoken）</td><td>100,256</td><td>5</td><td>100,261；<strong>max ID+1 = 100,277（ID 有空洞）</strong></td><td>—（API 模型未公开）</td></tr><tr><td>o200k_base（tiktoken）</td><td>199,998</td><td>2</td><td>200,000；<strong>max ID+1 = 200,019</strong></td><td>—</td></tr><tr><td>Llama 2（SentencePiece BPE）</td><td>31,997（含 256 个 byte pieces）</td><td>3 meta pieces（<code>&lt;unk&gt;</code> UNKNOWN；<code>&lt;s&gt;</code> <code>&lt;/s&gt;</code> CONTROL）</td><td>32,000</td><td>32,000</td></tr><tr><td>Llama 3（tiktoken 风格 byte-level BPE）</td><td>128,000</td><td>256（保留 special 槽）</td><td>128,256</td><td>128,256</td></tr><tr><td>Qwen2 / Qwen2.5</td><td>151,643</td><td>3 核心对话标记</td><td>151,646</td><td><strong>151,936</strong>（0.5B–3B）/ <strong>152,064</strong>（7B+）——随 checkpoint 尺寸 padding，两代同规律</td></tr><tr><td>Gemma 1 / Gemma 2（SentencePiece）</td><td>—</td><td>—</td><td>256,000（配置值）</td><td>256,000</td></tr><tr><td>Gemma 3</td><td>—</td><td>—</td><td>262,144（$=2^{18}$，base tokenizer）</td><td>262,208（4B/12B/27B 文本配置；1B 口径按 checkpoint 核对）</td></tr></tbody></table>
+<p>必须能展开讲的几行（special 的字面写法含竖线、与表格分隔符冲突，故表中从略：GPT-2 唯一 special 是 <code>&lt;|endoftext|&gt;</code>；Qwen 的 3 核心是 <code>&lt;|endoftext|&gt;</code>、<code>&lt;|im_start|&gt;</code>、<code>&lt;|im_end|&gt;</code>）：</p>
+<ul><li><strong>cl100k/o200k 的"词表大小"有两种答案</strong>：有效条目数（100,261 / 200,000）和 max ID+1（100,277 / 200,019）——ID 空间有空洞，<code>n_vocab</code> 不等于"实际可用 token 数"。说"GPT-4o 词表 200,019"和"o200k 有 20 万个有效 token"描述的是<strong>不同的量</strong>；GPT-4o 用 o200k 系 encoding 是合理表述，但公开的 <code>o200k_base</code> 不一定含服务端 chat 协议的全部隐藏处理，模型↔encoding 映射应按版本冻结核对；</li><li><strong>Llama 3 不是 Llama 2 扩容</strong>：Llama 2 用 SentencePiece BPE（32,000）；Llama 3 换成 Meta 自训、以 tiktoken 风格实现加载的 byte-level BPE（128,000 普通 + 256 保留 special = 128,256）。"tiktoken-based"说的是<strong>实现接口与 byte-level BPE 形式</strong>，不是复用 OpenAI 的 merge 词表——它不是 cl100k_base 的复制品；</li><li><strong>Qwen 的三组数</strong>：基础词表 151,643、<code>len(tokenizer)</code> 151,646（+3 核心 special）、embedding 行 <strong>151,936（0.5B–3B）/ 152,064（7B 及以上）</strong>——embedding 行数是模型侧按 checkpoint 尺寸 padding 的，Qwen2 与 Qwen2.5 同规律，以具体 checkpoint 的 <code>config.vocab_size</code> 为准。多模态变体（如视觉版）还会加视觉 special token，"Qwen 词表是多少"必须先问口径；</li><li><strong>"BERT 是 30k"只是近似</strong>：uncased 30,522 / cased 28,996；<strong>"Gemma 永远 256k"不准确</strong>：Gemma 3 base tokenizer 是 262,144（$2^{18}$），而 4B/12B/27B 文本配置的 embedding 行是 262,208——又一例"tokenizer 大小 $\ne$ embedding 行数"。</li></ul>
+<h3 id="44-多语言中文不是按字还是按词的二选一">4.4　多语言：中文不是"按字还是按词"的二选一</h3>
+<p>现代 BPE/Unigram 词表里，中文 token 同时混着<strong>单个汉字、多字词（高频如"我们""人工智能"）、byte fallback 碎片（罕见字被拆成 3–4 个 <code>&lt;0xXX&gt;</code>——BMP 汉字 3 byte、补充平面 4 byte）、标点组合</strong>——"中文按字切"是过时印象。评价一个 tokenizer 的中文效率，回到 §1.2：同一语料上报 bytes/token、chars/token，要报 tokens/word 就先声明外部分词器（不同分词标准下"词"数差异可观）。跨语言公平性还有一层：tokenizer 语料配比显著影响各语言 fertility（§4.1）——同一个模型，低资源语言的用户实际按 token 计费更贵、可用上下文更短。</p>
+<h3 id="45-扩词表改-tokenizer-文件只是第一步">4.5　扩词表：改 tokenizer 文件只是第一步</h3>
+<p>给已有 LLM 扩词表（领域术语、新语言、agent 控制符），<strong>光改 tokenizer 不会让模型理解新 token</strong>，完整清单：</p>
+<ol><li><strong>保住旧世界</strong>：旧 token ID、旧 merge rank、normalization 全部冻结不动——若新增<strong>普通</strong> token 参与最长匹配/merge，它可能改变旧文本的切分（backward compatibility 崩坏）；控制符类新 token 走 <strong>special 通道</strong>（原子匹配、明确边界）；领域词/新语言 piece 则是普通 lexical token——本来就该参与正常切分，代价是旧文本切分可能改变，用回归测试圈定兼容域，而不是一律标成 special（会被 <code>skip_special_tokens</code> 吞掉、还扩大注入面）；</li><li><strong>resize 两端</strong>：embedding 和 LM head 都要扩行；权重 tied 时确认扩容后仍共享同一参数；optimizer state（Adam 的 $m,v$）同步扩；</li><li><strong>初始化</strong>：普通 lexical token 用其 surface 旧切分 embedding 的均值；special/控制符（surface 无有意义旧切分）用描述文本（description proxy）旧切分的均值——都是常用启发式基线（动机是让新行起点接近旧切分语义）；untied 时输出行/bias 需单独初始化；</li><li><strong>继续训练</strong>：新 embedding 行需要梯度喂养，只 mean-init 不训练 = 半个 glitch token；</li><li><strong>回归测试</strong>：旧测试集 re-encode 必须逐 ID 一致、special token 行为不变、round-trip 行为与扩表前一致（基线本来可逆的样本才断言等于原文）——§7 脚本的 [D08] 是这套 regression test 的最小可执行子集（覆盖 ID/special/tied，未含 decoder round-trip）。</li></ol>
+<h2 id="5-生产陷阱与推理栈交互">§5 生产陷阱与推理栈交互</h2>
+<h3 id="51-数字三代切法与算术">5.1　数字：三代切法与算术</h3>
+<p>三代数字 pre-tokenization（§3.1 的 regex 分支）：</p>
+<table><thead><tr><th>方案</th><th>代表</th><th>行为</th><th>后果</th></tr></thead><tbody><tr><td>数字串不限长</td><td>GPT-2</td><td><code>12345</code> 交给 BPE 自由 merge</td><td>组合不规则（<code>123</code>+<code>45</code>、<code>1</code>+<code>2345</code>……随频率而定），位对齐混乱</td></tr><tr><td>逐位切分</td><td>Llama 2（SentencePiece <code>split_digits</code>）</td><td>每个数字一个 token</td><td>位对齐干净，序列变长</td></tr><tr><td>至多 3 位一块</td><td>cl100k / o200k / Llama 3（<code>\p{N}{1,3}</code>）</td><td>从左到右贪心取至多 3 位（<code>12345</code>→<code>123</code>+<code>45</code>，<strong>不是</strong>右对齐千分位）</td><td>折中；<strong>块内 BPE 仍可再拆</strong>，只是不跨块合并</td></tr></tbody></table>
+<p>数字切法影响<strong>位对齐</strong>（个位对个位才好学竖式加法）与<strong>跨 token 进位</strong>——但算术能力不能单因果归到 tokenizer：训练数据里的算术占比、位置编码、是否用 CoT/工具同样关键。面试答"为什么 LLM 算术差"只怪 tokenizer 是半对；只字不提 tokenizer 也是半对。</p>
+<h3 id="52-代码空白就是语法">5.2　代码：空白就是语法</h3>
+<p>代码语料训练出的 tokenizer 通常学到<strong>多空格 run、换行+缩进组合、常见符号串</strong>的 merge——但"是否存在独立的 4 空格 token"取决于具体 merge 表，不能想当然；tab 与空格更不能默认等价（两种缩进 = 两套完全不同的 token 序列）。对 Python 这类缩进敏感语言，tokenizer 对空白的处理直接影响：补全模型的缩进正确率、同一段代码的 token 成本（上下文窗口装得下几个文件）、以及 diff/编辑类任务的边界稳定性。</p>
+<h3 id="53-glitch-token词表与语料的错配">5.3　glitch token：词表与语料的错配</h3>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>SolidGoldMagikarp（经典 glitch token，一段讲完）</strong> <strong>定义</strong>：词表中存在、但模型训练时几乎从未以该 ID 出现的 token。<strong>成因（主流解释）</strong>：tokenizer 训练语料与模型训练语料不一致（如某 Reddit 用户名进了 BPE 词表、正文却被清洗掉）→ 该行 embedding/输出行从未被充分学习。<strong>症状</strong>：模型无法复述该词、输出乱码或不可预期行为。<strong>诊断</strong>：扫描 embedding 范数异常值、让模型 repeat 候选 token。<strong>边界</strong>：它是"词表-语料错配"的个案，不是所有 GPT 模型或 byte-level tokenizer 的普遍故障。</p></div>
+<h3 id="54-prefix-instability-与-token-healing">5.4　prefix instability 与 token healing</h3>
+<p><strong>比"结尾空格问题"更一般的规律</strong>：$\text{encode}(s_1)$ <strong>未必是</strong> $\text{encode}(s_1 + s_2)$ 的 token 前缀——追加字符可能触发跨旧边界的 merge。最小例子（§7 的 [D06]）：merge 表 <code>[a+b, ab+c]</code> 下 <code>encode(&quot;ab&quot;)=[&quot;ab&quot;]</code>，但 <code>encode(&quot;abc&quot;)=[&quot;abc&quot;]</code>——前者不是后者的前缀。三个受害者：</p>
+<ul><li><strong>补全类 prompt</strong>：用户输入以 <code>&quot;The qu&quot;</code> 结尾时，结尾的未完成词可能被切出训练分布中罕见的"悬空"边界（具体切法依词表/前导空格/版本而定）——分布错位，补全质量下降；</li><li><strong>token healing</strong>（补救术）：回退最后一个（或若干可能未完成的）prompt token，把它们的字符串还给解码器，<strong>约束后续生成的 decode 前缀复现被回退的后缀</strong>（单 token 回退时即"首 token 以该后缀开头"；多 token 回退需要 trie/FSM 级的序列约束）。注意它是<strong>推理侧包装技术</strong>，不是所有模型 API 的标准能力；</li><li><strong>流式输入 / prefix cache</strong>：见 §5.7。</li></ul>
+<h3 id="55-special-token训练侧细节--注入边界">5.5　special token：训练侧细节 + 注入边界</h3>
+<p><strong>训练侧</strong>（坑比"忘加 BOS"深得多）：</p>
+<ul><li>BOS/EOS/PAD 各司其职；<strong>attention mask 和 loss mask 是两回事</strong>——PAD 通常两个都要屏蔽，对话数据常做 assistant-only loss（只在助手回复段算 loss）；</li><li><strong>把 PAD 设成 EOS 本身不一定错</strong>，真正的经典事故是随后按 <code>input_ids == pad_id</code> 无差别构造 mask，把真实 EOS 的 loss（甚至 attention）一起屏蔽 → 该数据上的 EOS 监督被移除、停止能力被显著削弱（从头训练时尤其致命）——mask 应按真实 padding 位置/序列长度构造；</li><li><strong>packing</strong>（多文档拼一条序列）要在文档边界正确放 EOS/BOS 并处理跨文档 attention；chat template 套模板时警惕<strong>重复添加 BOS</strong>（模板带一个、tokenizer <code>add_special_tokens</code> 又加一个）。</li></ul>
+<p><strong>注入边界</strong>：用户文本里出现字面量 <code>&lt;|assistant|&gt;</code> 时，它被编码成 special ID 还是普通文本，<strong>取决于 API</strong>——前提是该字符串已在 encoding 中注册为 special（<code>allowed_special</code> 只做准入、不会凭空造 special ID）；tiktoken 对"已注册但未准入"的 special 默认报错（放宽 <code>disallowed_special</code> 才按普通文本切），HF 接口则看 special token 配置与模板转义。这既是 correctness 问题（模板拼装错乱），也是 <strong>prompt injection 边界</strong>：渲染用户输入前必须明确"字面量到底会不会变成控制符"，并写测试钉死。</p>
+<h3 id="56-offset-mapping多套坐标系">5.6　offset mapping：多套坐标系</h3>
+<p>抽取式 QA、NER、代码编辑器、高亮工具都要回答"这个 token 对应原文哪一段"。坑在于存在<strong>多套坐标</strong>：normalized text 的字符偏移、原始文本的 Unicode code point 偏移、原始文本的 UTF-8 byte 偏移（一些运行时还有 UTF-16 code unit 与 grapheme cluster 口径）——NFKC 这类有损 normalization 会改写字符（<code>ﬃ</code>→<code>ffi</code> 是 1→3 个 code point；<code>Ａ</code>→<code>A</code> 是字符值与 byte 长度变、code point 数不变），没有 alignment map 时 normalized 偏移就<strong>对不回</strong>原文；emoji/组合字符再让 code point 与"用户感知字符"脱节（§3.3）。注意 NFC 也不保证 code-point 保长（<code>e</code>+U+0301 → <code>é</code> 是 2→1）。工程解法：优先 identity/近保真 normalization、保留 normalization 的 <strong>alignment map</strong>（可处理一对多/多对一 span）、要求 tokenizer 返回 offset mapping（如 fast tokenizer 的 <code>return_offsets_mapping</code>），并在评测里同时核对 byte 与 code point 两套口径。</p>
+<h3 id="57-推理栈哪些组件要求-tokenizer-对齐">5.7　推理栈：哪些组件要求 tokenizer 对齐</h3>
+<table><thead><tr><th>组件</th><th>对 tokenizer 的要求</th><th>原因</th></tr></thead><tbody><tr><td><strong>speculative decoding</strong>（经典逐 token 拒绝采样）</td><td>draft 与 target <strong>同一可对齐 token 支持</strong></td><td>逐 token 比较 $p_{\text{target}}$ 与 $p_{\text{draft}}$，词表不同则概率不可比；异 tokenizer 需 retokenization/字符串级桥接（已非最基础算法）</td></tr><tr><td><strong>logit 蒸馏</strong>（逐位置 KL）</td><td>词表 <strong>且</strong> 位置都对齐</td><td>每个位置的分布支撑必须相同；sequence-level 蒸馏与字符级目标可跨 tokenizer，hidden-state matching 需先做 span 对齐/pooling</td></tr><tr><td><strong>KV / prefix cache</strong></td><td>同一字符串 → <strong>同一 token-ID 前缀</strong></td><td>命中按精确 ID 前缀；tokenizer 改动本身不"抽象地破坏 cache"，真正的失效条件是同一字符串变成不同 ID 序列、chat template 变了、或模型权重/位置状态变了</td></tr><tr><td><strong>BPB 评测</strong>（§1.3）</td><td>同一份 byte 流口径</td><td>有损 normalization 先统一，否则比较无意义</td></tr></tbody></table>
+<h3 id="58-tokenizer-版本化只存-vocabjson-是复现事故的开始">5.8　tokenizer 版本化：只存 vocab.json 是复现事故的开始</h3>
+<p>要<strong>精确复现输入 ID</strong>，必须一起版本化：normalization 配置、pre-tokenization regex、merge 表/词表文件、special-token 映射与 added-token 元数据（<code>lstrip/rstrip/normalized</code> 等）、post-processor/decoder 配置、chat template、库与实现版本，以及以上所有 artifact 的<strong>哈希</strong>。只保存一个 <code>vocab.json</code>（丢了 merge 顺序与切块规则）→ 半年后同一文本切出不同 ID，训练/评测/缓存全线静默漂移。把 tokenizer 当模型权重一样对待：进版本管理、进实验记录、变更走 regression test（§4.5 清单）。</p>
+<h2 id="6-tokenizer-free-前沿">§6 Tokenizer-free 前沿</h2>
+<p>"tokenizer-free"的准确含义：<strong>不依赖预训练的 subword 词表</strong>——它们仍需要 UTF-8 byte 编码、special ID、序列分块或 patching，并没有"没有任何离散化"这回事。三条主线：</p>
+<ul><li><strong>ByT5</strong>（Xue et al., 2021, arXiv 2105.13626）：mT5 架构直接吃 UTF-8 bytes（词表 = 256 + specials）。收益：对拼写扰动/噪声更鲁棒、embedding 表几乎免费、天然零 OOV；代价：同一文本序列长数倍，训练与推理都慢，需要更重的 encoder 配比。</li><li><strong>MegaByte</strong>（Yu et al., 2023, arXiv 2305.07185）：<strong>固定大小 byte patch</strong> 分层——global Transformer 建模 patch 序列、轻量 local 模型在 patch 内逐 byte 预测，把 $O(L^2)$ 的大头摊到 patch 粒度。不是"把所有 byte 直接丢给一个普通 Transformer"。</li><li><strong>BLT（Byte Latent Transformer）</strong>（Pagnoni et al. (Meta), 2024, arXiv 2412.09871）：<strong>动态 patch</strong>——用轻量 next-byte entropy 模型判边界，<strong>高不可预测区域切得更密</strong>（难的地方多花算力，简单区域大步跨过）；local byte encoder 聚合 patch → global latent Transformer 处理 patch 序列 → local decoder 逐 byte 生成。patch 平均长度可调，等效"每 FLOP 处理的 byte 数"可与 subword 模型竞争。</li></ul>
+<table><thead><tr><th>模型</th><th>输入粒度</th><th>分块机制</th><th>主要面向</th><th>一句话局限</th></tr></thead><tbody><tr><td>ByT5</td><td>UTF-8 byte</td><td>无（全 byte 序列）</td><td>seq2seq 理解+生成</td><td>序列长、慢</td></tr><tr><td>MegaByte</td><td>byte</td><td><strong>固定</strong> patch</td><td>自回归生成</td><td>patch 边界与内容无关</td></tr><tr><td>BLT</td><td>byte</td><td><strong>entropy 动态</strong> patch</td><td>自回归生成</td><td>需额外 entropy 模型、生态新</td></tr><tr><td>CANINE（Clark et al., 2021, arXiv 2103.06874）</td><td>Unicode code point</td><td>哈希 embedding + 下采样</td><td><strong>理解任务</strong> encoder</td><td>非自回归 byte LM，不宜混为一谈</td></tr></tbody></table>
+<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>"tokenizer-free 已经解决规模化"仍是过强表述</strong> 层次化 byte 模型确实缓解了长序列成本、展示了有竞争力的 scaling 曲线，但训练效率、推理引擎支持、缓存粒度（prefix cache 按什么命中？）和成熟部署工具链仍是现实障碍。面试的稳妥立场：<strong>看好方向、承认工程差距</strong>，并能讲出 BLT 的 entropy patching 与 MegaByte 固定 patch 的本质差别。</p></div>
+<h2 id="7-从零实现纯-python-标准库">§7 从零实现（纯 Python 标准库）</h2>
+<p>完整可跑脚本见 <a href="code/tokenization.py"><code>code/tokenization.py</code></a>（纯标准库、无 torch、CPU 秒级跑完 8 个 demo [D01]–[D08]）。两个教学简化要心里有数：脚本里的 toy BPE 是 <strong>codepoint 级</strong>（初始符号 = Unicode 字符、无 pre-tokenization；真实 GPT-2 先 regex 切块、块内 byte 映射后再 BPE，见 §3.1，[D01] 单独演示那层 byte 代理）；Unigram 两条 DP 用线性概率便于对读 §2.3 手算表，生产实现应换 <strong>log 空间</strong>防下溢。另两处 toy 范围：脚本的 toy BPE 不冻结基础字母表（未见字符直接成为基础 token；真实实现要么 byte 兜底要么 <code>&lt;unk&gt;</code>）；[D05] 的 <code>byte_fallback()</code> 演示的是 byte 表示与还原本身（无条件拆 byte），真实 SentencePiece 只对普通 piece 覆盖不了的 span 兜底。正文只展示四个核心 demo 的关键代码段；WordPiece 整词 <code>[UNK]</code>（[D03]）、NFKC vs byte fallback（[D05]）、prefix instability（[D06]）、扩词表 regression test（[D08]）作为短测试函数并入同一脚本，不再贴出。</p>
+<p><strong>[D01] GPT-2 式 256-byte 可逆映射</strong>（§3.1 的代理字母表，含 <code>0x20 → Ġ</code>）：</p>
+<pre><code class="language-python">def bytes_to_unicode():
+    &quot;&quot;&quot;可打印 byte 保留原字符，其余 68 个 byte 平移到 chr(256+n)——256↔256 双射。&quot;&quot;&quot;
+    bs = (list(range(ord(&quot;!&quot;), ord(&quot;~&quot;) + 1)) + list(range(ord(&quot;¡&quot;), ord(&quot;¬&quot;) + 1))
+          + list(range(ord(&quot;®&quot;), ord(&quot;ÿ&quot;) + 1)))
+    cs = bs[:]
+    n = 0
+    for b in range(256):
+        if b not in bs:
+            bs.append(b)
+            cs.append(256 + n)                 # 不可打印 byte → 平移进可打印区
+            n += 1
+    return dict(zip(bs, [chr(c) for c in cs]))
+
+B2U = bytes_to_unicode()
+U2B = {u: b for b, u in B2U.items()}
+
+assert len(B2U) == 256 and len(set(B2U.values())) == 256   # 双射 → 可逆
+assert B2U[0x20] == &quot;Ġ&quot;                                    # 空格 byte 的代理字符
+s = &quot; A\n中文🙂\x00&quot;                                        # 含空格/换行/CJK/emoji/控制符
+units = &quot;&quot;.join(B2U[b] for b in s.encode(&quot;utf-8&quot;))
+assert bytes(U2B[u] for u in units).decode(&quot;utf-8&quot;) == s   # 任意 UTF-8 严格往返</code></pre>
+<p><strong>[D02] BPE：训练记录有序 merge，编码只查冻结 rank</strong>（§2.1 手算例子的可执行版）：</p>
+<pre><code class="language-python">def bpe_train(word_freqs, num_merges):
+    &quot;&quot;&quot;训练：每轮选最高频相邻 pair（tie-break：频次降序→字典序），按序记录 merge。&quot;&quot;&quot;
+    words = {tuple(w): f for w, f in word_freqs.items()}
+    merges = []
+    for _ in range(num_merges):
+        counts = Counter()
+        for w, f in words.items():
+            for i in range(len(w) - 1):
+                counts[(w[i], w[i + 1])] += f
+        if not counts:
+            break
+        pair = min(counts.items(), key=lambda kv: (-kv[1], kv[0]))[0]
+        merges.append(pair)                    # 顺序 = rank = 编码时的优先级
+        words = {merge_word(w, pair): f for w, f in words.items()}
+    return merges
+
+def bpe_encode(text, merges):
+    &quot;&quot;&quot;编码：只应用冻结的 merge rank——每次合并 rank 最小的可用 pair（最左优先），
+    绝不在输入上重新统计频率。&quot;&quot;&quot;
+    rank = {p: i for i, p in enumerate(merges)}
+    seq = list(text)
+    while len(seq) &gt; 1:
+        best_rank, best_i = math.inf, -1
+        for i in range(len(seq) - 1):
+            r = rank.get((seq[i], seq[i + 1]), math.inf)
+            if r &lt; best_rank:
+                best_rank, best_i = r, i
+        if best_rank == math.inf:
+            break
+        seq = seq[:best_i] + [seq[best_i] + seq[best_i + 1]] + seq[best_i + 2:]
+    return seq
+
+merges = bpe_train({&quot;abab&quot;: 3, &quot;abac&quot;: 1}, num_merges=3)
+assert merges[0] == (&quot;a&quot;, &quot;b&quot;)                 # §2.1 手算：pair 频次 7 = 2×3 + 1×1
+text = &quot;ababac&quot;
+assert &quot;&quot;.join(bpe_encode(text, merges)) == text            # round-trip
+assert bpe_encode(text, merges) == bpe_encode(text, merges) # 确定性
+# rank 语义钉死：即使 (b,c) 也可用，rank 0 的 (a,b) 先行 —— 不是&quot;重新选更频繁的&quot;
+assert bpe_encode(&quot;abc&quot;, [(&quot;a&quot;, &quot;b&quot;), (&quot;b&quot;, &quot;c&quot;)]) == [&quot;ab&quot;, &quot;c&quot;]
+assert bpe_encode(&quot;abc&quot;, [(&quot;b&quot;, &quot;c&quot;), (&quot;a&quot;, &quot;b&quot;)]) == [&quot;a&quot;, &quot;bc&quot;]   # rank 反转，结果跟着 rank 走</code></pre>
+<p><strong>[D04] Unigram：Viterbi 最优路径 vs forward 全切分边际</strong>（§2.3 DP 表的可执行版）：</p>
+<pre><code class="language-python">def viterbi(s, p):
+    &quot;&quot;&quot;最优单一切分：argmax 各 piece 概率之积。&quot;&quot;&quot;
+    best = [(1.0, [])] + [None] * len(s)
+    for i in range(1, len(s) + 1):
+        cands = [(best[j][0] * p[s[j:i]], best[j][1] + [s[j:i]])
+                 for j in range(i) if s[j:i] in p and best[j] is not None]
+        best[i] = max(cands) if cands else None
+    return best[len(s)][1]
+
+def forward_prob(s, p):
+    &quot;&quot;&quot;P(s) = 对所有切分求和（边际概率），forward DP——它是 E-step 的 forward-backward 中的前半。&quot;&quot;&quot;
+    f = [1.0] + [0.0] * len(s)
+    for i in range(1, len(s) + 1):
+        for j in range(i):
+            if s[j:i] in p:
+                f[i] += f[j] * p[s[j:i]]
+    return f[len(s)]
+
+p = {&quot;a&quot;: .15, &quot;b&quot;: .15, &quot;ab&quot;: .40, &quot;aba&quot;: .20, &quot;bab&quot;: .10}
+assert viterbi(&quot;abab&quot;, p) == [&quot;ab&quot;, &quot;ab&quot;]                    # 最优路径，概率 0.16
+assert abs(forward_prob(&quot;abab&quot;, p) - 0.22350625) &lt; 1e-12     # §2.3 DP 表的 f4
+assert forward_prob(&quot;abab&quot;, p) &gt;= math.prod(p[x] for x in viterbi(&quot;abab&quot;, p))</code></pre>
+<p><strong>[D07] fertility 与 BPB</strong>（§1.2/§1.3 指标口径的可执行版）：</p>
+<pre><code class="language-python">texts = [&quot;def add(x): return x + 1&quot;, &quot;把变量加一🙂&quot;]        # 中英代码混合语料
+total_bytes = sum(len(t.encode(&quot;utf-8&quot;)) for t in texts)
+char_toks = sum(len(list(t)) for t in texts)                 # char 分词
+byte_toks = sum(len(t.encode(&quot;utf-8&quot;)) for t in texts)       # byte 分词
+merges7 = bpe_train({t: 1 for t in texts}, num_merges=12)    # 在语料自身上训 12 条 merge
+bpe_toks = sum(len(bpe_encode(t, merges7)) for t in texts)   # toy-BPE（12 merges）
+assert byte_toks / total_bytes == 1.0        # byte 分词 fertility 恒为 1 token/byte
+assert char_toks &lt; byte_toks                 # CJK/emoji 每字 3–4 byte → char 更省
+assert bpe_toks &lt; char_toks                  # merge 进一步压缩（micro-average 口径）
+
+nll, n_bytes = 4.0, 8                        # 同一文本、同样总 NLL（nats）、8 bytes
+loss_per_token_a, loss_per_token_b = nll / 2, nll / 4        # 2 个 vs 4 个 token
+bpb_a = (2 * loss_per_token_a) / (n_bytes * math.log(2))     # 从 loss/token 独立换算回 BPB
+bpb_b = (4 * loss_per_token_b) / (n_bytes * math.log(2))
+assert loss_per_token_a == 2.0 and loss_per_token_b == 1.0   # loss/token 差一倍
+assert bpb_a == bpb_b == 4.0 / (8 * math.log(2))             # BPB 却完全相同</code></pre>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>四段代码各钉死一个高频误区</strong> [D01]：byte-level 的"零 OOV"来自完整 256-byte 基础字母表全部进词表（双射只保证代理映射可逆）；[D02]：<strong>编码只查 rank</strong>，不重新统计频率；[D04]：<strong>边际概率 $\geq$ 最优路径概率</strong>——E-step 需要 forward-backward 的后验期望计数（D04 演示其中的边际量 forward），推理才用 Viterbi；[D07]：<strong>同一总 NLL 下，仅 token 数不同就能让 loss/token 差数倍</strong>——跨 tokenizer 比较用 BPB。</p></div>
+<h2 id="8-25-高频面试题">§8 25 高频面试题</h2>
+<p>按难度分三档，点开看答案要点 + 易踩坑。L2/L3 是顶级 lab 深水区（训练 vs 编码语义、BPB 推导、扩词表系统设计、推理栈对齐、tokenizer-free）。答题时<strong>不再重复正文推导</strong>，按"框架 → 关键公式 → 常见错误"组织即可。</p>
+<h3 id="l1必会题">L1必会题</h3>
+<details>
+
+<summary>Q1. 为什么 LLM 用 subword，而不是 word-level 或 char-level？</summary>
+<ul><li>word-level：OOV + 词表爆炸 + 形态变化不共享统计强度</li><li>char/byte-level：byte-level 零 OOV（char-level 覆盖不全仍可 OOV）但序列长数倍，attention $O(L^2)$ / KV cache 遭殃</li><li>subword：高频词整存、低频词拆碎、byte 兜底 → 词表可控 + 强覆盖（§1.1）</li></ul>
+<p>只答"折中"不给两端的具体代价；或不知道零 OOV 需要完整字母表兜底（实践中即 byte 字母表/byte fallback）才成立。</p>
+</details>
+<details>
+
+<summary>Q2. 手写 BPE：训练和 encode 分别怎么做？（最高频手写题）</summary>
+<ul><li>训练：迭代统计相邻 pair 加权频次 → 合并最高频者 → <strong>按序记录 merge 表</strong>（tie-break 要确定性）</li><li>encode：按<strong>冻结 rank</strong> 反复合并"当前 rank 最小的可用 pair"——不重新统计频率、不是最长匹配</li><li>decode：token 字符串直接拼接（byte-level 再还原 UTF-8；真实系统还要处理 <code>▁</code>/<code>@@</code> 这类 BPE 边界标记）；另记：merge 不跨 pre-tokenization 块边界，重叠 pair 按"从左到右非重叠"替换</li></ul>
+<p>把 encode 写成"每次合并当前输入中最高频的 pair"——训练与编码语义混淆，是这道题的第一死因（§2.1）。</p>
+</details>
+<details>
+
+<summary>Q3. 为什么 byte-level BPE 基本没有 OOV？代价是什么？</summary>
+<ul><li>初始字母表 = 完整 256 bytes，任何有效 UTF-8 文本都能拆到 byte 级 → 强覆盖保证</li><li>GPT-2 用 <code>bytes_to_unicode</code> 双射把 byte 映射成可打印代理字符再跑 BPE（§3.1）</li><li>代价：罕见 Unicode 文本 fertility 高（低资源语言被拆碎）、byte 序列更长；normalization 若有损仍会改写原文</li></ul>
+<p>以为"没有 OOV"是 BPE 算法本身的性质（其实是 byte 字母表的性质）；或不知道代理字母表只是实现桥梁。</p>
+</details>
+<details>
+
+<summary>Q4. token 可视化里的 Ġ 和 ▁ 分别是什么？</summary>
+<ul><li><code>Ġ</code>：GPT-2 代理字母表中 byte <code>0x20</code>（空格）的映射结果（U+0120）——任何空格 byte 都映射成它；常见于 token 开头是 regex 把空格附给后续块所致</li><li><code>▁</code>：SentencePiece 的 U+2581，把空格显式符号化参与建模，decode 时还原</li><li>共同点：都是序列化词表里真实存在的字符、语义都是"显式保存空白"；机制完全不同（byte remap vs 空白转义）——<code>▁</code> decode 还原的是 normalization 后的空格（dummy prefix/空白折叠下原始空白不保真）</li></ul>
+<p>只把 <code>Ġ</code>/<code>▁</code> 称作"怪字符"却说不出语义，或把两者机制混为一谈（§3.2 callout）。</p>
+</details>
+<details>
+
+<summary>Q5. WordPiece 的 `##` 前缀和 `[UNK]` 语义？</summary>
+<ul><li><code>##</code> 标记"非词首接续 subword"（<code>##ing</code>），编码用 longest-match-first</li><li>任一位置匹配失败 → <strong>整个词</strong>输出 <code>[UNK]</code>，不是保留成功前缀 + <code>[UNK]</code></li><li>例：词表 <code>{a, ##b, ##bc}</code> 时 <code>abc → [a, ##bc]</code>；去掉 <code>##bc</code> 后 <code>abc → [[UNK]]</code>（§2.2、[D03]）</li></ul>
+<p>答成 <code>[a, ##b, [UNK]]</code>——不知道 BERT-style 失败语义是整词回退。</p>
+</details>
+<details>
+
+<summary>Q6. fertility 是什么？怎么衡量一个 tokenizer 的好坏？</summary>
+<ul><li>fertility = 平均每个单位切多少 token，<strong>必须声明分母口径</strong>（狭义文献用法常特指 tokens/word；tokens/char、tokens/byte 更常称压缩率）</li><li>跨语言比较：内容/领域匹配（最好语义平行）的评测文本上报 bytes/token + chars/token +（声明外部分词器的）tokens/word + UNK rate，并分语言 macro 汇总（§1.2）</li><li>最终看端到端：同一语料总 token 数、吞吐、任务质量——tokenizer 是系统问题</li></ul>
+<p>只报一个"压缩率"数字不说口径；中文场景直接用 tokens/word 却不说分词标准。</p>
+</details>
+<details>
+
+<summary>Q7. BOS/EOS/PAD 各是干嘛的？把 PAD 设成 EOS 有问题吗？</summary>
+<ul><li>BOS 标记开始、EOS 标记结束（EOS 通常作为生成停止条件）；PAD 补齐 batch，attention mask + loss mask 双屏蔽</li><li>PAD=EOS <strong>本身不一定错</strong>（很多模型没有独立 PAD）；经典事故是按 <code>input_ids==pad_id</code> 无差别构造 mask，把真实 EOS 的 loss/attention 一起屏蔽 → EOS 监督被移除、停止能力被显著削弱（从头训练尤甚）——mask 应按真实 padding 位置构造</li><li>相关坑：chat template 与 <code>add_special_tokens</code> 重复加 BOS；packing 时文档边界的 EOS/attention 处理（§5.5）</li></ul>
+<p>背"PAD=EOS 是错的"这种绝对化结论，说不出真正的失效链条（EOS 的 loss 被误屏蔽）。</p>
+</details>
+<details>
+
+<summary>Q8. `decode(encode(x)) == x` 一定成立吗？反过来呢？</summary>
+<ul><li>不一定。本质是整条管线信息保真：normalizer 不丢信息、无 <code>&lt;unk&gt;</code>、special/post-processing 对称、decoder 不 cleanup；常用配置 = identity normalization + 空白保真 + byte 兜底 + 关 cleanup + 内部标记/special surface 转义单射（§3.3）</li><li>NFKC 一步就有损：<code>Ａ①</code> → <code>A1</code>，原文永久丢失（byte fallback 也救不回）</li><li><code>encode(decode(ids)) == ids</code> <strong>一般不成立</strong>：非规范 token 序列 decode 出同一字符串，re-encode 只回规范切分</li></ul>
+<p>以为可逆是默认福利；或没意识到第二个方向（ids 往返）根本不保证；或把这种 ID 往返不保真（canonicalization，典型配置下幂等）与 prefix instability（§5.4，token healing 的直接根源）混为一谈。</p>
+</details>
+<h3 id="l2进阶题">L2进阶题</h3>
+<details>
+
+<summary>Q9. BPE、WordPiece、Unigram 的核心区别？（最高频概念题）</summary>
+<ul><li>训练：BPE 数最高频 pair（贪心加法）；WordPiece 按似然改善/PMI-like score 选 merge；Unigram 从大 seed 词表 EM 估计概率 + 按似然损失剪枝（减法）</li><li>编码：冻结 rank 合并 / longest-match-first / Viterbi（可采样）</li><li>补刀：<code>[UNK]</code> 语义（整词 vs <code>&lt;unk&gt;</code> vs byte 兜底零 OOV）、随机化（BPE-dropout vs 原生采样）、训练方向与产物（§2.4 表）</li></ul>
+<p>只背"三个名字 + 谁用谁"；讲不出"训练目标和编码算法是两套独立程序"这条主线。</p>
+</details>
+<details>
+
+<summary>Q10. SentencePiece 和 Unigram 是什么关系？</summary>
+<ul><li>SentencePiece 是<strong>框架</strong>（训练+编码+normalization+序列化），<code>model_type</code> 可选 unigram/bpe/char/word——不是 Unigram 的别名</li><li>特性：从原始句子直接训练（不需语言相关预切词，但 normalization/空白转义仍存在）；<code>▁</code> 空白符号化；默认 normalizer <code>nmt_nfkc</code></li><li><code>byte_fallback=true</code> 保留 256 个 <code>&lt;0xXX&gt;</code> pieces 兜底（§3.2）</li></ul>
+<p>"SentencePiece 就是 Unigram""SentencePiece 没有任何预处理"——两个都是经典口误。</p>
+</details>
+<details>
+
+<summary>Q11. byte fallback 和 byte-level BPE 有什么区别？</summary>
+<ul><li>byte fallback（SentencePiece）：<strong>兜底</strong>——普通 Unicode pieces 覆盖不了时才退回 <code>&lt;0xXX&gt;</code> byte pieces，decode 时还原</li><li>byte-level BPE（GPT-2/Llama 3）：<strong>地基</strong>——从第一步就在完整 256-byte 字母表上学 merge</li><li>两者都给强覆盖，但 byte fallback 救不回有损 normalization 改写的原文；碎片化模式也不同（§3.2 callout、[D05]）</li></ul>
+<p>把两者当同义词；或以为 byte fallback 能恢复 NFKC 之前的原文（覆盖性 ≠ 保真性）。</p>
+</details>
+<details>
+
+<summary>Q12. 词表为什么不能无限做大？（推导题）</summary>
+<ul><li>成本端：embedding $\approx Vd$，untied 输出头再加 $Vd$；tied 省参数但 softmax <strong>计算</strong>仍 $\propto Vd$（§4.2）</li><li>收益端：V 大 →（通常）fertility 低 → 序列短 → attention $O(L^2)$/KV cache/生成步数全省</li><li>统计代价还有一头：固定语料下超大词表产生大量低频、欠训练的 embedding/输出行，削弱参数共享与组合泛化，压缩收益也递减</li><li>两头反向 → 最优 V 取决于语言覆盖、代码占比、模型宽度 $d$、部署预算；32k→256k 是设计点不是时间趋势</li></ul>
+<p>只答"embedding 变大"（漏了收益端就解释不了为什么词表一直在变大）；或把 100,277 vs 100,261 这类口径差当同一个数（§4.3）。</p>
+</details>
+<details>
+
+<summary>Q13. 数字是怎么被 tokenize 的？对算术有什么影响？</summary>
+<ul><li>三代方案：GPT-2 数字串不限长（组合不规则）→ Llama 2 <code>split_digits</code> 逐位 → cl100k/o200k/Llama 3 <code>\p{N}{1,3}</code> 至多 3 位一块（§5.1）</li><li><code>{1,3}</code> 是 pre-token 上限：块内 BPE 仍可再拆，但不跨块合并</li><li>影响位对齐与跨 token 进位；但算术能力不能单因果归 tokenizer（数据、位置编码、CoT/工具同样关键）</li></ul>
+<p>把"LLM 算术差"全部甩锅 tokenizer；或以为 <code>{1,3}</code> 保证最终 token 恰好 3 位。</p>
+</details>
+<details>
+
+<summary>Q14. subword regularization 和 BPE-dropout 分别是什么？</summary>
+<ul><li>Unigram 采样：按 $q(z)\propto P(z)^{\alpha}$ 采样 segmentation——<code>alpha</code> 是逆温度（越大越接近 Viterbi、越小越随机）；同一词不同 epoch 切法不同，数据增强 + 鲁棒性</li><li>BPE-dropout：BPE 无概率模型，编码时以概率 $p$ 随机<strong>阻断</strong>部分 merge 制造碎切分</li><li>目的相似、机制不同（采样后验 vs 阻断 merge）；标准部署通常关闭随机化、回到确定性切分（§2.3）</li></ul>
+<p>把 <code>alpha</code> 和 dropout 概率 $p$ 的语义混写（<code>alpha</code> 是逆温度，方向别说反）；或不知道 BPE 本身没有可采样的概率模型。</p>
+</details>
+<details>
+
+<summary>Q15. 如何公平比较一个 tokenizer 的中文和英文效率？</summary>
+<ul><li>拒绝单报 tokens/word：中文"词"依赖外部分词标准，口径不声明就没有可比性</li><li>用内容/领域匹配（最好语义平行）的双语语料，报 UTF-8 bytes/token、chars/token、（声明分词器的）tokens/word、UNK rate、总 token 数与端到端吞吐，并声明 macro/micro 聚合（§1.2、§4.4）</li><li>记住成因：tokenizer 训练语料的语言配比显著影响各语言 fertility——低资源语言 token 成本更高、有效上下文更短</li></ul>
+<p>用英文口径的 tokens/word 直接套中文；或不知道中文 token 实际是"单字+多字词+byte 碎片+标点组合"的混合（§4.4）。</p>
+</details>
+<details>
+
+<summary>Q16. Unigram 训练里 E-step 用什么？为什么不是 Viterbi？</summary>
+<ul><li>目标是边际似然 $P(x)=\sum_{z\in S(x)}\prod_i p(z_i)$——E-step 要用 forward-backward 汇总<strong>所有切分</strong>的后验期望计数</li><li>只取 Viterbi = hard-EM，优化的不是同一个目标；推理（确定性编码）才用 Viterbi（§2.3）</li><li>可执行直觉：[D04] 里 forward 概率 0.2235 $\gt$ 最优路径 0.16——边际和单条路径就是两个量</li></ul>
+<p>"训练和推理都用 Viterbi"——把 soft EM 写成 hard EM，这是设计审里点名的高频错误。</p>
+</details>
+<details>
+
+<summary>Q17. prefix instability 是什么？token healing 怎么救？</summary>
+<ul><li>一般规律：$\text{encode}(s_1)$ 未必是 $\text{encode}(s_1+s_2)$ 的 token 前缀——追加字符可触发跨旧边界 merge（[D06]：<code>enc(&quot;ab&quot;)=[ab]</code> 但 <code>enc(&quot;abc&quot;)=[abc]</code>）</li><li>受害者：补全 prompt 的"悬空"结尾 token（分布错位）、流式输入、prefix cache</li><li>token healing：回退最后若干可能未完成的 token，约束后续生成的 decode 前缀复现该后缀（经典单 token 情形 = 首 token 约束）；是推理侧包装，不是所有 API 标配（§5.4）</li></ul>
+<p>只知道"结尾空格"这个特例，讲不出更一般的 prefix instability；或以为 token healing 是模型能力而非推理包装。</p>
+</details>
+<details>
+
+<summary>Q18. glitch token（SolidGoldMagikarp）是怎么回事？</summary>
+<ul><li>定义：词表中存在、但模型训练时几乎从未以该 ID 出现的 token → embedding/输出行欠训练</li><li>成因（典型解释，非已证唯一机制）：tokenizer 语料与模型语料错配（进词表的文本被后续清洗掉）；症状：无法复述、乱码、异常行为</li><li>诊断：embedding 范数异常扫描、repeat 测试；边界：个案性质，不是所有 GPT/byte-level tokenizer 的普遍故障（§5.3）</li></ul>
+<p>当都市传说讲，说不出"词表-语料错配 → 欠训练 embedding"的机理链条。</p>
+</details>
+<h3 id="l3高级题">L3高级题</h3>
+<details>
+
+<summary>Q19. 推导 BPB。为什么不同 tokenizer 的 perplexity 不能直接比？</summary>
+<ul><li>loss/token 的分母（token 数）依赖 tokenizer——即使总 NLL 相同，切得碎的那边 loss/token 也更低（[D07]）；实际差异再叠加模型质量，两效应不可分</li><li>固定不变量是<strong>同一文本的 UTF-8 byte 数</strong> $B$：$\mathrm{BPB}=\frac{-\sum_i\log p(t_i\mid t_{\lt i})}{B\ln 2}$；总 NLL 相同则 BPB 相同，与切几刀无关（[D07]：loss/token 2.0 vs 1.0，BPB 同为 0.7213）</li><li>前提：两边评测的是同一 byte 流——有损 normalization 必须先统一口径（§1.3）</li></ul>
+<p>比较 PPL 时忘了 exponent 底下的"每 token"就是被比较对象本身；或不检查 normalization 是否改写了评测文本。</p>
+</details>
+<details>
+
+<summary>Q20. 如何安全地给已有 LLM 扩词表？（系统设计）</summary>
+<ul><li>冻结旧世界：旧 ID / merge rank / normalization 不动；控制符走 special 通道，领域词是普通 lexical token（会改变旧文本切分——用回归测试圈定兼容域，不要一律当 special）</li><li>resize 两端 + optimizer state：embedding、LM head、Adam 的 $m,v$ 同步扩；tied weights 确认仍共享</li><li>新行 mean-init（lexical token 用自身 surface 旧切分、special 用描述文本代理旧切分的均值）+ <strong>继续训练</strong>；扩 LM head 后新行进入 softmax 分母——旧 token 分布已变，旧集 NLL/生成行为也要回归；再加编码 regression：旧测试集逐 ID 一致、special 行为不变、round-trip 行为与扩表前一致（§4.5、[D08]）</li></ul>
+<p>只改 tokenizer 文件就以为模型认识新 token；或漏掉 LM head/optimizer state/tied 检查中的任何一个。</p>
+</details>
+<details>
+
+<summary>Q21. 哪些系统组件要求 tokenizer 对齐？分别为什么？</summary>
+<ul><li>经典 speculative decoding：draft/target 需<strong>同一可对齐 token 支持</strong>（逐 token 拒绝采样要比较两个分布）；异 tokenizer 需要专门的字符串级 proposal-verification 设计，朴素桥接不保精确等价</li><li>逐位置 logit 蒸馏：词表 + 位置都要对齐；sequence-level KD 与字符级目标可跨 tokenizer，hidden-state KD 需 span 对齐/pooling</li><li>KV/prefix cache：按<strong>精确 token-ID 前缀</strong>命中——失效条件是同一字符串变成不同 ID 序列 / template 变 / 权重变，"字符串相同"不足够（§5.7）</li></ul>
+<p>抽象地说"tokenizer 变了 cache 就坏了"，给不出精确失效条件；或不知道 sequence-level 蒸馏可以跨 tokenizer。</p>
+</details>
+<details>
+
+<summary>Q22. 设计一个 offset mapping 方案：token 如何对回原文？</summary>
+<ul><li>多套坐标：normalized text 字符偏移 / 原文 code point 偏移 / 原文 UTF-8 byte 偏移（还有 UTF-16 code unit、grapheme cluster）——明确 API 返回的是哪套（§5.6）</li><li>有损 normalization（NFKC）改写字符（<code>ﬃ</code>→<code>ffi</code> 1→3 code point；<code>Ａ</code>→<code>A</code> 值/byte 长度变、code point 数不变），无 alignment map 时对不回原文；NFC 也不保 code-point 长度（<code>e</code>+U+0301→<code>é</code> 2→1）；emoji ZWJ/组合字符让 code point 与用户感知字符脱节</li><li>方案：近保真 normalization + 保留 alignment map（处理一对多/多对一 span）+ tokenizer 原生 offset mapping + 双口径（byte 与 code point）测试；下游（NER/抽取式 QA/代码编辑）按各自坐标系消费</li></ul>
+<p>只给"用 return_offsets_mapping"一句话，不提 normalization 与 Unicode 的两层坐标错位。</p>
+</details>
+<details>
+
+<summary>Q23. 让你从头为一个新 LLM 训 tokenizer，语料和配置怎么设计？</summary>
+<ul><li>语料：语言配比（显著影响各语言 fertility；可有意重平衡低资源语言，记录配比）、代码/数学占比、去重清洗；<strong>清洗与 normalization 语义必须与模型语料一致</strong>，且词表 token 要在模型语料中有足够曝光——词表-语料错配才是 glitch token 的温床（§4.1）</li><li>配置：词表大小按 $Vd$ 账 + fertility 目标定（§4.2）；数字策略（<code>{1,3}</code> vs 逐位）；byte 兜底；special/保留槽位一次留够</li><li>验收：多语言多口径 fertility、round-trip 测试（identity 管线断言等原文，有损 normalization 断言 decode 到规范形）、小规模受控预训练比 BPB/下游质量/吞吐、regression 基线、版本化全套文件+哈希（§5.8）</li></ul>
+<p>一上来就纠结"BPE 还是 Unigram"——语料设计对最终 fertility 的影响通常大于算法选择（§4.1 主旨）。</p>
+</details>
+<details>
+
+<summary>Q24. tokenizer-free：ByT5 / MegaByte / BLT 各自机制？现实障碍？</summary>
+<ul><li>ByT5：UTF-8 byte 直入（词表 256+specials），鲁棒但序列长数倍；MegaByte：<strong>固定</strong> byte patch，global 建模 patch 序列 + local 建模 patch 内 byte，摊薄 $O(L^2)$</li><li>BLT：<strong>entropy 动态 patch</strong>——轻量 next-byte entropy 模型定边界，难预测区域 patch 更密（按难度分配算力）；local encoder → global latent Transformer → local decoder</li><li>准确表述："tokenizer-free"= 不依赖预训练 subword 词表（仍需 UTF-8/special ID/patching）；scaling 有竞争力但训练效率、推理生态、缓存粒度仍是障碍（§6）</li></ul>
+<p>把三者说成"都是把 byte 丢进 Transformer"；或宣称"tokenizer 已被解决"（§6 点名的过强表述）。</p>
+</details>
+<details>
+
+<summary>Q25. chat template 与 special token 注入：怎么防？训练侧还有什么坑？</summary>
+<ul><li>注入面：用户文本里的字面量 <code>&lt;|assistant|&gt;</code> 是否变 special ID 取决于 API（先注册、再由 <code>allowed_special</code> 准入 / 模板转义）——根本防线是<strong>分通道编码</strong>：模板控制符由代码直接注入 ID，用户内容在关闭 special 识别下单独 encode，测试只是兜底；这是 correctness + prompt injection 双重边界（§5.5）</li><li>训练侧：attention mask ≠ loss mask；assistant-only loss；packing 文档边界；模板与 tokenizer 重复加 BOS；PAD=EOS 时别把 EOS 的 loss 全屏蔽</li><li>配套：tokenizer 版本化（normalization+regex+merges+special/added-token 元数据+post-processor/decoder+chat template+库版本+哈希），只存 vocab.json 会静默漂移（§5.8）</li></ul>
+<p>只答"过滤用户输入里的特殊字符串"——不知道行为由 tokenizer API 配置决定、且训练侧 mask 错误同样致命。</p>
+</details>
+<h2 id="a-附录sanity-check">§A 附录：sanity check</h2>
+<p>本 tutorial 的从零实现应满足以下关键不变量（纯 Python 标准库、无第三方依赖、CPU 秒级，脚本见 <a href="code/tokenization.py"><code>code/tokenization.py</code></a>）：</p>
+<ol><li><strong>[D01] 256-byte 双射</strong>：<code>bytes_to_unicode</code> 恰好 256 进 256 出（injective → 可逆），188 个可打印 byte 原样、68 个平移 byte 升序进 U+0100 区（<code>0x00→U+0100</code>、<code>0x0A→Ċ</code>、<code>0x20→Ġ</code>）；含空格/换行/CJK/emoji/控制符的字符串经 UTF-8 → 代理字母表 → 逆映射 → UTF-8 严格还原。</li><li><strong>[D02] BPE 训练 vs 编码语义</strong>：语料 <code>{&quot;abab&quot;×3, &quot;abac&quot;×1}</code> 上首条 merge 必为 <code>(a,b)</code>（频次 7）；<code>decode(encode(x))==x</code>、编码确定性、token 数 $\leq$ byte 数；rank 冲突用例 <code>encode(&quot;abc&quot;)==[&quot;ab&quot;,&quot;c&quot;]</code>、rank 反转后变 <code>[&quot;a&quot;,&quot;bc&quot;]</code>（编码只跟冻结 rank 走，不做运行时重选）；<code>&quot;aaa&quot;</code> 从左非重叠合并为 <code>[&quot;aa&quot;,&quot;a&quot;]</code>。</li><li><strong>[D03] WordPiece 整词失败</strong>：<code>{a, ##b, ##bc}</code> 下 <code>abc → [a, ##bc]</code>；去掉 <code>##bc</code> 后 <code>abc → [[UNK]]</code>（不是 <code>[a, ##b, [UNK]]</code>）；<code>{a, ab, ##bc}</code> 下贪心选 <code>ab</code> 后走入死路 → 整词 <code>[UNK]</code>（贪心不回溯，尽管 <code>a</code>+<code>##bc</code> 本可成功）。</li><li><strong>[D04] Unigram 两条 DP</strong>：Viterbi 给 <code>[&quot;ab&quot;,&quot;ab&quot;]</code>（0.16）；forward 全切分边际 $=0.22350625$（独立手算验证）且 $\geq$ 最优路径概率。</li><li><strong>[D05] 覆盖 ≠ 保真</strong>：NFKC 把 <code>Ａ①</code> 改写为 <code>A1</code>（有损、不可逆）；byte fallback 把 <code>龘</code> 拆成 <code>&lt;0xE9&gt;&lt;0xBE&gt;&lt;0x98&gt;</code> 且可严格还原。</li><li><strong>[D06] prefix instability</strong>：merge 表 <code>[a+b, ab+c]</code> 下 <code>encode(&quot;ab&quot;)=[&quot;ab&quot;]</code> 不是 <code>encode(&quot;abc&quot;)=[&quot;abc&quot;]</code> 的 token 前缀。</li><li><strong>[D07] 指标口径</strong>：byte 分词 fertility 恒为 1 token/byte；中英混合语料上 toy-BPE $\lt$ char $\lt$ byte（micro-average）；同一文本 NLL=4.0 nats、8 bytes 时 loss/token 2.0 vs 1.0 而 BPB 相同。</li><li><strong>[D08] 扩词表 regression</strong>：旧 ID / 旧测试集编码 / special 行为全部不变；新 embedding 行 = 语义代理文本旧切分行的逐维均值；tied 的输入 embedding 与 LM head 仍是同一参数对象。</li></ol>
+<p>运行 <code>python3 code/tokenization.py</code> 的<strong>真实输出</strong>：</p>
+<pre><code class="language-text">[D01] bytes_to_unicode: 256/256 bijective, 0x20 -&gt; &#x27;Ġ&#x27;, roundtrip &#x27; A\n中文🙂\x00&#x27; OK  PASS
+[D02] BPE: merges=[(&#x27;a&#x27;, &#x27;b&#x27;), (&#x27;ab&#x27;, &#x27;ab&#x27;), (&#x27;a&#x27;, &#x27;c&#x27;)], encode(&#x27;ababac&#x27;)=[&#x27;abab&#x27;, &#x27;ac&#x27;], rank-conflict &#x27;abc&#x27;-&gt;[&#x27;ab&#x27;, &#x27;c&#x27;]  PASS
+[D03] WordPiece: &#x27;abc&#x27;-&gt;[&#x27;a&#x27;,&#x27;##bc&#x27;]; drop &#x27;##bc&#x27; -&gt; [&#x27;[UNK]&#x27;] (whole word)  PASS
+[D04] Unigram: viterbi=[&#x27;ab&#x27;, &#x27;ab&#x27;] (prob 0.1600), forward=0.22350625 &gt;= best path  PASS
+[D05] NFKC(&#x27;Ａ①&#x27;)=&#x27;A1&#x27; (lossy); byte_fallback(&#x27;龘&#x27;)=&lt;0xE9&gt;&lt;0xBE&gt;&lt;0x98&gt; roundtrips  PASS
+[D06] prefix instability: enc(&#x27;ab&#x27;)=[&#x27;ab&#x27;] but enc(&#x27;abc&#x27;)=[&#x27;abc&#x27;] -&gt; not a token-prefix  PASS
+[D07] fertility tokens/byte: byte=1.000, char=0.698, toy-BPE=0.419; loss/token 2.0 vs 1.0 yet BPB both 0.7213  PASS
+[D08] vocab extension: old IDs/encodings/specials unchanged, new row = mean(rows [0, 2]) = [4.0, 5.0, 6.0, 7.0], tied head intact  PASS
+
+all tokenization sanity checks passed ✓</code></pre>
+<h2 id="参考文献">📚 参考文献</h2>
+<ul><li><strong>BPE（压缩起源）</strong> — Gage, <em>A New Algorithm for Data Compression</em>, C Users Journal (1994)（<strong>无 arXiv id</strong>）.</li><li><strong>BPE for NMT</strong> — Sennrich, Haddow &amp; Birch, <em>Neural Machine Translation of Rare Words with Subword Units</em>, arXiv 1508.07909 (2015), ACL 2016.</li><li><strong>WordPiece（起源）</strong> — Schuster &amp; Nakajima, <em>Japanese and Korean Voice Search</em>, ICASSP 2012（<strong>无 arXiv id</strong>）.</li><li><strong>GNMT（WordPiece 大规模应用）</strong> — Wu et al., <em>Google's Neural Machine Translation System: Bridging the Gap between Human and Machine Translation</em>, arXiv 1609.08144 (2016).</li><li><strong>BERT</strong> — Devlin, Chang, Lee &amp; Toutanova, <em>BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding</em>, arXiv 1810.04805 (2018), NAACL 2019.</li><li><strong>Unigram LM / subword regularization</strong> — Kudo, <em>Subword Regularization: Improving Neural Network Translation Models with Multiple Subword Candidates</em>, arXiv 1804.10959 (2018), ACL 2018.</li><li><strong>SentencePiece</strong> — Kudo &amp; Richardson, <em>SentencePiece: A simple and language independent subword tokenizer and detokenizer for Neural Text Processing</em>, arXiv 1808.06226 (2018), EMNLP 2018 (System Demonstrations).</li><li><strong>T5（SentencePiece-Unigram 用户）</strong> — Raffel et al., <em>Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer</em>, arXiv 1910.10683 (2019), JMLR 2020.</li><li><strong>ALBERT（SentencePiece-Unigram 用户）</strong> — Lan et al., <em>ALBERT: A Lite BERT for Self-supervised Learning of Language Representations</em>, arXiv 1909.11942 (2019), ICLR 2020.</li><li><strong>BPE-dropout</strong> — Provilkov, Emelianenko &amp; Voita, <em>BPE-Dropout: Simple and Effective Subword Regularization</em>, arXiv 1910.13267 (2019), ACL 2020.</li><li><strong>GPT-2（byte-level BPE）</strong> — Radford et al., <em>Language Models are Unsupervised Multitask Learners</em>, OpenAI technical report (2019)（<strong>无 arXiv id</strong>）.</li><li><strong>tiktoken</strong> — OpenAI, https://github.com/openai/tiktoken（BPE 实现库，cl100k_base / o200k_base encodings；<strong>无论文</strong>）.</li><li><strong>Llama 2</strong> — Touvron et al., <em>Llama 2: Open Foundation and Fine-Tuned Chat Models</em>, arXiv 2307.09288 (2023).</li><li><strong>Llama 3</strong> — Grattafiori et al. (Meta), <em>The Llama 3 Herd of Models</em>, arXiv 2407.21783 (2024).</li><li><strong>Qwen2</strong> — Yang et al. (Qwen Team), <em>Qwen2 Technical Report</em>, arXiv 2407.10671 (2024).</li><li><strong>Gemma</strong> — Gemma Team (Google DeepMind), <em>Gemma: Open Models Based on Gemini Research and Technology</em>, arXiv 2403.08295 (2024).</li><li><strong>ByT5</strong> — Xue et al., <em>ByT5: Towards a token-free future with pre-trained byte-to-byte models</em>, arXiv 2105.13626 (2021), TACL 2022.</li><li><strong>MegaByte</strong> — Yu et al. (Meta), <em>MEGABYTE: Predicting Million-byte Sequences with Multiscale Transformers</em>, arXiv 2305.07185 (2023), NeurIPS 2023.</li><li><strong>BLT</strong> — Pagnoni et al. (Meta), <em>Byte Latent Transformer: Patches Scale Better Than Tokens</em>, arXiv 2412.09871 (2024).</li><li><strong>CANINE</strong> — Clark, Garrette, Turc &amp; Wieting, <em>CANINE: Pre-training an Efficient Tokenization-Free Encoder for Language Representation</em>, arXiv 2103.06874 (2021), TACL 2022.</li><li><strong>Speculative decoding</strong> — Leviathan, Kalman &amp; Matias, <em>Fast Inference from Transformers via Speculative Decoding</em>, arXiv 2211.17192 (2022), ICML 2023.</li><li><strong>Speculative sampling</strong> — Chen et al. (DeepMind), <em>Accelerating Large Language Model Decoding with Speculative Sampling</em>, arXiv 2302.01318 (2023).</li><li><strong>SolidGoldMagikarp（glitch tokens）</strong> — Rumbelow &amp; Watkins, <em>SolidGoldMagikarp (plus, prompt generation)</em>, LessWrong blog post (2023)（<strong>无 arXiv id</strong>，按博客出处引用）.</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/tokenization_tutorial.md</code> ·
+  SHA256 <code>8824f62111f0</code> ·
+  generated at 2026-07-10 19:56 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>
