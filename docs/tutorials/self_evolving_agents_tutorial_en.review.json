@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/self_evolving_agents_tutorial_en.md",
-  "source_sha256": "e0865db2e08574d13746f43f1fe3f322ab4c04bd202d081e59761ffab80417d1",
+  "source_sha256": "2374aa13d22aee9379bfa36043481458ab96cc24f177c26481c8e024ece7cb09",
   "output": "docs/tutorials/self_evolving_agents_tutorial_en.html",
   "zh_source": "docs/tutorials/self_evolving_agents_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -29,6 +29,13 @@
       "date": "2026-06-29",
       "fix": "Voyager venue corrected NeurIPS 2023 to TMLR (it appeared in TMLR plus a NeurIPS workshop, not the main track). (EN edition mirrors the ZH fix.)",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection re-sweep audit (Codex candidate-finding pass + independent Claude adversarial verification pass; ZH source of truth, EN mirrors every substantive fix)",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "Same 10 findings as the ZH sidecar (8 CONFIRMED + 2 NEEDS_NUANCE) applied to the EN edition with natural English phrasing, no new content introduced: Voyager removed from the policy-gradient unification list; STaR's grounding mechanism relabeled from 'math checker' to 'ground-truth-answer matching + rationalization'; Native Evolution's K bullet list fixed (removed copy-forward Visual-arcs/Camera-states content from the unrelated A²RD/MVMem section); Easy-set selection prose reworded to match the code, plus Laplace-smoothing formula and laplace_smoothed_rate() code+docstring changed from (s+1)/(n+1) to (s+1)/(n+2); §6.5 heading model-size mismatch corrected (Qwen3-30B/Seed-OSS-36B main table, 14B Qwen3 noted as transfer result); Q14 KL-grounding derivation reworded from an asserted upper bound to an explicit heuristic; §12.1 KL penalty on skill-set diffs relabeled a generic divergence-like penalty with an explicit non-KL caveat; Q21 monotone-convergence claim given a summability requirement plus a Borel-Cantelli caveat; Q22 argmax I(K;E) objective given a caveat that the real training signal is R_evolve, not mutual information; Q18 decay factor corrected 0.995→0.99/hour; Q19 MemoryBank-inspired-by-MemGPT claim corrected to independent concurrent development (MemoryBank predates MemGPT).",
+      "note": "Round 1: Codex GPT-5.6-sol ultra candidate-finding pass on the ZH source. Round 2: independent fresh Claude adversarial verification (no round-1 context) attempted to overturn every finding — 8/10 held as CONFIRMED, 2/10 NEEDS_NUANCE (both real, sharpened in framing/location). Fixes applied verbatim to ZH first, then translated into natural English for this edition, preserving code/formula logic identically (Laplace denominator +1→+2 applied to both languages' code blocks). Source re-rendered, sidecar hash refreshed."
     }
   ]
 }

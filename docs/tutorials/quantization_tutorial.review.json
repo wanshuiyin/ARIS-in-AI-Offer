@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/quantization_tutorial.md",
-  "source_sha256": "f04948e0f203c2972cb16b925ae326b7e46f34e691c037df51dbabe54f88a301",
+  "source_sha256": "ec55cbec4018dcb5c321ae1d5e883e42fc95c6172ebfef382685ab16ae3d7488",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/quantization_tutorial.html",
   "topic": "Quantization (GPTQ / AWQ / FP8 / NVFP4 / SmoothQuant / QuaRot / SpinQuant)",
@@ -9,7 +9,7 @@
   "byline": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread per round",
   "math_code_review": {
-    "verdict": "PASS (with length WARN)",
+    "verdict": "PASS (with length WARN; + 2026-07-12 P0 resweep round 5: 15 CONFIRMED + 1 NEEDS_NUANCE fixed, incl. a real E4M3FN encoder round-trip bug)",
     "rounds": [
       {
         "run": "1-3 (subagent)",
@@ -38,6 +38,13 @@
         "fixes_applied": [
           "Updated GPTQ vs AWQ comparison table: `mean(\\|x\\|)` → `$\\text{mean}(\\lvert x \\rvert)$` for style guide compliance"
         ]
+      },
+      {
+        "run": 5,
+        "date": "2026-07-12",
+        "scope": "P0 全集重扫复审：Codex GPT-5.6-sol 一轮候选 finding + Claude Sonnet 5 独立对抗验证（尝试推翻每一条，16 条全部经查证，无 REFUTED）",
+        "verdict": "PASS (15 CONFIRMED + 1 NEEDS_NUANCE，全部已修复)",
+        "notes": "finding_id 33 NEEDS_NUANCE（跨 backend rounding 差异被写成 tie 点差 '0.5 ULP'，实际在 tie 点整数 q 相差 1 个 quantization level，反量化后是一个完整 step s / 1 LSB，量级差 2×）→ §2.5 后 callout 改为'差一个完整 quantization step s（1 LSB）'。finding_id 34 CONFIRMED（GPTQ 复杂度 O(K³+K·K²) 漏掉 M 项，正确应为 O(MK²+K³+NK²)；§4.5 伪代码逐列立即更新全部剩余列，是直接算法而非 §4.4 描述的懒惰批量更新，且 block_size=128（更新批处理粒度）与 group_size（量化 scale 粒度）是两个独立概念，只是常见实现都取 128）→ §4.4 复杂度公式改正并补充 block/group 区分说明；§4.5 docstring 明确标注这是 direct (non-batched) 实现，并说明真正 GPTQ 用 block_size 窗口内懒惰批量更新（代码逻辑本身数学正确，未改，只澄清概念）。finding_id 35 CONFIRMED（AWQ 保护机制被错误归因为'per-channel scale 变小、量化更精细'——组内所有 channel 共享同一 Δ，salient channel 被放大反而可能推高 Δ；真正保护来自反变换，把误差在原始尺度上压低约 1/s_c 倍）→ §5.2 对应 bullet 重写。finding_id 36 CONFIRMED（`s = s / s.mean()` 是算术平均，注释却写 'geometric mean'）→ 改注释为 'its arithmetic mean'（代码不变，保留 `s.mean()`）。finding_id 37 CONFIRMED（预 merge scale 进 LayerNorm 的等价变换只处理了 γ，未提及带 bias 的标准 LayerNorm（OPT/BLOOM）需要同步 β/s 才能保持等价；RMSNorm 无 β 不受影响）→ §5.3 callout + §6.3 bullet 补充 bias 限定说明；§6.4 `apply_smoothing` 新增可选 `prev_ln_bias` 参数，若传入则同步 `.div_(s)`，docstring 写明数学原因。finding_id 38 CONFIRMED（跳过 SmoothQuant 的 smoothing 预处理被误写为'保留 FP16 input'，实际 out_proj/down_proj 仍会做 INT8 量化，只是不做离线 outlier-migration）→ §6.5 bullet 重写。finding_id 39 CONFIRMED（QuIP 的 W'=UWV^T 被简化为'FP16 等价'，遗漏了需同步旋转输入/输出才能复原 Wx 的完整关系 Wx=U^T W'(Vx)）→ §7.1 bullet 补全等价关系与工程吸收方式（V 吸收进上一层输出权重，U^T 吸收进下一层输入权重）。finding_id 40 CONFIRMED（QuaRot 用 'online Hadamard' 解决 RMSNorm 的 γ 与 H 不交换问题的表述有误——真正机制是先把 γ 离线吸收进下一层权重使 RMSNorm 变成纯归一化，online Hadamard 只用于少数无法离线吸收的位置）→ §7.2 bullet 重写。finding_id 41 CONFIRMED（`fp8_e4m3_encode` 的溢出判断 `if biased_e >= 15:` 是真实的 round-trip bug——biased_e==15 搭配 mantissa 0-6 是 [256,448) 区间的合法值，被错误全部饱和到 448；只应在 mantissa 进位导致 biased_e 变成 16 时才饱和）→ 改为 `if biased_e > 15:`；手动验证 ax=300 时 e=8, biased_e=15，修复前一律饱和到 code=126(448.0)，修复后正确编码为 code=121（解码回 288.0，8 个合法 mantissa 值中最近的一个）；对 256/270/.../447 共 11 个采样点验证，修复前全部错误饱和为同一 code=126，修复后正确映射到 6 个不同的合法 code（120-126），round-trip 恢复正常。finding_id 42 CONFIRMED（E8M0 的合法指数范围被写成 e∈[0,255]，实际 255=0xFF 保留给 NaN，合法范围是 [0,254]，且无精确 zero scale）→ §8.3 正文改为 e∈[0,254] 并补充 NaN/zero 说明。finding_id 43 CONFIRMED（Q11 踩坑项把 H=X^TX 的'输入 Hessian'和'weight 的 Hessian'当成两个互斥、其中一个是错的概念，与 §4.2 正文的推导自相矛盾——H 本就同时是对 w 的 Hessian 和输入 Gram 矩阵，是同一个对象）→ 改为强调这是同一对象的双重身份，不是需要区分对错的两个概念。finding_id 44 CONFIRMED（Hadamard incoherence 界 ‖Hx‖∞≈√(k/d)max|x| 被当作确定性结论陈述，实际需要带随机符号翻转的 Hadamard（HD）且是高概率成立，精确集中不等式还需多一个 √(log d) 因子）→ Q21 bullet 补充随机化/高概率前提与 √(log d) 因子。finding_id 45 CONFIRMED（QServe 的 'LLaMA-3-70B 解码 1000+ tokens/s/H100' 是无据可查的数字——论文主要实测硬件是 A100/L40S，不是 H100，核心卖点之一正是用更便宜的 L40S 追平/超过跑 TensorRT-LLM FP16 的更贵硬件）→ §9.4 + Q22 两处删除该数字，改为准确描述论文实测硬件与相对倍数（1.2-3.5×）。finding_id 46 CONFIRMED（Q22 把 dequant 与 Tensor Core MMA 描述为 'fused 在同一个 warp instruction 内'，但 mma.sync 是固定硬件指令、不含通用 dequant 逻辑，真正的优化是同一 kernel 内通过软件流水线（pipelining）让下一 tile 的 dequant 与当前 tile 的 MMA 时间重叠）→ Q22 bullet 重写。finding_id 47 CONFIRMED（§2.3 callout 写 group_size 共享 'scale（+zero-point）'，但 bits/weight 公式 4+16/g 只算了 scale 没算 zero-point，内部不一致——文中其余量化方案实际都是对称量化）→ 改为明确对称量化（无 zero-point）用 4+16/g，并补充非对称量化（含 INT4 zero-point）应为 4+(16+4)/g 的公式。finding_id 48 CONFIRMED（OCP MX 规范标注年份 2024，实际 v1.0 规范发布于 2023）→ §8.3 标题与 A.1 参考表两处年份改为 2023。ZH/EN 双语同步修正，均无独立 .py 脚本（本篇代码全部内嵌于 markdown 代码块中）。验证结果详见 /private/tmp/claude-501/-Users-yangruofeng-Desktop-ARIS-in---/302812b7-bed4-4d9f-af66-c9b0bee04bb7/scratchpad/resweep56/p0_batch_results.json（finding_id 33-48，对应 file==\"quantization_tutorial.md\"）。"
       }
     ]
   },
@@ -53,6 +60,7 @@
       }
     ]
   },
-  "summary": "Quantization tutorial: subagent did multiple rounds before continuation hung. Main-session DIY did 1 substantive round (WARN on length + style nit). Final 13/13 render PASS. 1343 lines content-dense.",
-  "rendered_at": "2026-05-19"
+  "summary": "Quantization tutorial: subagent did multiple rounds before continuation hung. Main-session DIY did 1 substantive round (WARN on length + style nit). Final 13/13 render PASS. 1343 lines content-dense. UPDATE 2026-07-12 (round 5, P0 resweep): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification (tried to refute every finding — none REFUTED) surfaced 15 CONFIRMED + 1 NEEDS_NUANCE precision/correctness issues, all fixed in both ZH/EN: (1) rounding tie-point discrepancy corrected from '0.5 ULP' to 'a full quantization step s (1 LSB)'; (2) GPTQ complexity formula fixed to O(MK²+K³+NK²), and the §4.5 pseudocode's docstring now clarifies it's a direct (non-batched, mathematically correct) update rather than the real lazy block-batched implementation, plus a block_size-vs-group_size distinction; (3) AWQ's salient-channel protection mechanism corrected (not 'finer per-channel scale' — protection comes from the inverse-transform error reduction, ~1/s_c); (4) an `s.mean()` docstring fixed from 'geometric mean' to 'arithmetic mean' (code unchanged); (5) the LayerNorm-fusion equivalence for AWQ/SmoothQuant scale-merging now notes the bias term (`prev_ln_bias`) must also be divided by s for bias-bearing LayerNorm (OPT/BLOOM) — `apply_smoothing()` gained an optional `prev_ln_bias` parameter; (6) SmoothQuant's 'skip out_proj/down_proj smoothing' clarified to NOT mean 'keep FP16' — those layers still get INT8 quantized; (7) QuIP's W'=UWV^T equivalence completed to the full Wx=U^T W'(Vx) relation; (8) QuaRot's RMSNorm-γ/Hadamard commutativity fix corrected (γ is fused offline into the next layer's weights, not resolved by online Hadamard); (9) **a genuine E4M3FN encoder round-trip bug**: `fp8_e4m3_encode`'s overflow check `if biased_e >= 15` incorrectly saturated ALL legal values in [256,448) to 448 — fixed to `if biased_e > 15`, manually verified (ax=300 now correctly encodes to 288.0 instead of being wrongly saturated to 448.0; 11 sample points across [256,448) now decode to 6 distinct legal values instead of all collapsing to one); (10) E8M0's legal exponent range corrected from [0,255] to [0,254] (255=0xFF reserved for NaN); (11) Q11's H=X^TX 'input Hessian vs weight Hessian' false dichotomy resolved (they're the same object); (12) the Hadamard incoherence bound now notes it requires randomized-sign Hadamard and holds with high probability, plus a missing √(log d) factor; (13) QServe's unsourced '1000+ tokens/s/H100' claim removed (paper's actual hardware is A100/L40S); (14) Q22's dequant+MMA 'fused in one warp instruction' corrected to software-pipelined overlap (mma.sync has no built-in dequant logic); (15) §2.3's bits/weight formula (4+16/g) now correctly labeled as symmetric-quantization-only (no zero-point), with the asymmetric formula 4+(16+4)/g added; (16) OCP MX spec year corrected 2024→2023 (v1.0 published 2023). No standalone .py script exists for this tutorial (all code lives inline in markdown code blocks).",
+  "rendered_at": "2026-05-19",
+  "last_updated": "2026-07-12"
 }

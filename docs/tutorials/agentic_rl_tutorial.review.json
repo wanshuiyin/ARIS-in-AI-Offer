@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/agentic_rl_tutorial.md",
-  "source_sha256": "d3d476658bea0760566d2cc9d6eaf72ceaab67d8c81d3eeaa4442473092e8e6e",
+  "source_sha256": "b1327e360f4efce1dafb46409307bc6288fb7113af185fbacc4893e2456cb9f9",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/agentic_rl_tutorial.html",
   "topic": "Agentic RL — RL for LLM agents (AgentTuning / ToolRL / RAGEN / WebRL / SWE-RL / CodeRL / VPT / OpenVLA / Self-Rewarding LM / HER)",
@@ -56,6 +56,28 @@
           "§9 SWE-bench Pro / SWE-Lancer / SWE-bench Multilingual mention lacks inline citation — to add footnote in follow-up",
           "TL;DR over-generalization of ToolRL/ReSearch/RAGEN as 'outcome-only + format shaping + token-mask loss + GRPO' is broadly directional but RAGEN explicitly has finer-grained reasoning-aware reward (StarPO-S)"
         ]
+      },
+      {
+        "run": 2,
+        "date": "2026-07-12",
+        "verdict": "PASS (12 candidate findings from full-collection re-sweep, all applied)",
+        "reviewer": "Round A: Codex GPT-5.6-sol (candidate-error sweep) → Round B: independent fresh Claude thread (adversarial verification, attempted to overturn every candidate)",
+        "outcome": "9 CONFIRMED + 3 NEEDS_NUANCE, 12/12 applied to source",
+        "fixes_applied": [
+          "§1.1/§1.2/TL;DR#1,#3: removed false 'reward from RM vs from environment' strict binary between RLHF and Agentic RL; reframed as differing in credit-assignment timescale + verification mode; noted Agentic RL can also use a learned RM (WebRL's ORM)",
+          "§7.3 PPO value-loss code comment + new note: 'observation V has no meaning' overstated — V(s_t) is conceptually meaningful at the state boundary (GAE bootstrap anchor); agent-token-only value loss is an engineering simplification, not a claim of meaninglessness (NEEDS_NUANCE)",
+          "§4.2 + Q15: sparse-reward GAE special-case formula corrected to the full λ-dependent telescoping form; A_t = γ^(T-t)R − V(s_t) only holds exactly at λ=1, previously stated as if general",
+          "Q15: 'value training target near 0 on most steps' was conflating sparse per-step reward with the bootstrapped MC target, which stays near P(success) for γ close to 1 — corrected",
+          "Q22 item 2: GRPO trace-level advantage re-described as biased-but-consistent (not 'unbiased MC return'), enumerating the (1-1/G) self-inclusion shrinkage, std-normalization bias, and PPO-clip bias sources",
+          "Q9: 'clamp σ lower bound keeps a small signal' corrected — numerator is exactly 0 in an all-identical group regardless of denominator clamp; clamp only prevents 0/0 NaN, does not restore signal",
+          "Q18 + §7.x: per-step KL vs trajectory KL reframed — same quantity in expectation by the chain rule (Σ log π(a_t|s_t)), differ only in shaping/aggregation/estimator implementation, not in what they measure (NEEDS_NUANCE)",
+          "§8.2 + TL;DR#3: 'WebRL/ReSearch/SWE-RL/RAGEN all rule-based' corrected — WebRL trains a learned ORM (§6.9), unlike the other three's pure rule-based verification; shared trait restated as outcome-level (not token-level subjective) signal",
+          "§3.4 + Q8: DAPO overlong reward shaping corrected from 'exponential decay' to the paper's actual piecewise-linear ramp (0 → -1 across the buffer zone)",
+          "§6.4 + TL;DR#4 + appendix references: ReFT first-author citation corrected 'Trung et al.' → 'Luong et al.' (given-name-as-surname error; author is Trung Quoc Luong)",
+          "§6.14 + Q10: SWE-RL '76M+ context-issue-patch triples' number flagged with a hedge — could not be verified offline as final triple count vs. raw PR/commit event count (NEEDS_NUANCE)",
+          "§6.8 + Q12 StarPO acronym: internal contradiction resolved — §6.8/L534 already had the correct 'State-Thinking-Actions-Reward Policy Optimization'; Q12 still had the wrong 'StAble multi-tuRn Policy Optimization'. Fixed to match, and confirmed as fact (not hedged) via primary-source check of the RAGEN paper abstract (arXiv 2504.20073): 'We propose StarPO (State-Thinking-Actions-Reward Policy Optimization)...'. This closes a discrepancy between the 2026-05-19 review round (which had already corrected it once at §6.8) and this file's own round-1 fixes_applied log — the regression at Q12 apparently escaped that round's scope."
+        ],
+        "en_sync": "docs/tutorials/agentic_rl_tutorial_en.md received the same 12 substantive fixes in natural English, same locations, StarPO unified to 'StarPO (State-Thinking-Actions-Reward Policy Optimization)' with no hedge"
       }
     ]
   },
@@ -71,6 +93,6 @@
       }
     ]
   },
-  "summary": "Agentic RL tutorial: solo subagent draft (1545 lines, 13 min) → main-session DIY strict review caught 11 substantive issues (PPO formula index collision, Q21 mask explanation, Q24 Anthropic CU overclaim, VPT/AReaL/WebGUM/OpenVLA attribution errors, RAGEN title + StarPO expansion). All fixed. Render review 13/13 PASS.",
-  "rendered_at": "2026-05-19"
+  "summary": "Agentic RL tutorial: solo subagent draft (1545 lines, 13 min) → main-session DIY strict review caught 11 substantive issues (PPO formula index collision, Q21 mask explanation, Q24 Anthropic CU overclaim, VPT/AReaL/WebGUM/OpenVLA attribution errors, RAGEN title + StarPO expansion). All fixed. Render review 13/13 PASS. 2026-07-12 full-collection re-sweep: Codex GPT-5.6-sol found 12 candidate errors, independent Claude adversarial verification confirmed 9 CONFIRMED + 3 NEEDS_NUANCE, all applied — including a StarPO-acronym internal contradiction (§6.8 vs Q12) resolved for good via primary-source check of the RAGEN paper abstract (arXiv 2504.20073): State-Thinking-Actions-Reward Policy Optimization.",
+  "rendered_at": "2026-07-12"
 }

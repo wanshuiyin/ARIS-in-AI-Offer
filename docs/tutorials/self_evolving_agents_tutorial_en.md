@@ -45,7 +45,7 @@ By the object updated by $\mathcal{T}$, 2024-2026 work roughly divides into four
 Two intuitions commonly missed in interviews:
 
 - ❌ "self-evolving = automatically training new model weights" — wrong, **the vast majority of work does not update parameters** (Voyager, Ctx2Skill, Generative Agents, A²RD are all training-free / inference-time).
-- ❌ "self-evolving = the agent does whatever it wants" — wrong, the 2026 mainstream is **strictly grounded** self-improvement: either a code executor (Absolute Zero), a math checker (STaR), a rubric judge (Ctx2Skill), or an outcome utility (Native Evolution).
+- ❌ "self-evolving = the agent does whatever it wants" — wrong, the 2026 mainstream is **strictly grounded** self-improvement: either a code executor (Absolute Zero), ground-truth-answer matching + rationalization (STaR), a rubric judge (Ctx2Skill), or an outcome utility (Native Evolution).
 
 ## §2 Formalizing the Three Self-Evolution Paradigms
 
@@ -59,7 +59,7 @@ The Native Evolution paper [arXiv:2604.18131] gives a very clear classification 
 
 $$\theta_{t+1} = \theta_t + \eta \,\mathbb{E}_{\tau \sim \pi_{\theta_t}}\!\left[\nabla_\theta \log \pi_\theta(\tau)\, R(\tau)\right]$$
 
-This is standard policy gradient — AgentTuning, ToolLLM, early Voyager variants fall in this category.
+This is an idealized policy-gradient form; in practice AgentTuning and ToolLLM mostly approximate it by filtering successful trajectories with rules/judges and then running SFT on them (reward degenerates into a 0/1 filter rather than a continuously weighted gradient). Voyager does not belong here — it keeps GPT-4's weights frozen throughout and uses no reward at all (see §4.1).
 
 **Pros**: high supervision density, fast convergence. **Cons**: huge labor cost (each new environment needs new reward design).
 
@@ -144,9 +144,9 @@ Anthropic publicly released the `skills/` paradigm in 2025 (each skill is a stan
 
 Native Evolution's K also explicitly stores:
 
-- **Visual arcs** (visual evolution of entities/environments)
-- **Spatial relations** (subject-relation-object triplets)
-- **Camera states / Site map** (environment topology)
+- **Site/environment map** (site structure, navigation paths, code-repo topology)
+- **Entity/page relations** (cross-page / cross-module associations)
+- **Failure notes** (dead links / invalid paths hit during exploration)
 - **Token budget allocation** (how many tokens each sub-page gets)
 
 ### 3.3　Why markdown rather than vector embedding?
@@ -248,11 +248,11 @@ The more iterations, the more extreme the Challenger gets, and the more the Reas
 
 1. During training, maintain two probe sets:
    - **Hard set $\mathcal{Q}^h$**: each iteration, pick the failed task with the lowest rubric pass rate
-   - **Easy set $\mathcal{Q}^e$**: each iteration, pick the solved task with the fewest rubrics passed ("just barely solved")
+   - **Easy set $\mathcal{Q}^e$**: each iteration, take one representative "just barely solved" task from the solved set (e.g. the one the reasoner needed the most retries for, rather than ranking by rubric-pass count — because under the definition of "solved," every task's pass_rate is fixed at 1.0)
 
 2. After training, for each candidate $\mathcal{S}^R_i$ ($i=1\ldots N$), run the Reasoner $\pi^R$ on both probe sets:
 
-$$\rho^h(i) = \frac{\sum_{q\in \mathcal{Q}^h} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^h| + 1}, \quad \rho^e(i) = \frac{\sum_{q\in \mathcal{Q}^e} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^e| + 1}$$
+$$\rho^h(i) = \frac{\sum_{q\in \mathcal{Q}^h} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^h| + 2}, \quad \rho^e(i) = \frac{\sum_{q\in \mathcal{Q}^e} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^e| + 2}$$
 
 (Laplace smoothing prevents empty probe sets)
 
@@ -333,7 +333,7 @@ def ctx2skill_loop(context: str, llm, num_iters: int = 5, M: int = 5):
 
 
 def laplace_smoothed_rate(probe, skill_set, llm, context):
-    """ Laplace-smoothed pass rate: (sum_q y_q + 1) / (|probe| + 1).
+    """ Laplace-smoothed pass rate: (sum_q y_q + 1) / (|probe| + 2).
     
     Args:
         probe:     list[(task, rubrics)]
@@ -349,7 +349,7 @@ def laplace_smoothed_rate(probe, skill_set, llm, context):
         if all(llm(role="judge", prompt=judge_prompt(a, r))
                for r in rubrics_q):
             num_pass += 1
-    return (num_pass + 1) / (len(probe) + 1)
+    return (num_pass + 1) / (len(probe) + 2)
 ```
 
 ### 5.5　Ctx2Skill experimental results (must memorize)
@@ -495,7 +495,7 @@ def native_evolution_inference(pi_star, new_env, task):
 
 ### 6.5　Native Evolution experimental results
 
-WebVoyager + WebWalker, 14B Qwen3 / 36B Seed-OSS:
+WebVoyager + WebWalker, Qwen3-30B / Seed-OSS-36B (main table); the 14B Qwen3 transfer result is described separately below:
 
 | backbone | w/o K | Native Evolution (RFT) | Δ |
 |---|---|---|---|
@@ -838,7 +838,7 @@ This is also the actual position of ARIS-type systems — the top layer is infer
 
 - Maintain a historical probe set (not just looking at current iteration)
 - Pick the most balanced rather than last-iteration skill
-- Use KL penalty to prevent abrupt skill set changes: $\mathcal{L}_\text{KL} = \beta \,D_\text{KL}(\mathcal{S}_i \| \mathcal{S}_{i-1})$ (textual KL can be approximated by BLEU/edit distance)
+- Use a divergence-like penalty to prevent abrupt skill set changes: $\mathcal{L}_\text{div} = \beta \, d(\mathcal{S}_i, \mathcal{S}_{i-1})$, where $d$ can be approximated by a duality of text-similarity measures such as 1-BLEU or edit distance (**note**: this is not true KL divergence — KL is defined over probability distributions, and $\mathcal{S}_i$ is deterministic text; KL itself is undefined here unless you treat the skill set as a sample from some token distribution)
 
 ### 12.2　Memory Drift
 
@@ -1113,11 +1113,7 @@ $$D_\text{KL}(p^\star \| p_{t+1}) \;\ge\; D_\text{KL}(p^\star \| p_t)$$
 
 **Intuition**: $p_t$ is already biased, $p_{t+1}$ trained on its samples can only retain or amplify the bias.
 
-With grounding (exogenous label $y$ for $x$), training objective becomes conditional $p(x | y)$ correction:
-
-$$D_\text{KL}(p^\star \| p_{t+1}) \;\le\; D_\text{KL}(p^\star \| p_t) - \Delta_\text{grounding}$$
-
-where $\Delta_\text{grounding} > 0$ quantifies the KL correction from exogenous signal.
+With grounding (exogenous label $y$ for $x$), the training objective becomes a conditional $p(x \mid y)$ correction. **Note**: this does not license flipping the lower bound above into a symmetric upper-bound guarantee — with grounding, intuitively $p_{t+1}$ is no longer bound by that degenerate lower bound, but that is not a symmetric upper-bound guarantee: whether improvement is monotone depends on exactly how the grounding signal $y$ reshapes $p_{t+1}$ (e.g. whether it's used for rejection sampling vs. direct supervision); the original paper does not give a general monotone-improvement theorem in this direction, so this is only a heuristic contrast, not a rigorous derivation.
 
 Reference [arXiv:2601.05280] §3.
 
@@ -1193,7 +1189,7 @@ where:
 - $i(m) \in [1, 10]$, importance self-rated by LLM
 - $s(m, q)$ cosine similarity
 
-Park 2023 UIST sets $\gamma=0.995$/hour, $\alpha$ uniformly distributed.
+Park 2023 UIST sets $\gamma=0.99$/hour, $\alpha$ uniformly distributed.
 
 **Interview bonus**: importance rating by LLM self-rating itself may hallucinate; modern systems use cross-model rating or task-conditioned importance.
 
@@ -1215,7 +1211,7 @@ Inspiration:
 - Let the LLM autonomously decide "now save this to disk" / "now load that"
 - This is the LLM agent's first implementation of **truly active long-term memory management** — independent of RAG frameworks
 
-Follow-up work: MemoryBank, MemChat, MVMem are all inspired by it; ARIS-style research-wiki is also the same idea (agent decides writing / reading wiki itself).
+Follow-up work: MemChat, MVMem, and others were inspired by it (MemGPT); MemoryBank (Zhong et al., 2023-05, predating MemGPT's 2023-10) developed independently around the same time, sharing the idea of decay-weighted long-term memory rather than being inspired by MemGPT. ARIS-style research-wiki is also the same idea (agent decides writing / reading wiki itself).
 
 </details>
 
@@ -1252,11 +1248,11 @@ Let $\mathcal{S}^R_i, \mathcal{S}^C_i$ be the two-sided skill sets at iteration 
 **Sufficient conditions** (intuitive version):
 
 1. **Judge is calibrated**: $\mathbb{E}[Judge(a, r)] = \mathbb{E}[\text{ground-truth}(a, r)]$. I.e. Judge does not drift.
-2. **Proposer is a monotone improver**: each diagnosis from the proposer leads the generator to produce a new skill that strictly improves expected pass rate on the batch (with prob $\ge 1 - \delta$).
+2. **Proposer is a monotone improver**: each diagnosis from the proposer leads the generator to produce a new skill that strictly improves expected pass rate on the batch (with prob $\ge 1-\delta_i$, and $\delta_i \to 0$ summably, i.e. $\sum_i \delta_i < \infty$).
 3. **Probe set is stationary**: $\mathcal{Q}^h, \mathcal{Q}^e$ have stable distribution after K updates (no abrupt change).
 4. **Skill set has capacity ceiling**: $|\mathcal{S}^R| \le L$ (preventing unbounded growth).
 
-Under (1)-(4), $\{C^R_i\}$ is a **bounded + almost everywhere monotone non-decreasing** sequence (strictly improving with prob $\ge 1-\delta$; upper bound given by probe set's pass rate $\le 1$). This process is not strictly a supermartingale (supermartingale is $\mathbb{E}[C_{i+1}|\mathcal{F}_i] \le C_i$, opposite direction), more accurately described as a **bounded monotone improvement sequence / submartingale-like** — by classical monotone convergence theorem it converges to $C^R_\infty \le 1$.
+Under (1)-(4) (requiring $\delta_i$ to be summable), $\{C^R_i\}$ is a **bounded + probabilistically monotone-improving** sequence; the upper bound is given by the probe set's pass rate $\le 1$, and classical monotone convergence theorem gives convergence in expectation, $\mathbb{E}[C^R_i] \to C^R_\infty \le 1$. **If $\delta$ is fixed and does not decay with $i$**, then by the second Borel–Cantelli lemma (under an independent-trials assumption), failure events occur infinitely often almost surely, so $\{C^R_i\}$ is at best monotone in expectation or convergent in probability, not almost-everywhere monotone; furthermore, convergence of the scalar score does not rule out the underlying skill set $\mathcal{S}^R_i$ itself oscillating among multiple tied-score solutions — it is the scalar $C^R_i$ that converges, not necessarily $\mathcal{S}^R_i$ stabilizing.
 
 **Note**: this is a narrative sketch; formal proof requires constructing the right probability space, defining $\sigma$-algebra, and carefully handling Judge's stochastic noise + the high-probability non-determinism of monotone improvement — it's a PhD-level theory question, **should not be derived in full in an interview**. Explaining "why bounded + monotone improvement implies convergence" is sufficient.
 
@@ -1287,6 +1283,8 @@ and $\text{Success}(\mathcal{T}_E \mid \mathcal{K})$ monotonically depends on $I
 So maximizing $R_\text{evolve}$ at training → implicitly maximizes $I(\mathcal{K}; \mathcal{T}_E) \le I(\mathcal{K}; E)$ → pushes policy away from trivial K.
 
 → At inference, the policy has internalized the instinct of "how to produce high-info K," so even without reward, it can maintain non-trivial behavior — but **only on environments similar to training distribution**.
+
+> **Note** — This is not Native Evolution's actual training objective (the real training signal is $R_\text{evolve}$ from §6.2, an outcome-based utility, not mutual information); $I(\mathcal{K}; E)$ here is only a heuristic, after-the-fact information-theoretic explanation for why maximizing $R_\text{evolve}$ tends to avoid trivial K — it is not an equivalence derivation. There is also no strictly monotone theorem relating Success and mutual information, only bounds of the Fano-inequality type.
 
 > ⚠️ **caveat** — Outside the train distribution (OOD environments), without grounding signal to prevent degeneration, the policy may still fail. This is one of Native Evolution's open problems.
 

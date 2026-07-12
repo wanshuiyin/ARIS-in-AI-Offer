@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/multi_agent_long_horizon_tutorial_en.md",
-  "source_sha256": "c652195aea1d35463dc3a1c6b0fc8d4729abdd297ff37869b7a23cf0b4483f43",
+  "source_sha256": "4f269390e76c7b6a97002cb042d43496bfb650ec1110b05abde54377379b7020",
   "output": "docs/tutorials/multi_agent_long_horizon_tutorial_en.html",
   "zh_source": "docs/tutorials/multi_agent_long_horizon_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -23,6 +23,12 @@
       "date": "2026-06-29",
       "fix": "MoA venue corrected NeurIPS 2024 to ICLR 2025 (Spotlight) at section 2.5 and Q6 (section 0 was already right); FrugalGPT re-attributed Yue to Chen, Zaharia & Zou; MLE-bench 16.9% AIDE model corrected GPT-4o to o1-preview (matches the agent-foundations tutorial); Devin Mar-2024 13.9% noted to be on the ORIGINAL SWE-bench (Verified launched 2024-08). (EN edition mirrors the ZH fix.)",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection rescan + cross-model adjudication (Codex GPT-5.6-sol candidate findings → independent Claude adversarial verification)",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "EN mirrors the same 11 substantive fixes applied to the ZH source (8 CONFIRMED + 3 NEEDS_NUANCE): MetaGPT role count 7→5 + message-pool pub/sub reframing; AutoGen 'llm_selector' → real speaker_selection_method values; MoA NeurIPS 2024→ICLR 2025 Spotlight + aggregator Qwen2-72B→Qwen1.5-110B-Chat; Perron-Frobenius consensus claim gains an irreducible+aperiodic precondition; Q21 judge-as-contraction and beta≈0.5 'match' reframed as unproven intuition/post-hoc numerology; MemoryBank retention R vs strength S decoupled; GraphRAG's fabricated HotpotQA table replaced with its actual global-sensemaking/pairwise-win-rate evaluation; PUCT overclaim scoped down (RAP/LATS original papers use plain UCT, PUCT-with-prior is this tutorial's own §6.7 engineering choice); Agent-Q WebShop 51%→95.4% (policy-only vs with inference-time search); benchmark table WebArena Gitea→GitLab, SWE-bench 2294-full vs Verified-500 disambiguated, TextWorld citation Yuan 2019→Côté 2018, AgentBench score reworded; DeepSeek-R1-Zero (GRPO, no MCTS) removed from the MCTS-distill pattern list, Math-Shepherd relabeled as Monte Carlo completion sampling. Natural English phrasing, no new content beyond the ZH fixes; all duplicate restatements in the Q&A sections were also caught and fixed for internal consistency. Re-rendered; sidecar hash refreshed."
     }
   ]
 }

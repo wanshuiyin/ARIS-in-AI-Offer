@@ -71,7 +71,7 @@ $$\boxed{\;L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min\!\Big(r_t(\theta) 
 
 直觉：
 
-- 若 $A_t > 0$（这个 action 比 baseline 好），希望提升 $\pi_\theta(a_t|s_t)$，但**最多提升到 $r_t = 1+\epsilon$**（防止一次更新太激进）。
+- 若 $A_t > 0$（这个 action 比 baseline 好），希望提升 $\pi_\theta(a_t|s_t)$，但一旦 $r_t$ 超过 $1+\epsilon$，clip 项会让该 (state,action) 对目标函数的梯度归零——目标函数不再有动力继续拉高它；这不是对 $r_t$ 数值的硬性约束/投影，实际训练中 $r_t$ 仍可能因单步梯度过大或跨 epoch 更新而越过 $1+\epsilon$（这正是要监控 `clip_frac` 的原因）。
 - 若 $A_t < 0$（这个 action 比 baseline 差），希望降低 $\pi_\theta(a_t|s_t)$，但**最多压到 $r_t = 1-\epsilon$**。
 - `min` 选两者较小者 → **悲观估计**（pessimistic bound）：当我们想"加分"时，clip 上限；想"扣分"时，clip 下限。
 
@@ -95,7 +95,7 @@ $$\boxed{\;A_t^{\text{GAE}(\gamma, \lambda)} = \sum_{l=0}^{\infty} (\gamma\lambd
 - $\lambda = 1$ → $A_t = \sum_l \gamma^l r_{t+l} - V(s_t)$，纯 Monte Carlo（advantage 等于实际 return 减 baseline），偏差小方差大
 - 典型 $\lambda = 0.95$，$\gamma = 0.99$
 
-**LLM 中 GAE 的退化**：在 RLHF 中通常 $\gamma = 1$（不折扣），且只有 terminal reward，所以 $\delta_t = -V(s_t) + V(s_{t+1})$ 对中间 token、$\delta_T = R_T - V(s_T)$ 对终止 token。这种情况下 GAE 等价于做了"value baseline + reward 回传"。
+**LLM 中 GAE 的退化**：在 RLHF 中通常 $\gamma=1$，且 KL penalty 是逐 token 施加的（见 §2.4 $\tilde r_t$ 定义），所以中间 token 的 reward 并非 0，而是 $\tilde r_t=-\beta\log\frac{\pi_\theta(y_t|\cdot)}{\pi_\text{ref}(y_t|\cdot)}$；相应地 $\delta_t=\tilde r_t+V(s_{t+1})-V(s_t)$ 对中间 token、$\delta_T=R_T-\beta\log\frac{\pi_\theta(y_T|\cdot)}{\pi_\text{ref}(y_T|\cdot)}+V(s_{T+1})-V(s_T)$ 对终止 token。这种情况下 GAE 等价于做了"value baseline + reward 回传"。
 
 ### 2.4　PPO 在 RLHF 中的完整目标
 
@@ -411,7 +411,7 @@ GRPO 的**核心 idea**：对每个 prompt $x$ **采样一组 $G$ 个回答** $\
 
 $$\boxed{\;\hat{A}_{i, t} = \frac{r_i - \text{mean}(\{r_1, \dots, r_G\})}{\text{std}(\{r_1, \dots, r_G\}) + \epsilon}\;}$$
 
-整段 response 内**所有 token 共享同一个 $\hat{A}_i$**（因为没有 value model 给 per-token baseline，只用 sequence-level reward 算组相对优势）。
+整段 response 内**所有 token 共享同一个 $\hat{A}_i$**（此处为 outcome-supervision 版 GRPO，也是 R1/DeepSeekMath 主流用法；因为没有 value model 给 per-token baseline，只用 sequence-level reward 算组相对优势）。DeepSeekMath 原论文还定义了 process-supervision 变体：每步有独立 reward，token $t$ 的 advantage 为 $\hat{A}_{i,t}=\sum_{\text{index}(j)\ge t}\tilde{r}_i^{\text{index}(j)}$，随 $t$ 递减，并非整段共享同一标量。
 
 > ✅ **GRPO 的精髓** — 把 PPO 的 "$A_t = Q - V$"（Critic 出 $V$）换成 "$A_i = (r_i - \bar{r}) / \sigma$"（组内统计出 baseline）。**省掉 value model**，省下一半显存；同时组内 baseline 自动做了 variance reduction。
 
@@ -434,7 +434,7 @@ $$\text{KL}_{i, t} = \frac{\pi_\text{ref}(y_{i,t}|\cdot)}{\pi_\theta(y_{i,t}|\cd
 DeepSeek-R1 (Jan 2025) 在 GRPO 基础上做了两件事：
 
 1. **R1-Zero**：从 pretrain base 直接跑 GRPO，**无 SFT 阶段**，纯靠 rule-based reward（数学正确性 + 格式奖励）。emergent 长 CoT。
-2. **R1**：加少量 SFT cold-start + 多阶段 RL（reasoning RL → SFT → general RL）。开源 32B/70B 在数学推理上对标 o1。
+2. **R1**：加少量 SFT cold-start + 多阶段 RL（reasoning RL → SFT → general RL）。R1 本体是基于 DeepSeek-V3 架构的 671B 参数 MoE 模型（每 token 激活约 37B 参数）；开源的 **DeepSeek-R1-Distill** 32B/70B（基于 Qwen2.5-32B、Llama-3.3-70B 等基座，用 R1 生成数据做 SFT 蒸馏得到的稠密模型）在数学推理上对标或部分超过 o1-mini。
 
 > 💡 **为什么 GRPO 在数学/代码 RL 上特别有效？** —
 
@@ -527,7 +527,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 
 ## §6 DPO 变体生态
 
-DPO 之后 2024–2025 出现一大波改进，面试时常被问"X 和 Y 区别"。下表对**核心损失差异**做对比；记号统一为：$\pi$ = current policy, $\pi_\text{ref}$ = SFT model, $\beta$ = inverse temperature, $r$ = implicit reward。
+DPO 之后 2024–2025 出现一大波改进，面试时常被问"X 和 Y 区别"。下表对**核心损失差异**做对比；记号统一为：$\pi$ = current policy, $\pi_\text{ref}$ = SFT model, $\beta$ = temperature 参数 / KL 正则系数（$\exp(r/\beta)$ 中 $\beta$ 越大分布越接近 $\pi_\text{ref}$，类比玻尔兹曼分布中的温度 $T$；$1/\beta$ 才对应严格物理学惯例中直接乘在能量/reward 前的 inverse temperature）, $r$ = implicit reward。
 
 | 方法 | 损失 | 关键变化 | 论文 |
 | --- | --- | --- | --- |
@@ -573,12 +573,12 @@ $$r_\text{SimPO}(x, y) = \frac{\beta}{|y|}\log\pi(y|x)$$
 
 $$\boxed{\;\mathcal{L}_\text{SimPO} = -\mathbb{E}\log\sigma\!\left(\frac{\beta}{|y_w|}\log\pi(y_w|x) - \frac{\beta}{|y_l|}\log\pi(y_l|x) - \gamma\right)\;}$$
 
-其中 $\gamma$ 是 target reward margin（鼓励 $r_w - r_l \ge \gamma$，超出才不算 loss）。
+其中 $\gamma$ 是 target reward margin（鼓励 $r_w - r_l$ 尽量超过 $\gamma$；由于损失是 $-\log\sigma(\cdot)$，即 softplus 型而非 hinge，margin 超出后梯度只是指数衰减趋于 0，并非像 hinge loss 那样硬性截断为 0）。
 
 > ✅ **SimPO 优势** —
 
 - **训练时无需 $\pi_\text{ref}$**，省一份模型权重的显存。
-- **Length-normalization** 缓解 DPO 的 length bias（DPO 倾向选长答案，因为它们 log-prob 更负，差更大）。
+- **Length-normalization** 缓解 DPO 的 length bias（DPO 倾向选长答案：因为 DPO 用的是 log-ratio $\log\pi_\theta(y)-\log\pi_\text{ref}(y)$，对 response 内所有 token 求和，若逐 token 的 log-ratio 平均为正，更长的 $y$ 会在求和中累积更大的总 log-ratio（而非其 raw log-prob 本身更负），从而系统性获得更大的 implicit reward margin——这正是 SimPO 引入 length-normalization（除以 $|y|$）的动机）。
 - 实验上 AlpacaEval-2 / Arena-Hard 上 SimPO 经常优于 DPO；但 reward-free 形式**没有 KL 锚定**，对 $\beta, \gamma$ 调参更敏感。
 
 ### 6.4　ORPO：SFT + 偏好一阶段
@@ -603,7 +603,7 @@ Ahmadian et al. 2024 ACL *Back to Basics: Revisiting REINFORCE Style Optimizatio
 - **GRPO**：组内 mean+std 归一化（$z$-score）+ PPO-clip。
 - **RLOO**：组内 leave-one-out 均值做 baseline + REINFORCE。
 - **ReMax**：greedy decode 做 baseline + REINFORCE。
-- 三者哲学一致：**绕过 value model，用 sample baseline**；区别只在 baseline 形式。
+- 三者哲学一致：**绕过 value model，用 sample baseline**；区别不止 baseline 形式：GRPO 额外做 std 归一化（z-score，除均值外还除以标准差）而 RLOO/ReMax 通常只减均值；GRPO 采用 PPO-clip（重要性比+裁剪，可多 epoch 复用同一批 rollout），RLOO/ReMax 是纯 REINFORCE 形式（无重要性比裁剪，通常单次 on-policy 更新）。三者共同点仅是不用 value model/critic，而用采样得到的 baseline。
 
 ## §7 Reward Modeling 进阶
 
@@ -662,7 +662,7 @@ Reward hacking 是 RL post-training 的核心痛点：model 找到 RM 的盲点�
 3. **Reward model ensemble** (Coste 2024 ICLR *Reward Model Ensembles Help Mitigate Overoptimization*)：多个 RM 取 min 或 mean - std。
 4. **Reward shaping**：把 reward 拆成多个项（helpfulness + length + diversity），单独 cap 每项。
 5. **离线 + 在线混合**：先 DPO / KTO 拿 70 分，再 PPO + 强 RM 跑最后一公里。
-6. **Composite reward**：rule-based + RM-based 加权，rule 部分不能被 hack。
+6. **Composite reward**：rule-based + RM-based 加权，rule 部分通常比神经 RM 更难被 hack（但并非绝对——checker/单测覆盖不全或存在漏洞时同样可能被利用，如答案格式匹配、边界条件漏判等，见 §5.3）。
 
 ### 8.2　Gao 2023 scaling law
 
@@ -704,9 +704,9 @@ Gao, Schulman, Hilton 2023 ICML *Scaling Laws for Reward Model Overoptimization*
 
 加上 activation、KV cache、generation buffer，单卡 80GB 极难放下；通常用 ZeRO-3 + offload 或多机分片。
 
-**DPO 同 base**：只需 $\pi_\theta$ + $\pi_\text{ref}$ = 70 + 14 = **84 GB**（少一半）。
+**DPO 同 base**：只需 $\pi_\theta$ + $\pi_\text{ref}$ = 112 + 14 = **126 GB**（约为 PPO ~252GB 的一半）。
 
-**GRPO 同 base**：$\pi_\theta$ + $\pi_\text{ref}$ + RM = 70 + 14 + 14 = **98 GB**（省 value 一份）。
+**GRPO 同 base**（神经 RM）：$\pi_\theta$ + $\pi_\text{ref}$ + RM = 112 + 14 + 14 = **140 GB**（省 value 一份）。
 
 ### 9.3　训练吞吐对比
 
@@ -882,7 +882,7 @@ DPO 训练快是因为**完全 offline**，几乎是 SFT 速度；PPO 慢主要�
 <summary>Q13.DPO vs IPO 区别？什么时候用 IPO？</summary>
 
 - DPO 用 sigmoid loss：偏好越极端，implicit reward 越大（无界）
-- IPO 用 squared loss + 固定 margin $1/(2\beta)$：reward 有界
+- IPO 用 squared loss + 固定 margin $1/(2\beta)$：把每对偏好的 log-ratio 差拉向固定有限目标 $1/(2\beta)$，从而避免 DPO 在 deterministic 偏好下 sigmoid loss 被无限推向 $+\infty$（隐式 reward margin 发散）——这是防止边际发散，而非对整个 reward 函数给出严格的全局有界证明
 - **当偏好数据 deterministic**（每对都 $y_w$ 总赢）时 DPO 容易过拟合，IPO 更稳
 - Azar et al. 2024 AISTATS 给出统一框架（$\Psi$PO）
 
@@ -896,8 +896,8 @@ DPO 训练快是因为**完全 offline**，几乎是 SFT 速度；PPO 慢主要�
 
 - **去 reference**：$r = (\beta / |y|) \log\pi(y)$，不需要 $\pi_\text{ref}$
 - **Length normalize**：除以 $|y|$，缓解 DPO 的长度偏好
-- **Reward margin** $\gamma$：要求 $r_w - r_l \ge \gamma$，超出才停止 loss
-- 显存省一倍；但失去 KL anchor，需要更小心调 $\beta, \gamma$
+- **Reward margin** $\gamma$：要求 $r_w - r_l \ge \gamma$，超出后 loss/梯度渐近趋于 0（softplus 型，非 hinge 硬截断）
+- 显存相对 DPO 节省约 11%（去掉 frozen $\pi_\text{ref}$ 的 14GB 权重，126→112 GB，并非"省一倍"）；但失去 KL anchor，需要更小心调 $\beta, \gamma$
 
 只说"去 reference"，不说 length-norm 和 margin；或不知道 SimPO 也是 contrastive。
 
@@ -912,7 +912,7 @@ DPO 训练快是因为**完全 offline**，几乎是 SFT 速度；PPO 慢主要�
 - **设计理由**：LLM token-level value 难学；用 sequence-level reward + 组内统计直接做 variance reduction
 - 哲学和 RLOO（leave-one-out 均值）、ReMax（greedy baseline）一致：用 sample baseline 替代 critic
 
-写成 per-token advantage（错，GRPO 整段共享）；或不知道 GRPO/RLOO/ReMax 的共性。
+写成 per-token advantage（在 outcome-supervision 版本下错，process-supervision 版本本就是 per-token）；或不知道 GRPO/RLOO/ReMax 的共性。
 
 </details>
 
@@ -947,7 +947,7 @@ DPO 训练快是因为**完全 offline**，几乎是 SFT 速度；PPO 慢主要�
 <summary>Q18.PPO 训练时为什么要在 reward 上加 KL，而不是在 loss 上？</summary>
 
 - 加在 reward 上 → 通过 advantage 自然进入 PPO-clip surrogate，per-token 控制
-- 加在 loss 上 → 整体 KL 约束，但失去 token-level resolution
+- 加在 loss 上的 KL 仍可以是逐 token 的（如 GRPO 用 K3 estimator 逐 token 计算，见 §5.2），并不天然损失 token 分辨率；真正的差异在于加进 reward 的 KL 会通过 GAE/return 递归影响每个 token 的 advantage，而加进 loss 的 KL 是独立于 return 的附加惩罚项，不参与 value bootstrap
 - GRPO 反而把 KL 放在 loss 上（用 K3 estimator），因为 GRPO 不展开 per-token advantage
 - 两种放法本质都是 KL anchor，但实现细节不同
 
@@ -1059,7 +1059,7 @@ DPO 训练快是因为**完全 offline**，几乎是 SFT 速度；PPO 慢主要�
 
 可能的方向（任答 2-3 个，且要有 trade-off 讨论）：
 
-- **Adaptive group size**：reward variance 大时小 $G$，小时大 $G$（DAPO dynamic sampling）
+- **Dynamic sampling（DAPO）**：过滤掉组内 reward 全同（全对或全错，std=0，advantage 恒为 0→零梯度）的 prompt，并持续补充采样新 prompt 以维持 batch 中有效梯度样本数不变；组内采样数 $G$ 本身通常保持固定，并不随 reward 方差自适应调整
 - **Token-level credit assignment**：GRPO 整段共享 advantage → 长 response 信号稀释。可以引入 lightweight critic（VAPO）或基于 step-level reward（PRM）的 partial credit
 - **Off-policy correction**：GRPO 是 on-policy，rollout 慢；引入 V-trace / Retrace 让 stale samples 也能用
 - **Multi-task reward**：rule + RM + style 合成 reward，每个维度独立归一化避免 reward scale 不平衡

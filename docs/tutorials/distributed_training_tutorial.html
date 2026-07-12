@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/distributed_training_tutorial.md">
-<meta name="aris:source-sha256" content="9fca080f5e600043ddd52586fa501f8c9d13acf3bb876f66cae5a17cbffadd6b">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="99b42980f21030f3b7054517edab91eb80ab729f1b8126b9133c725e3a0c9f10">
+<meta name="aris:generated-at" content="2026-07-12 04:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -644,7 +644,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#l3-高级变体顶级-lab--自研基建岗">L3 高级变体（顶级 lab / 自研基建岗）</a></li>
 </ul>
 </li>
-<li><a href="#a-附录完整-4d-wrap-代码骨架">§A 附录：完整 4D wrap 代码骨架</a>
+<li><a href="#a-附录完整-4d-wrap-代码骨架含-cp-占位维">§A 附录：完整 4D wrap 代码骨架（含 CP 占位维）</a>
 </li>
 <li><a href="#b-参考资料">§B 参考资料</a>
 </li>
@@ -659,8 +659,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/distributed_training_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>9fca080f5e60</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>99b42980f210</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:11 UTC</span>
     
   </div>
 </header>
@@ -686,7 +686,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>每一步 ring 上各传 $S/N$，共 $2(N-1)$ 步 → 单 GPU 总流量 $2(N-1)S/N \approx 2S$ bytes（与 $N$ 几乎无关，这是 ring 算法的精髓）。</p>
 <div class="callout callout-warn"><div class="callout-title">面试加分：NCCL 不只一个算法</div><p>NCCL 在小 message 用 <strong>tree all-reduce</strong>（latency-bound，$O(\log N)$ 跳）；大 message 用 <strong>ring all-reduce</strong>（bandwidth-bound，吞吐最优）。NVLink 拓扑下还有 <strong>NVLS (NVLink SHARP)</strong>，硬件做 reduction（H100/H200 NVSwitch 支持）。</p></div>
 <h3 id="22-nvlink--ib--拓扑">2.2 NVLink / IB / 拓扑</h3>
-<table><thead><tr><th>链路</th><th>单向带宽（H100 代）</th><th>用途</th></tr></thead><tbody><tr><td>NVLink 4.0</td><td>900 GB/s (per GPU, 18 链路聚合)</td><td>同节点 GPU↔GPU</td></tr><tr><td>PCIe 5.0 x16</td><td>64 GB/s</td><td>GPU↔CPU、慢路径</td></tr><tr><td>InfiniBand NDR 400G</td><td>50 GB/s (per port)</td><td>跨节点</td></tr></tbody></table>
+<table><thead><tr><th>链路</th><th>单向带宽（H100 代）</th><th>用途</th></tr></thead><tbody><tr><td>NVLink 4.0</td><td>450 GB/s（18 链路聚合，per GPU；官方标称 900 GB/s 是双向合计，单向约一半）</td><td>同节点 GPU↔GPU</td></tr><tr><td>PCIe 5.0 x16</td><td>64 GB/s</td><td>GPU↔CPU、慢路径</td></tr><tr><td>InfiniBand NDR 400G</td><td>50 GB/s (per port)</td><td>跨节点</td></tr></tbody></table>
 <p><strong>经验法则</strong>：节点内通信比跨节点快 <strong>10-20 倍</strong>。所以 TP 一定要塞进一个节点，DP / PP 才跨节点。Llama 3 训练拓扑：TP=8（节点内 NVLink）× PP=16（跨节点 IB）× DP=128。</p>
 <h3 id="23-pytorch-中的-nccl-调用">2.3 PyTorch 中的 NCCL 调用</h3>
 <pre><code class="language-python">import torch
@@ -762,7 +762,7 @@ def main(rank, world_size, local_rank):
         device_ids=[local_rank],
         bucket_cap_mb=25,                # bucket 大小
         gradient_as_bucket_view=True,     # 内存优化: grad 直接是 bucket view
-        static_graph=False,               # 若图静态可开,启用更多 fusion
+        static_graph=False,               # 若确定每轮迭代计算图相同（无条件分支/re-entrant checkpoint 变化）可设 True；主要收益是跳过每次迭代的 unused-parameter 遍历、支持梯度跨迭代累积和多次反向等，而非&quot;启用更多 kernel fusion&quot;
     )
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
@@ -824,12 +824,12 @@ def zero3_backward(layer_idx, dy, sharded_W, cached_input):
 <div class="callout callout-info"><div class="callout-title">关键结论</div><p>ZeRO-1/2 通信量与 DDP 相同（$2\Phi$ buffer），但显存大幅下降；ZeRO-3 多 $1.5\times$ 通信，换 $N\times$ 显存下降。实际工程中 ZeRO-3 通信也能通过 <strong>prefetch + overlap</strong> 部分隐藏，所以是 70B+ 模型的主流选择。换算成字节：DDP $\approx 4\Phi$ bytes，ZeRO-3 $\approx 6\Phi$ bytes。</p></div>
 <h3 id="44-zero-offload--zero-infinity">4.4 ZeRO-Offload / ZeRO-Infinity</h3>
 <p><strong>ZeRO-Offload</strong>（Ren et al., USENIX ATC 2021）：把 optimizer state + 部分 gradient 卸到 <strong>CPU</strong>，CPU 端跑 Adam update。代价：CPU↔GPU PCIe 通信 + CPU 计算慢。适合<strong>小集群 + 大模型</strong>场景（如单机 8 卡跑 13B）。</p>
-<p><strong>ZeRO-Infinity</strong>（Rajbhandari et al., SC 2021）：再进一步，把参数 / 优化器卸到 <strong>NVMe</strong>。理论上单机能跑 1T 参数（实际 throughput 极低，主要用于推理 / 微调）。</p>
+<p><strong>ZeRO-Infinity</strong>（Rajbhandari et al., SC 2021）：再进一步，把参数 / 优化器卸到 <strong>NVMe</strong>。理论上单机能跑 1T 参数（吞吐受 NVMe 带宽限制，实际训练速度很慢，但设计目标和论文卖点始终是"用有限 GPU 数量训练更大模型"，而非推理/微调场景）。</p>
 <div class="callout callout-warn"><div class="callout-title">Offload 用不用是 trade-off</div><p>卸 CPU 后单 step 时间通常变长 1.5-3 倍；NVMe 卸更慢 5-10 倍。只在「装不下 + 没钱加卡」时才用。生产训练优先扩 GPU 数。</p></div>
 <h2 id="5-fsdp--fsdp2--pytorch-原生-zero-3">§5 FSDP / FSDP2 — PyTorch 原生 ZeRO-3</h2>
 <p>Zhao et al. <strong>"PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel"</strong> (VLDB 2023) 把 ZeRO-3 思想做进 PyTorch 主干。FSDP2（PyTorch 2.4+, 2024）是大重写：<strong>per-parameter DTensor sharding</strong> 替换 FSDP1 的 flat-parameter。</p>
 <h3 id="51-fsdp1-vs-fsdp2-核心区别">5.1 FSDP1 vs FSDP2 核心区别</h3>
-<table><thead><tr><th>维度</th><th>FSDP1 (2022-2023)</th><th>FSDP2 (2024+)</th></tr></thead><tbody><tr><td>数据结构</td><td><strong>FlatParameter</strong>：把同一 wrap unit 内所有 param 拼成一个 1D buffer，再 chunk</td><td><strong>DTensor per-parameter</strong>：每个 param 独立按 dim-0 切</td></tr><tr><td>状态字典</td><td>需 all-gather 才能产出 unflattened state dict</td><td>通信自由 sharded state dict</td></tr><tr><td>冻结参数</td><td>同 unit 内必须全冻或全可训</td><td>各 param 独立，混合冻可训自然</td></tr><tr><td>TP 复合</td><td>困难（flat-buffer 与 TP 沿不同维切冲突）</td><td><strong>天然兼容</strong>：DTensor 描述多轴 placement (<code>Shard(0)</code>, <code>Replicate</code>, <code>Shard(1)</code> 组合)</td></tr><tr><td>API</td><td><code>FullyShardedDataParallel</code></td><td><code>fully_shard()</code> 函数式 wrap</td></tr></tbody></table>
+<table><thead><tr><th>维度</th><th>FSDP1 (2022-2023)</th><th>FSDP2 (2024+)</th></tr></thead><tbody><tr><td>数据结构</td><td><strong>FlatParameter</strong>：把同一 wrap unit 内所有 param 拼成一个 1D buffer，再 chunk</td><td><strong>DTensor per-parameter</strong>：每个 param 独立按 dim-0 切</td></tr><tr><td>状态字典</td><td>需 all-gather 才能产出 unflattened state dict</td><td>通信自由 sharded state dict</td></tr><tr><td>冻结参数</td><td>默认（<code>use_orig_params=False</code>）：同 unit 内必须全冻或全可训；<code>use_orig_params=True</code> 时保留原始 <code>nn.Parameter</code>，同一 unit 内可混合冻结/可训（LoRA 等部分微调场景的标准做法）</td><td>各 param 独立，混合冻可训自然</td></tr><tr><td>TP 复合</td><td>困难（flat-buffer 与 TP 沿不同维切冲突）</td><td><strong>天然兼容</strong>：DTensor 描述多轴 placement (<code>Shard(0)</code>, <code>Replicate</code>, <code>Shard(1)</code> 组合)</td></tr><tr><td>API</td><td><code>FullyShardedDataParallel</code></td><td><code>fully_shard()</code> 函数式 wrap</td></tr></tbody></table>
 <h3 id="52-fsdp-wrap-策略最核心的设计决策">5.2 FSDP wrap 策略（最核心的设计决策）</h3>
 <p>FSDP 不是把整个模型当一个 unit。它按<strong>自定义 unit boundary</strong> 切，每个 unit 内的参数一起 all-gather / reduce-scatter。</p>
 <pre><code class="language-python">import torch
@@ -914,13 +914,13 @@ forward (qwZ):   weight_shard (fp16) ──quant──&gt; shard (int8)
                                         ──dequant──&gt; full (fp16) ──compute</code></pre>
 <p>代价：每次 all-gather 前后做 block-wise quantization / dequantization（block size 一般 2048-4096 元素一组，保留 per-block scale）。block-quant 比 per-tensor quant 精度好得多，对训练 loss 影响 &lt; 1%。</p>
 <h3 id="62-hpzhierarchical-partition分层切分">6.2 hpZ：Hierarchical Partition（分层切分）</h3>
-<p>观察：<strong>backward 时 all-gather 的代价比 forward 大</strong>（更深更靠后的层先反传）。<code>hpZ</code> 把 weight 在 <strong>节点内复制</strong>（全 NVLink），跨节点不切：</p>
-<ul><li>节点内：8 张 GPU 各持完整 weight（hpZ = 节点内 DDP）</li><li>跨节点：weight 切片（依旧 ZeRO-3 模式）</li></ul>
-<p>backward 的 weight all-gather 只在节点内做（NVLink，便宜），不跨 IB。代价：每节点显存翻 8 倍——但 model states 本来就被切到 1024 卡上，乘 8 还远小于 DDP。</p>
+<p>观察：<strong>backward 时 all-gather 的代价比 forward 大</strong>（更深更靠后的层先反传）。<code>hpZ</code> 在节点内维护参数的<strong>二级 ZeRO-3 式分区</strong>：</p>
+<ul><li>节点内：H 张 GPU（如 H=8）collectively 持有一份完整 weight，但仍按 ZeRO-3 方式切分——每卡只额外持有 Φ/H（而非完整 Φ）</li><li>跨节点：weight 仍按全局 ZeRO-3 切片（不受 hpZ 影响）</li></ul>
+<p>backward 时通过节点内（NVLink）all-gather 把这 H 份拼回完整权重，不再跨节点（IB）做该 all-gather——便宜很多。代价：每卡额外显存 ≈ Φ/H（H=8 时约为原 ZeRO-3 单卡开销之外多出 Φ/8），而不是每卡完整存一份 Φ 的"节点内 DDP"。</p>
 <h3 id="63-qgzquantized-gradient-reduce量化梯度通信">6.3 qgZ：Quantized Gradient reduce（量化梯度通信）</h3>
-<p>backward 末段 reduce-scatter gradient 也走 int8（fp16 → int8 + 量化 reduce）。原始 reduce-scatter 用 SUM 操作不能简单量化（量化 + sum 会累积误差），ZeRO++ 改用 <strong>all-to-all + 反量化 + local sum</strong> 路径绕开。</p>
+<p>backward 末段的 gradient reduce-scatter 走 <strong>INT4（4-bit）</strong>块量化（而非 INT8），配合 <strong>all-to-all + 反量化 + local sum</strong> 的分层规约路径来控制精度损失。原始 reduce-scatter 用 SUM 操作不能简单量化（量化 + sum 会累积误差），这也是为什么要绕开直接量化 all-reduce。</p>
 <h3 id="64-综合效果">6.4 综合效果</h3>
-<p>ZeRO++ 论文报告：<strong>384 GPU 规模 throughput 2.16× 提升</strong>，通信量降 4×（fp16→int8 节省 2× × 2 个通信原语）。代价：实现复杂、精度需小心 ablation。</p>
+<p>ZeRO++ 论文报告：<strong>384 GPU 规模 throughput 2.16× 提升</strong>，通信量降 4×——这是 qwZ（fwd/bwd all-gather 用 INT8，2×）+ hpZ（backward 的跨节点 all-gather 被替换为节点内 all-gather，直接消除该部分跨节点流量）+ qgZ（reduce-scatter 用 INT4，4×）三者叠加的综合效果，不是简单的 "2×(int8) 乘以 2 个通信原语"。代价：实现复杂、精度需小心 ablation。</p>
 <div class="callout callout-warn"><div class="callout-title">量化通信 ≠ 量化训练</div><p>这里只量化<strong>集合通信途中的 transient buffer</strong>，权重本身的存储和计算仍是 fp16 / bf16。所以 loss 影响通常可忽略；和 fp8 训练（如 Hopper 上的 fp8 GEMM）是两件事。</p></div>
 <h2 id="7-tensor-parallel--megatron-lm">§7 Tensor Parallel — Megatron-LM</h2>
 <p>Shoeybi et al. <strong>"Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism"</strong> (arXiv 2019) + Narayanan et al. <strong>"Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM"</strong> (SC 2021)。</p>
@@ -945,7 +945,7 @@ forward (qwZ):   weight_shard (fp16) ──quant──&gt; shard (int8)
   - 每 rank 持 H/T 个 head 的 W_Q^(i), W_K^(i), W_V^(i)
   - 每 rank 独立算自己的 head_h(Q W_Q^h, ...)
   - 输出 W_O 切行并行 (row-parallel) → 末端 all-reduce</code></pre>
-<div class="callout callout-info"><div class="callout-title">为什么 attention 切 head 而不切 dim</div><p>head 维天然独立（不同 head 不交互），切 head 不需要跨 rank 通信中间结果；切 hidden dim 则需要在 softmax 前后做额外通信。代码也简洁：直接把 head 维分配给 ranks。</p></div>
+<div class="callout callout-info"><div class="callout-title">为什么 attention 必须按 head 边界切</div><p>hidden_dim 本身可以切，但切分边界必须与 head 对齐（每个 rank 拿到整数个完整 head），这样每个 head 内部的 QK^T/softmax 计算仍在单卡内完成，不需要跨 rank 通信中间结果；真正错误的做法是切 head <strong>内部</strong>的维度（把同一个 head 的 $d_{head}$ 拆到不同 rank），这会打断 softmax 归一化所需的完整点积，需要额外通信。代码也简洁：直接把整个 head 分配给 ranks。</p></div>
 <h3 id="74-tp-代码骨架">7.4 TP 代码骨架</h3>
 <p>下面是教学版 col-parallel / row-parallel，明确写出 forward 和 backward 的通信对（关键：col-parallel forward 不通信，backward all-reduce 输入梯度；row-parallel forward all-reduce 输出，backward 不通信）：</p>
 <pre><code class="language-python">import math
@@ -1000,7 +1000,11 @@ class RowParallelLinear(nn.Module):
         self.tp_group = tp_group
         self.in_per_rank = in_features // tp_size
         self.weight = nn.Parameter(torch.empty(out_features, self.in_per_rank))
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        # 不能直接 kaiming_uniform_(self.weight)：它会自动用 self.weight.size(1) = in_per_rank
+        # 当作 fan_in，导致方差被放大 T 倍。必须用全局 in_features 手动算 bound。
+        gain = nn.init.calculate_gain(&#x27;leaky_relu&#x27;, math.sqrt(5))
+        bound = gain * math.sqrt(3.0 / in_features)   # 用全局 in_features，而非 self.in_per_rank
+        nn.init.uniform_(self.weight, -bound, bound)
     def forward(self, x):
         # x: [B, in/T] (sharded along last dim)
         local_out = torch.nn.functional.linear(x, self.weight)  # [B, out] partial sum
@@ -1020,7 +1024,7 @@ class TPTransformerMLP(nn.Module):
 <div class="callout callout-info"><div class="callout-title">TP 通信对子（必记）</div><p>col-parallel: <code>forward = identity, backward = all-reduce(dX)</code>；row-parallel: <code>forward = all-reduce(Y), backward = identity</code>。一个 transformer block (col + row × 2 sets: MLP + attention) 共 4 次 all-reduce，2 在 forward、2 在 backward——这就是上文 §7.2 那 4 次的来源。</p></div>
 <h3 id="75-tp-必须塞进节点nvlink">7.5 TP 必须塞进节点（NVLink）</h3>
 <p>每个 transformer block forward + backward = 4× all-reduce of activation tensor 大小 $\approx BLD$。对 7B 模型 $D = 4096$，$B \times L = 2048$ → 单次 $\approx 32$ MB，per-block 4 次 × 32 layer = <strong>128 次 / step, $\approx 4$ GB / step</strong>。</p>
-<p>NVLink 带宽 900 GB/s 下 $\approx 4.4$ ms；IB 50 GB/s 下 $\approx 80$ ms。所以 <strong>TP 必须塞进节点内</strong>（NVLink 域）。这就是为什么 LLaMA / Llama 3 / GPT-3 都用 TP=8（一个节点 8 卡）而不是 TP=16。</p>
+<p>NVLink 带宽 900 GB/s（双向）下单向可用 $\approx 450$ GB/s，4GB 传输 $\approx 4\text{GB}/450\text{GB/s} \approx 8.9$ ms；IB 50 GB/s 下 $\approx 80$ ms。所以 <strong>TP 必须塞进节点内</strong>（NVLink 域）。这就是为什么 LLaMA / Llama 3 / GPT-3 都用 TP=8（一个节点 8 卡）而不是 TP=16。</p>
 <h2 id="8-sequence-parallel--省-activation-memory">§8 Sequence Parallel — 省 activation memory</h2>
 <p>Korthikanti et al. <strong>"Reducing Activation Recomputation in Large Transformer Models"</strong> (MLSys 2023)。</p>
 <h3 id="81-动机activation-memory-主要是-layernorm--dropout-这种-element-wise-op">8.1 动机：activation memory 主要是 LayerNorm / Dropout 这种 element-wise op</h3>
@@ -1072,7 +1076,8 @@ Stage 3:             [F1][F2][F3][F4]            [B4][B3][B2][B1]
 <p><strong>Bubble</strong>（GPU 空闲时间占比）：</p>
 <p>$$\boxed{\;\text{bubble ratio} = \frac{P - 1}{M + P - 1}\;}$$</p>
 <p>推导：每个 micro-batch 走完 $P$ stage 要 $P$ 个 step；warm-up 阶段（stage $i$ 等前 $i$ 个 micro-batch）共 $P-1$ 个 step idle；cool-down 阶段对称 $P-1$ 个 step idle；总 step = $M + P - 1$（forward）+ $M + P - 1$（backward）= $2(M+P-1)$；其中 idle = $2(P-1)$。idle 占比 = $(P-1)/(M+P-1)$。</p>
-<div class="callout callout-warn"><div class="callout-title">GPipe 的硬伤</div><p>必须等所有 $M$ 个 micro-batch 全部 forward 完才能开始 backward——所有 micro-batch 的 activation 都要存住，<strong>activation memory 与 $M$ 线性增长</strong>。这是 1F1B 解决的问题。</p></div>
+<div class="callout callout-warn"><div class="callout-title">GPipe 的硬伤</div><p>必须等所有 $M$ 个 micro-batch 全部 forward 完才能开始 backward——所有 micro-batch 的 activation 都要存住，<strong>activation memory 与 $M$ 线性增长</strong>。这是 1F1B 解决的问题。</p>
+<p>注意这里的 $O(M)$ / $O(P)$ 是以<strong>固定 micro-batch 大小</strong>为前提数的 microbatch 份数（这也是 1F1B 论文的标准口径）；如果反过来固定总 mini-batch $B$ 并把它切成 $M$ 份（每份 $B/M$），GPipe 总字节数其实是 $O(B)$（与 $M$ 无关），1F1B 峰值则是 $O(PB/M)$（随 $M$ 增大而下降）——两种口径都对，区别只在于哪个量被当作固定的训练超参数。</p></div>
 <h3 id="93-1f1b--pipedreamnarayanan-sosp-2019-megatron-lm-2-sc-2021">9.3 1F1B / PipeDream（Narayanan SOSP 2019, Megatron-LM-2 SC 2021）</h3>
 <p><strong>1F1B = 1 Forward 1 Backward</strong>：每个 stage 在 forward 一个 micro-batch 后<strong>立刻</strong> backward（前一个已经完成的）：</p>
 <pre><code>Stage 0: [F1][F2][F3][F4][B1][F5][B2][F6][B3][F7][B4]...
@@ -1129,7 +1134,7 @@ Interleaved (P=4, V=2, L=8):
         grad_in = backward(model, grad_out)
         send_grad_to_prev_stage(grad_in)</code></pre>
 <h3 id="96-pp-通信特点">9.6 PP 通信特点</h3>
-<p>PP 只在 stage 边界传 <strong>activation / gradient</strong>，单次传一个 micro-batch 大小 $\approx B/M \cdot L \cdot D$ bytes。<strong>通信量极小</strong>（远小于 TP / DP），所以 PP 可以跨节点（IB 也够）。</p>
+<p>PP 只在 stage 边界传 <strong>activation / gradient</strong>，单次传一个 micro-batch 大小 $\approx (B/M) \cdot L \cdot D \cdot q$ bytes（$q$ 为每元素字节数，fp16/bf16 下 $q=2$）。<strong>通信量极小</strong>（远小于 TP / DP），所以 PP 可以跨节点（IB 也够）。</p>
 <h3 id="97-pp-的硬伤load-imbalance">9.7 PP 的硬伤：load imbalance</h3>
 <ul><li>不同 stage 的层数 / 计算量需手动平衡（embedding + LM head 很重，常需特殊处理）</li><li>一个 stage 的 OOM / 慢都拖死整个 pipeline（短板效应）</li><li>micro-batch 数 $M$ 太小 → bubble 大；$M$ 太大 → activation memory 涨</li></ul>
 <h2 id="10-context-parallel--长序列切分">§10 Context Parallel — 长序列切分</h2>
@@ -1250,7 +1255,7 @@ y = checkpoint(block_forward, x, use_reentrant=False)</code></pre>
 <h3 id="122-selective-recomputekorthikanti-2023">12.2 Selective Recompute（Korthikanti 2023）</h3>
 <p>只对<strong>二次 memory 的 op</strong>（attention 的 $QK^\top$ 和 softmax）做 recompute，其余存。比 full recompute 减 30-40% 计算 overhead，省同样多 memory。Megatron-LM 默认开启。</p>
 <h3 id="123-offloadzero-infinity">12.3 Offload（ZeRO-Infinity）</h3>
-<p>把 activation / optimizer state 卸到 CPU RAM 或 NVMe。CPU 卸适合 13B-30B 量级单机训练；NVMe 卸吞吐极低，主要用于推理或 trillion-scale 大模型探索。</p>
+<p>把 activation / optimizer state 卸到 CPU RAM 或 NVMe。CPU 卸适合 13B-30B 量级单机训练；NVMe 卸吞吐极低，主要用于探索单机可训练的参数规模上限，而非生产训练或推理场景。</p>
 <h3 id="124-activation-memory-公式必背">12.4 Activation Memory 公式（必背）</h3>
 <p>一个 transformer block 的 activation 大致（fp16, full save）：</p>
 <p>$$A_\text{block} \approx \underbrace{34 \cdot B \cdot L \cdot D}_{\text{各 LayerNorm/QKV/output/MLP residual}} + \underbrace{5 \cdot B \cdot L^2 \cdot H}_{\text{attention 中间矩阵}}$$</p>
@@ -1290,7 +1295,7 @@ Stage 0: 同时 process Forward 的 F + Reverse 的 F&#x27; + 对应 B  ← 计�
 <h2 id="15-torchtitan--pytorch-原生-4d-平台">§15 TorchTitan — PyTorch 原生 4D 平台</h2>
 <p>Liang et al. (ICLR 2025, arXiv 2410.06511) <strong>"TorchTitan: One-stop PyTorch Native Solution for Production-Ready LLM Pre-training"</strong>。</p>
 <h3 id="151-设计目标">15.1 设计目标</h3>
-<ul><li><strong>不要再 monkey patch</strong>：把 FSDP2 / TP / PP / SP / CP / Float8 / <code>torch.compile</code> 全做进 PyTorch 主干</li><li><strong>DTensor 作为统一语言</strong>：所有切分都用 DTensor placement 描述（<code>Shard(d)</code>, <code>Replicate</code>, <code>Partial</code>）</li><li><strong>Composable</strong>：FSDP2 与 TP 自然复合（FSDP1 与 TP 几乎不可复合）</li></ul>
+<ul><li><strong>不要再 monkey patch</strong>：把 FSDP2 / TP / PP / SP / CP / Float8 / <code>torch.compile</code> 全做进 PyTorch 主干</li><li><strong>DTensor 作为统一语言</strong>：所有切分都用 DTensor placement 描述（<code>Shard(d)</code>, <code>Replicate</code>, <code>Partial</code>）</li><li><strong>Composable</strong>：FSDP2 与 TP 在原生 DTensor 上自然复合；FSDP1 与 TP 复合在工程上很困难（flat-buffer 与 TP 沿不同维切的数据布局冲突，需要专门适配，例如把 TP 内子模块拆成独立细粒度 FSDP unit 并手动处理两者交互），成本远高于 FSDP2，但并非数学上不可能</li></ul>
 <h3 id="152-代码风格与-deepspeed-monkey-patch-对比">15.2 代码风格（与 DeepSpeed monkey patch 对比）</h3>
 <pre><code class="language-python"># TorchTitan 风格：声明式 DTensor placement
 import torch
@@ -1394,7 +1399,7 @@ future.result()                 # 必要时等</code></pre>
 
 <summary>Q6. Tensor Parallel 切 attention 的哪一维？</summary>
 <ul><li>切 <strong>head 维</strong>（每张卡持 $H/T$ 个 head）</li><li>$W_Q, W_K, W_V$ column-parallel（按输出维切）</li><li>$W_O$ row-parallel（按输入维切）</li><li>每个 attention block forward 1× all-reduce, backward 1× all-reduce</li></ul>
-<p>陷阱：说切 hidden_dim 维；或忘了 col + row 配对让中间不通信。</p>
+<p>陷阱：说切 hidden_dim 内部（把同一 head 的 $d_{head}$ 拆到不同 rank）；或忘了 col + row 配对让中间不通信。</p>
 </details>
 <details>
 
@@ -1472,7 +1477,7 @@ future.result()                 # 必要时等</code></pre>
 <details>
 
 <summary>Q19. ZeRO++ 三个 trick？</summary>
-<ul><li><strong>qwZ</strong>：forward all-gather 用 int8 量化（block-wise quant）</li><li><strong>hpZ</strong>：weight 在节点内复制（NVLink 域），跨节点仍切——backward all-gather 走 NVLink</li><li><strong>qgZ</strong>：backward gradient reduce-scatter 也走 int8</li><li>总通信量降 4×，throughput 384 GPU 上 +116% (Wang 2023)</li></ul>
+<ul><li><strong>qwZ</strong>：forward all-gather 用 int8 量化（block-wise quant）</li><li><strong>hpZ</strong>：节点内维护二级 ZeRO-3 分区（每卡多存 Φ/H，而非整份权重复制），backward all-gather 走节点内 NVLink，不跨节点</li><li><strong>qgZ</strong>：backward gradient reduce-scatter 走 INT4（4-bit）块量化</li><li>总通信量降 4×，throughput 384 GPU 上 +116% (Wang 2023)</li></ul>
 <p>陷阱：以为 ZeRO++ 改训练精度——只在通信途中量化 buffer，权重和计算仍是 fp16/bf16。</p>
 </details>
 <details>
@@ -1517,8 +1522,8 @@ future.result()                 # 必要时等</code></pre>
 <ul><li>通信原语按拓扑放（TP 走 NVLink，PP / DP 走 IB）</li><li>DualPipe / Interleaved 1F1B 压 PP bubble</li><li>FlashAttention v3 + SP / CP 压 activation</li><li>fp8 GEMM（H100 / B100）+ FP32 accumulation (promoted on CUDA cores) 提 throughput</li></ul></li></ul>
 <p>陷阱：把维度顺序搞反；忘了 TP 必须节点内；以为 DeepSeek 用了 TP（V3 实际 TP=1）。</p>
 </details>
-<h2 id="a-附录完整-4d-wrap-代码骨架">§A 附录：完整 4D wrap 代码骨架</h2>
-<p>下面是一个 4D parallelism 的 minimal 端到端 wrap 示例（FSDP2 + TP + SP + PP），按 TorchTitan 风格。</p>
+<h2 id="a-附录完整-4d-wrap-代码骨架含-cp-占位维">§A 附录：完整 4D wrap 代码骨架（含 CP 占位维）</h2>
+<p>下面是一个 <strong>3D parallelism（PP × FSDP × TP+SP）</strong>的 minimal 端到端 wrap 示例，按 TorchTitan 风格。mesh 中预留了 CP 维度（下方代码里设为 1，即未真正启用，仅作为扩展到真正 4D 的占位）；若要演示完整 4D，需要把 <code>cp</code> 维度设为 &gt;1 并对 attention 应用 context-parallel（如 Ring Attention）切分。</p>
 <pre><code class="language-python">import torch
 import torch.nn as nn
 from torch.distributed.device_mesh import init_device_mesh
@@ -1531,7 +1536,7 @@ from torch.distributed.pipelining import pipeline, SplitPoint, ScheduleInterleav
 from torch.utils.checkpoint import checkpoint
 
 def build_4d_model(model, world_size):
-    &quot;&quot;&quot; 4D parallelism wrap (PP × FSDP × CP × TP) &quot;&quot;&quot;
+    &quot;&quot;&quot; 3D parallelism wrap (PP × FSDP × TP+SP)；mesh 预留 CP 维度（当前设为 1，未真正启用） &quot;&quot;&quot;
     # Step 1. 建 4D device mesh
     # 例: 64 GPU = PP=2 × FSDP=4 × CP=1 × TP=8
     mesh = init_device_mesh(
@@ -1605,9 +1610,11 @@ def train_step_4d(pp_stage, schedule, optimizer, batch):
     optimizer.zero_grad(set_to_none=True)
     # PP schedule runs forward + backward across all stages
     losses = []
-    schedule.step(batch, losses=losses)  # 内部触发 FSDP all-gather / TP all-reduce / etc.
+    schedule.step(batch, losses=losses)  # 内部触发 FSDP all-gather / TP all-reduce / etc.；losses 仅在最后一个 pipeline stage 被填充，其余 stage 为空列表
     optimizer.step()
-    return torch.stack(losses).mean()</code></pre>
+    if len(losses) &gt; 0:
+        return torch.stack(losses).mean()
+    return None  # 非最后 stage 无本地 loss 可返回</code></pre>
 <p><strong>说明</strong>：上述代码是教学骨架，实际生产请直接用 TorchTitan repo（pytorch/torchtitan）——其包含完整的 <code>Trainer</code>、checkpointing、profiling、loss / lr schedule，本节只给概念示意。</p>
 <h2 id="b-参考资料">§B 参考资料</h2>
 <ul><li><strong>DDP</strong>: PyTorch documentation, <code>nn.parallel.DistributedDataParallel</code></li><li><strong>ZeRO</strong>: Rajbhandari et al., "ZeRO: Memory Optimizations Toward Training Trillion Parameter Models", SC 2020 (<a href="https://arxiv.org/abs/1910.02054">arXiv:1910.02054</a>)</li><li><strong>ZeRO-Offload</strong>: Ren et al., USENIX ATC 2021</li><li><strong>ZeRO-Infinity</strong>: Rajbhandari et al., SC 2021</li><li><strong>ZeRO++</strong>: Wang et al., "ZeRO++: Extremely Efficient Collective Communication for Giant Model Training", arXiv:2306.10209, 2023</li><li><strong>FSDP</strong>: Zhao et al., "PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel", VLDB 2023</li><li><strong>FSDP2 / TorchTitan</strong>: Liang et al., "TorchTitan: One-stop PyTorch Native Solution", ICLR 2025 (<a href="https://arxiv.org/abs/2410.06511">arXiv:2410.06511</a>)</li><li><strong>Megatron-LM TP</strong>: Shoeybi et al., "Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism", arXiv:1909.08053, 2019</li><li><strong>Megatron-LM-2 (Interleaved 1F1B)</strong>: Narayanan et al., "Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM", SC 2021</li><li><strong>GPipe</strong>: Huang et al., "GPipe: Efficient Training of Giant Neural Networks using Pipeline Parallelism", NeurIPS 2019</li><li><strong>PipeDream / 1F1B</strong>: Narayanan et al., "PipeDream: Generalized Pipeline Parallelism for DNN Training", SOSP 2019</li><li><strong>Sequence Parallel + Selective Recompute</strong>: Korthikanti et al., "Reducing Activation Recomputation in Large Transformer Models", MLSys 2023</li><li><strong>Ring Attention</strong>: Liu et al., "Ring Attention with Blockwise Transformers for Near-Infinite Context", ICLR 2024 (<a href="https://arxiv.org/abs/2310.01889">arXiv:2310.01889</a>)</li><li><strong>Gradient Checkpointing</strong>: Chen et al., "Training Deep Nets with Sublinear Memory Cost", arXiv:1604.06174, 2016</li><li><strong>DualPipe</strong>: DeepSeek-V3 Technical Report, <a href="https://arxiv.org/abs/2412.19437">arXiv:2412.19437</a>, December 2024</li><li><strong>Llama 3</strong>: Meta AI, "The Llama 3 Herd of Models", <a href="https://arxiv.org/abs/2407.21783">arXiv:2407.21783</a>, 2024</li><li><strong>GShard / Switch Transformer (MoE EP)</strong>: Lepikhin et al. 2020 / Fedus et al. JMLR 2022</li></ul>
@@ -1615,8 +1622,8 @@ def train_step_4d(pp_stage, schedule, optimizer, batch):
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/distributed_training_tutorial.md</code> ·
-  SHA256 <code>9fca080f5e60</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>99b42980f210</code> ·
+  generated at 2026-07-12 04:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

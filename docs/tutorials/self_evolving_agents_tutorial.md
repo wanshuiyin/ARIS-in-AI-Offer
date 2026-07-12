@@ -45,7 +45,7 @@ $$\big(\pi_t, \mathcal{K}_t, \mathcal{S}_t\big) \xrightarrow{\mathcal{T}(E, \tex
 面试常错的两个直觉：
 
 - ❌ "self-evolving = 自动训出新模型权重"——错，**绝大多数 work 不更新参数**（Voyager、Ctx2Skill、Generative Agents、A²RD 全是 training-free / inference-time）。
-- ❌ "self-evolving = agent 想干什么就干什么"——错，2026 主流是**严格 grounding** 的 self-improvement：要么 code executor（Absolute Zero），要么 math checker（STaR），要么 rubric judge（Ctx2Skill），要么 outcome utility（Native Evolution）。
+- ❌ "self-evolving = agent 想干什么就干什么"——错，2026 主流是**严格 grounding** 的 self-improvement：要么 code executor（Absolute Zero），要么真答案比对 + rationalization（STaR），要么 rubric judge（Ctx2Skill），要么 outcome utility（Native Evolution）。
 
 ## §2 三种 Self-Evolution 范式的形式化
 
@@ -59,7 +59,7 @@ Native Evolution 论文 [arXiv:2604.18131] 给出了一个非常清晰的分类�
 
 $$\theta_{t+1} = \theta_t + \eta \,\mathbb{E}_{\tau \sim \pi_{\theta_t}}\!\left[\nabla_\theta \log \pi_\theta(\tau)\, R(\tau)\right]$$
 
-这就是标准 policy gradient——AgentTuning、ToolLLM、Voyager 早期变种属于此类。
+这是一个理想化的 policy-gradient 形式；AgentTuning、ToolLLM 实践中主要通过用规则/裁判筛选成功 trajectory 后做 SFT 来近似它（reward 退化为 0/1 过滤器，而非连续加权梯度）。Voyager 不属于此类——它全程冻结 GPT-4 权重、不用 reward（见 §4.1）。
 
 **优点**：监督密度高，收敛快。**缺点**：人力成本巨大（每个新环境都要重新设计 reward）。
 
@@ -144,9 +144,9 @@ Anthropic 在 2025 年公开了 `skills/` 范式（每个 skill 是一个独立 
 
 Native Evolution 的 K 还会显式存：
 
-- **Visual arcs**（实体/环境的视觉演化）
-- **Spatial relations**（subject-relation-object triplets）
-- **Camera states / Site map**（环境拓扑）
+- **Site/environment map**（网站结构、导航路径、代码仓库拓扑）
+- **Entity/page relations**（跨页面/跨模块的关联信息）
+- **Failure notes**（探索中遇到的死链接/无效路径）
 - **Token budget allocation**（每个子页面分多少 token）
 
 ### 3.3　为什么 markdown 而不是 vector embedding？
@@ -248,11 +248,11 @@ iteration 越多，Challenger 越极端，Reasoner 越 over-specialize 到极端
 
 1. 训练过程中维护两个 probe set：
    - **Hard set $\mathcal{Q}^h$**：每 iteration 选 rubric pass rate 最低的失败 task
-   - **Easy set $\mathcal{Q}^e$**：每 iteration 选 rubric pass 最少的 solved task（"刚好解出来"的）
+   - **Easy set $\mathcal{Q}^e$**：每 iteration 从 solved 中取一个代表"刚好解出"的 task（例如 reasoner 用了最多 retry 的那个，而非按 rubric pass 数排序——因为 solved 定义下所有任务 pass_rate 恒为 1.0）
 
 2. 训练结束后，对每个候选 $\mathcal{S}^R_i$（$i=1\ldots N$）跑 Reasoner $\pi^R$ 在两个 probe set 上：
 
-$$\rho^h(i) = \frac{\sum_{q\in \mathcal{Q}^h} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^h| + 1}, \quad \rho^e(i) = \frac{\sum_{q\in \mathcal{Q}^e} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^e| + 1}$$
+$$\rho^h(i) = \frac{\sum_{q\in \mathcal{Q}^h} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^h| + 2}, \quad \rho^e(i) = \frac{\sum_{q\in \mathcal{Q}^e} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^e| + 2}$$
 
 （Laplace smoothing 防 probe set 为空）
 
@@ -333,7 +333,7 @@ def ctx2skill_loop(context: str, llm, num_iters: int = 5, M: int = 5):
 
 
 def laplace_smoothed_rate(probe, skill_set, llm, context):
-    """ Laplace-smoothed pass rate: (sum_q y_q + 1) / (|probe| + 1).
+    """ Laplace-smoothed pass rate: (sum_q y_q + 1) / (|probe| + 2).
     
     Args:
         probe:     list[(task, rubrics)]
@@ -349,7 +349,7 @@ def laplace_smoothed_rate(probe, skill_set, llm, context):
         if all(llm(role="judge", prompt=judge_prompt(a, r))
                for r in rubrics_q):
             num_pass += 1
-    return (num_pass + 1) / (len(probe) + 1)
+    return (num_pass + 1) / (len(probe) + 2)
 ```
 
 ### 5.5　Ctx2Skill 实验结果（必记）
@@ -494,7 +494,7 @@ def native_evolution_inference(pi_star, new_env, task):
 
 ### 6.5　Native Evolution 实验结果
 
-WebVoyager + WebWalker，14B Qwen3 / 36B Seed-OSS：
+WebVoyager + WebWalker，Qwen3-30B / Seed-OSS-36B（主表）；14B Qwen3 迁移结果见下方单独说明：
 
 | backbone | w/o K | Native Evolution (RFT) | Δ |
 |---|---|---|---|
@@ -836,7 +836,7 @@ $$\text{score}(s, q) = \alpha_\text{sim}\, \cos(\mathbf{e}_s, \mathbf{e}_q) + \a
 
 - 维护历史 probe set（不只看 current iteration）
 - 选最 balanced 而非 last-iteration skill
-- 用 KL penalty 防 skill set 单步剧变：$\mathcal{L}_\text{KL} = \beta \,D_\text{KL}(\mathcal{S}_i \| \mathcal{S}_{i-1})$（textual KL 可近似为 BLEU/edit distance）
+- 用一个 divergence-like penalty 防 skill set 单步剧变：$\mathcal{L}_\text{div} = \beta \, d(\mathcal{S}_i, \mathcal{S}_{i-1})$，其中 $d$ 可用 1-BLEU、编辑距离等文本相似度的对偶量近似（**注意**：这不是真正的 KL divergence——KL 定义在概率分布上，$\mathcal{S}_i$ 是确定性文本，除非把 skill set 视为某个 token 分布的样本，否则 KL 本身未定义）
 
 ### 12.2　Memory Drift
 
@@ -1111,11 +1111,7 @@ $$D_\text{KL}(p^\star \| p_{t+1}) \;\ge\; D_\text{KL}(p^\star \| p_t)$$
 
 **直觉**：$p_t$ 已经 biased，按它采样训出来的 $p_{t+1}$ 只能保留或放大 bias。
 
-若引入 grounding（外源 label $y$ 对应 $x$），训练目标变成 conditional $p(x | y)$ 修正：
-
-$$D_\text{KL}(p^\star \| p_{t+1}) \;\le\; D_\text{KL}(p^\star \| p_t) - \Delta_\text{grounding}$$
-
-其中 $\Delta_\text{grounding} > 0$ 量化外源信号带来的 KL 修正。
+若引入 grounding（外源 label $y$ 对应 $x$），训练目标变成 conditional $p(x \mid y)$ 修正。**注意**：不能把上面的退化下界直接反转成一个对称的上界保证——若引入 grounding，直觉上不再受该下界约束，但这并不构成一个对称的上界保证：是否单调改进取决于 grounding 信号具体如何塑造 $p_{t+1}$（如是否用于 rejection sampling / direct supervision），原论文并未给出这一方向的一般性单调改进定理，此处只是启发式对照，非严格反推。
 
 参考 [arXiv:2601.05280] §3。
 
@@ -1191,7 +1187,7 @@ $$\text{score}(m) = \alpha_\text{recency}\, r(m) + \alpha_\text{importance}\, i(
 - $i(m) \in [1, 10]$，由 LLM 自评 importance
 - $s(m, q)$ cosine similarity
 
-Park 2023 UIST 设 $\gamma=0.995$/hour，$\alpha$ 均匀分配。
+Park 2023 UIST 设 $\gamma=0.99$/hour，$\alpha$ 均匀分配。
 
 **面试加分**：importance 评分用 LLM 自评本身可能 hallucinate；现代 system 改用 cross-model 评分或 task-conditioned importance。
 
@@ -1213,7 +1209,7 @@ MemGPT (Packer 2023):
 - 让 LLM 自主决定 "now save this to disk" / "now load that"
 - 这是 LLM agent 第一次实现**真正意义上的长期记忆主动管理**——不依赖 RAG 框架
 
-后续 work：MemoryBank, MemChat, MVMem 都受其启发；ARIS-style research-wiki 也是同款思路（agent 自己决定写入 / 读取 wiki）。
+后续 work：MemChat、MVMem 等受其（MemGPT）启发；MemoryBank（Zhong et al., 2023-05，早于 MemGPT 的 2023-10）则是同期独立发展、共享带衰减长期记忆的思路，而非受 MemGPT 启发。ARIS-style research-wiki 也是同款思路（agent 自己决定写入 / 读取 wiki）。
 
 </details>
 
@@ -1250,11 +1246,11 @@ Ctx2Skill 更适合**新 manual / new repo / new product doc** 场景；Voyager 
 **充分条件**（直觉版）：
 
 1. **Judge 可校准** (calibrated)：$\mathbb{E}[Judge(a, r)] = \mathbb{E}[\text{ground-truth}(a, r)]$。即 Judge 不漂移。
-2. **Proposer 是 monotone improver**：每次 proposer 给出的 diagnosis 让 generator 写出的新 skill 在该 batch 上 strictly improving expected pass rate (with prob $\ge 1 - \delta$)。
+2. **Proposer 是 monotone improver**：每次 proposer 给出的 diagnosis 让 generator 写出的新 skill 在该 batch 上 strictly improving expected pass rate（with prob $\ge 1-\delta_i$，且 $\delta_i \to 0$ summably，即 $\sum_i \delta_i < \infty$）。
 3. **Probe set 平稳分布**：$\mathcal{Q}^h, \mathcal{Q}^e$ 经过 K 次更新后分布稳定（不再剧变）。
 4. **Skill set 容量有上限**：$|\mathcal{S}^R| \le L$（防 unbounded growth）。
 
-在 (1)-(4) 下，$\{C^R_i\}$ 是 **bounded + 几乎处处 monotone non-decreasing** 序列（在 prob $\ge 1-\delta$ 下 strict improving；上界由 Probe set 的 pass rate $\le 1$ 给出）。这种过程不严格是 supermartingale（supermartingale 是 $\mathbb{E}[C_{i+1}|\mathcal{F}_i] \le C_i$，方向相反），更准确的叙述是 **bounded monotone improvement 序列 / submartingale-like**——按经典 monotone convergence theorem 收敛到 $C^R_\infty \le 1$。
+在 (1)-(4) 下（要求 $\delta_i$ 可和），$\{C^R_i\}$ 是 **bounded + 依概率单调改进** 的序列；上界由 Probe set 的 pass rate $\le 1$ 给出，可用经典 monotone convergence theorem 论证期望意义下的收敛 $\mathbb{E}[C^R_i] \to C^R_\infty \le 1$。**若 $\delta$ 固定不随 $i$ 衰减**，则由 Borel–Cantelli 第二定理（独立 trial 假设下），失败事件几乎必然无穷次发生，此时 $\{C^R_i\}$ 至多是期望意义下单调或依概率收敛，而非几乎处处单调；此外，score 收敛也不能排除底层 skill set $\mathcal{S}^R_i$ 本身在多个同分数解之间振荡——收敛的是标量 $C^R_i$，不代表 $\mathcal{S}^R_i$ 本身稳定下来。
 
 **注意**：这是叙述性 sketch；formal proof 需要构造合适概率空间、定义 $\sigma$-algebra、并细致处理 Judge 的 stochastic noise + monotone improvement 是高概率非确定性的 —— 属于 PhD-level theory 题，**不应在面试现场推满**，能讲清"为什么 bounded + monotone improvement 蕴含收敛"已足够。
 
@@ -1285,6 +1281,8 @@ $$I(\mathcal{K}; \mathcal{T}_E) \le I(\mathcal{K}; E)$$
 所以训练时 maximize $R_\text{evolve}$ → 隐式 maximize $I(\mathcal{K}; \mathcal{T}_E) \le I(\mathcal{K}; E)$ → 推 policy 远离 trivial K。
 
 → 推理时 policy 已经 internalize 了"如何产生 high-info K"的 instinct，所以无 reward 也能保持非 trivial 行为——但 **only on environments similar to training distribution**。
+
+> **注意** — 这不是 Native Evolution 论文的实际训练目标（真正训练用的是 §6.2 的 $R_\text{evolve}$，一个 outcome-based utility，不是互信息）；这里的 $I(\mathcal{K}; E)$ 只是一个启发式的事后信息论解释，用来说明为什么最大化 $R_\text{evolve}$ 倾向于避开 trivial K，并非等价推导；Success 与互信息之间也没有严格单调的定理保证，只有类似 Fano 不等式给出的界。
 
 > ⚠️ **caveat** — 在 train distribution 之外（OOD environment），无 grounding 信号防退化，policy 可能仍然 fail。这是 Native Evolution 的 open problem 之一。
 

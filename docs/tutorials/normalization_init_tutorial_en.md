@@ -16,7 +16,7 @@
 
 7. **Residual + scaling**: the Jacobian $I+\partial F/\partial x$ of $y=x+F(x)$ gives a **gradient highway** (the identity term keeps the gradient from vanishing); scaling tricks push the branch's starting point toward identity — $1/\sqrt N$ depth scaling, LayerScale (learnable per-channel $\lambda$), ReZero (learnable scalar init 0), SkipInit.
 
-8. **Initialization**: the core goal is **variance preservation** — Xavier (tanh, $\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$), Kaiming (ReLU, $\text{Var}(W)=\frac{2}{n_\text{in}}$, that 2 compensating the half-variance ReLU kills); residual nets then down-scale by depth, **GPT-2 multiplies the residual-projection weights by $\frac{1}{\sqrt{2N}}$**; Fixup trains deep residual nets norm-free on init alone.
+8. **Initialization**: the core goal is **variance preservation** — Xavier (tanh, $\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$), Kaiming (ReLU, $\text{Var}(W)=\frac{2}{n_\text{in}}$, that 2 compensating the half-variance ReLU kills); residual nets then down-scale by depth, **GPT-2 multiplies the residual-projection weights by $\frac{1}{\sqrt{2N}}$**; Fixup trains deep residual nets norm-free mostly on init (plus a few learnable scalars).
 
 9. **μP / norm-free / engineering**: μP makes the **optimal hyperparameters (especially LR) width-invariant** → tune at small width, zero-shot transfer to the large model; Fixup / NFNets / DyT explore dropping normalization (research direction, not settled); engineering-wise watch the final LN, $\epsilon$ placement, fp32 reduction, fused kernels.
 
@@ -64,12 +64,15 @@ The key is **which dim the statistics are taken over**: for $[N, C]$ fully-conne
 
 At inference you often **get one sample at a time**, with no batch to compute over; and you want **deterministic** outputs (same input → same result every time), which can't depend on the other samples in the batch. So during training BN **also maintains a running (moving-average) statistic**, and uses it at inference:
 
-$$\hat\mu \leftarrow (1-\rho)\,\hat\mu + \rho\,\mu_\mathcal{B}, \qquad \hat\sigma^2 \leftarrow (1-\rho)\,\hat\sigma^2 + \rho\,\sigma_\mathcal{B}^2,$$
+$$\hat\mu \leftarrow (1-\rho)\,\hat\mu + \rho\,\mu_\mathcal{B}, \qquad \hat\sigma^2 \leftarrow (1-\rho)\,\hat\sigma^2 + \rho\cdot\frac{m}{m-1}\sigma_\mathcal{B}^2,$$
 
-where $\rho$ is the momentum (PyTorch default 0.1). So:
+where $\rho$ is the momentum (PyTorch default 0.1) and $m$ is the batch size. So:
 
 - **Training (train mode)**: normalize with the **current batch**'s $\mu_\mathcal{B},\sigma_\mathcal{B}^2$, and update the running stats along the way.
 - **Inference (eval mode)**: normalize with the frozen running $\hat\mu,\hat\sigma^2$, **no longer looking at the batch**.
+
+> ⚠️ **The forward pass normalizes with a biased variance, but running_var updates with an unbiased estimate (frequent exam point)**
+> The two $\sigma_\mathcal{B}^2$'s here aren't the same quantity: the forward normalization uses the **biased** variance (divide by $m$, PyTorch's `unbiased=False`), but updating running_var uses the **unbiased** estimate $\frac{m}{m-1}\sigma_\mathcal{B}^2$ (Bessel's correction) — this is PyTorch BatchNorm's actual behavior, and it's easy to overlook.
 
 > ⚠️ **train$\ne$eval is a hard constraint of BN (frequent exam point)**
 > BN is one of the few layers whose training and inference take different compute paths. Forgetting `model.eval()` makes inference use batch stats → results jitter with batch content and aren't reproducible; BN layers also misbehave numerically on tiny eval batches. This contrasts sharply with LayerNorm / RMSNorm — those are structurally identical at train and eval.
@@ -190,9 +193,9 @@ Around "where to put LN / what to normalize," the community evolved a batch of v
 
 DeepNorm (Wang et al., *DeepNet*, 2022, arXiv 2203.00555) is an **improved Post-LN** aiming for both Post-LN's quality and Pre-LN's stability. Two moves:
 
-$$x_{l+1} = \text{LN}\big(\alpha\,x_l + \text{Sublayer}(x_l)\big), \qquad \text{and shrink the sublayer-weight init by } \beta.$$
+$$x_{l+1} = \text{LN}\big(\alpha\,x_l + \text{Sublayer}(x_l)\big), \qquad \text{and shrink part of the sublayer-weight init by } \beta.$$
 
-For an $N$-layer single stack, take $\alpha=(2N)^{1/4}\gt 1$ (**up-scale the residual trunk**) and a gain $\beta=(8N)^{-1/4}\lt 1$ to **down-scale the sublayer init** (encoder-decoder has different formulas). Intuition: up-scaling $x_l$ lets the residual trunk dominate at the add (close to Pre-LN's identity stability), while down-scaling the sublayer init bounds each step's "model update magnitude" **theoretically** so it doesn't explode with depth. The result is Post-LN placement + a controlled update magnitude → stable training up to **1000 layers**. Mnemonic: **DeepNorm = up-scale residual + down-scale init, a Post-LN**.
+For an $N$-layer single stack, take $\alpha=(2N)^{1/4}\gt 1$ (**up-scale the residual trunk**) and shrink **part of the sublayer weights** — the FFN's two layers and attention's value projection $W^V$ and output projection $W^O$ — by a gain $\beta=(8N)^{-1/4}\lt 1$ (the query/key projections $W^Q,W^K$ **keep standard Xavier init and are not scaled down by $\beta$**; encoder-decoder has different formulas). Intuition: up-scaling $x_l$ lets the residual trunk dominate at the add (close to Pre-LN's identity stability), while down-scaling the sublayer init bounds each step's "model update magnitude" **theoretically** so it doesn't explode with depth. The result is Post-LN placement + a controlled update magnitude → stable training up to **1000 layers**. Mnemonic: **DeepNorm = up-scale residual + down-scale init, a Post-LN**.
 
 ### 6.2　Sandwich / double LN: one before and one after the branch
 
@@ -208,7 +211,7 @@ QK-Norm (Henry et al., *Query-Key Normalization*, 2020, arXiv 2010.04245) target
 
 $$\tilde q = \text{Norm}(q),\quad \tilde k = \text{Norm}(k), \qquad \text{logits} = \frac{\tilde q^\top \tilde k}{\tau}\ (\tau\ \text{learnable temperature}).$$
 
-After normalization $q,k$ have clamped norms, so logits no longer explode with scale → stable attention. Gemma2, Chameleon, ViT-22B all use QK-Norm; it's become a standard stabilizer for large-scale training.
+After normalization $q,k$ have clamped norms, so logits no longer explode with scale → stable attention. Gemma3, Chameleon, ViT-22B all use QK-Norm (Gemma2 instead used attention/logit soft-capping at the time; Gemma3 switched to QK-Norm and dropped soft-capping); it's become a standard stabilizer for large-scale training.
 
 ### 6.4　GroupNorm and WeightNorm
 
@@ -224,7 +227,7 @@ After normalization $q,k$ have clamped norms, so logits no longer explode with s
 
 The residual block $y = x + F(x)$ (He et al., *ResNet*, 2015, arXiv 1512.03385) can train very deep, with three complementary explanations:
 
-1. **Identity mapping / gradient highway**: the Jacobian $\frac{\partial y}{\partial x} = I + \frac{\partial F}{\partial x}$. That $I$ guarantees — even if $\frac{\partial F}{\partial x}$ vanishes with depth, the gradient still flows back undiminished through the identity term. Chain $L$ residual blocks and $\frac{\partial x_L}{\partial x_0}=\prod_{l}\big(I+\frac{\partial F_l}{\partial x}\big)$ expands to contain a **pure identity term** (plus higher-order cross terms), so the gradient has **at least** one non-decaying path. This directly breaks the $g^L$ vanishing.
+1. **Identity mapping / gradient highway**: the Jacobian $\frac{\partial y}{\partial x} = I + \frac{\partial F}{\partial x}$. That $I$ **substantially improves** gradient flow in the typical case — even if $\frac{\partial F}{\partial x}$ shrinks with depth, the gradient still flows back mostly through the identity term (but this is not a strict mathematical guarantee: if some branch happens to learn $F(x)=-x$, so that $I+\frac{\partial F}{\partial x}=0$, that layer's gradient gets exactly canceled to 0; this exact cancellation almost never happens under random init + gradient descent). Chain $L$ residual blocks and $\frac{\partial x_L}{\partial x_0}=\prod_{l}\big(I+\frac{\partial F_l}{\partial x}\big)$ expands to contain a **pure identity term** (plus higher-order cross terms), and in the typical case the gradient flows back mostly undiminished through it. This substantially eases the $g^L$ vanishing, though it's not a strict guarantee for arbitrary $F$.
 2. **Easier optimization / learning the residual is easier than learning the mapping**: if the ideal mapping is near identity, having $F$ fit the "residual" (the delta) is far easier than having a whole layer fit identity — initialized near 0 it's already near identity, so optimization starts from a good point.
 3. **Ensemble of shallow paths (Veit et al., 2016, arXiv 1605.06431)**: an $L$-block residual net is equivalent in the forward pass to an ensemble of $2^L$ paths of different depths (each block either "takes $F$" or "takes identity"), in which **short paths dominate** and the effective gradient comes mainly from these shallow paths — so a deep residual net "behaves like an ensemble of many shallow nets," and optimization is naturally easier.
 
@@ -252,9 +255,9 @@ Normalization and residuals treat symptoms; **initialization treats the root** �
 
 We want the forward activation variance and the backward gradient variance **roughly conserved layer by layer**, so $g^L$ doesn't carry them away. For a weight $W\in\mathbb{R}^{n_\text{out}\times n_\text{in}}$ and a linear layer $z=Wx$ with iid-variance input components:
 
-$$\text{Var}(z_j) = n_\text{in}\,\text{Var}(W)\,\text{Var}(x).$$
+$$\text{Var}(z_j) = n_\text{in}\,\text{Var}(W)\,\mathbb{E}[x^2].$$
 
-Requiring $\text{Var}(z)=\text{Var}(x)$ (forward conservation) needs $n_\text{in}\text{Var}(W)=1$; requiring backward gradient-variance conservation needs $n_\text{out}\text{Var}(W)=1$. The two generally can't hold at once, hence different compromises.
+(For zero-mean $x$, $\mathbb{E}[x^2]=\text{Var}(x)$ and the two agree; but in a deep ReLU net, the $x$ feeding a later layer is the previous layer's ReLU output and is *not* zero-mean, so $\mathbb{E}[x^2]$ is what you must use — consistent with §8.3, which correctly propagates $\mathbb{E}[y^2]$ rather than $\text{Var}(y)$.) Requiring $\text{Var}(z)=\mathbb{E}[x^2]$ (forward conservation) needs $n_\text{in}\text{Var}(W)=1$; requiring backward gradient-variance conservation needs $n_\text{out}\text{Var}(W)=1$. The two generally can't hold at once, hence different compromises.
 
 ### 8.2　Xavier / Glorot: a compromise for tanh / linear
 
@@ -270,7 +273,7 @@ Kaiming/He (He et al., 2015, arXiv 1502.01852) points out: **ReLU zeros the nega
 
 $$\tfrac12\,n_\text{in}\,\text{Var}(W)=1 \quad\Longrightarrow\quad \boxed{\;\text{Var}(W)=\frac{2}{n_\text{in}}\;}\ (\text{fan\_in mode},\ \text{std}=\sqrt{2/n_\text{in}}).$$
 
-This 2 is the only substantive difference between Xavier and Kaiming, yet it decides whether a deep ReLU net (VGG / ResNet scale) can train: feed ReLU with Xavier's $1/n_\text{in}$, each layer's signal energy is halved by ReLU and never restored, so after $L$ layers the second moment $\mathbb{E}[y^2]\approx (1/2)^L$ **vanishes exponentially**; only Kaiming conserves (the §A [e] check: post-ReLU second moment $\mathbb{E}[y^2]\approx1$ with Kaiming, $\approx 0.5$ and halving per layer with Xavier-for-ReLU). The conserved quantity here is the **second moment $\mathbb{E}[y^2]$** (the signal energy fed to the next layer), not $\text{Var}(y)$ — ReLU makes the output mean non-zero, so $\text{Var}(y)=1-1/\pi\approx0.68$.
+This 2 is the substantive difference between Xavier and Kaiming **only in the special case $n_\text{in}=n_\text{out}$** (e.g. a common square / equal-width layer) — in general their variance ratio is $\frac{n_\text{in}+n_\text{out}}{n_\text{in}}=1+\frac{n_\text{out}}{n_\text{in}}$, which equals exactly 2 only when $n_\text{in}=n_\text{out}$ (the shared essence: Kaiming restores a ReLU-halving factor of 2 on top of the pure-forward condition $n_\text{in}\text{Var}(W)=1$, while Xavier is a compromise average of the forward/backward conditions). This factor still decides whether a deep ReLU net (VGG / ResNet scale) can train: feed ReLU with Xavier's $1/n_\text{in}$, each layer's signal energy is halved by ReLU and never restored, so after $L$ layers the second moment $\mathbb{E}[y^2]\approx (1/2)^L$ **vanishes exponentially**; only Kaiming conserves (the §A [e] check: post-ReLU second moment $\mathbb{E}[y^2]\approx1$ with Kaiming, $\approx 0.5$ and halving per layer with Xavier-for-ReLU). The conserved quantity here is the **second moment $\mathbb{E}[y^2]$** (the signal energy fed to the next layer), not $\text{Var}(y)$ — ReLU makes the output mean non-zero, so $\text{Var}(y)=1-1/\pi\approx0.68$.
 
 > ⚠️ **Xavier vs Kaiming isn't "a different formula," it's "whether you restore ReLU's factor 2"**
 > tanh / linear use Xavier ($\frac{2}{n_\text{in}+n_\text{out}}$); ReLU / LeakyReLU use Kaiming ($\frac{2}{n_\text{in}}$, LeakyReLU further adjusts the gain by the negative slope). Using Xavier on a ReLU net is systematically too small → activations / gradients vanish when deep.
@@ -284,7 +287,7 @@ Even with Xavier/Kaiming at every layer, the residual stream still accumulates a
 
 **GPT-2's classic trick**: at init, **multiply the residual-projection layers'** weights (attention's output projection + FFN's down projection — the two matrices that "write into the residual stream") **by $\frac{1}{\sqrt{2N}}$**, $N$=#layers. Why $2N$ and not $N$? Because each transformer layer writes to the residual stream **twice** (attn once, FFN once), $N$ layers accumulate $2N$ times; scaling each write by $1/\sqrt{2N}$ keeps the residual-stream variance $O(1)$ after $2N$ adds. Implementations like nanoGPT apply this scaling to `c_proj`-type weights (the §A [f] check: unscaled variance grows linearly with depth, bounded after $1/\sqrt{2N}$ scaling).
 
-### 8.5　Fixup: training deep residual nets norm-free on init alone
+### 8.5　Fixup: training deep residual nets norm-free mostly on init (+ a few learnable scalars)
 
 Fixup (Zhang et al., 2019, arXiv 1901.09321) pushes "control variance with init" to the extreme — **using no normalization layer at all**, training a deep residual net that rivals a BN-ResNet on carefully designed initialization alone. Three moves:
 
@@ -320,7 +323,7 @@ Normalization layers bring train/eval differences (BN), cross-device sync (multi
 
 ### 10.1　Fixup / NFNets: replacing normalization with init + explicit variance control
 
-- **Fixup** (§8.5): train deep residual nets on init alone (branch last layer to 0 + depth down-scale), with no normalization layer, approaching BN-ResNet on ImageNet. Proof that norm is not required.
+- **Fixup** (§8.5): train deep residual nets mostly on init (branch last layer to 0 + depth down-scale) plus a few learnable scalar multipliers/biases, with no normalization layer, approaching BN-ResNet on ImageNet. Proof that norm is not required (though it still needs a tiny number of learnable scalars to compensate the affine degrees of freedom that were removed — not strictly "zero extra learnable parameters").
 - **NFNets** (Brock et al., 2021, arXiv 2102.06171): Normalizer-Free Networks, systematically removing BN. Three pieces — **Scaled Weight Standardization** (standardize weights rather than activations) + **analytically designed scaled residual blocks** $x_{l+1}=x_l+\alpha\,F(x_l/\beta_l)$ (track / control each layer's variance exactly with analytic $\alpha,\beta_l$) + **Adaptive Gradient Clipping (AGC)** (clip gradients adaptively by parameter norm, recovering BN's large-batch stability). The result **surpasses EfficientNet on ImageNet with no normalization layer at all**, showing BN's benefits (scale control + regularization + large-batch stability) can each be restored by explicit means.
 
 ### 10.2　DyT (Dynamic Tanh): replacing LN with a learnable tanh
@@ -341,7 +344,7 @@ where $\alpha$ is a **learnable scalar** (controlling the input scale, correspon
 | Norm | Normalization dim | batch-dependent | train$\ne$eval | learnable params | relative cost |
 | --- | --- | --- | --- | --- | --- |
 | **BatchNorm** | along batch (+spatial), per-channel | yes | **yes** (running stats at inference) | $\gamma,\beta$ | medium (two reductions + maintain running stats + multi-GPU sync) |
-| **LayerNorm** | along feature dim, per-token | no | no | $\gamma,\beta$ | medium (mean + variance, two reductions) |
+| **LayerNorm** | along feature dim, per-token | no | no | $\gamma,\beta$ | medium (one extra statistic — the mean; naive impl needs two reductions, fused/Welford can do it in one pass) |
 | **RMSNorm** | along feature-dim RMS, per-token | no | no | $\gamma$ (no $\beta$) | low (one sum-of-squares reduction, no mean, no shift) |
 | **GroupNorm** | within-group channels (+spatial), per sample | no | no | $\gamma,\beta$ | medium (within-group reduction, batch-independent) |
 
@@ -350,7 +353,7 @@ where $\alpha$ is a **learnable scalar** (controlling the input scale, correspon
 - **Pre-LN: don't miss the final LN** (§5.3): there must be a closing LN after the transformer stack and before the LM head, or the inflated residual stream goes straight into the output head and quality drops.
 - **The $\epsilon$ placement**: the convention is $\sqrt{\sigma^2+\epsilon}$ ($\epsilon$ **inside** the sqrt, as in PyTorch), not $\sqrt{\sigma^2}+\epsilon$. Too small an $\epsilon$ in fp16 triggers division-by-zero / overflow when $\sigma^2\approx0$; RMSNorm's $\epsilon$ is likewise inside $\sqrt{\text{mean}(x^2)+\epsilon}$.
 - **fp16/bf16 numerics**: the normalization reduction (sum / sum-of-squares) **must accumulate in fp32**, even if the activations are bf16 — sum-of-squares easily overflows / loses significant bits in low precision. Standard implementations upcast the norm internals to fp32 then downcast.
-- **fused kernels**: LN/RMSNorm are **memory-bound** (read activations → reduce → write back), tiny in FLOPs but heavy in memory traffic; a fused kernel (Apex `FusedLayerNorm`, Triton, FlashNorm, etc.) merges read-compute-write into one kernel, saving HBM round-trips. RMSNorm is naturally cheaper since it has only one reduction and no mean.
+- **fused kernels**: LN/RMSNorm are **memory-bound** (read activations → reduce → write back), tiny in FLOPs but heavy in memory traffic; a fused kernel (Apex `FusedLayerNorm`, Triton, FlashNorm, etc.) merges read-compute-write into one kernel, saving HBM round-trips. RMSNorm skips one statistic (the mean) and has no $\beta$, so even under a fused single-pass kernel it still saves a bit of arithmetic and memory traffic versus fused LayerNorm.
 - **inference cost**: by FLOPs normalization is negligible, but it **breaks operator fusion + carries a reduction**, accumulating into noticeable latency in large-model per-token decode; this is one reason RMSNorm (one fewer reduction) is favored on the inference side.
 - **BN's multi-GPU footgun**: under data parallelism each GPU sees only part of the batch, so BN stats are "local-batch"; getting global stats requires SyncBatchNorm (cross-GPU communication, slow). LN/RMSNorm don't have this issue (per-token, no sync needed).
 
@@ -491,9 +494,10 @@ Thinking $\gamma,\beta$ are optional; or not knowing RMSNorm drops $\beta$.
 
 - Xavier: $\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$, for **tanh / linear** (symmetric near-linear activations)
 - Kaiming: $\text{Var}(W)=\frac{2}{n_\text{in}}$, for **ReLU**, the 2 compensating the half-variance ReLU kills
+- Their variance ratio is $1+n_\text{out}/n_\text{in}$, which equals exactly 2 only when $n_\text{in}=n_\text{out}$ (a commonly over-generalized special case, not a general rule)
 - Using Xavier on a ReLU net is too small → activations / gradients vanish when deep
 
-Reciting only the two formulas, unable to say "the difference is whether you restore ReLU's factor 2."
+Reciting only the two formulas, unable to say "the difference is whether you restore ReLU's factor 2"; or assuming "the factor is exactly 2" holds for any $n_\text{in},n_\text{out}$.
 
 </details>
 
@@ -539,11 +543,11 @@ Saying vaguely "BN doesn't work well," missing the failure mechanism for each of
 
 <summary>Q14. Derive the Kaiming init variance. Why is it $2/n_\text{in}$?</summary>
 
-- Linear layer $\text{Var}(z)=n_\text{in}\text{Var}(W)\text{Var}(x)$, forward conservation needs $n_\text{in}\text{Var}(W)=1$
+- Linear layer $\text{Var}(z)=n_\text{in}\text{Var}(W)\mathbb{E}[x^2]$ (equals $\text{Var}(x)$ for zero-mean $x$), forward conservation needs $n_\text{in}\text{Var}(W)=1$
 - ReLU zeros the negative half: $\mathbb{E}[\text{ReLU}(z)^2]=\frac12\text{Var}(z)$, killing half the variance
 - Restore the factor 2: $\frac12 n_\text{in}\text{Var}(W)=1\Rightarrow\text{Var}(W)=\frac{2}{n_\text{in}}$
 
-Unable to write $\text{Var}(z)=n_\text{in}\text{Var}(W)\text{Var}(x)$, or not knowing the 2 comes from ReLU's halving.
+Unable to write $\text{Var}(z)=n_\text{in}\text{Var}(W)\mathbb{E}[x^2]$, or not knowing the 2 comes from ReLU's halving.
 
 </details>
 
@@ -552,8 +556,8 @@ Unable to write $\text{Var}(z)=n_\text{in}\text{Var}(W)\text{Var}(x)$, or not kn
 <summary>Q15. Why do residuals break vanishing gradients? Give the backprop expression.</summary>
 
 - $L$ blocks chained: $\frac{\partial x_L}{\partial x_0}=\prod_l(I+\frac{\partial F_l}{\partial x})$
-- Expansion contains a **pure identity term** (plus higher-order cross terms) → at least one non-decaying gradient path
-- Even if $\partial F/\partial x\to0$, the identity term still carries the gradient back to shallow layers undiminished
+- Expansion contains a **pure identity term** (plus higher-order cross terms) → in the typical case the gradient flows back mostly undiminished through it, but this is not a strict guarantee for arbitrary $F$ (e.g. $F(x)=-x$ exactly cancels that layer's contribution — though this almost never happens under random init + gradient descent)
+- Even if $\partial F/\partial x\to0$, the identity term in the typical case still carries most of the gradient back to shallow layers undiminished
 
 Saying only "added a skip," unable to write why the identity term in the Jacobian product saves the gradient.
 
@@ -589,7 +593,7 @@ Thinking it's once per layer ($N$); or not knowing it acts on the two specific "
 
 - Normalize each head's $q,k$ (L2/RMS) before the dot product, then compute logits
 - Solves attention-logit explosion with scale → softmax saturation / entropy collapse / diverging training (worse for large models)
-- After normalization $q,k$ norms are clamped, logits don't explode; used in Gemma2 / Chameleon / ViT-22B
+- After normalization $q,k$ norms are clamped, logits don't explode; used in Gemma3 / Chameleon / ViT-22B (Gemma2 used soft-capping at the time; Gemma3 switched to QK-Norm)
 
 Saying only "normalize QK," missing that it guards against logit explosion / softmax saturation.
 
@@ -600,7 +604,7 @@ Saying only "normalize QK," missing that it guards against logit explosion / sof
 <summary>Q19. How does DeepNorm train to 1000 layers? How does it relate to Pre/Post-LN?</summary>
 
 - It's an **improved Post-LN**: $x_{l+1}=\text{LN}(\alpha x_l+\text{Sublayer}(x_l))$, $\alpha=(2N)^{1/4}\gt1$ up-scales the residual
-- Also a gain $\beta=(8N)^{-1/4}\lt1$ to **down-scale the sublayer init**, bounding each step's model update
+- Also a gain $\beta=(8N)^{-1/4}\lt1$ to **down-scale the FFN + attention $W^V,W^O$** part of the sublayer init ($W^Q,W^K$ still use standard Xavier init), bounding each step's model update
 - up-scale residual (near Pre-LN stability) + down-scale init (bounded updates) → Post-LN quality + stable to 1000 layers
 
 Treating DeepNorm as Pre-LN; or remembering only $\alpha$ and not "also shrink the init."
@@ -691,9 +695,9 @@ This tutorial's code has a minimal runnable version in [`docs/tutorials/code/nor
 1. **[a] LayerNorm from scratch == `nn.LayerNorm`**: with population variance (`unbiased=False`, divide by $d$), $\epsilon$ inside the sqrt, after affine it should match PyTorch elementwise within float error (`atol≈1e-5`).
 2. **[b] RMSNorm from scratch == `nn.RMSNorm`, and RMSNorm's shift-invariance differs from LN's**: add a constant $c$ to the whole input, and **LayerNorm's output barely changes** (it subtracts the mean → re-centering invariant), while **RMSNorm's output changes** (it only re-scales, no mean-subtraction) — exactly the executable check of §4's "RMSNorm has no re-centering."
 3. **[c] BatchNorm train$\ne$eval**: train mode uses batch stats (output per-feature mean ≈ 0) and pushes the running mean away from 0; switch to eval and it uses running stats, with a clearly different output for the same input — verifying §2.2's dual path.
-4. **[d] Post-LN piles parameter gradients at the top (top-heavy), Pre-LN is balanced across depth**: build a stack of 48 identical residual blocks (with a final linear head — to avoid the artifact where a loss acting directly on the Post-LN normalized output "squashes gradients to 0"), do one forward+backward, and measure each block's Linear weight-grad **top/bottom ratio** (last/first). Pre-LN $\approx0.40$ (balanced, slightly bottom-heavy), Post-LN $\approx2.35$ ($\gt1$, gradient piled near the output) — exactly the executable check of §5.2 Xiong's "Post-LN top-layer gradients large → needs warmup." **Use the top/bottom ratio rather than the absolute gradient, because it's not confounded by the loss choice / output normalization** (a subtle experiment-design pitfall).
+4. **[d] Post-LN piles parameter gradients at the top (top-heavy), Pre-LN piles them at the bottom instead (bottom-heavy)**: build a stack of 48 identical residual blocks (with a final linear head — to avoid the artifact where a loss acting directly on the Post-LN normalized output "squashes gradients to 0"), do one forward+backward, and measure each block's Linear weight-grad **top/bottom ratio** (last/first). Pre-LN $\approx0.40$ — i.e. the bottom layer's gradient is about $1/0.40=2.5\times$ the top layer's; by the symmetric imbalance measure $\max(r,1/r)$, this skew (2.5) is comparable to, or even slightly larger than, Post-LN's 2.35 — **the key difference is the opposite skew direction** (Pre-LN skews bottom, Post-LN piles at the top). This confirms §5.2 Xiong et al.'s asymptotic claim: as depth $L$ grows, Post-LN's top-layer gradient stays $\Theta(d\sqrt{\ln d})$ independent of $L$, while Pre-LN's per-layer scale shrinks uniformly as $1/\sqrt L$ — asymptotically better-conditioned, not "this one fixed-depth ratio happens to be near 1." **Use the top/bottom ratio rather than the absolute gradient, since it partially cancels out confounds from the loss choice / output normalization** (a subtle experiment-design pitfall).
 5. **[e] Kaiming preserves the second moment, Xavier-for-ReLU decays**: a unit-second-moment input ($\mathbb{E}[x^2]=1$) through `Linear+ReLU`, measuring the **post-ReLU second moment $\mathbb{E}[y^2]$** (the signal energy fed to the next layer, the quantity He's derivation actually propagates): with Kaiming ($\sqrt{2/n_\text{in}}$) $\mathbb{E}[y^2]\approx1$ (conserved), with Xavier-for-ReLU ($\sqrt{1/n_\text{in}}$) $\approx0.5$ (halving per layer → vanishing when deep) — verifying §8.3's factor 2. Note we measure $\mathbb{E}[y^2]$, not $\text{Var}(y)$: ReLU makes the output mean non-zero, so $\text{Var}(y)=1-1/\pi\approx0.68$, while the layer-conserved / propagated quantity is the second moment $\mathbb{E}[y^2]$.
-6. **[f] GPT-2 residual scaling $1/\sqrt{2N}$ bounds the residual-stream variance**: accumulate $N$ $O(1)$ updates into the residual stream; unscaled, the variance **grows linearly** with depth, while multiplying by $1/\sqrt{2N}$ keeps it **bounded** — verifying §8.4.
+6. **[f] GPT-2 residual scaling $1/\sqrt{2N}$ bounds the residual-stream variance**: simulate $N$ transformer layers, each writing to the residual stream twice ($2N$ writes total) with $O(1)$ updates; unscaled, the variance **grows linearly** with the number of writes, while multiplying by $1/\sqrt{2N}$ keeps it **bounded** — verifying §8.4.
 
 Below are a few illustrative snippets (CPU-runnable, English comments, logic identical to the script above).
 
@@ -752,16 +756,21 @@ class ResidualStack(nn.Module):
 
 def block_grad_topheavy(depth, d, pre_ln):
     """One forward+backward, return the last/first block weight-grad-norm ratio (>1 = gradient piled at the top).
-       This ratio is robust to the loss choice; exactly Xiong 2020's claim."""
+       Using a relative ratio rather than an absolute grad norm is meant to reduce sensitivity to the loss
+       choice / output normalization; this script only runs a single seed with a single quadratic loss, so
+       "robust to loss choice" itself is not exhaustively verified here (would need multi-seed stats and a
+       non-quadratic loss)."""
     torch.manual_seed(0)                                      # same init for both placements, fair comparison
     stack = ResidualStack(depth, d, pre_ln=pre_ln)
     stack(torch.randn(16, d)).pow(2).mean().backward()       # scalar loss
     gn = [lin.weight.grad.norm().item() for lin in stack.lins]
     return gn[-1] / gn[0]
 
-r_pre  = block_grad_topheavy(48, 64, pre_ln=True)            # expect ≈0.40 (balanced)
+r_pre  = block_grad_topheavy(48, 64, pre_ln=True)            # expect ≈0.40 (bottom-heavy, bottom grad ~2.5x the top)
 r_post = block_grad_topheavy(48, 64, pre_ln=False)          # expect ≈2.35 (top-heavy, >1)
-# Post-LN top/bottom ratio >1: gradient piled near the output -> must warmup. Pre-LN balanced across depth.
+# Post-LN top/bottom ratio >1: gradient piled near the output -> must warmup. Pre-LN skews bottom instead
+# (bottom-heavy) at a comparable magnitude and opposite direction -> not "balanced", but asymptotically
+# better-conditioned (shrinks as 1/sqrt(L) with depth).
 ```
 
 **(c) Kaiming variance preservation (vs misusing Xavier for ReLU):**
@@ -787,9 +796,9 @@ The real output of running `python docs/tutorials/code/normalization.py` (CPU, p
 [a] LayerNorm from scratch vs nn.LayerNorm: max|Δ| = 2.38e-07  OK
 [b] RMSNorm vs nn.RMSNorm: max|Δ| = 2.38e-07; mean-shift LN |Δ|=9.54e-07 (~0, re-centers) vs RMS |Δ|=3.05e+00 (>0, only re-scales)  OK
 [c] BatchNorm train!=eval: max|Δ| = 8.37e+00; running_mean moved 0.701 from 0; train per-feature mean = 8.15e-08 (~0)  OK
-[d] per-block weight-grad top/bottom ratio (last/first over 48 blocks): Pre-LN=0.40 (balanced)  Post-LN=2.35 (top-heavy, >1)  -> Post-LN piles gradient near the output, needs warmup  OK
+[d] per-block weight-grad top/bottom ratio (last/first over 48 blocks): Pre-LN=0.40 (bottom-heavy)  Post-LN=2.35 (top-heavy, >1)  -> opposite skew, comparable magnitude; Post-LN piles gradient near the output, needs warmup  OK
 [e] post-ReLU second moment E[y^2] (input E[x^2]=1): Kaiming = 1.000 (~1, preserved)  Xavier = 0.499 (~0.5, halves per layer)  OK
-[f] residual-stream var growth over 50 blocks: unscaled ×51.1  vs  1/sqrt(2N)-scaled ×1.50  OK
+[f] residual-stream var growth over 50 layers (100 writes): unscaled ×101.1  vs  1/sqrt(2N)-scaled ×2.00  OK
 
 all normalization / residual / init sanity checks passed ✓
 ```
@@ -797,9 +806,9 @@ all normalization / residual / init sanity checks passed ✓
 > ✅ **Reading the numbers**
 > - **[a]/[b]** from-scratch LN/RMSNorm match PyTorch (max$|\Delta|$=2.4e-7); in the shift test LN barely changes (9.5e-7) while RMSNorm changes clearly (3.05), confirming §4 "RMSNorm only re-scales, no re-center."
 > - **[c]** BatchNorm running_mean pushed from 0 to 0.70, train-mode per-feature mean ≈ 0, and train≠eval, confirming §2.2's dual path.
-> - **[d]** block weight-grad top/bottom ratio (last/first): Pre-LN $0.40$ (balanced), Post-LN $2.35$ ($\gt1$, gradient piled at the top), confirming §5.2 "Post-LN top-layer gradients large → needs warmup" (the head removes the output-normalization confound).
+> - **[d]** block weight-grad top/bottom ratio (last/first): Pre-LN $0.40$ (bottom-heavy, bottom layer's gradient is ~2.5x the top's), Post-LN $2.35$ ($\gt1$, gradient piled at the top) — the two skews are comparable in magnitude and opposite in direction, confirming §5.2 Xiong et al.'s asymptotic claim (Post-LN's top-layer gradient stays $\Theta(d\sqrt{\ln d})$ independent of depth $L$ → needs warmup; Pre-LN's per-layer scale shrinks as $1/\sqrt L$, asymptotically better-conditioned, not "this one fixed-depth ratio is near 1") (the head removes the output-normalization confound).
 > - **[e]** post-ReLU second moment Kaiming $\mathbb{E}[y^2]=1.00$ (conserved), Xavier-for-ReLU $=0.50$ (halving per layer), confirming §8.3's factor 2.
-> - **[f]** residual-stream variance unscaled ×51 after 50 layers (linear growth), bounded ×1.5 after $1/\sqrt{2N}$ scaling, confirming §8.4's GPT-2 trick.
+> - **[f]** residual-stream variance unscaled ×101 after 50 layers (100 writes, linear growth), bounded ×2.0 after $1/\sqrt{2N}$ scaling, confirming §8.4's GPT-2 trick of "$N$ layers, each writing to the residual stream twice, $2N$ writes total."
 
 ## 📚 References
 

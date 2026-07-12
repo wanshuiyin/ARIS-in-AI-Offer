@@ -1,7 +1,7 @@
 {
   "skill": "render-html",
   "source": "docs/tutorials/attention_tutorial.md",
-  "source_sha256_prefix": "970e8a0a0538e002",
+  "source_sha256_prefix": "ea13435c65f9bce9",
   "output": "docs/tutorials/attention_tutorial.html",
   "author": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread per run (never codex-reply)",
@@ -61,6 +61,25 @@
   ],
   "summary": "Three-round review: FAIL (table-pipe math collision) → FAIL (TL;DR list numbering reset) → PASS. 13 checks pass on run 3.",
   "rendered_at": "2026-05-19",
-  "source_sha256": "970e8a0a0538e0022a8bf1ec44765f3d6a12987ed2d4c322b034e10eb1c3817e",
-  "thread_id": "019e7c8b-66fc-7ca2-bde6-c9f03aa3b224"
+  "source_sha256": "ea13435c65f9bce9a064bd65d9e492652b6492beba86d95fdc7639221cd02a02",
+  "thread_id": "019e7c8b-66fc-7ca2-bde6-c9f03aa3b224",
+  "post_ship_review": [
+    {
+      "scope": "2026-07-12 full-collection re-sweep: Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification (attempted to refute every candidate finding; only load-bearing ones kept)",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "summary": "8 findings verified (4 CONFIRMED + 4 NEEDS_NUANCE, 0 REFUTED) and precisely applied to the source MD.",
+      "fixes": [
+        "§1: 'Q/K/V 同一向量三投影' scoped explicitly to self-attention, with a cross-attention pointer to §4 (NEEDS_NUANCE)",
+        "§6.1: cumulative redundant compute over T generation steps without KV cache corrected O(t^2) -> O(T^3) (CONFIRMED; was internally inconsistent with §7's own O(L^3)->O(L^2) claim)",
+        "§6.1: 'KV cache 训练时不能用' softened — true for teacher-forced parallel SFT/pretraining, false for RLHF/GRPO on-policy rollout generation (NEEDS_NUANCE)",
+        "§6.1: LLaMA-2-70B KV cache size relabeled GB -> GiB (1.25 GiB approx 1.34 GB; vanilla MHA 10 GiB approx 10.74 GB) (CONFIRMED unit mislabel)",
+        "§6.2: GQA table 'used in' column qualified to LLaMA-2-70B only (7B/13B are still MHA) (NEEDS_NUANCE)",
+        "§10 Q24: RoPE bullet restored the 'content vectors still determine the score' caveat already present in the §8 table, avoiding a misreadable absolute claim (NEEDS_NUANCE)",
+        "§A appendix rewritten to describe the actual code/mha.py (3 sanity checks: sanity_check/shape_check/causal_check; single self-attention MultiHeadAttention with fused qkv Linear and [N,N] mask; no SelfAttention/CrossAttention wrappers, no 4 mask shapes, no NaN guard) instead of fabricated 9-check output referencing nonexistent wrappers/masks/NaN-guard (CONFIRMED — chose option (a): align appendix text to reality rather than adding new code)",
+        "§A appendix sanity-check transcript's exception type corrected ValueError -> AssertionError, matching both mha.py's actual `assert embed_dim % num_heads == 0` and the tutorial's own §3.4 code snippet; added a note that `assert` is stripped under python -O (CONFIRMED)"
+      ],
+      "note": "Verification and fixes limited to attention_tutorial.md / _en.md; code/mha.py itself was read to confirm ground truth and left unmodified. Re-rendered both HTMLs and refreshed source_sha256 (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ]
 }

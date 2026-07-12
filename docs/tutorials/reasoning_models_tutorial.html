@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/reasoning_models_tutorial.md">
-<meta name="aris:source-sha256" content="356c5d884550a6f02e5f9568d14597efe17d6b4de013f21ffaf09ba8d3c221dc">
-<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
+<meta name="aris:source-sha256" content="d5acf172c183c0e653e0defd26f0abc79dde53328e6a5c2a0f27f50625c3da97">
+<meta name="aris:generated-at" content="2026-07-12 04:24 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -608,20 +608,20 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/reasoning_models_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>356c5d884550</code></span>
-    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
+    <span><strong>SHA256:</strong> <code>d5acf172c183</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:24 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
 <div class="callout callout-info"><div class="callout-title">8 句话搞定 Reasoning Model</div><p>2024-2026 LLM 最大范式转移，一页拿下面试核心。</p></div>
-<ol><li><strong>范式转移</strong>：以前 scale <strong>训练算力</strong>（参数 + 数据），现在 scale <strong>推理算力</strong>（reasoning tokens / search / verification）。Snell et al. 2024 (arXiv 2408.03314) 给出 <strong>compute-optimal test-time scaling</strong> 配方：相同推理 FLOPs 下，best-of-N + PRM beam search + sequential revision 的混合策略比单一 best-of-N 高 <strong>&gt;4×</strong> 效率；FLOPs-matched 设置下，小模型 + 优化 test-time compute 在某些任务上能匹配/超过 <strong>14×</strong> 更大的模型。</li><li><strong>o1 (OpenAI Sep 2024)</strong>：用 RL 训练 hidden chain-of-thought，API 只返回 <code>reasoning_tokens</code> 计数而非内容。<strong>o3 (Dec 2024)</strong> 在 ARC-AGI 上 75.7% (低算力) / 87.5% (高算力 172× 预算)——首次在抽象推理 benchmark 上接近人类。</li><li><strong>DeepSeek-R1-Zero (arXiv 2501.12948, Jan 2025)</strong>：<strong>纯 RL 从 base model 直接训</strong>，无 SFT cold-start，rule-based reward（答案对/错 + 格式），用 <strong>GRPO</strong>（无 critic），涌现出 "aha moment"——模型自己学会反思、回溯、验证。</li><li><strong>DeepSeek-R1</strong>：四阶段 pipeline = SFT 冷启动（数千高质 CoT）→ reasoning-oriented RL → rejection sampling + 通用 SFT → 全场景 RL。在 MATH-500、AIME 等数学/代码 benchmark 上对齐 o1。</li><li><strong>GRPO（DeepSeekMath, arXiv 2402.03300）</strong>：去掉 critic value network；对每个 prompt sample $G$ 个回答 $\{o_i\}$，用 <strong>group-relative advantage</strong> $A_i = (r_i - \text{mean}(\mathbf{r})) / \text{std}(\mathbf{r})$ 替代 GAE。显存降一半 + 训练更稳。</li><li><strong>PRM vs ORM</strong>：ORM（outcome reward）只评 final answer；PRM（process reward，Lightman 2023 "Let's Verify Step by Step"）对每个推理 step 打分，best-of-N 选 trace 上更优。Math-Shepherd (Wang et al. 2023, arXiv 2312.08935) 从中间 step 采样 <strong>Monte Carlo completion rollouts</strong>（不是 MCTS tree search），用最终答案的 soft/hard estimation 自动标 step label，省去人标。</li><li><strong>s1 (Muennighoff Feb 2025, arXiv 2501.19393)</strong>："Wait" budget forcing——在 <code>&lt;/think&gt;</code> 处强行追加 "Wait" 让模型继续思考，1K 样本 SFT + 推理控制超 o1-preview 27% (AIME24)。</li><li><strong>易踩坑</strong>：CoT ≠ 推理（模型可能 post-hoc 编故事）；self-consistency 在 distribution-shifted 题上崩；PRM 训练易过拟合 step pattern；GRPO 在 long-CoT 上 critic-free 反而是优势（critic 难学）。</li></ol>
+<ol><li><strong>范式转移</strong>：以前 scale <strong>训练算力</strong>（参数 + 数据），现在 scale <strong>推理算力</strong>（reasoning tokens / search / verification）。Snell et al. 2024 (arXiv 2408.03314) 给出 <strong>compute-optimal test-time scaling</strong> 配方：相同推理 FLOPs 下，best-of-N + PRM beam search + sequential revision 的混合策略比单一 best-of-N 高 <strong>&gt;4×</strong> 效率；FLOPs-matched 设置下，小模型 + 优化 test-time compute 在某些任务上能匹配/超过 <strong>14×</strong> 更大的模型（PaLM-2 各档参数量官方未公开，"14×" 是 FLOPs-matched 推理算力对比口径，详见 §1.1）。</li><li><strong>o1 (OpenAI Sep 2024)</strong>：用 RL 训练 hidden chain-of-thought，API 只返回 <code>reasoning_tokens</code> 计数而非内容。<strong>o3 (Dec 2024)</strong> 在 ARC-AGI 上 75.7% (低算力) / 87.5% (高算力 172× 预算)——首次在抽象推理 benchmark 上接近人类。</li><li><strong>DeepSeek-R1-Zero (arXiv 2501.12948, Jan 2025)</strong>：<strong>纯 RL 从 base model 直接训</strong>，无 SFT cold-start，rule-based reward（答案对/错 + 格式），用 <strong>GRPO</strong>（无 critic），涌现出 "aha moment"——模型自己学会反思、回溯、验证。</li><li><strong>DeepSeek-R1</strong>：四阶段 pipeline = SFT 冷启动（数千高质 CoT）→ reasoning-oriented RL → rejection sampling + 通用 SFT → 全场景 RL。在 MATH-500、AIME 等数学/代码 benchmark 上对齐 o1。</li><li><strong>GRPO（DeepSeekMath, arXiv 2402.03300）</strong>：去掉 critic value network；对每个 prompt sample $G$ 个回答 $\{o_i\}$，用 <strong>group-relative advantage</strong> $A_i = (r_i - \text{mean}(\mathbf{r})) / \text{std}(\mathbf{r})$ 替代 GAE。显存降一半 + 训练更稳。</li><li><strong>PRM vs ORM</strong>：ORM（outcome reward）只评 final answer；PRM（process reward，Lightman 2023 "Let's Verify Step by Step"）对每个推理 step 打分，best-of-N 选 trace 上更优。Math-Shepherd (Wang et al. 2023, arXiv 2312.08935) 从中间 step 采样 <strong>Monte Carlo completion rollouts</strong>（不是 MCTS tree search），用最终答案的 soft/hard estimation 自动标 step label，省去人标。</li><li><strong>s1 (Muennighoff Feb 2025, arXiv 2501.19393)</strong>："Wait" budget forcing——在 <code>&lt;/think&gt;</code> 处强行追加 "Wait" 让模型继续思考，1K 样本 SFT + 推理控制超 o1-preview 27% (AIME24)。</li><li><strong>易踩坑</strong>：CoT ≠ 推理（模型可能 post-hoc 编故事）；self-consistency 在 distribution-shifted 题上崩；PRM 训练易过拟合 step pattern；GRPO 在 long-CoT 上 critic-free 反而是优势（critic 难学）。</li></ol>
 <h2 id="1-为什么这是-2024-2026-最大范式转移">§1 为什么这是 2024-2026 最大范式转移</h2>
 <h3 id="11-从-train-time-scaling-到-test-time-scaling">1.1　从 train-time scaling 到 test-time scaling</h3>
-<p>2020-2023 的 scaling law (Kaplan, Hoffmann/Chinchilla)：<strong>性能 ∝ log(参数 × 数据 × FLOPs)</strong>——但这是 <strong>训练时算力</strong>。模型一旦训完，推理时算力是固定的（一次 forward）。</p>
+<p>2020-2023 的 scaling law：Kaplan et al. 2020 给出三条独立幂律 $L(N) \propto N^{-\alpha_N}$、$L(D) \propto D^{-\alpha_D}$、$L(C) \propto C^{-\alpha_C}$（loss 分别随参数量、数据量、算力增长而下降），而不是单一的联合 log 公式；Hoffmann et al. 2022（Chinchilla）进一步给出固定算力预算下参数量 $N$ 与训练 token 数 $D$ 的最优配比（约 20 tokens/参数）。但这些都是 <strong>训练时算力</strong> 的 scaling law——模型一旦训完，推理时算力是固定的（一次 forward）。</p>
 <p>2024 出现两个 anomaly：</p>
-<ul><li><strong>OpenAI o1</strong>：花更多 inference tokens 思考 → 性能持续提升，<strong>呈现 log-linear scaling</strong>（OpenAI 公开的 figure：accuracy vs reasoning compute 是直线）</li><li><strong>Snell et al. 2024</strong>：固定 inference/test-time compute 预算下用 compute-optimal scaling（best-of-N + PRM beam search + sequential revision 混合），可让小模型在 FLOPs-matched 设置下 <strong>匹配甚至超过 14× 更大模型</strong>——前提是 base model 在该任务上已有 non-trivial success rate</li></ul>
+<ul><li><strong>OpenAI o1</strong>：花更多 inference tokens 思考 → 性能持续提升，<strong>呈现 log-linear scaling</strong>（OpenAI 公开的 figure：accuracy vs reasoning compute 是直线）</li><li><strong>Snell et al. 2024</strong>：固定 inference/test-time compute 预算下用 compute-optimal scaling（best-of-N + PRM beam search + sequential revision 混合），可让小模型在 FLOPs-matched 设置下 <strong>匹配甚至超过 14× 更大模型</strong>——前提是 base model 在该任务上已有 non-trivial success rate。注意：PaLM-2 各档参数量 Google 官方从未公开（PaLM-2 技术报告明确声明不透露模型规模），"14×" 是论文 FLOPs-matched 推理算力对比口径下的模型规模比较，并非基于官方确认参数量的精确比值</li></ul>
 <div class="callout callout-info"><div class="callout-title">范式 mental model</div><p>把推理看成 <strong>search over reasoning paths</strong>：</p></div>
 <ul><li><strong>System 1</strong>（快）：一次 greedy decode = 一条路径</li><li><strong>System 2</strong>（慢）：multiple paths + verifier + backtrack = 树搜索（Tree-of-Thought）或长 CoT（o1）</li></ul>
 <p>把 LLM 当成 <strong>policy + value</strong> 的组合（像 AlphaZero），推理是 MCTS-like 的搜索过程。</p>
@@ -693,7 +693,8 @@ The answer is 11.</code></pre>
 <p>这些回溯 / 反思 token 在 base model 里很罕见，靠 RL <strong>反复采样 + reward 信号</strong> 才能放大成稳定行为。R1-Zero 报告的 "aha moment" 就是这种行为在 RL 训练中突然涌现的时刻。</p>
 <h2 id="3-prm-vs-ormreasoning-verifier-的两条路线">§3 PRM vs ORM：reasoning verifier 的两条路线</h2>
 <h3 id="31-定义">3.1　定义</h3>
-<table><thead><tr><th>维度</th><th>ORM（Outcome Reward Model）</th><th>PRM（Process Reward Model）</th></tr></thead><tbody><tr><td>监督粒度</td><td>整条 trace 一个 reward</td><td>每个 step 一个 reward</td></tr><tr><td>Label 来源</td><td>answer 对 → +1，错 → 0</td><td>人工标 (PRM800K) 或 MC completion rollout 估计 (Math-Shepherd)</td></tr><tr><td>训练目标</td><td>$\max \mathbb{E}[r(\text{trace})]$</td><td>$\max \sum_t \mathbb{E}[r_t(\text{step}_t)]$</td></tr><tr><td>优势</td><td>标注便宜（只要 ground-truth answer）</td><td>信号密集；能定位错误步</td></tr><tr><td>劣势</td><td>稀疏 reward，credit assignment 难</td><td>标注昂贵；step boundary 难定义</td></tr></tbody></table>
+<table><thead><tr><th>维度</th><th>ORM（Outcome Reward Model）</th><th>PRM（Process Reward Model）</th></tr></thead><tbody><tr><td>监督粒度</td><td>整条 trace 一个 reward</td><td>每个 step 一个 reward</td></tr><tr><td>Label 来源</td><td>answer 对 → +1，错 → 0</td><td>人工标 (PRM800K) 或 MC completion rollout 估计 (Math-Shepherd)</td></tr><tr><td>训练目标</td><td>二分类交叉熵 $\mathcal{L}_\text{ORM} = -\log p_\phi(y{=}\text{correct}\mid\text{trace})$</td><td>逐 step 分类/回归损失 $\mathcal{L}_\text{PRM} = -\sum_t \log p_\phi(\ell_t \mid s_{\leq t})$（见 §3.2）</td></tr><tr><td>优势</td><td>标注便宜（只要 ground-truth answer）</td><td>信号密集；能定位错误步</td></tr><tr><td>劣势</td><td>稀疏 reward，credit assignment 难</td><td>标注昂贵；step boundary 难定义</td></tr></tbody></table>
+<div class="callout callout-warn"><div class="callout-title">别把 reward model 训练目标和 RL policy 目标搞混</div><p>上表"训练目标"描述的是 reward model 自身怎么训（监督学习：分类/回归损失）；$\max \mathbb{E}[r(\text{trace})]$ 这类期望 reward 最大化是<strong>下游 RL policy</strong> 的优化目标，不是 ORM/PRM 自己的训练损失。</p></div>
 <h3 id="32-prm800k-lightman-et-al-2023-arxiv-230520050">3.2　PRM800K (Lightman et al. 2023, arXiv 2305.20050)</h3>
 <p>OpenAI 在 MATH 数据集上人工标了 80 万个 step-level 标签：每个 step 是 <code>positive</code> / <code>neutral</code> / <code>negative</code>。</p>
 <p>训练目标（per-step classification）：</p>
@@ -702,7 +703,7 @@ The answer is 11.</code></pre>
 <p>推理时把 PRM 当 verifier：</p>
 <p>$$\text{score}(\text{trace}) = \prod_{t} p_\phi(\ell_t = +\mid s_{\leq t}) \quad \text{或} \quad \min_t p_\phi(\ell_t = +\mid s_{\leq t})$$</p>
 <p>（前者乘积形式更标准；min 形式更悲观但抓最弱步）</p>
-<div class="callout callout-good"><div class="callout-title">关键发现</div><p>Lightman 2023 报告：用 PRM800K 做 best-of-1024 verifier，在 MATH test 上 78%（vs ORM 72%，majority vote 70%）。<strong>PRM &gt; ORM &gt; self-consistency</strong>，但代价是 80 万人工标注。</p></div>
+<div class="callout callout-good"><div class="callout-title">关键发现</div><p>Lightman 2023 报告：用 PRM800K 做 N=1860 重排（re-ranking of sampled solutions），在 MATH test 上 PRM 78.2%（vs ORM 72.4%，majority vote 69.6%）。<strong>PRM &gt; ORM &gt; self-consistency</strong>，但代价是 80 万人工标注。</p></div>
 <h3 id="33-math-shepherdwang-et-al-2023-arxiv-231208935-自动标-step-label">3.3　Math-Shepherd（Wang et al. 2023, arXiv 2312.08935）—— 自动标 step label</h3>
 <p>人标贵，怎么 scale？Math-Shepherd 思路：<strong>用 Monte Carlo completion rollout 估每个 step 的"潜在正确率"</strong>。</p>
 <pre><code>对每个 step s_t（部分推理）：
@@ -711,7 +712,7 @@ The answer is 11.</code></pre>
   reward_t = (正确数) / K</code></pre>
 <p>直觉：如果一个 step 是好的，从它出发往下走应该容易得到正确答案；如果是坏的，怎么走都错。</p>
 <p>训练 PRM 用 Math-Shepherd 标签：MSE 回归或 BCE 分类。Mistral-7B 在 GSM8K 上 77.9% → 84.1%，无需人标。</p>
-<div class="callout callout-info"><div class="callout-title">MCTS-label 的隐含假设</div><p>base model 在该任务上有 non-trivial success rate（否则 rollout 全错，标签全 0）。所以 PRM 训练需要 base model 至少能解出部分题——这是个 bootstrap 问题。</p></div>
+<div class="callout callout-info"><div class="callout-title">MC rollout label 的隐含假设</div><p>base model 在该任务上有 non-trivial success rate（否则 rollout 全错，标签全 0）。所以 PRM 训练需要 base model 至少能解出部分题——这是个 bootstrap 问题。</p></div>
 <h3 id="34-generative-prm-与-critic-lm">3.4　Generative PRM 与 Critic LM</h3>
 <p>2024 后流行 "generative verifier"：把 PRM 当 <strong>next-token-prediction</strong>（"is this step correct? yes/no"），直接复用 LLM 架构，不用单独 reward head。代表作：Generative Verifiers (Zhang et al. 2024, arXiv 2408.15240)。优势：能利用 in-context reasoning 评分，比 scalar head PRM 更准。</p>
 <h2 id="4-best-of-n--verifier最朴素的-test-time-scaling">§4 Best-of-N + Verifier：最朴素的 test-time scaling</h2>
@@ -820,7 +821,7 @@ def self_consistency(
 <p>$$\boxed{\;A_i = \frac{r_i - \text{mean}(\mathbf{r})}{\text{std}(\mathbf{r}) + \epsilon}\;}$$</p>
 <ol><li>把 trace-level $A_i$ 广播给该 trace 的所有 token：$A_t = A_i \;\forall t \in o_i$</li><li>用 PPO clipping objective 更新 policy（同上公式，但 $A_t$ 来自步骤 3-4）；DeepSeekMath/R1 同时加 KL 正则 $\beta \cdot \mathrm{KL}(\pi_\theta \,\|\, \pi_\text{ref})$。实践中用 Schulman 的 <strong>unbiased k3 估计</strong> $\widehat{\mathrm{KL}}_t = e^{\log\pi_\text{ref}(o_t|s_t) - \log\pi_\theta(o_t|s_t)} - (\log\pi_\text{ref}(o_t|s_t) - \log\pi_\theta(o_t|s_t)) - 1$ 对每个 token 取值（恒 $\geq 0$），再 mask + 平均</li></ol>
 <div class="callout callout-good"><div class="callout-title">GRPO 关键洞察</div><p>为什么 group-relative 比 critic 好用？</p></div>
-<ul><li><strong>同 prompt 同源</strong>：$G$ 个 completion 共享 prompt 难度，差异完全来自 policy 输出；mean 自动减掉 prompt-specific baseline，等价做了 control variate</li><li><strong>无需 value network</strong>：直接省一半显存 + 一倍计算；critic 在 long-CoT 上本来就难学（reward 稀疏 + episode 长）</li><li><strong>稳定性来自 group size $G$</strong>：$G$ 越大，advantage 估计方差越小；DeepSeek-R1 用 $G \approx 16$</li></ul>
+<ul><li><strong>同 prompt 同源</strong>：$G$ 个 completion 共享 prompt 难度，差异完全来自 policy 输出；mean 自动减掉 prompt-specific baseline，等价做了 control variate</li><li><strong>无需 value network</strong>：直接省一半显存 + 一倍计算；critic 在 long-CoT 上本来就难学（reward 稀疏 + episode 长）</li><li><strong>稳定性来自 group size $G$</strong>：$G$ 越大，advantage 估计方差越小；社区复现/推测 DeepSeek-R1 用 $G \approx 16$（R1 论文正文未逐一公布完整 RL 训练超参数表，不同于 DeepSeekMath 论文的详细超参附录）</li></ul>
 <h3 id="53-grpo-advantage-计算代码">5.3　GRPO advantage 计算代码</h3>
 <pre><code class="language-python">import torch
 
@@ -874,31 +875,37 @@ def grpo_loss(
     kl = torch.exp(log_diff) - log_diff - 1.0              # [G, T], ≥ 0
     loss = pg_loss + kl_beta * kl                          # [G, T]
 
-    # Masked mean over valid tokens
-    return (loss * mask).sum() / mask.sum().clamp_min(1.0)</code></pre>
+    # 先按每条 completion 自身长度归一化，再对 G 条 completion 取等权重平均
+    # （DeepSeekMath 原式：(1/G) Σ_i (1/|o_i|) Σ_t [...]）。
+    # 直接 (loss*mask).sum()/mask.sum() 等价于按 completion 长度加权平均，
+    # 会让长 completion 因贡献更多有效 token 而获得更大总权重——这正是
+    # DAPO / Dr.GRPO 论文批评的 GRPO 长度偏差 bug。
+    per_completion_len = mask.sum(dim=-1).clamp_min(1.0)             # [G]
+    per_completion_loss = (loss * mask).sum(dim=-1) / per_completion_len  # [G]
+    return per_completion_loss.mean()                                 # 每条 completion 等权重</code></pre>
 <div class="callout callout-warn"><div class="callout-title">常见 bug</div><p>GRPO 实现里几个坑：</p></div>
 <ul><li><strong><code>log_probs_old</code> 必须 detach</strong>（不参与梯度），否则和 <code>ratio</code> 形成奇怪的梯度路径</li><li><strong><code>std</code> 用 biased 还是 unbiased</strong> 影响小但要一致（DeepSeek 公开版用 biased）</li><li><strong>当 $G$ 个 rewards 全相同（如全错或全对）</strong>，<code>std = 0</code>，且 $r_i - \mu \equiv 0$，加 <code>eps</code> 后 advantage = 0 → policy-gradient 项归零；但 KL 正则项仍存在，总 loss 退化成 <code>kl_beta * KL</code>（仍会把 policy 拉回 reference）。生产里通常 skip 这种 prompt（data filtering）以避免无信号更新，或者 clamp std 下限（如 0.1）</li><li><strong>Mask 必须 cover 所有 padding token</strong>，否则 padded log-prob 会污染 loss</li></ul>
 <h3 id="54-grpo-为什么-sample-efficientl3-高频题">5.4　GRPO 为什么 sample efficient（L3 高频题）</h3>
-<p>观察：R1 论文公开的 ~80 万样本（≈ 600k reasoning + 200k non-reasoning）是 <strong>Stage 3 rejection sampling + SFT 数据</strong>，不是 RL prompt 数；R1 Stage 2 reasoning RL 的 prompt 总量论文未严格公开，但整体训练计算量（~147K H800-hours）仍比同期 RLHF (InstructGPT 几百万人类偏好 pair) 显著小，GRPO 是核心算法贡献。</p>
+<p>观察：R1 论文公开的 ~80 万样本（≈ 600k reasoning + 200k non-reasoning）是 <strong>Stage 3 rejection sampling + SFT 数据</strong>，不是 RL prompt 数；R1 Stage 2 reasoning RL 的 prompt 总量、以及 RL 阶段的算力消耗，论文均未严格公开（详见下方算力说明），GRPO 去 critic + 数据精炼 + 规则 reward 才是这里更可靠的核心算法贡献。</p>
 <p><strong>根因</strong>（不止是"省 critic"）：</p>
 <ol><li><strong>Trace-level reward 与 trace-level credit 自然对齐</strong>：GRPO 直接把 trace reward 当 advantage 给所有 token；不需要 critic 做 per-token credit assignment。在 reward 完全只看 final answer 的设定下，这就是 sequence-level Monte-Carlo return 的标准 policy-gradient 估计（不是"最优"，但 trace-level 比 critic 在 long-CoT 上的 noisy per-token V 更稳）</li><li><strong>同 prompt 内的 contrast 自动消除 prompt-level noise</strong>：advantage = $(r - \mu) / \sigma$ 让 advantage 分布稳定，policy update 更新方向更准；等价于在每个 prompt 内做了 paired comparison</li><li><strong>PPO clipping 限制单步更新幅度</strong>：和 $G$ 一起保证不会因某个 prompt outlier reward 把 policy 推飞</li><li><strong>Rule-based reward 难以被 RM-hacking</strong>：r1 用规则 reward（答案正则匹配 + 格式 <code>&lt;think&gt;&lt;/think&gt;</code>），没有 learned RM 可被 over-optimization；advantage 主要反映"是否答对"。注意规则 reward 并非完全不可 hack——policy 仍可能利用正则漏洞、格式 trick 或测试集泄露——但避开了 learned-RM 漂出训练分布的主要 failure mode</li></ol>
-<p>R1 训练 GPU 小时 ≈ 147K H800-hours（DeepSeek 公开数）——比 GPT-4 训练量小两个数量级，是 GRPO + 数据精炼 + 规则 reward 联合作用的结果。</p>
+<p>DeepSeek 官方公开的算力数字是 <strong>DeepSeek-V3 预训练成本</strong>（约 2.788M H800-hours，DeepSeek-V3 技术报告数字）；R1 阶段额外 RL 训练所需的 GPU 时并未见 DeepSeek 官方披露具体数字（"~147K H800-hours" 应标注为非官方估算/未经证实），因此"比 GPT-4 训练量小两个数量级"这一比较缺乏双方可比的官方数据支撑，不应作为确定性结论表述。R1 的效率优势更可靠地体现在 GRPO 去 critic + 数据精炼 + 规则 reward 的算法设计上。</p>
 <h2 id="6-deepseek-r1-zero--r1-全流程">§6 DeepSeek-R1-Zero / R1 全流程</h2>
 <h3 id="61-r1-zero纯-rl-不要-sft-的极端实验">6.1　R1-Zero：纯 RL 不要 SFT 的极端实验</h3>
 <p><strong>唯一假设</strong>：base model（DeepSeek-V3-Base, 671B MoE）已具备基础语言 + 数学能力。</p>
 <p><strong>训练</strong>：</p>
 <ul><li><p>Reward = <code>accuracy_reward + format_reward</code>（rule-based，无 RM）</p>
-<ul><li><code>accuracy_reward</code>：答案能否被自动 extract + match ground truth</li><li><code>format_reward</code>：是否用 <code>&lt;think&gt;...&lt;/think&gt;</code> 包围推理过程</li></ul></li><li>算法：GRPO，$G = 16$，KL $\beta = 0.001$</li><li>数据：数学（MATH, AIME, 等）+ 代码（LeetCode-like 可执行评测）</li></ul>
+<ul><li><code>accuracy_reward</code>：答案能否被自动 extract + match ground truth</li><li><code>format_reward</code>：是否用 <code>&lt;think&gt;...&lt;/think&gt;</code> 包围推理过程</li></ul></li><li>算法：GRPO，$G = 16$，KL $\beta = 0.001$（社区复现/推测数值——R1 论文正文未逐一列出完整 RL 训练超参数表，不同于 DeepSeekMath 论文的详细超参附录）</li><li>数据：数学（MATH, AIME, 等）+ 代码（LeetCode-like 可执行评测）</li></ul>
 <p><strong>涌现行为</strong>（"aha moment"，DeepSeek-R1 paper Fig 3）：</p>
 <ul><li>训练几 K steps 后，CoT 长度自发增长（200 token → 数千 token）</li><li>出现 "Wait, let me reconsider..."、"Actually that's wrong"、"Let me verify by..." 等 self-reflection 句式</li><li>在 AIME 2024 上 pass@1 从 base 的 15.6% → 71.0%（远超 GPT-4o-0513 的 9.3%）</li></ul>
 <div class="callout callout-info"><div class="callout-title">R1-Zero 历史意义</div><p>在 R1-Zero 之前，社区普遍认为 reasoning 能力必须靠 <strong>SFT cold start</strong>（先给模型看大量 demonstrated CoT）才能 RL bootstrap。R1-Zero 证明 base model + 纯规则 reward 也能做到——这是 LLM 训练历史上第一次大规模复现 "RL from scratch elicit reasoning"（对应 AlphaGo Zero 在 LLM 上的等价物，虽然 base 已 pretrained）。</p></div>
 <p><strong>问题</strong>：R1-Zero 的输出有 <strong>可读性问题</strong> —— 推理过程语言混杂（中英文 + 数学符号乱跳）、有时候不分段、人类读不懂。所以 R1 加了后续阶段。</p>
 <h3 id="62-r1-完整-4-阶段-pipeline">6.2　R1 完整 4 阶段 pipeline</h3>
-<table><thead><tr><th>阶段</th><th>输入</th><th>方法</th><th>目标</th></tr></thead><tbody><tr><td><strong>Stage 1: Cold-start SFT</strong></td><td>DeepSeek-V3-Base</td><td>数千条精选 long-CoT（部分来自 R1-Zero 输出 + 人工修正可读性）</td><td>让模型学到 "human-readable reasoning format"</td></tr><tr><td><strong>Stage 2: Reasoning-oriented RL</strong></td><td>Stage 1 模型</td><td>GRPO + rule-based reward + 语言一致性 reward（penalize 中英混杂）</td><td>提升推理能力</td></tr><tr><td><strong>Stage 3: Rejection sampling + SFT</strong></td><td>Stage 2 模型</td><td>用 Stage 2 模型大量 sample → 用 PRM/规则筛 → 60 万 reasoning + 20 万通用 数据再 SFT</td><td>扩展到非数学/代码领域；保留通用能力</td></tr><tr><td><strong>Stage 4: All-scenario RL</strong></td><td>Stage 3 模型</td><td>GRPO + (rule reward for math/code) + (RM for helpfulness/harmlessness)</td><td>全场景对齐</td></tr></tbody></table>
+<table><thead><tr><th>阶段</th><th>输入</th><th>方法</th><th>目标</th></tr></thead><tbody><tr><td><strong>Stage 1: Cold-start SFT</strong></td><td>DeepSeek-V3-Base</td><td>数千条精选 long-CoT（部分来自 R1-Zero 输出 + 人工修正可读性）</td><td>让模型学到 "human-readable reasoning format"</td></tr><tr><td><strong>Stage 2: Reasoning-oriented RL</strong></td><td>Stage 1 模型</td><td>GRPO + rule-based reward + 语言一致性 reward（penalize 中英混杂）</td><td>提升推理能力</td></tr><tr><td><strong>Stage 3: Rejection sampling + SFT</strong></td><td>Stage 2 模型</td><td>用 Stage 2 模型大量 sample → 用规则/答案验证（数学、代码等可验证任务）+ DeepSeek-V3 generative judging 筛选（无 PRM 参与） → 60 万 reasoning + 20 万通用 数据再 SFT</td><td>扩展到非数学/代码领域；保留通用能力</td></tr><tr><td><strong>Stage 4: All-scenario RL</strong></td><td>Stage 3 模型</td><td>GRPO + (rule reward for math/code) + (RM for helpfulness/harmlessness)</td><td>全场景对齐</td></tr></tbody></table>
 <p><strong>核心 insight</strong>：</p>
 <ul><li><strong>Stage 1 = readability injection</strong>，不是为了 reasoning（reasoning 来自 RL）</li><li><strong>Stage 3 = generalization injection</strong>，把数学/代码 RL 学到的推理能力 transfer 到非可验证领域（写作、对话、QA）</li><li><strong>Stage 4 = safety + helpfulness alignment</strong>，等价于 RLHF 收尾</li></ul>
 <h3 id="63-r1-distill把-r1-蒸到小模型">6.3　R1-Distill：把 R1 蒸到小模型</h3>
-<p>DeepSeek 用 Stage 3 数据（60 万 reasoning 样本）对 Qwen2.5-{1.5B, 7B, 14B, 32B} 和 Llama3-{8B, 70B} 做 <strong>纯 SFT</strong>（无 RL），得到 R1-Distill 系列。</p>
+<p>DeepSeek 用 Stage 3 全部约 80 万条数据（60 万 reasoning + 20 万通用）对 Qwen2.5-{1.5B, 7B, 14B, 32B} 和 Llama3-{8B, 70B} 做 <strong>纯 SFT</strong>（无 RL），得到 R1-Distill 系列。</p>
 <p><strong>关键发现</strong>（论文 Table 5）：</p>
 <ul><li>DeepSeek-R1-Distill-Qwen-32B 在 AIME 2024 上 72.6 vs o1-mini 63.6——<strong>SFT 蒸馏的小模型超过 o1-mini</strong></li><li>1.5B 模型在 MATH-500 上 83.9，远超原 Qwen2.5-Math-1.5B 的 51.0</li><li>论文公开版 R1-Distill <strong>只做了 SFT，没有再叠 RL</strong>；作者明确指出"incorporating RL could substantially boost performance"——所以"distill 后能否 RL 出更多"是未结论的开放问题，而不是"做不到"</li></ul>
 <div class="callout callout-warn"><div class="callout-title">L3 高频题</div><p>"为什么 R1-Distill 远超原 model，但比直接对小模型做 RL 反而更好？"</p></div>
@@ -909,7 +916,7 @@ def grpo_loss(
 <p>实验设置：</p>
 <ul><li>同一 base model（PaLM-2 系列）</li><li>不同 test-time 策略：BoN、majority vote、ToT-like beam search、PRM beam search、sequential revision（让模型看自己的回答再改）</li><li><strong>compute-optimal</strong>：每个 prompt 根据难度动态选策略（简单题 greedy，难题 beam search + PRM）</li></ul>
 <p>核心 finding：</p>
-<ul><li><strong>在固定预算下，optimal test-time scaling &gt; 14× 模型 scaling</strong>（在某些 MATH 子集上）</li><li><strong>简单题</strong>：majority vote / BoN 4-8 即可</li><li><strong>难题</strong>：PRM-guided sequential revision + beam search 收益最大</li></ul>
+<ul><li><strong>在固定预算下，optimal test-time scaling &gt; 14× 模型 scaling</strong>（在某些 MATH 子集上；PaLM-2 参数量官方未公开，"14×" 为 FLOPs-matched 口径下的模型规模比较，详见 §1.1）</li><li><strong>简单题</strong>：majority vote / BoN 4-8 即可</li><li><strong>难题</strong>：parallel sampling（多样化独立采样多条不同思路）+ PRM/verifier 挑选收益最大</li></ul>
 <div class="callout callout-good"><div class="callout-title">Compute-optimal scaling 公式</div></div>
 <p>$$\text{Compute}_\text{optimal}(x) = \arg\min_{(\theta, N)} \mathbb{E}[L(\pi_\theta(x; N))] \;\text{s.t.}\; \text{FLOPs}(\theta, N) \leq B$$</p>
 <ul><li>$\theta$ = 模型规模，$N$ = test-time samples / beam width</li><li>论文给的实际经验：在 base model 能 pass@1 &gt; 30% 的题上，加 N 比加参数更划算</li></ul>
@@ -917,7 +924,7 @@ def grpo_loss(
 <p>最简单的 reasoning model：<strong>1000 条样本 SFT + budget forcing 推理控制</strong>。</p>
 <p><strong>数据</strong>（s1K，1000 条）：</p>
 <ul><li>来自三个 criteria 筛选：difficulty、diversity、quality</li><li>每条样本：question + reasoning trace（用 Gemini Thinking 生成）+ answer</li></ul>
-<p><strong>训练</strong>：Qwen2.5-32B-Instruct 上做 26 分钟 SFT（16×H100，1 epoch）——堪称史上最便宜 reasoning model。</p>
+<p><strong>训练</strong>：Qwen2.5-32B-Instruct 上做 26 分钟 SFT（16×H100，5 epochs）——堪称史上最便宜 reasoning model。</p>
 <p><strong>推理 trick：budget forcing</strong></p>
 <pre><code>模型生成：
 &lt;think&gt;
@@ -934,7 +941,7 @@ def grpo_loss(
 <ul><li>SFT 让 base model 学会了 <code>&lt;think&gt;...&lt;/think&gt;</code> 格式，但 reasoning 长度有 distribution（短题短推理）</li><li>强行注入 "Wait" 让模型停在 <code>&lt;/think&gt;</code> 的 boundary，激活其 in-context 的"反思"能力</li><li>等价于 forcing 模型留在 "thinking mode" 多 sample 几条推理路径</li><li>失败案例：base model 完全没见过反思 pattern 时，"Wait" 后面接的内容是 garbage——s1 的 1K SFT 数据已经隐含了反思 pattern</li></ul>
 <h3 id="73-sequential-vs-parallel-test-time-compute">7.3　Sequential vs Parallel test-time compute</h3>
 <table><thead><tr><th>维度</th><th>Parallel (BoN, Self-Consistency)</th><th>Sequential (long CoT, s1 budget forcing, o1)</th></tr></thead><tbody><tr><td>实现</td><td>Sample N 次，verifier/vote 选</td><td>单条 trace 拉长，模型自己反思</td></tr><tr><td>延迟</td><td>$N$ 倍延迟（并行可降低）</td><td>单条但很长（不可并行降低）</td></tr><tr><td>显存</td><td>KV cache × N 或顺序复用</td><td>单 KV cache 但 sequence 长</td></tr><tr><td>Plateau</td><td>早期饱和（N=8-16）</td><td>持续扩展（10K-100K token）</td></tr><tr><td>适合</td><td>浅推理（GSM8K、commonsense）</td><td>深推理（AIME、Codeforces）</td></tr></tbody></table>
-<p>Snell 2024 报告：<strong>对简单题 parallel 更划算，对难题 sequential 显著更好</strong>。</p>
+<p>Snell 2024 报告：<strong>对简单题 sequential revision 更划算（不需探索多条思路），对难题 parallel sampling + verifier 显著更好</strong>（revision 易困在错误初始思路里走不出来）。compute-optimal 策略应按难度自适应调整 sequential:parallel 的比例——难度越高，parallel 占比应越高。</p>
 <h2 id="8-mcts-for-reasoningrstar-系列">§8 MCTS for Reasoning：rStar 系列</h2>
 <h3 id="81-puct-公式alphago--alphazero-起源">8.1　PUCT 公式（AlphaGo / AlphaZero 起源）</h3>
 <p>在节点 $s$，对每个 action $a$，PUCT score：</p>
@@ -1070,7 +1077,7 @@ def prm_beam_search(
             break
     # 返回最高分的 trace（空 beam 时回退到初始 prompt）
     return max(beams, key=lambda x: x[0])[1] if beams else prompt</code></pre>
-<div class="callout callout-info"><div class="callout-title">beam search vs MCTS</div><p>beam search 是 <strong>deterministic + breadth-bounded</strong>（每层固定 b），不回溯；MCTS 是 <strong>stochastic + adaptive</strong>（visit count 决定深度），可回溯。前者快 5-10×，后者在搜索深的树时质量更高。Snell 2024 推荐：题难度中等 → PRM beam search；超难 → MCTS。</p></div>
+<div class="callout callout-info"><div class="callout-title">beam search vs MCTS</div><p>beam search 是 <strong>deterministic + breadth-bounded</strong>（每层固定 b），不回溯；MCTS 是 <strong>stochastic + adaptive</strong>（visit count 决定深度），可回溯。前者快 5-10×，后者在搜索深的树时质量更高。Snell 2024 范围内的推荐仅到 PRM beam search（题难度中等偏难）；MCTS 并非 Snell 2024 评测/推荐的策略，其在 reasoning 上的应用应归功于 rStar / rStar-Math 等后续工作（见本文 §8）。</p></div>
 <h2 id="9-reasoning-model-全景对比">§9 Reasoning Model 全景对比</h2>
 <h3 id="91-主流-reasoning-model-对比表截至-2026">9.1　主流 reasoning model 对比表（截至 2026）</h3>
 <table><thead><tr><th>模型</th><th>厂商</th><th>发布</th><th>训练范式</th><th>推理控制</th><th>公开性</th></tr></thead><tbody><tr><td><strong>o1-preview / o1</strong></td><td>OpenAI</td><td>2024-09</td><td>RL on hidden CoT (细节闭源)</td><td>reasoning_effort: low/med/high</td><td>闭源</td></tr><tr><td><strong>o3</strong></td><td>OpenAI</td><td>2024-12 / 2025</td><td>o1 后继；ARC-AGI 75.7%/87.5%</td><td>推理 budget 可调；high-compute 172×</td><td>闭源</td></tr><tr><td><strong>DeepSeek-R1-Zero</strong></td><td>DeepSeek</td><td>2025-01</td><td>纯 RL (GRPO + 规则 reward)</td><td>自然停止</td><td>完全开源（权重 + 论文）</td></tr><tr><td><strong>DeepSeek-R1</strong></td><td>DeepSeek</td><td>2025-01</td><td>4 阶段：SFT cold-start + RL + rejection SFT + RL</td><td>自然停止</td><td>完全开源</td></tr><tr><td><strong>R1-Distill (1.5B-70B)</strong></td><td>DeepSeek</td><td>2025-01</td><td>SFT only on R1 reasoning data</td><td>自然停止</td><td>完全开源</td></tr><tr><td><strong>Claude 3.7 Sonnet</strong></td><td>Anthropic</td><td>2025-02</td><td>hybrid: standard + extended thinking</td><td>budget tokens 用户可设（up to 128K）</td><td>闭源，但 thinking 内容可见</td></tr><tr><td><strong>Gemini 2.0 Flash Thinking</strong></td><td>Google DeepMind</td><td>2024-12</td><td>推理优化 (具体方法未公布)</td><td>显式展示 thinking</td><td>闭源</td></tr><tr><td><strong>s1-32B</strong></td><td>Stanford/Allen AI</td><td>2025-02</td><td>1K-sample SFT + "Wait" budget forcing</td><td>budget forcing 控制 thinking 长度</td><td>完全开源（含 s1K 数据）</td></tr><tr><td><strong>rStar-Math</strong></td><td>Microsoft</td><td>2025-01</td><td>MCTS + PPM self-evolution</td><td>推理时显式 MCTS</td><td>部分开源</td></tr><tr><td><strong>DeepSeek-Prover-V2</strong></td><td>DeepSeek</td><td>2025-04</td><td>subgoal decomposition + Lean 4 + RL</td><td>Lean 形式化验证</td><td>完全开源</td></tr></tbody></table>
@@ -1117,7 +1124,7 @@ def prm_beam_search(
 <details>
 
 <summary>Q4. ORM 和 PRM 区别？</summary>
-<ul><li>ORM (Outcome RM)：整条 trace 一个 reward（基于 final answer 对错）</li><li>PRM (Process RM)：每个 reasoning step 一个 reward</li><li>PRM 信号密集但标注贵（人标 PRM800K 80 万 step）</li><li>Math-Shepherd (Wang et al. 2023, arXiv 2312.08935) 从中间 step 出发采样 <strong>Monte Carlo completion rollouts</strong>（不是 MCTS tree search），用「rollout 多少条最终对」的 soft/hard estimation 自动标 PRM step label</li><li>Lightman 2023: best-of-1024 上 PRM 78% &gt; ORM 72% &gt; majority vote 70%</li></ul>
+<ul><li>ORM (Outcome RM)：整条 trace 一个 reward（基于 final answer 对错）</li><li>PRM (Process RM)：每个 reasoning step 一个 reward</li><li>PRM 信号密集但标注贵（人标 PRM800K 80 万 step）</li><li>Math-Shepherd (Wang et al. 2023, arXiv 2312.08935) 从中间 step 出发采样 <strong>Monte Carlo completion rollouts</strong>（不是 MCTS tree search），用「rollout 多少条最终对」的 soft/hard estimation 自动标 PRM step label</li><li>Lightman 2023: N=1860 重排上 PRM 78.2% &gt; ORM 72.4% &gt; majority vote 69.6%</li></ul>
 <p>把 PRM 当成"训练 reward"——它主要用于推理时 verify，不一定参与 RL</p>
 </details>
 <details>
@@ -1147,13 +1154,13 @@ def prm_beam_search(
 <details>
 
 <summary>Q9. R1-Distill 为什么用 SFT 不用 RL？</summary>
-<ul><li>R1 的 reasoning 能力靠大 base + 强 RL 涌现</li><li>直接对小模型 RL 难涌现（base 太弱，rollout 几乎全错，reward 信号过稀疏）</li><li>用 R1 生成的 60 万 reasoning trace 做 SFT，等价 demonstration learning</li><li>论文报告：32B SFT-distill 在 AIME 上 72.6 vs 直接对 Qwen-32B RL 的 47.0</li><li>Implication：小模型上<strong>蒸馏 reasoning &gt; 直接 RL</strong>（在当前算法下）</li></ul>
+<ul><li>R1 的 reasoning 能力靠大 base + 强 RL 涌现</li><li>直接对小模型 RL 难涌现（base 太弱，rollout 几乎全错，reward 信号过稀疏）</li><li>用 R1 生成的全部约 80 万条数据（60 万 reasoning + 20 万通用）做 SFT，等价 demonstration learning</li><li>论文报告：32B SFT-distill 在 AIME 上 72.6 vs 直接对 Qwen-32B RL 的 47.0</li><li>Implication：小模型上<strong>蒸馏 reasoning &gt; 直接 RL</strong>（在当前算法下）</li></ul>
 <p>以为 RL 总是比 SFT 好——前提是 base 够强</p>
 </details>
 <details>
 
 <summary>Q10. Snell 2024 的 "test-time compute > parameter scaling" 是什么意思？</summary>
-<ul><li>固定 inference 算力预算，让 1B 模型多 sample + verify</li><li>在某些 MATH 子集上，可超过 14× 大的模型的 greedy 性能</li><li>前提：base model 在该任务有 non-trivial pass@1（&gt;30%）</li><li>不是普适：完全不会的任务，再多 test-time compute 也救不回来</li><li>实际工业部署常用 R1-Distill + BoN=8 + PRM 替代直接调 R1</li></ul>
+<ul><li>固定 inference 算力预算，让 1B 模型多 sample + verify</li><li>在某些 MATH 子集上，可超过 14× 大的模型的 greedy 性能（PaLM-2 参数量官方未公开，"14×" 是 FLOPs-matched 推理算力对比口径，非精确参数量比值）</li><li>前提：base model 在该任务有 non-trivial pass@1（&gt;30%）</li><li>不是普适：完全不会的任务，再多 test-time compute 也救不回来</li><li>实际工业部署常用 R1-Distill + BoN=8 + PRM 替代直接调 R1</li></ul>
 <p>把它当 "scaling law 终结" ——它只是"另一个维度的 scaling law"，不取代训练 scaling</p>
 </details>
 <h3 id="l2-进阶题reasoning-方向--research-岗">L2 进阶题（reasoning 方向 / research 岗）</h3>
@@ -1197,8 +1204,8 @@ def prm_beam_search(
 <details>
 
 <summary>Q17. Math-Shepherd 怎么自动标 step label？关键假设是什么？</summary>
-<ul><li>对 trace 中每个 step $s_t$，从 $s_t$ 出发 rollout K 条 completion</li><li>数多少条最终 answer 正确，得 estimated step quality $\hat{q}_t = (正确数) / K$</li><li>用 $\hat{q}_t$ 当 BCE/MSE 标签训 PRM</li><li><strong>关键假设</strong>：base model 在该任务有 non-trivial success rate（否则 rollout 全错，$\hat{q}_t$ 全 0）</li><li>Bootstrap 问题：弱 base → 没法用 MCTS-label；强 base → 不需要 PRM</li><li>实际：用中等强度 base（Mistral-7B post-SFT）作 rollout source</li></ul>
-<p>以为 MCTS-label 是免费——它需要 base 已有部分能力</p>
+<ul><li>对 trace 中每个 step $s_t$，从 $s_t$ 出发 rollout K 条 completion</li><li>数多少条最终 answer 正确，得 estimated step quality $\hat{q}_t = (正确数) / K$</li><li>用 $\hat{q}_t$ 当 BCE/MSE 标签训 PRM</li><li><strong>关键假设</strong>：base model 在该任务有 non-trivial success rate（否则 rollout 全错，$\hat{q}_t$ 全 0）</li><li>Bootstrap 问题：弱 base → 没法用 MC rollout label；强 base → 不需要 PRM</li><li>实际：用中等强度 base（Mistral-7B post-SFT）作 rollout source</li></ul>
+<p>以为 MC rollout label 是免费——它需要 base 已有部分能力</p>
 </details>
 <details>
 
@@ -1215,7 +1222,7 @@ def prm_beam_search(
 <details>
 
 <summary>Q20. KL 正则在 GRPO 里的作用是什么？β 怎么调？</summary>
-<ul><li>$\mathcal{L}_\text{total} = \mathcal{L}_\text{PG} + \beta \cdot \mathrm{KL}(\pi_\theta \| \pi_\text{ref})$</li><li>$\pi_\text{ref}$ = 训练开始前的 policy（一般是 SFT 后或 base）</li><li>$\beta$ 大：policy 不漂离 reference，但学不动新能力</li><li>$\beta$ 小：policy 自由探索，但可能 collapse（生成 garbage）</li><li>DeepSeek-R1 用 $\beta = 0.001$（很小，鼓励探索）；标准 RLHF 用 0.01-0.1</li><li>对 long-CoT，KL 在 token-level 累加，总量很大，所以 $\beta$ 要远小于短 CoT</li></ul>
+<ul><li>$\mathcal{L}_\text{total} = \mathcal{L}_\text{PG} + \beta \cdot \mathrm{KL}(\pi_\theta \| \pi_\text{ref})$</li><li>$\pi_\text{ref}$ = 训练开始前的 policy（一般是 SFT 后或 base）</li><li>$\beta$ 大：policy 不漂离 reference，但学不动新能力</li><li>$\beta$ 小：policy 自由探索，但可能 collapse（生成 garbage）</li><li>DeepSeek-R1 用 $\beta = 0.001$（很小，鼓励探索；社区复现/推测数值，R1 论文正文未逐一公布完整 RL 超参数表）；标准 RLHF 用 0.01-0.1</li><li>对 long-CoT，KL（k3 估计）是逐 token 量；用正确的"按 completion 长度归一化再对 G 条取平均"reduction 时，总 loss 不会随 CoT 长度机械放大——但 per-token KL 估计的噪声/方差会随轨迹变长而累积，所以 long-CoT 上 $\beta$ 仍常取比短 CoT 更小的值（这取决于 reduction 是 sum 还是 mean，不是"总量线性放大"这么简单）</li></ul>
 <p>照搬 RLHF 的 $\beta$ 到 long-CoT——会过度抑制探索</p>
 </details>
 <h3 id="l3-高级题顶级-lab--研究方向">L3 高级题（顶级 lab / 研究方向）</h3>
@@ -1242,8 +1249,8 @@ def prm_beam_search(
 
 <summary>Q24. 比较 sequential test-time compute (long CoT) 和 parallel test-time compute (BoN / MCTS) 的本质差异。什么时候选哪个？</summary>
 <ul><li><p><strong>Sequential（o1, R1, s1）</strong>：单条 trace 拉长，模型自反思 + 自验证</p>
-<ul><li>优势：单 KV cache（显存友好）；信息在 trace 内连续传递（后面 step 看得到前面所有 reasoning）</li><li>劣势：早期错误传播到末端（无 backtrack）；难任务上需要极长 trace（10K-100K token）</li></ul></li><li><p><strong>Parallel（BoN, ToT, MCTS）</strong>：多条独立 trace，外部 aggregator/verifier 选</p>
-<ul><li>优势：可并行 → 延迟低；每条 trace 独立，错误不传播</li><li>劣势：trace 之间无信息交换；verifier 必须精准否则 aggregation 失效</li></ul></li><li><p><strong>选型决策</strong>：</p>
+<ul><li>优势：单 KV cache（显存友好）；信息在 trace 内连续传递（后面 step 看得到前面所有 reasoning）</li><li>劣势：早期错误传播到末端（无 backtrack）；难任务上需要极长 trace（10K-100K token）</li></ul></li><li><p><strong>Parallel（BoN, ToT, MCTS）</strong>：多条 trace 由外部 aggregator/verifier 选，但"trace 间是否独立"因方法而异</p>
+<ul><li>优势：可并行 → 延迟低</li><li><strong>BoN</strong>：完全独立采样，trace 之间无信息交换，错误不传播</li><li><strong>ToT</strong>：共享搜索树前缀，LLM evaluator 跨分支打分/剪枝，分支间有信息交换</li><li><strong>MCTS</strong>：通过 visit-count backup 显式共享跨 trace 信息（见 §8.1 PUCT 公式）</li><li>劣势：verifier/evaluator 必须精准，否则 aggregation 或 backup 会被误导</li></ul></li><li><p><strong>选型决策</strong>：</p>
 <ul><li>任务 sequential dependency 强（数学竞赛、定理证明）→ long CoT（错误信息后续可被反思修正）</li><li>任务多解（codeforce、creative writing）→ BoN（多路径覆盖）</li><li>任务有 well-defined intermediate verifier（math step）→ MCTS / PRM beam search</li><li>延迟敏感 → parallel（可在 GPU 上并行）</li><li>单 GPU 内存敏感 → sequential（单 KV cache）</li></ul></li><li><strong>未来方向</strong>：sequential + parallel 混合——单条 long CoT 内嵌入 multi-path 探索（如 o1 内部可能就在做这个，但闭源不可知）</li></ul>
 <p>只说 "sequential 比 parallel 好"——任务依赖</p>
 </details>
@@ -1262,7 +1269,7 @@ def prm_beam_search(
 </details>
 <h2 id="a-附录核心-paper-时间线--一句话总结">§A 附录：核心 paper 时间线 + 一句话总结</h2>
 <p>按时间倒序：</p>
-<table><thead><tr><th>日期</th><th>Paper</th><th>arXiv</th><th>一句话贡献</th></tr></thead><tbody><tr><td>2025-04</td><td>DeepSeek-Prover-V2</td><td>2504.21801</td><td>subgoal decomposition + Lean 4 RL，MiniF2F 88.9%</td></tr><tr><td>2025-02</td><td>Claude 3.7 Sonnet</td><td>(no arXiv)</td><td>hybrid 模型，extended thinking budget 用户可控</td></tr><tr><td>2025-02</td><td>s1: Simple Test-Time Scaling</td><td>2501.19393</td><td>1K SFT + "Wait" budget forcing 超 o1-preview</td></tr><tr><td>2025-01</td><td>DeepSeek-R1 / R1-Zero</td><td>2501.12948</td><td>纯 RL (GRPO + rule reward) 涌现推理；R1 = 4 阶段 pipeline</td></tr><tr><td>2025-01</td><td>rStar-Math</td><td>2501.04519</td><td>MCTS + PPM self-evolution, 7B 接近 o1-preview</td></tr><tr><td>2024-12</td><td>o3 (OpenAI)</td><td>(no arXiv)</td><td>ARC-AGI 75.7%-87.5%，首次抽象推理逼近人类</td></tr><tr><td>2024-12</td><td>Gemini 2.0 Flash Thinking</td><td>(no arXiv)</td><td>Google 首个推理模型，thinking 显式可见</td></tr><tr><td>2024-09</td><td>o1 (OpenAI)</td><td>(no arXiv)</td><td>首个商用 reasoning model，hidden CoT + RL</td></tr><tr><td>2024-08</td><td>Snell et al. Test-Time Compute</td><td>2408.03314</td><td>优化 test-time compute &gt; 14× 模型 scaling</td></tr><tr><td>2024-08</td><td>rStar</td><td>2408.06195</td><td>MCTS + mutual reasoning，小 LM 大幅提升</td></tr><tr><td>2024-02</td><td>DeepSeekMath / GRPO</td><td>2402.03300</td><td>GRPO 算法首次提出，去除 critic</td></tr><tr><td>2023-12</td><td>Math-Shepherd</td><td>2312.08935</td><td>MCTS rollout 自动标 PRM label</td></tr><tr><td>2023-05</td><td>Tree of Thoughts</td><td>2305.10601</td><td>显式 tree search + LLM evaluator</td></tr><tr><td>2023-05</td><td>Let's Verify Step by Step</td><td>2305.20050</td><td>PRM &gt; ORM &gt; majority vote；PRM800K 数据集</td></tr><tr><td>2022-03</td><td>Self-Consistency</td><td>2203.11171</td><td>sample N + 多数票，GSM8K +17.9%</td></tr><tr><td>2022-05</td><td>Zero-shot CoT (Kojima)</td><td>2205.11916</td><td>"Let's think step by step"，zero-shot 触发 CoT</td></tr><tr><td>2022-01</td><td>Chain-of-Thought (Wei)</td><td>2201.11903</td><td>few-shot step-by-step demonstration，CoT 在大模型上 emergent</td></tr></tbody></table>
+<table><thead><tr><th>日期</th><th>Paper</th><th>arXiv</th><th>一句话贡献</th></tr></thead><tbody><tr><td>2025-04</td><td>DeepSeek-Prover-V2</td><td>2504.21801</td><td>subgoal decomposition + Lean 4 RL，MiniF2F 88.9%</td></tr><tr><td>2025-02</td><td>Claude 3.7 Sonnet</td><td>(no arXiv)</td><td>hybrid 模型，extended thinking budget 用户可控</td></tr><tr><td>2025-02</td><td>s1: Simple Test-Time Scaling</td><td>2501.19393</td><td>1K SFT + "Wait" budget forcing 超 o1-preview</td></tr><tr><td>2025-01</td><td>DeepSeek-R1 / R1-Zero</td><td>2501.12948</td><td>纯 RL (GRPO + rule reward) 涌现推理；R1 = 4 阶段 pipeline</td></tr><tr><td>2025-01</td><td>rStar-Math</td><td>2501.04519</td><td>MCTS + PPM self-evolution, 7B 接近 o1-preview</td></tr><tr><td>2024-12</td><td>o3 (OpenAI)</td><td>(no arXiv)</td><td>ARC-AGI 75.7%-87.5%，首次抽象推理逼近人类</td></tr><tr><td>2024-12</td><td>Gemini 2.0 Flash Thinking</td><td>(no arXiv)</td><td>Google 首个推理模型，thinking 显式可见</td></tr><tr><td>2024-09</td><td>o1 (OpenAI)</td><td>(no arXiv)</td><td>首个商用 reasoning model，hidden CoT + RL</td></tr><tr><td>2024-08</td><td>Snell et al. Test-Time Compute</td><td>2408.03314</td><td>优化 test-time compute 可比拟 14×（FLOPs-matched 口径）模型 scaling</td></tr><tr><td>2024-08</td><td>rStar</td><td>2408.06195</td><td>MCTS + mutual reasoning，小 LM 大幅提升</td></tr><tr><td>2024-02</td><td>DeepSeekMath / GRPO</td><td>2402.03300</td><td>GRPO 算法首次提出，去除 critic</td></tr><tr><td>2023-12</td><td>Math-Shepherd</td><td>2312.08935</td><td>MC completion rollout 自动标 PRM label（非 MCTS tree search）</td></tr><tr><td>2023-05</td><td>Tree of Thoughts</td><td>2305.10601</td><td>显式 tree search + LLM evaluator</td></tr><tr><td>2023-05</td><td>Let's Verify Step by Step</td><td>2305.20050</td><td>PRM &gt; ORM &gt; majority vote；PRM800K 数据集</td></tr><tr><td>2022-03</td><td>Self-Consistency</td><td>2203.11171</td><td>sample N + 多数票，GSM8K +17.9%</td></tr><tr><td>2022-05</td><td>Zero-shot CoT (Kojima)</td><td>2205.11916</td><td>"Let's think step by step"，zero-shot 触发 CoT</td></tr><tr><td>2022-01</td><td>Chain-of-Thought (Wei)</td><td>2201.11903</td><td>few-shot step-by-step demonstration，CoT 在大模型上 emergent</td></tr></tbody></table>
 <div class="callout callout-info"><div class="callout-title">建议精读 4 篇</div><p>准备面试时间有限时，按优先级读：</p></div>
 <ol><li>DeepSeek-R1 (2501.12948) —— 涵盖 GRPO + 4 阶段 + R1-Zero "aha moment"</li><li>DeepSeekMath (2402.03300) —— GRPO 算法原始论文</li><li>Let's Verify Step by Step (2305.20050) —— PRM 基础</li><li>Snell et al. (2408.03314) —— test-time compute scaling 范式</li></ol>
 <p>读完这 4 篇 + 本 cheat sheet，reasoning model 面试题目应能 80%+ 覆盖。</p>
@@ -1271,8 +1278,8 @@ def prm_beam_search(
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/reasoning_models_tutorial.md</code> ·
-  SHA256 <code>356c5d884550</code> ·
-  generated at 2026-06-29 10:11 UTC.
+  SHA256 <code>d5acf172c183</code> ·
+  generated at 2026-07-12 04:24 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

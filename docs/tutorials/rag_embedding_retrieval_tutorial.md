@@ -631,7 +631,7 @@ def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
 - **归一化**：编码输出 $\lVert\mathbf{q}\rVert\approx1$，点积落在 $[-1,1]$。
 - **温度方向**：固定 logits、调小 $\tau$，softmax 概率应更集中（熵更低）。
 - **RRF 单调**：某文档在任一检索器名次提前，其 RRF 分数不应下降。
-- **混合召回 ⊇ 关键命中**：BM25 能命中的精确实体片段，混合结果里应保留（纯稠密可能漏）。
+- **混合召回尽量保留关键命中（工程目标，非严格不变量）**：BM25 命中的精确实体片段，混合结果里*通常*应保留（纯稠密可能漏）；但 RRF 只保证候选池是两路排名的并集，重排后能否留在截断的 top-k 内取决于其他文档在两路的排名与常数 $k$，并不严格保证——工程上常需对精确/实体匹配加 lexical quota 或直接置顶来兜底。
 
 下面是 [`code/rag_embedding.py`](code/rag_embedding.py) 在 **PyTorch 2.10 / CPU** 上的**真实运行**输出（每行带 `assert`，全过才打印汇总）：
 

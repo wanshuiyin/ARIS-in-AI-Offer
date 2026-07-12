@@ -4,7 +4,7 @@
 
 1. **视觉 encoder = ViT 主导**：Dosovitskiy et al. 2021 (ICLR) 把图像切 $P\times P$ patch（一般 $P=14$ 或 $16$）做线性投影 + 可学习 positional embedding + 可选 `[CLS]` token，输入 Transformer encoder。**CLIP / SigLIP / LLaVA 的视觉端都是 ViT 变体**。
 
-2. **CLIP 对称 InfoNCE（必推）**：Radford et al. 2021 (ICML) 让 image embedding $\mathbf{u}_i$ 和 text embedding $\mathbf{v}_i$ 在共享空间里做对比学习，loss 为 **行 softmax + 列 softmax 平均**：$\mathcal{L} = \tfrac{1}{2}(\mathcal{L}_{i\to t} + \mathcal{L}_{t\to i})$。温度 $\tau$ 可学习（log-parameterize，clip 到 $[0,100]$）。
+2. **CLIP 对称 InfoNCE（必推）**：Radford et al. 2021 (ICML) 让 image embedding $\mathbf{u}_i$ 和 text embedding $\mathbf{v}_i$ 在共享空间里做对比学习，loss 为 **行 softmax + 列 softmax 平均**：$\mathcal{L} = \tfrac{1}{2}(\mathcal{L}_{i\to t} + \mathcal{L}_{t\to i})$。温度 $\tau$ 可学习（log-parameterize 为 `logit_scale=log(1/τ)`；被 clip 的是 $\exp(\text{logit\_scale})=1/\tau$ 的上界 100，等价 $\tau$ 下界 0.01，而非 $\tau$ 本身被 clip 到 100）。
 
 3. **SigLIP 用 sigmoid 替 softmax**：Zhai et al. 2023 (ICCV) 把 N×N 相似度矩阵的每一项独立做 binary CE，**摆脱 batch-wise softmax 归一化**，因此对 batch size 不再线性敏感，单机能用 32k+ batch 训；引入 learnable bias $b$ 修正初期 negative dominance。**SigLIP-2 (Google 2025)** 加入 caption + self-distillation + dense local objectives 并扩展多语言。
 
@@ -34,7 +34,7 @@
 
 - **Projector 融合（visual tokens → LLM context）**：LLaVA / Qwen-VL，把 image embedding 投到 LLM 的 token 空间，**作为输入 token 拼接**，自回归解码
 
-- **Cross-attn 融合（image as KV, text as Q）**：Flamingo / BLIP-2 / Llama-3.2-V，新增 cross-attention 层，**LLM 的 text token 主动 query 视觉 KV**
+- **Cross-attn 融合（LLM 内新增独立 cross-attn 层）**：Flamingo / Llama-3.2-V，新增 cross-attention 层，**LLM 的 text token 主动 query 视觉 KV**。BLIP-2 的 cross-attention 只发生在 Q-Former 内部（32 个 learnable query 作 Q，冻结 image encoder 输出作 K/V），产出的 32 个 visual token 随后作为前缀 token 拼接进冻结 LLM 的输入序列——LLM 接口上其实和 LLaVA/Qwen-VL 的 projector 范式相同，LLM 本身并未新增 cross-attention 层
 
 对比 Q/K/V 视角：projector 范式下 image 是 LLM 输入序列的一部分（self-attention 内全交互）；cross-attn 范式下 image 永远是 KV，**只被 query**——这导致 **inference 时 KV cache 处理方式不同**。
 
@@ -65,13 +65,15 @@ Pre-norm（LN 在 sub-layer 输入端），MLP 用 GELU。注意 ViT 原版的 p
 | 模型 | Patch | Hidden $D$ | Layers | Heads | Params | 出处 |
 | --- | --- | --- | --- | --- | --- | --- |
 | ViT-B/16 | 16 | 768 | 12 | 12 | 86M | Dosovitskiy 2021 |
-| ViT-L/14 | 14 | 1024 | 24 | 16 | 304M | Dosovitskiy 2021 |
+| ViT-L/14 | 14 | 1024 | 24 | 16 | 304M | Radford et al. 2021 (CLIP) |
 | ViT-H/14 | 14 | 1280 | 32 | 16 | 632M | Dosovitskiy 2021 |
 | ViT-g/14 | 14 | 1408 | 40 | 16 | 1.0B | Zhai et al. 2022 |
 | ViT-bigG/14 | 14 | 1664 | 48 | 16 | 1.8B | OpenCLIP, 2023 |
 | EVA-02-L/14 | 14 | 1024 | 24 | 16 | 304M | Fang 2023 |
 | SigLIP SoViT-400M/14 | 14 | 1152 | 27 | 16 | 400M | Alabdulmohsin 2023 |
 
+> ⚠️ **ViT-L/14 的出处纠正** — Large 架构本身（D=1024, 24 层, 16 heads）确实来自 Dosovitskiy et al. 2021；但原始 ViT 论文只报告了 B/16, B/32, L/16, L/32, H/14，**从未训练过 patch=14 的 Large 配置**。ViT-L/14 这一具体组合是 CLIP（Radford et al. 2021, ICML）首次训练并推广的。
+>
 > 💡 **head_dim 通常固定 64** — ViT 系列大多遵循 head_dim ≈ 64–88，等价于 $D / H$。Scaling-laws 推荐 head_dim 不要太小，否则单 head 表达力受限。
 
 ### 2.4　Code: ViT patch embed + 主干（核心 60 行）
@@ -160,7 +162,7 @@ $$\mathbf{u}_i = \frac{f_\theta(I_i)}{\|f_\theta(I_i)\|_2}, \quad \mathbf{v}_j =
 
 $$S_{ij} = \frac{\mathbf{u}_i^\top \mathbf{v}_j}{\tau}$$
 
-其中 $\tau > 0$ 是可学习温度（实际工程化为 `logit_scale = log(1/τ)`，反向传播更稳定，clamp 在 $[\log 1, \log 100]$）。
+其中 $\tau > 0$ 是可学习温度（实际工程化为 `logit_scale = log(1/τ)`，反向传播更稳定；教程 §3.5 代码里 clamp 只有上界，即 `logit_scale` 被 clamp 在 $(-\infty, \log 100]$，等价 $\tau$ 只有下界 0.01，没有上界——部分实现如 OpenCLIP 也会额外加下界 clamp，但不是通用规则）。
 
 ### 3.2　对称 InfoNCE Loss（行 + 列 softmax 平均）
 
@@ -188,7 +190,7 @@ $$\frac{\partial \mathcal{L}_{i\to t}}{\partial S_{ij}} = \frac{1}{N}\left(p_{ij
 
 - $j \neq i$（负样本）：梯度 $\propto p_{ij} > 0$，**推远** $\mathbf{u}_i, \mathbf{v}_j$
 
-如果只用单向 $\mathcal{L}_{i\to t}$，$\mathbf{v}_j$ 收到的梯度来自所有 $\mathbf{u}_i$，但**不能反过来约束 $\mathbf{u}_i$ 被其他 $\mathbf{v}_k$ 检索时的行为**。对称化补齐了 text→image 检索方向的约束，**避免 embedding space 出现"单向坍塌"**（image 端集中但 text 端松散）。
+单向 $\mathcal{L}_{i\to t}$ 中 $S_{ij}$ 本就同时依赖 $\mathbf{u}_i$ 和 $\mathbf{v}_j$，所以哪怕只用这一个方向的 loss，**两个 encoder 都会收到梯度**——文本 encoder 并非"不受约束"。对称化真正的价值是**显式地同时优化 image→text 与 text→image 两个检索方向**，经验上提升双向检索质量，而不是防止某种数学意义上的表征坍塌。
 
 ### 3.4　Temperature 的作用
 
@@ -200,7 +202,7 @@ $$\mathcal{L}_{i\to t} = -\frac{1}{N}\sum_i \log\frac{\exp(\mathbf{u}_i^\top \ma
 
 - **OpenAI CLIP 学到的稳态**：$\tau \approx 0.01$（`logit_scale ≈ log(100)`），并 clamp 上界防止崩
 
-> 💡 **InfoNCE 的下界解释** — Oord et al. 2018 (CPC) 证明 InfoNCE 是互信息 $I(U; V)$ 的下界：$I(U; V) \ge \log N - \mathcal{L}_\text{InfoNCE}$。所以**增大 batch size $N$ 同时降低 loss**，相当于直接提升 MI 下界——这是为什么 CLIP / SigLIP 都在追求 huge batch。
+> 💡 **InfoNCE 的下界解释** — Oord et al. 2018 (CPC) 证明 InfoNCE 是互信息 $I(U; V)$ 的下界：$I(U; V) \ge \log N - \mathcal{L}_\text{InfoNCE}$。这个下界只在**实际达到的 loss 值**下成立——$N$ 增大时任务本身变难，$\mathcal{L}_\text{InfoNCE}$ 一般也会随之上升，不会自动下降。只有当表征质量同步提升、抵消了任务难度上升，loss 才可能持平或下降，从而让下界变紧。**不能仅凭调大 batch size 就推出下界自动提高**——这也是 InfoNCE 类 MI 估计的已知局限（Poole et al. 2019; McAllester & Stratos 2020）；CLIP / SigLIP 追求 huge batch 更多是经验上"负样本更多、任务更难迫使表征更好"的驱动，而非下界的自动抬升。
 
 ### 3.5　Code: CLIP 对称 InfoNCE（核心 50 行）
 
@@ -252,7 +254,7 @@ if __name__ == "__main__":
     print(f"loss={loss.item():.4f}  logit_scale={scale.item():.2f}")
 ```
 
-> ⚠️ **DDP 下必须 all-gather 才是真 InfoNCE** — 单 GPU 上 batch $N$ 算出来的 loss 只覆盖本地 negatives。生产 CLIP（OpenCLIP / OpenAI）会在 forward 后 `dist.all_gather` 所有 GPU 的 $\mathbf{u}, \mathbf{v}$，让 negative pool = global batch size（如 32k）。**梯度通过 gradient checkpointing + 局部本 GPU 那行/列计算**——这是工程 trick，不是数学问题。
+> ⚠️ **DDP 下必须 all-gather 才是真 InfoNCE** — 单 GPU 上 batch $N$ 算出来的 loss 只覆盖本地 negatives。生产 CLIP（OpenCLIP / OpenAI）会在 forward 后 `dist.all_gather` 所有 GPU 的 $\mathbf{u}, \mathbf{v}$，让 negative pool = global batch size（如 32k）。**跨卡正确反传需要可微分的 all-gather**（如 `torch.distributed.nn.functional.all_gather`，其 autograd 会把上游梯度正确 scatter/reduce 回各 rank）或 OpenCLIP 的 `local_loss=True` 技巧（只对本地那部分 embedding 反传，但 loss 分母仍用全局负例）——这是工程 trick，不是数学问题。**注意 gradient checkpointing 只是用重算换显存，与跨卡梯度传递无关**，不能替代可微分 all-gather 或 local_loss。
 
 ### 3.6　CLIP 训练数据 & 规模
 
@@ -270,7 +272,7 @@ if __name__ == "__main__":
 
 - **细粒度计数失败**：5 只鸟 vs 6 只鸟在 CLIP embedding 几乎无法区分（"counting problem"）
 
-- **空间关系弱**："cat on top of dog" vs "dog on top of cat" 区分困难（POPE / Winoground benchmark 量化了这一点）
+- **空间关系弱**："cat on top of dog" vs "dog on top of cat" 区分困难（Winoground / ARO benchmark 量化了这一点；POPE 测的是物体幻觉，不是空间关系）
 
 - **bag-of-words 倾向**：Yuksekgonul et al. 2023 (ICLR) 证明 CLIP 对 caption 词序几乎不敏感
 
@@ -524,11 +526,11 @@ class LLaVA(nn.Module):
 | --- | --- | --- |
 | LLaVA-1.0 | 2023.04 | 单层 Linear projector；CLIP ViT-L/14@224²，视觉 token = 256（$16\times 16$） |
 | LLaVA-1.5 | 2023.10 | 2-layer MLP；分辨率升到 336²，视觉 token = 576（$24\times 24$）；加入 OCR / GQA / VQAv2 等学术数据 |
-| LLaVA-1.6 / NeXT | 2024.01 | **AnyRes**：把图切成 $2\times 2 / 2\times 3 / \dots$ tile 各编码再拼，支持任意 aspect ratio；token 数 $(1{+}n{\cdot}m)\cdot 576$（2×2→2880，2×3→4032） |
+| LLaVA-1.6 / NeXT | 2024.01 | **AnyRes**：训练阶段即采用切图网格 $2\times 2 / 2\times 3 / \dots$ 各编码再拼，支持任意 aspect ratio；token 数≈$(1{+}n{\cdot}m)\cdot 576$（2×2→约2880，2×3→约4032；实际实现有 unpad + image_newline，略少于该理论值） |
 | LLaVA-OneVision | 2024.08 | 单 / 多图 / 视频统一；引入 SI（single image）+ OV（onevision）数据 mix |
 | LLaVA-NeXT-Video | 2024.04 | 视频版，把多帧 visual feature 序列化喂入 |
 
-> 💡 **AnyRes (LLaVA-1.6) 的核心 trick** — 训练时假设 fixed 336²；推理时把高分辨率图切成 $n \times m$ 个 336² tile 各自编码，再加一份缩放到 336² 的"全局缩略图"。**token 数从 576 涨到 (1 + n·m)·576**，但每个 tile 仍走同一个 frozen ViT。**和 InternVL / Qwen-VL 的 tiling 是同一类思路**。
+> 💡 **AnyRes (LLaVA-1.6) 的核心 trick** — LLaVA-NeXT/1.6 在**训练阶段就采用 AnyRes 网格切图**（而非仅推理时的技巧），让模型在训练中学会处理多 tile + 全局缩略图的空间布局：把高分辨率图切成 $n \times m$ 个 336² tile 各自编码，再加一份缩放到 336² 的"全局缩略图"。**token 数约从 576 涨到 (1 + n·m)·576**（真实实现还会做 unpad 去除按 aspect ratio 产生的 padding 区域、并在 tile 行间插入 image_newline token，实际数量略少于这个理论公式），但每个 tile 仍走同一个 frozen ViT。**和 InternVL / Qwen-VL 的 tiling 是同一类思路**。
 
 ## §7 BLIP-2：Q-Former cross-attention
 
@@ -553,10 +555,10 @@ $$\mathbf{q}^{(\ell)} = \text{FFN}(\mathbf{q}^{(\ell)})$$
 
 ### 7.3　两阶段训练
 
-**Stage 1: Representation Learning**（只训 Q-Former，frozen vision encoder）
-- ITC (Image-Text Contrastive)：query embedding 与 text 端 [CLS] 做 CLIP 风格对比
-- ITM (Image-Text Matching)：query 与 text token 在 cross-attn 内交互后做 binary classification
-- ITG (Image-grounded Text Generation)：query 不与 text 交互，让 text decoder 基于 query 生成 caption（causal mask 控制可见性）
+**Stage 1: Representation Learning**（只训 Q-Former，frozen vision encoder）；Q-Former 的 cross-attention **恒定连接 query ↔ 冻结 image encoder**（与训练目标无关），query 与 text token 的交互实际发生在**共享的 self-attention 层内**，通过按训练目标切换的 attention mask 控制：
+- ITC (Image-Text Contrastive)：query embedding 与 text 端 [CLS] 做 CLIP 风格对比（self-attn 用**单模态 mask**，query/text 互不可见）
+- ITM (Image-Text Matching)：query 与 text token 在共享 self-attention 层内通过**双向 mask**互相可见地交互后做 binary classification
+- ITG (Image-grounded Text Generation)：self-attn 用 **causal mask**，text 只能看到 query 和之前的 text（query 看不到 text），让 text decoder 基于 query 生成 caption
 
 **Stage 2: Generative Learning**（只训 Q-Former，frozen LLM）
 - 把 Q-Former 输出投到 LLM embedding 空间，**让 LLM 在 prefix-tune 模式下根据 32 visual token 做 captioning / VQA**
@@ -630,7 +632,7 @@ class QFormer(nn.Module):
 | LLM context 占用 | 大（576–2880 token） | 小（32 token） |
 | 适合场景 | 高分辨率 / 细节任务 | LLM context 紧张 / 多模态批量推理 |
 
-> 💡 **2024–2025 主流回归 projector** — Qwen-VL / LLaVA-NeXT / InternVL-2 / DeepSeek-VL2 几乎都用 projector（带 spatial reduction / pixel shuffle 控 token 数），**Q-Former 在工业 VLM 中淡出**。但 Q-Former 思路在 video VLM 里仍活跃（用 query 做 frame-level pooling）。
+> 💡 **2024–2025 主流回归 projector** — Qwen2-VL / LLaVA-NeXT / InternVL-2 / DeepSeek-VL2 几乎都用 projector（带 spatial reduction / pixel shuffle 控 token 数；原始 Qwen-VL 用的是单层 cross-attention query resampler，是 Qwen2-VL 才改用带 pixel shuffle 的 MLP patch merger），**Q-Former 在工业 VLM 中淡出**。但 Q-Former 思路在 video VLM 里仍活跃（用 query 做 frame-level pooling）。
 
 ## §8 Flamingo：Perceiver Resampler + Gated Cross-Attn
 
@@ -724,7 +726,7 @@ Qwen2-VL (Wang et al. 2024)、DeepSeek-VL (Lu et al. 2024)、InternVL-2 都抛�
 
 - **保留原始 aspect ratio**：把图按 patch_size 的整数倍 resize 到接近原尺寸的最大值
 
-- **patch 数动态**：一张 $1024 \times 768$ 图按 $P=14$ 切成 $73 \times 54 \approx 3942$ 个 patch
+- **patch 数动态**：Qwen2-VL 的 `smart_resize` 先把每条边 round 到 28（$=2P$，匹配后续 2×2 spatial merge）的倍数，例如 $1024 \times 768$ 图先被 resize 到约 $1036 \times 756$；按 $P=14$ 切得 $74 \times 54 = 3996$ 个 patch，经 2×2 spatial merge 后得到 999 个视觉 token
 
 - **不再使用固定 pos embed 表**：必须用 **可扩展的位置编码**（RoPE 或 2D ALiBi-like）
 
@@ -742,7 +744,7 @@ $$(\cos(m_\text{axis}\,\theta_k),\ \sin(m_\text{axis}\,\theta_k)), \quad \text{a
 
 具体地，Qwen2-VL 的 `mrope_section`（**单位是半 head_dim 对**，即每个数代表多少对 $(2k, 2k+1)$）。一对 = 2 个实数维度，所以"section sum × 2 = head_dim"。
 
-> 💡 **Qwen2-VL 默认 `mrope_section = [16, 24, 24]`** — 即三个 axis 各占 16 / 24 / 24 对维度；总 $(16+24+24) \times 2 = 128 = $ head_dim。实现上把 section 翻倍成 $[16, 24, 24, 16, 24, 24]$ 沿 head_dim 切，分别用 (t, h, w, t, h, w) 的位置 id 旋转——**全部 128 维都参与旋转**，没有"不旋转 dim"。空间维（h, w）占 48 对 > 时间维（t）的 16 对，反映视频帧间变化慢、空间内容变化剧烈。
+> 💡 **Qwen2-VL 默认 `mrope_section = [16, 24, 24]`** — 即三个 axis 各占 16 / 24 / 24 对维度；总 $(16+24+24) \times 2 = 128 = $ head_dim。实现上把 section 翻倍成 $[16, 24, 24, 16, 24, 24]$ 沿 head_dim 切，分别用 (t, h, w, t, h, w) 的位置 id 旋转——**全部 128 维都参与旋转**，没有"不旋转 dim"。空间维（h, w）占 48 对 > 时间维（t）的 16 对；这是一种符合直觉的可能解释（时间变化通常慢于空间内容变化），但**并非 Qwen2-VL 论文明确证实的设计动机**——具体 16/24/24 切分比例也可能只是经验调参结果。
 
 文本 token 没有显式 (h, w)：Qwen2-VL 让 $m_t = m_h = m_w$ 等于该 text token 的 1D 位置 id，三个 axis 给出**完全相同的旋转角**，等价于普通 1D RoPE。
 
@@ -849,7 +851,7 @@ def apply_mrope(q, k, cos, sin):
 
 ### 11.3　LongVA / Long-context video
 
-LongVA (Zhang et al. 2024) 等利用 long-context LLM (200K+ token) 直接吃**长视频展开的 token 序列**，配合 M-RoPE 的时间维度做几小时视频问答。Qwen2-VL 报告可处理 20 分钟视频；Qwen2.5-VL 推到 1 小时+。
+LongVA (Zhang et al. 2024) 用**长上下文 Qwen2 LLM + CLIP 视觉塔 + 空间池化**压缩每帧 token，利用语言模型侧已有的长上下文扩展能力（标准 1D 位置编码扩展方法，**不是** Qwen2-VL/Qwen2.5-VL 专用的 (t,h,w) 分解式 M-RoPE）直接吃很长的展开视觉 token 序列，做几小时视频问答。Qwen2-VL 报告可处理 20 分钟视频；Qwen2.5-VL 推到 1 小时+。
 
 ### 11.4　Video benchmark
 
@@ -906,7 +908,7 @@ CLIP 训练目标是 "image ↔ short caption" 对齐，**长 instruction 检索
 
 - **Jina-CLIP-v1 (2024)**：在 CLIP 基础上加长文本对比（text-text task）+ 多分辨率，单 embedding 模型既能做 image-text 也能做 text-text retrieval
 - **BGE-VL (2024)**：BGE 团队的 multimodal 版本，用 SigLIP-So400M + small LLM 做 instruction-aware retrieval
-- **VLM2Vec (Jiang et al. 2024)**：把 VLM（LLaVA / Qwen-VL）的最后一层 hidden state 做 instruction-conditioned mean pool，**只训 contrastive head**，benchmark MMEB 上显著超过 CLIP
+- **VLM2Vec (Jiang et al. 2024)**：取 VLM（LLaVA / Qwen-VL）输出序列**最后一个 token** 的 hidden state 作为 embedding（沿用 causal LM 文本 embedding 的常见做法），并用 **LoRA 对整个 VLM 做对比学习微调**（而非冻结 backbone 只训一个额外的 contrastive head），benchmark MMEB 上显著超过 CLIP
 - **mmE5 (2024)**：multimodal 版本的 E5，支持 12 种 retrieval 任务类型
 
 ### 13.3　核心 trick
@@ -929,7 +931,7 @@ CLIP 训练目标是 "image ↔ short caption" 对齐，**长 instruction 检索
 
 - $\mathcal{L}_{t\to i}$：**列 softmax**，对角项 NLL（text 检索 image）
 
-- **对称必要性**：单向只约束一个方向的检索；对称才能让 image / text embedding 互相约束，避免"单向坍塌"——比如 image 端聚集但 text 端漂移
+- **对称必要性**：单向 loss 中相似度 $S_{ij}$ 本就同时依赖 image / text 两个 encoder 的输出，两者都会收到梯度；对称化的真正价值是**显式同时优化 image→text 与 text→image 两个检索方向**，经验上提升双向检索质量，而不是防止某种数学意义上的表征坍塌
 
 只答 InfoNCE 而不说"两次 softmax 平均"，或者说"反着算一遍"而不解释为什么必要。
 
@@ -1023,7 +1025,7 @@ CLIP 训练目标是 "image ↔ short caption" 对齐，**长 instruction 检索
 
 - 缺点：**信息损失大**（256 patch 压成 32）、参数更多（~180M）、训练复杂（两阶段：stage 1 表征学习含 ITC+ITM+ITG 三个 loss，stage 2 对接 frozen LLM 做生成）
 
-- **2024 主流回到 projector**：Qwen-VL / LLaVA-NeXT / InternVL-2 都用 projector
+- **2024 主流回到 projector**：Qwen2-VL / LLaVA-NeXT / InternVL-2 都用 projector（原始 Qwen-VL 是单层 cross-attention resampler，Qwen2-VL 才改用 MLP patch merger）
 
 把 Q-Former 当 projector 同义词；或不知道现代 VLM 倾向 projector。
 
@@ -1117,11 +1119,11 @@ CLIP 训练目标是 "image ↔ short caption" 对齐，**长 instruction 检索
 
 <summary>Q13. LLaVA-1.6 / NeXT 的 AnyRes 怎么实现？</summary>
 
-- 训练时假设固定 336²；推理时把高分辨率图按 aspect ratio 划成 $n \times m$ 个 336² tile（如 $2\times 2, 2\times 3$ 等）
+- LLaVA-NeXT/1.6 **训练阶段就采用 AnyRes 网格切图**（不是仅推理时的 trick）：把高分辨率图按 aspect ratio 划成 $n \times m$ 个 336² tile（如 $2\times 2, 2\times 3$ 等）
 
 - 每个 tile 独立过 frozen ViT 得到 576 token，加一个 **全局缩略图**（整图 resize 到 336² 编码）
 
-- 拼接：$(1 + n\cdot m) \times 576$ visual token 喂入 LLM
+- 拼接：约 $(1 + n\cdot m) \times 576$ visual token 喂入 LLM（真实实现还有 unpad 去除 padding tile 区域 + tile 行间插入 image_newline token，实际 token 数略少于该理论值）
 
 - 选择哪种切法：从预定义的 grid 集合（如 $\{1\times 1, 2\times 2, 1\times 4, 4\times 1, ...\}$）里选最接近原 aspect ratio 的
 
@@ -1137,7 +1139,7 @@ CLIP 训练目标是 "image ↔ short caption" 对齐，**长 instruction 检索
 
 - **全部 128 维都旋转**——只是不同维度对用不同 axis (t/h/w) 的位置 id 算旋转角
 
-- **不平均的原因**：
+- **不平均的可能原因**（符合直觉的解释，但并非 Qwen2-VL 论文明确证实的设计动机——具体 16/24/24 切分比例也可能只是经验调参结果）：
 
   - 视频帧间变化较慢（相邻帧很相似），所以 $s_t = 16$ 占比小
 
@@ -1209,7 +1211,7 @@ CLIP 训练目标是 "image ↔ short caption" 对齐，**长 instruction 检索
 
 - 真实人工标注 visual instruction（如 VQAv2 question）规模小、风格单一
 
-- **GPT-4 + image + caption → 生成多轮对话 / 推理任务 / 详细描述**：LLaVA-Instruct-158K 就是这么来的
+- **GPT-4（当时是纯文本版，早于 GPT-4V 公开发布）并未直接看图**，而是被喂入图像的文本化表示——caption 加上目标检测得到的 bounding box 信息——用这些符号化信息 prompt **生成多轮对话 / 推理任务 / 详细描述**：LLaVA-Instruct-158K 就是这么来的
 
 - 同时用 prompt engineering 控生成数据的覆盖（detailed description, conversation, complex reasoning 三类）
 
@@ -1305,7 +1307,7 @@ $$\frac{\partial \mathcal{L}}{\partial S_{ij}} = \frac{1}{N}\cdot \frac{-y_{ij}}
 
 - **Q-Former**：32 query 是固定瓶颈，信息显著压缩；对细节任务（OCR / 计数）不友好
 
-- 设 visual encoder 输出秩为 $r$；LLaVA 的 visual context 秩 $\le r$（保留），Q-Former 的秩 $\le \min(r, 32)$
+- 设 visual encoder 输出秩为 $r$；LLaVA 的 2 层 MLP + GELU projector 是逐行非线性变换，**不满足线性代数意义上的秩上界**（不能简单写成秩 $\le r$）；Q-Former 输出的秩由固定的 32 行 query 决定上界 $\le \min(32, d_q)$，这一瓶颈与输入的 $r$ 并无直接的 $\min(r,32)$ 关系——这里更多是**直观类比**而非严格推导
 
 **Compute / Memory**：
 
@@ -1390,7 +1392,7 @@ $$\frac{\partial \mathcal{L}}{\partial S_{ij}} = \frac{1}{N}\cdot \frac{-y_{ij}}
 
 2. **分辨率友好**：SigLIP 训练时已用大量 384²/512² 数据；CLIP 主要 224²+336²，VLM 任务普遍需高分辨率，SigLIP 迁移更顺
 
-3. **batch-independent loss → fine-tune 稳定**：SigLIP 的 sigmoid 在 stage 1 解冻 vision tower 时梯度更可预测
+3. ~~batch-independent loss → fine-tune 稳定~~：这条论证站不住——VLM 的 stage 1 alignment 通常本就**冻结 vision tower**，训练用的是 next-token prediction loss（见 §12.1），完全不涉及任何对比损失；SigLIP 的 batch-independent 性质只存在于它自身的图文对比预训练阶段，不会随着接入 VLM 自动带入下游自回归训练。若要论证 SigLIP vision tower 更适合下游微调，应换用站得住脚的理由（如更高分辨率训练数据、更强 zero-shot 特征质量，见上文第 1、2 点）
 
 4. **多语言支持**：SigLIP-2 / mSigLIP 原生支持多语言
 

@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md">
-<meta name="aris:source-sha256" content="66c23bf73856367d2df2ccf093e4771189fc67cc59ccaa1ff767fb2ff09f7159">
-<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
+<meta name="aris:source-sha256" content="749b90c9c29c2b4e723c00b8d51134399952a8e103b8129123b1700fdfa71e94">
+<meta name="aris:generated-at" content="2026-07-12 04:20 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -610,8 +610,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>66c23bf73856</code></span>
-    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
+    <span><strong>SHA256:</strong> <code>749b90c9c29c</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:20 UTC</span>
     
   </div>
 </header>
@@ -640,7 +640,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>PPO-Clip 的目标函数：</p>
 <p>$$\boxed{\;L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[\min\!\Big(r_t(\theta) A_t,\; \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) A_t\Big)\right]\;}$$</p>
 <p>直觉：</p>
-<ul><li>若 $A_t &gt; 0$（这个 action 比 baseline 好），希望提升 $\pi_\theta(a_t|s_t)$，但<strong>最多提升到 $r_t = 1+\epsilon$</strong>（防止一次更新太激进）。</li><li>若 $A_t &lt; 0$（这个 action 比 baseline 差），希望降低 $\pi_\theta(a_t|s_t)$，但<strong>最多压到 $r_t = 1-\epsilon$</strong>。</li><li><code>min</code> 选两者较小者 → <strong>悲观估计</strong>（pessimistic bound）：当我们想"加分"时，clip 上限；想"扣分"时，clip 下限。</li></ul>
+<ul><li>若 $A_t &gt; 0$（这个 action 比 baseline 好），希望提升 $\pi_\theta(a_t|s_t)$，但一旦 $r_t$ 超过 $1+\epsilon$，clip 项会让该 (state,action) 对目标函数的梯度归零——目标函数不再有动力继续拉高它；这不是对 $r_t$ 数值的硬性约束/投影，实际训练中 $r_t$ 仍可能因单步梯度过大或跨 epoch 更新而越过 $1+\epsilon$（这正是要监控 <code>clip_frac</code> 的原因）。</li><li>若 $A_t &lt; 0$（这个 action 比 baseline 差），希望降低 $\pi_\theta(a_t|s_t)$，但<strong>最多压到 $r_t = 1-\epsilon$</strong>。</li><li><code>min</code> 选两者较小者 → <strong>悲观估计</strong>（pessimistic bound）：当我们想"加分"时，clip 上限；想"扣分"时，clip 下限。</li></ul>
 <p>典型 $\epsilon = 0.1 \sim 0.2$。LLM RLHF 实践中通常用 $0.1 \sim 0.2$，过大易爆 KL。</p>
 <div class="callout callout-warn"><div class="callout-title">PPO-Clip vs PPO-Penalty</div><p>原论文还有一种 PPO-Penalty 形式：$L = \mathbb{E}[r_t A_t] - \beta\, \text{KL}(\pi_{\theta_\text{old}} \| \pi_\theta)$，并 adaptively 调 $\beta$。生产中<strong>clipped 形式更常用</strong>（rl4lms / TRL / OpenRLHF 默认）。</p></div>
 <h3 id="23-gaegeneralized-advantage-estimation">2.3　GAE：generalized advantage estimation</h3>
@@ -650,7 +650,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\boxed{\;A_t^{\text{GAE}(\gamma, \lambda)} = \sum_{l=0}^{\infty} (\gamma\lambda)^l \delta_{t+l}\;}$$</p>
 <p>边界情况：</p>
 <ul><li>$\lambda = 0$ → $A_t = \delta_t$，纯 TD(0)，偏差大方差小</li><li>$\lambda = 1$ → $A_t = \sum_l \gamma^l r_{t+l} - V(s_t)$，纯 Monte Carlo（advantage 等于实际 return 减 baseline），偏差小方差大</li><li>典型 $\lambda = 0.95$，$\gamma = 0.99$</li></ul>
-<p><strong>LLM 中 GAE 的退化</strong>：在 RLHF 中通常 $\gamma = 1$（不折扣），且只有 terminal reward，所以 $\delta_t = -V(s_t) + V(s_{t+1})$ 对中间 token、$\delta_T = R_T - V(s_T)$ 对终止 token。这种情况下 GAE 等价于做了"value baseline + reward 回传"。</p>
+<p><strong>LLM 中 GAE 的退化</strong>：在 RLHF 中通常 $\gamma=1$，且 KL penalty 是逐 token 施加的（见 §2.4 $\tilde r_t$ 定义），所以中间 token 的 reward 并非 0，而是 $\tilde r_t=-\beta\log\frac{\pi_\theta(y_t|\cdot)}{\pi_\text{ref}(y_t|\cdot)}$；相应地 $\delta_t=\tilde r_t+V(s_{t+1})-V(s_t)$ 对中间 token、$\delta_T=R_T-\beta\log\frac{\pi_\theta(y_T|\cdot)}{\pi_\text{ref}(y_T|\cdot)}+V(s_{T+1})-V(s_T)$ 对终止 token。这种情况下 GAE 等价于做了"value baseline + reward 回传"。</p>
 <h3 id="24-ppo-在-rlhf-中的完整目标">2.4　PPO 在 RLHF 中的完整目标</h3>
 <p>LLM 中每个 timestep $t$ 对应生成第 $t$ 个 token，state = $(x, y_{\lt t})$，action = $y_t$。reward 一般加 KL penalty：</p>
 <p>$$\tilde{r}_t = \mathbb{1}[t = T] \cdot R(x, y) - \beta \log \frac{\pi_\theta(y_t | x, y_{\lt t})}{\pi_\text{ref}(y_t | x, y_{\lt t})}$$</p>
@@ -863,7 +863,7 @@ def dpo_loss(policy, ref_policy, batch, beta=0.1):
 <ul><li>LLM token-level value 没有明确语义（中间 token 通常 reward = 0，只有 terminal 才有）</li><li>Value model 与 policy 同等大小 → 显存双倍</li></ul>
 <p>GRPO 的<strong>核心 idea</strong>：对每个 prompt $x$ <strong>采样一组 $G$ 个回答</strong> $\{y_1, \dots, y_G\}$，用 RM 打 $G$ 个 reward $\{r_1, \dots, r_G\}$，<strong>advantage 直接用组内归一化</strong>：</p>
 <p>$$\boxed{\;\hat{A}_{i, t} = \frac{r_i - \text{mean}(\{r_1, \dots, r_G\})}{\text{std}(\{r_1, \dots, r_G\}) + \epsilon}\;}$$</p>
-<p>整段 response 内<strong>所有 token 共享同一个 $\hat{A}_i$</strong>（因为没有 value model 给 per-token baseline，只用 sequence-level reward 算组相对优势）。</p>
+<p>整段 response 内<strong>所有 token 共享同一个 $\hat{A}_i$</strong>（此处为 outcome-supervision 版 GRPO，也是 R1/DeepSeekMath 主流用法；因为没有 value model 给 per-token baseline，只用 sequence-level reward 算组相对优势）。DeepSeekMath 原论文还定义了 process-supervision 变体：每步有独立 reward，token $t$ 的 advantage 为 $\hat{A}_{i,t}=\sum_{\text{index}(j)\ge t}\tilde{r}_i^{\text{index}(j)}$，随 $t$ 递减，并非整段共享同一标量。</p>
 <div class="callout callout-good"><div class="callout-title">GRPO 的精髓</div><p>把 PPO 的 "$A_t = Q - V$"（Critic 出 $V$）换成 "$A_i = (r_i - \bar{r}) / \sigma$"（组内统计出 baseline）。<strong>省掉 value model</strong>，省下一半显存；同时组内 baseline 自动做了 variance reduction。</p></div>
 <h3 id="52-grpo-目标">5.2　GRPO 目标</h3>
 <p>GRPO 保留 PPO-Clip 的形式，但加 KL penalty 进 loss（不是进 reward）：</p>
@@ -874,7 +874,7 @@ def dpo_loss(policy, ref_policy, batch, beta=0.1):
 <p>该 estimator 保证非负、低方差，相比直接 $\log(\pi_\theta/\pi_\text{ref})$ 更稳定。</p>
 <h3 id="53-deepseek-r1-的关键改造">5.3　DeepSeek-R1 的关键改造</h3>
 <p>DeepSeek-R1 (Jan 2025) 在 GRPO 基础上做了两件事：</p>
-<ol><li><strong>R1-Zero</strong>：从 pretrain base 直接跑 GRPO，<strong>无 SFT 阶段</strong>，纯靠 rule-based reward（数学正确性 + 格式奖励）。emergent 长 CoT。</li><li><strong>R1</strong>：加少量 SFT cold-start + 多阶段 RL（reasoning RL → SFT → general RL）。开源 32B/70B 在数学推理上对标 o1。</li></ol>
+<ol><li><strong>R1-Zero</strong>：从 pretrain base 直接跑 GRPO，<strong>无 SFT 阶段</strong>，纯靠 rule-based reward（数学正确性 + 格式奖励）。emergent 长 CoT。</li><li><strong>R1</strong>：加少量 SFT cold-start + 多阶段 RL（reasoning RL → SFT → general RL）。R1 本体是基于 DeepSeek-V3 架构的 671B 参数 MoE 模型（每 token 激活约 37B 参数）；开源的 <strong>DeepSeek-R1-Distill</strong> 32B/70B（基于 Qwen2.5-32B、Llama-3.3-70B 等基座，用 R1 生成数据做 SFT 蒸馏得到的稠密模型）在数学推理上对标或部分超过 o1-mini。</li></ol>
 <div class="callout callout-info"><div class="callout-title">为什么 GRPO 在数学/代码 RL 上特别有效？</div></div>
 <ul><li><strong>Rule-based reward</strong>：数学有唯一答案、代码有单元测试，<strong>绕过 neural RM，reward hacking 风险显著降低</strong>（reward signal 接近地面真相，但 policy 仍可能找 grader 漏洞，例如猜答案、不写推理只写"42"、利用 test 覆盖盲区等，所以"完全没有 hacking"不严谨）。</li><li><strong>组内归一化</strong>：同一道题采 $G=16$ 个 solution，自动找出"哪些 reasoning path 更好"，不需要绝对 scale。</li><li><strong>省 value model</strong>：数学 prompt 多、reasoning 长，省一半显存能跑更大 batch。</li></ul>
 <h3 id="54-代码grpo-advantage--loss-核心-50-行">5.4　代码（GRPO advantage + loss 核心 50 行）</h3>
@@ -952,7 +952,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <div class="callout callout-warn"><div class="callout-title">GRPO 工程要点</div></div>
 <ul><li>$G$ 一般取 8/16/32：太小组内统计噪声大，太大显存爆。</li><li><code>std</code> 为 0 的退化情况（组内 reward 全相同，all-pass / all-fail）：加 $\epsilon$ 或丢掉该组。</li><li><strong>DAPO</strong> (ByteDance Seed, 2025 arXiv 2503.14476) 对 GRPO 做了多项改进：clip higher (打破对称 clip)、dynamic sampling（丢全对全错 group）、token-level loss、overlong shaping，是 GRPO 的工业级进阶。</li><li><strong>DeepSeek 在 R1 报告中也讨论了 GRPO 的限制</strong>：组内 baseline 在 reward 方差小或 group size 小的情况下会失效；后续工作（如 VAPO、CISPO）尝试改进。</li></ul>
 <h2 id="6-dpo-变体生态">§6 DPO 变体生态</h2>
-<p>DPO 之后 2024–2025 出现一大波改进，面试时常被问"X 和 Y 区别"。下表对<strong>核心损失差异</strong>做对比；记号统一为：$\pi$ = current policy, $\pi_\text{ref}$ = SFT model, $\beta$ = inverse temperature, $r$ = implicit reward。</p>
+<p>DPO 之后 2024–2025 出现一大波改进，面试时常被问"X 和 Y 区别"。下表对<strong>核心损失差异</strong>做对比；记号统一为：$\pi$ = current policy, $\pi_\text{ref}$ = SFT model, $\beta$ = temperature 参数 / KL 正则系数（$\exp(r/\beta)$ 中 $\beta$ 越大分布越接近 $\pi_\text{ref}$，类比玻尔兹曼分布中的温度 $T$；$1/\beta$ 才对应严格物理学惯例中直接乘在能量/reward 前的 inverse temperature）, $r$ = implicit reward。</p>
 <table><thead><tr><th>方法</th><th>损失</th><th>关键变化</th><th>论文</th></tr></thead><tbody><tr><td><strong>DPO</strong></td><td>$-\log\sigma(\beta\log\tfrac{\pi(y_w)}{\pi_\text{ref}(y_w)} - \beta\log\tfrac{\pi(y_l)}{\pi_\text{ref}(y_l)})$</td><td>基础</td><td>Rafailov 2023 NeurIPS</td></tr><tr><td><strong>IPO</strong></td><td>$(\log\tfrac{\pi(y_w)/\pi_\text{ref}(y_w)}{\pi(y_l)/\pi_\text{ref}(y_l)} - \tfrac{1}{2\beta})^2$</td><td>sigmoid → squared loss，<strong>防止 reward overfitting</strong></td><td>Azar 2024 AISTATS</td></tr><tr><td><strong>KTO</strong></td><td>per-sample sigmoid loss，only need binary good/bad，<strong>不需 pair</strong></td><td>Kahneman-Tversky 启发，desirable/undesirable</td><td>Ethayarajh 2024 ICML</td></tr><tr><td><strong>SimPO</strong></td><td>$-\log\sigma(\beta\cdot\tfrac{1}{\lvert y_w\rvert}\log\pi(y_w) - \beta\cdot\tfrac{1}{\lvert y_l\rvert}\log\pi(y_l) - \gamma)$</td><td><strong>去 reference</strong>、length-normalized、加 margin $\gamma$</td><td>Meng 2024 NeurIPS</td></tr><tr><td><strong>ORPO</strong></td><td>$\mathcal{L}_\text{SFT}(y_w) + \lambda\cdot\mathcal{L}_\text{OR}$，odds-ratio 偏好</td><td><strong>SFT + preference 一阶段</strong>，无需 reference</td><td>Hong 2024 EMNLP</td></tr><tr><td><strong>RLOO</strong></td><td>REINFORCE + leave-one-out baseline 从 $k$ 个 sample</td><td>online RL，无 value，强 baseline</td><td>Ahmadian 2024 ACL</td></tr><tr><td><strong>ReMax</strong></td><td>REINFORCE + greedy baseline（同 prompt greedy decode 作 baseline）</td><td>进一步省 sample</td><td>Li 2024 ICML</td></tr></tbody></table>
 <h3 id="61-ipo防止-reward-overfit">6.1　IPO：防止 reward overfit</h3>
 <p>Azar et al. 2024 <em>A General Theoretical Paradigm to Understand Learning from Human Preferences</em> 指出：Bradley-Terry + DPO 在偏好 deterministic（"$y_w$ 总是赢"）时会让 implicit reward 无限放大，过拟合。<strong>IPO 把 sigmoid 换成 squared loss</strong>：</p>
@@ -971,9 +971,9 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <p>$$r_\text{SimPO}(x, y) = \frac{\beta}{|y|}\log\pi(y|x)$$</p>
 <p>损失：</p>
 <p>$$\boxed{\;\mathcal{L}_\text{SimPO} = -\mathbb{E}\log\sigma\!\left(\frac{\beta}{|y_w|}\log\pi(y_w|x) - \frac{\beta}{|y_l|}\log\pi(y_l|x) - \gamma\right)\;}$$</p>
-<p>其中 $\gamma$ 是 target reward margin（鼓励 $r_w - r_l \ge \gamma$，超出才不算 loss）。</p>
+<p>其中 $\gamma$ 是 target reward margin（鼓励 $r_w - r_l$ 尽量超过 $\gamma$；由于损失是 $-\log\sigma(\cdot)$，即 softplus 型而非 hinge，margin 超出后梯度只是指数衰减趋于 0，并非像 hinge loss 那样硬性截断为 0）。</p>
 <div class="callout callout-good"><div class="callout-title">SimPO 优势</div></div>
-<ul><li><strong>训练时无需 $\pi_\text{ref}$</strong>，省一份模型权重的显存。</li><li><strong>Length-normalization</strong> 缓解 DPO 的 length bias（DPO 倾向选长答案，因为它们 log-prob 更负，差更大）。</li><li>实验上 AlpacaEval-2 / Arena-Hard 上 SimPO 经常优于 DPO；但 reward-free 形式<strong>没有 KL 锚定</strong>，对 $\beta, \gamma$ 调参更敏感。</li></ul>
+<ul><li><strong>训练时无需 $\pi_\text{ref}$</strong>，省一份模型权重的显存。</li><li><strong>Length-normalization</strong> 缓解 DPO 的 length bias（DPO 倾向选长答案：因为 DPO 用的是 log-ratio $\log\pi_\theta(y)-\log\pi_\text{ref}(y)$，对 response 内所有 token 求和，若逐 token 的 log-ratio 平均为正，更长的 $y$ 会在求和中累积更大的总 log-ratio（而非其 raw log-prob 本身更负），从而系统性获得更大的 implicit reward margin——这正是 SimPO 引入 length-normalization（除以 $|y|$）的动机）。</li><li>实验上 AlpacaEval-2 / Arena-Hard 上 SimPO 经常优于 DPO；但 reward-free 形式<strong>没有 KL 锚定</strong>，对 $\beta, \gamma$ 调参更敏感。</li></ul>
 <h3 id="64-orposft--偏好一阶段">6.4　ORPO：SFT + 偏好一阶段</h3>
 <p>Hong et al. 2024 EMNLP <em>ORPO: Monolithic Preference Optimization without Reference Model</em>。ORPO 取消"先 SFT 再 DPO"两阶段，<strong>一次训练同时做 SFT 和偏好</strong>：</p>
 <p>$$\mathcal{L}_\text{ORPO} = \mathcal{L}_\text{SFT}(y_w) - \lambda \cdot \log\sigma\!\left(\log\frac{\text{odds}_\theta(y_w|x)}{\text{odds}_\theta(y_l|x)}\right)$$</p>
@@ -983,7 +983,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <ul><li><strong>RLOO</strong>：对每 prompt 采 $k$ 个 response，每个的 baseline = 其余 $k-1$ 个的平均 reward（leave-one-out），$\hat{A}_i = r_i - \frac{1}{k-1}\sum_{j\ne i} r_j$。</li><li><strong>ReMax</strong> (Li et al. 2024 ICML)：baseline 直接用同 prompt 的 <strong>greedy decode</strong> reward，每次只需 1 sample + 1 greedy。</li></ul>
 <p>两者都<strong>无 value model</strong>，与 GRPO 同源——本质都是用<strong>多 sample 或 greedy 的 baseline 替代 critic</strong>。</p>
 <div class="callout callout-info"><div class="callout-title">GRPO vs RLOO vs ReMax 区分</div></div>
-<ul><li><strong>GRPO</strong>：组内 mean+std 归一化（$z$-score）+ PPO-clip。</li><li><strong>RLOO</strong>：组内 leave-one-out 均值做 baseline + REINFORCE。</li><li><strong>ReMax</strong>：greedy decode 做 baseline + REINFORCE。</li><li>三者哲学一致：<strong>绕过 value model，用 sample baseline</strong>；区别只在 baseline 形式。</li></ul>
+<ul><li><strong>GRPO</strong>：组内 mean+std 归一化（$z$-score）+ PPO-clip。</li><li><strong>RLOO</strong>：组内 leave-one-out 均值做 baseline + REINFORCE。</li><li><strong>ReMax</strong>：greedy decode 做 baseline + REINFORCE。</li><li>三者哲学一致：<strong>绕过 value model，用 sample baseline</strong>；区别不止 baseline 形式：GRPO 额外做 std 归一化（z-score，除均值外还除以标准差）而 RLOO/ReMax 通常只减均值；GRPO 采用 PPO-clip（重要性比+裁剪，可多 epoch 复用同一批 rollout），RLOO/ReMax 是纯 REINFORCE 形式（无重要性比裁剪，通常单次 on-policy 更新）。三者共同点仅是不用 value model/critic，而用采样得到的 baseline。</li></ul>
 <h2 id="7-reward-modeling-进阶">§7 Reward Modeling 进阶</h2>
 <h3 id="71-prm-vs-orm">7.1　PRM vs ORM</h3>
 <table><thead><tr><th>维度</th><th><strong>ORM</strong> (Outcome RM)</th><th><strong>PRM</strong> (Process RM)</th></tr></thead><tbody><tr><td><strong>打分粒度</strong></td><td>只看最终答案</td><td>每步 reasoning 都打分</td></tr><tr><td><strong>标注成本</strong></td><td>低（只看结果）</td><td>高（每步都要标）</td></tr><tr><td><strong>奖励信号</strong></td><td>sparse（轨迹末尾）</td><td>dense（每步）</td></tr><tr><td><strong>数学推理表现</strong></td><td>中</td><td><strong>好</strong></td></tr><tr><td><strong>典型用法</strong></td><td>Best-of-N + ORM 重排</td><td>PRM 用于 step-level search / RL</td></tr><tr><td><strong>代表论文</strong></td><td>InstructGPT (Ouyang 2022)</td><td>Let's Verify Step by Step (Lightman 2023 arXiv / 2024 ICLR)</td></tr></tbody></table>
@@ -1002,7 +1002,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <p>Reward hacking 是 RL post-training 的核心痛点：model 找到 RM 的盲点拿高分，但人类觉得变差。常见症状：</p>
 <table><thead><tr><th>现象</th><th>原因</th><th>缓解</th></tr></thead><tbody><tr><td><strong>答案变长</strong></td><td>长答案在 RM 训练数据里通常分高（信息量、礼貌套话）</td><td>length penalty / length normalize (SimPO) / 长度回归校准</td></tr><tr><td><strong>谄媚 (sycophancy)</strong></td><td>用户喜欢被认同 → RM 学到"agree better"</td><td>sycophancy probe + 对抗数据</td></tr><tr><td><strong>重复 / 套话</strong></td><td>句尾"Hope this helps!" 类型在 RM 数据里高分</td><td>n-gram repetition penalty / 多样性 reward</td></tr><tr><td><strong>拒绝过度</strong></td><td>安全 RM 学到"拒绝就安全"</td><td>helpfulness vs harmlessness 双 RM 平衡</td></tr><tr><td><strong>格式 hack</strong></td><td>用 markdown / bullet / emoji 拿分</td><td>格式 normalization</td></tr><tr><td><strong>数字操作</strong></td><td>数学题硬编码常见答案分布</td><td>rule-based reward 替代 RM</td></tr></tbody></table>
 <h3 id="81-核心缓解机制">8.1　核心缓解机制</h3>
-<ol><li><strong>KL penalty</strong> ($\beta \log\pi/\pi_\text{ref}$)：最基础的 anchor。</li><li><strong>Early stopping by KL budget</strong>：跑到 $\text{KL}(\pi || \pi_\text{ref}) &gt; K_\text{target}$ 时停。</li><li><strong>Reward model ensemble</strong> (Coste 2024 ICLR <em>Reward Model Ensembles Help Mitigate Overoptimization</em>)：多个 RM 取 min 或 mean - std。</li><li><strong>Reward shaping</strong>：把 reward 拆成多个项（helpfulness + length + diversity），单独 cap 每项。</li><li><strong>离线 + 在线混合</strong>：先 DPO / KTO 拿 70 分，再 PPO + 强 RM 跑最后一公里。</li><li><strong>Composite reward</strong>：rule-based + RM-based 加权，rule 部分不能被 hack。</li></ol>
+<ol><li><strong>KL penalty</strong> ($\beta \log\pi/\pi_\text{ref}$)：最基础的 anchor。</li><li><strong>Early stopping by KL budget</strong>：跑到 $\text{KL}(\pi || \pi_\text{ref}) &gt; K_\text{target}$ 时停。</li><li><strong>Reward model ensemble</strong> (Coste 2024 ICLR <em>Reward Model Ensembles Help Mitigate Overoptimization</em>)：多个 RM 取 min 或 mean - std。</li><li><strong>Reward shaping</strong>：把 reward 拆成多个项（helpfulness + length + diversity），单独 cap 每项。</li><li><strong>离线 + 在线混合</strong>：先 DPO / KTO 拿 70 分，再 PPO + 强 RM 跑最后一公里。</li><li><strong>Composite reward</strong>：rule-based + RM-based 加权，rule 部分通常比神经 RM 更难被 hack（但并非绝对——checker/单测覆盖不全或存在漏洞时同样可能被利用，如答案格式匹配、边界条件漏判等，见 §5.3）。</li></ol>
 <h3 id="82-gao-2023-scaling-law">8.2　Gao 2023 scaling law</h3>
 <p>Gao, Schulman, Hilton 2023 ICML <em>Scaling Laws for Reward Model Overoptimization</em>：</p>
 <ul><li>Proxy reward (RM score) 随 KL 单调上升，但 gold reward 先升后降 (<strong>inverted-U</strong>)。</li><li>Best-of-N 的 over-optimization 与 PPO 形式略不同：BoN 的 gold reward 在 $\sqrt{\text{KL}}$ 上接近线性 -减 + 线性，PPO 多了高阶项。</li><li>给出 RM 越大、过优化越慢的 scaling law，论文中也讨论了不同函数形式拟合。</li></ul>
@@ -1014,8 +1014,8 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <p>以 7B base、fp16 forward + fp32 master、AdamW 为例（典型 RLHF）：</p>
 <table><thead><tr><th>副本</th><th>用途</th><th>bf16 权重 + 梯度</th><th>fp32 (master + Adam m,v)</th><th>合计</th></tr></thead><tbody><tr><td>Policy $\pi_\theta$</td><td>trainable</td><td>14+14=28 GB</td><td>28+28+28=84 GB</td><td><strong>112 GB</strong></td></tr><tr><td>Value $V_\phi$</td><td>trainable</td><td>28 GB</td><td>84 GB</td><td><strong>112 GB</strong></td></tr><tr><td>Reference $\pi_\text{ref}$</td><td>frozen</td><td>14 GB</td><td>—</td><td>14 GB</td></tr><tr><td>Reward $r_\psi$</td><td>frozen</td><td>14 GB</td><td>—</td><td>14 GB</td></tr><tr><td><strong>合计</strong></td><td></td><td></td><td></td><td><strong>~252 GB</strong>（每 trainable 模型 16 B/param ×7B = 112 GB；与分布式训练篇一致）</td></tr></tbody></table>
 <p>加上 activation、KV cache、generation buffer，单卡 80GB 极难放下；通常用 ZeRO-3 + offload 或多机分片。</p>
-<p><strong>DPO 同 base</strong>：只需 $\pi_\theta$ + $\pi_\text{ref}$ = 70 + 14 = <strong>84 GB</strong>（少一半）。</p>
-<p><strong>GRPO 同 base</strong>：$\pi_\theta$ + $\pi_\text{ref}$ + RM = 70 + 14 + 14 = <strong>98 GB</strong>（省 value 一份）。</p>
+<p><strong>DPO 同 base</strong>：只需 $\pi_\theta$ + $\pi_\text{ref}$ = 112 + 14 = <strong>126 GB</strong>（约为 PPO ~252GB 的一半）。</p>
+<p><strong>GRPO 同 base</strong>（神经 RM）：$\pi_\theta$ + $\pi_\text{ref}$ + RM = 112 + 14 + 14 = <strong>140 GB</strong>（省 value 一份）。</p>
 <h3 id="93-训练吞吐对比">9.3　训练吞吐对比</h3>
 <p>实测（开源 7B、8×H100，TRL/OpenRLHF 报告）：</p>
 <ul><li>PPO：~50-100 token/s/GPU（瓶颈：on-policy generation + 4 副本）</li><li>DPO：~500-1000 token/s/GPU（纯监督，无 generation）</li><li>GRPO：~100-200 token/s/GPU（需要 generation，但少一个模型）</li><li>SimPO：~600-1200 token/s/GPU（DPO 进一步去 reference）</li></ul>
@@ -1099,20 +1099,20 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <details>
 
 <summary>Q13.DPO vs IPO 区别？什么时候用 IPO？</summary>
-<ul><li>DPO 用 sigmoid loss：偏好越极端，implicit reward 越大（无界）</li><li>IPO 用 squared loss + 固定 margin $1/(2\beta)$：reward 有界</li><li><strong>当偏好数据 deterministic</strong>（每对都 $y_w$ 总赢）时 DPO 容易过拟合，IPO 更稳</li><li>Azar et al. 2024 AISTATS 给出统一框架（$\Psi$PO）</li></ul>
+<ul><li>DPO 用 sigmoid loss：偏好越极端，implicit reward 越大（无界）</li><li>IPO 用 squared loss + 固定 margin $1/(2\beta)$：把每对偏好的 log-ratio 差拉向固定有限目标 $1/(2\beta)$，从而避免 DPO 在 deterministic 偏好下 sigmoid loss 被无限推向 $+\infty$（隐式 reward margin 发散）——这是防止边际发散，而非对整个 reward 函数给出严格的全局有界证明</li><li><strong>当偏好数据 deterministic</strong>（每对都 $y_w$ 总赢）时 DPO 容易过拟合，IPO 更稳</li><li>Azar et al. 2024 AISTATS 给出统一框架（$\Psi$PO）</li></ul>
 <p>说 IPO 是改进 DPO 的 hyperparameter；或不知道 sigmoid 在 deterministic preference 下的 issue。</p>
 </details>
 <details>
 
 <summary>Q14.SimPO 相比 DPO 改了什么？</summary>
-<ul><li><strong>去 reference</strong>：$r = (\beta / |y|) \log\pi(y)$，不需要 $\pi_\text{ref}$</li><li><strong>Length normalize</strong>：除以 $|y|$，缓解 DPO 的长度偏好</li><li><strong>Reward margin</strong> $\gamma$：要求 $r_w - r_l \ge \gamma$，超出才停止 loss</li><li>显存省一倍；但失去 KL anchor，需要更小心调 $\beta, \gamma$</li></ul>
+<ul><li><strong>去 reference</strong>：$r = (\beta / |y|) \log\pi(y)$，不需要 $\pi_\text{ref}$</li><li><strong>Length normalize</strong>：除以 $|y|$，缓解 DPO 的长度偏好</li><li><strong>Reward margin</strong> $\gamma$：要求 $r_w - r_l \ge \gamma$，超出后 loss/梯度渐近趋于 0（softplus 型，非 hinge 硬截断）</li><li>显存相对 DPO 节省约 11%（去掉 frozen $\pi_\text{ref}$ 的 14GB 权重，126→112 GB，并非"省一倍"）；但失去 KL anchor，需要更小心调 $\beta, \gamma$</li></ul>
 <p>只说"去 reference"，不说 length-norm 和 margin；或不知道 SimPO 也是 contrastive。</p>
 </details>
 <details>
 
 <summary>Q15.GRPO 的 advantage 公式？为什么这样设计？</summary>
 <ul><li>$\hat{A}_i = (r_i - \text{mean}_g(r)) / (\text{std}_g(r) + \epsilon)$，$g$ 是同 prompt 的 group</li><li>整段 response 内所有 token 共享同一 $\hat{A}_i$</li><li><strong>设计理由</strong>：LLM token-level value 难学；用 sequence-level reward + 组内统计直接做 variance reduction</li><li>哲学和 RLOO（leave-one-out 均值）、ReMax（greedy baseline）一致：用 sample baseline 替代 critic</li></ul>
-<p>写成 per-token advantage（错，GRPO 整段共享）；或不知道 GRPO/RLOO/ReMax 的共性。</p>
+<p>写成 per-token advantage（在 outcome-supervision 版本下错，process-supervision 版本本就是 per-token）；或不知道 GRPO/RLOO/ReMax 的共性。</p>
 </details>
 <details>
 
@@ -1129,7 +1129,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <details>
 
 <summary>Q18.PPO 训练时为什么要在 reward 上加 KL，而不是在 loss 上？</summary>
-<ul><li>加在 reward 上 → 通过 advantage 自然进入 PPO-clip surrogate，per-token 控制</li><li>加在 loss 上 → 整体 KL 约束，但失去 token-level resolution</li><li>GRPO 反而把 KL 放在 loss 上（用 K3 estimator），因为 GRPO 不展开 per-token advantage</li><li>两种放法本质都是 KL anchor，但实现细节不同</li></ul>
+<ul><li>加在 reward 上 → 通过 advantage 自然进入 PPO-clip surrogate，per-token 控制</li><li>加在 loss 上的 KL 仍可以是逐 token 的（如 GRPO 用 K3 estimator 逐 token 计算，见 §5.2），并不天然损失 token 分辨率；真正的差异在于加进 reward 的 KL 会通过 GAE/return 递归影响每个 token 的 advantage，而加进 loss 的 KL 是独立于 return 的附加惩罚项，不参与 value bootstrap</li><li>GRPO 反而把 KL 放在 loss 上（用 K3 estimator），因为 GRPO 不展开 per-token advantage</li><li>两种放法本质都是 KL anchor，但实现细节不同</li></ul>
 <p>混淆两种放法；或不知道 GRPO 的 K3 estimator。</p>
 </details>
 <details>
@@ -1179,7 +1179,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 
 <summary>Q25.如果让你设计 next-gen 后训练算法，你会怎么改进 GRPO？</summary>
 <p>可能的方向（任答 2-3 个，且要有 trade-off 讨论）：</p>
-<ul><li><strong>Adaptive group size</strong>：reward variance 大时小 $G$，小时大 $G$（DAPO dynamic sampling）</li><li><strong>Token-level credit assignment</strong>：GRPO 整段共享 advantage → 长 response 信号稀释。可以引入 lightweight critic（VAPO）或基于 step-level reward（PRM）的 partial credit</li><li><strong>Off-policy correction</strong>：GRPO 是 on-policy，rollout 慢；引入 V-trace / Retrace 让 stale samples 也能用</li><li><strong>Multi-task reward</strong>：rule + RM + style 合成 reward，每个维度独立归一化避免 reward scale 不平衡</li><li><strong>Reward model uncertainty</strong>：用 ensemble RM 的 min 或 mean - std 防止 over-optimization</li><li><strong>Process reward integration</strong>：PRM 给 step-level dense advantage，与 group baseline 联合（Math-Shepherd + GRPO 路线）</li><li><strong>CISPO / 截断 IS</strong> (Minimax 2025)：解决 GRPO 在 negative advantage 大 ratio 时的稳定性</li><li><strong>DAPO</strong> (ByteDance 2025)：clip higher + dynamic sampling + token-level loss + overlong shaping，已开源 verl 实现</li></ul>
+<ul><li><strong>Dynamic sampling（DAPO）</strong>：过滤掉组内 reward 全同（全对或全错，std=0，advantage 恒为 0→零梯度）的 prompt，并持续补充采样新 prompt 以维持 batch 中有效梯度样本数不变；组内采样数 $G$ 本身通常保持固定，并不随 reward 方差自适应调整</li><li><strong>Token-level credit assignment</strong>：GRPO 整段共享 advantage → 长 response 信号稀释。可以引入 lightweight critic（VAPO）或基于 step-level reward（PRM）的 partial credit</li><li><strong>Off-policy correction</strong>：GRPO 是 on-policy，rollout 慢；引入 V-trace / Retrace 让 stale samples 也能用</li><li><strong>Multi-task reward</strong>：rule + RM + style 合成 reward，每个维度独立归一化避免 reward scale 不平衡</li><li><strong>Reward model uncertainty</strong>：用 ensemble RM 的 min 或 mean - std 防止 over-optimization</li><li><strong>Process reward integration</strong>：PRM 给 step-level dense advantage，与 group baseline 联合（Math-Shepherd + GRPO 路线）</li><li><strong>CISPO / 截断 IS</strong> (Minimax 2025)：解决 GRPO 在 negative advantage 大 ratio 时的稳定性</li><li><strong>DAPO</strong> (ByteDance 2025)：clip higher + dynamic sampling + token-level loss + overlong shaping，已开源 verl 实现</li></ul>
 <p>只罗列"加 attention / 加更多模型"，没 trade-off；或不知道 DAPO / VAPO / CISPO 等 GRPO 后续工作。</p>
 </details>
 <h2 id="a-附录参考文献清单">§A 附录：参考文献清单</h2>
@@ -1201,8 +1201,8 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md</code> ·
-  SHA256 <code>66c23bf73856</code> ·
-  generated at 2026-06-29 10:11 UTC.
+  SHA256 <code>749b90c9c29c</code> ·
+  generated at 2026-07-12 04:20 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

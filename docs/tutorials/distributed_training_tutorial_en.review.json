@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/distributed_training_tutorial_en.md",
-  "source_sha256": "d77696a976be35a41d404ade3705509a81a2f588885557d88414715c5231ccf9",
+  "source_sha256": "3958310199cfb7455b4988358802b59edd8616fe043b6b9bf7ec5d77c67d2f77",
   "output": "docs/tutorials/distributed_training_tutorial_en.html",
   "zh_source": "docs/tutorials/distributed_training_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -20,5 +20,11 @@
     ],
     "summary": "Cross-model translation-fidelity verify of docs/tutorials/distributed_training_tutorial_en.md (+.html) against ZH source of truth docs/tutorials/distributed_training_tutorial.md. Both targeted fixes LANDED and are FAITHFUL to ZH; on the strict translation-fidelity question the EN PASSES. I am reporting WARN (not Codex's raw FAIL) because Codex's FAIL rests on a task-framing artifact, not a real EN translation defect, plus one genuine pre-existing wording tension that lives identically in BOTH editions.\n\nFIX (a1) §6.2 hpZ — LANDED & FAITHFUL. EN line 426 now reads 'replicates weight within a no"
   },
-  "rendered_at": "2026-05-31"
+  "resweep56_sync": {
+    "date": "2026-07-12",
+    "phase": "content-parity mirror, NOT an independent cross-model translation-fidelity re-check",
+    "note": "ZH source underwent a full-collection resweep re-audit (Codex gpt-5.6-sol ultra candidate pass + Claude Sonnet 5 adversarial verification pass, see docs/tutorials/distributed_training_tutorial.review.json math_code_review.rounds[resweep56], finding_id 20-32, 10 CONFIRMED + 3 NEEDS_NUANCE, 0 REFUTED). The SAME agent that applied the verified ZH fix_text then mirrored each of the 13 changes into this EN file at the corresponding location (identical code-logic changes for the two flagged code blocks — RowParallelLinear init and train_step_4d — with comments/prose translated to natural English; text-only changes translated with no new content beyond the ZH fix_text). This sync was NOT independently re-verified by a fresh cross-model reviewer against the EN text specifically — flagging per this repo's acceptance-gate discipline (self-judged execution completion only; quality/correctness verdicts require cross-model review). The PRE-EXISTING §6.2 hpZ wording tension noted in the 2026-05-31 translation_fidelity_review above is now resolved as a side effect: both the ZH heading/bullet and the Q19 mnemonic (and their EN mirrors) consistently describe hpZ as a secondary within-node ZeRO-3 partition (Φ/H per GPU), removing the earlier heading-vs-bullet contradiction.",
+    "sections_touched": ["§2.2 NVLink table", "§3.3 DDP static_graph comment", "§4.4/§12.3 ZeRO-Infinity", "§5.1 FSDP1 frozen-params table row", "§6.2 hpZ", "§6.3/§6.4 qgZ", "§7.3 attention-head callout + Q6 trap", "§7.4 RowParallelLinear.__init__ (code)", "§7.5 NVLink latency estimate", "§9.2 GPipe-flaw nuance", "§9.6 PP transfer-size formula", "§15.1 FSDP1+TP composition", "§A build_4d_model docstring/heading + train_step_4d (code)", "Q19 mnemonic"]
+  },
+  "rendered_at": "2026-07-12"
 }

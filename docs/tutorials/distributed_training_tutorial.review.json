@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/distributed_training_tutorial.md",
-  "source_sha256_prefix": "9fca080f5e600043",
+  "source_sha256_prefix": "99b42980f21030f3",
   "output": "docs/tutorials/distributed_training_tutorial.html",
   "topic": "Distributed Training (DDP / FSDP2 / ZeRO / TP / PP / EP / SP / CP / DualPipe / TorchTitan / Llama 3)",
   "effort": "max",
@@ -90,6 +90,45 @@
         "verdict": "PASS",
         "note": "Round-1 (DeepSeek-V3 FP32 accumulation not bf16; 1F1B pseudocode assigns recv; §8.2 2x col/row comm) + Round-2 (§8.2 ASCII TP-only all-reduce; DualPipe bubble softened to approaches-0 non-strict) all verified PASS.",
         "issues": []
+      },
+      {
+        "run": "resweep56",
+        "date": "2026-07-12",
+        "reviewer": "codex gpt-5.6-sol ultra (candidate-finding pass, full-collection resweep) + Claude Sonnet 5 (independent adversarial verification pass in a separate thread, tried to refute every candidate)",
+        "thread_id": "019f503d-a1a6",
+        "verdict": "PASS_AFTER_FIX",
+        "scope": "full-collection resweep re-audit, finding_id 20-32 (13 candidates)",
+        "summary": "2026-07-12 全集重扫复审：Codex GPT-5.6-sol 一轮候选 + Claude Sonnet 5 对抗验证（尝试推翻每条）→ 0 REFUTED，10 CONFIRMED + 3 NEEDS_NUANCE，全部已修复，含 2 处教学代码块的真实逻辑 bug（RowParallelLinear 初始化用了本地分片 fan_in、train_step_4d 在非末 stage 因空列表崩溃）。",
+        "issues": [
+          "20 CONFIRMED §6.2 hpZ: described as '节点内 8 张 GPU 各持完整 weight（hpZ=节点内 DDP）' — actually a secondary ZeRO-3-style partition, each GPU adds only Φ/H not full Φ",
+          "21 CONFIRMED §6.3/§6.4 qgZ: gradient reduce-scatter described as INT8 — ZeRO++ paper uses INT4 (4-bit); the reported 4× traffic reduction is qwZ(2×)+hpZ(cross-node all-gather eliminated)+qgZ(4×) combined, not '2×(int8) times 2 primitives'",
+          "22 CONFIRMED §7.4 RowParallelLinear.__init__: nn.init.kaiming_uniform_(self.weight) let PyTorch auto-derive fan_in from the LOCAL sharded shape (in_per_rank), inflating init variance by T× — real code bug, fixed to compute bound from the global in_features",
+          "23 NEEDS_NUANCE §9.2/§9.3: 'GPipe activation memory grows linearly with M' is standard under a fixed micro-batch size (1F1B paper's convention, kept), but under a fixed total mini-batch B split into M pieces it's actually O(B) independent of M — added a clarifying note, no rewrite",
+          "24 CONFIRMED §2.2/§7.5: H100 NVLink 4.0 900 GB/s table entry mislabeled as unidirectional under a '单向带宽' header — it's the bidirectional aggregate; unidirectional ≈450 GB/s; corrected the 4GB transfer estimate from ≈4.4ms to ≈8.9ms",
+          "25 CONFIRMED §5.1 table: 'FSDP1 同 unit 内必须全冻或全可训' stated unconditionally — only true for default use_orig_params=False; use_orig_params=True allows mixed frozen/trainable (LoRA use case)",
+          "26 NEEDS_NUANCE §15.1: 'FSDP1 与 TP 几乎不可复合' overstated — engineering-hard (flat-buffer vs TP shard-axis conflict), not mathematically impossible; softened wording",
+          "27 NEEDS_NUANCE §7.3 callout + Q6 trap: framed 'shard by head' vs 'shard hidden_dim' as mutually exclusive with the latter flatly wrong — hidden_dim can be sharded as long as the boundary aligns with whole heads; the actual bug is splitting a single head's d_head across ranks",
+          "28 CONFIRMED §4.4/§12.3: ZeRO-Infinity described as 'mainly for inference/fine-tuning' — the SC 2021 paper's design goal is training trillion-parameter models under limited GPU count, not inference/fine-tuning",
+          "29 CONFIRMED §A: build_4d_model / heading labeled '4D parallelism (PP×FSDP×CP×TP)' while mesh_shape=(2,4,1,8) has CP=1 (never enabled, no CP sharding applied to attention) — relabeled as 3D (PP×FSDP×TP+SP) with CP as a placeholder dim",
+          "30 CONFIRMED §A train_step_4d: unconditional torch.stack(losses).mean() crashes with RuntimeError on every non-last pipeline stage, since torch.distributed.pipelining only populates `losses` on the last stage — real code bug, fixed to guard on len(losses) > 0 and return None otherwise",
+          "31 CONFIRMED §9.6: PP per-transfer size formula B/M·L·D given in 'bytes' is actually an element count, missing the per-element byte factor q (q=2 for fp16/bf16)",
+          "32 CONFIRMED §3.3 DDP code comment: static_graph=False annotated as '启用更多 fusion' — actual benefit is skipping the per-iteration unused-parameter traversal and enabling cross-iteration grad accumulation / multi-backward, not kernel fusion"
+        ],
+        "fixes": [
+          "Rewrote §6.2 hpZ description + Q19 mnemonic to the secondary-partition / Φ per-GPU model",
+          "Rewrote §6.3/§6.4 qgZ description to INT4 + corrected the combined-4× explanation; updated Q19 mnemonic",
+          "Replaced kaiming_uniform_(self.weight) with an explicit gain/bound computed from global in_features + nn.init.uniform_ in both ZH and EN RowParallelLinear.__init__",
+          "Added a clarifying paragraph after the §9.2 GPipe-flaw callout distinguishing the fixed-micro-batch-size vs fixed-total-batch conventions",
+          "Changed NVLink table entry to 450 GB/s unidirectional (with a bidirectional-aggregate note) and updated §7.5's 4GB latency estimate to ≈8.9ms",
+          "Rewrote §5.1 table's '冻结参数' row to condition on use_orig_params",
+          "Softened §15.1 'FSDP1 与 TP 几乎不可复合' to 'engineering-hard but not mathematically impossible' with the concrete workaround",
+          "Rewrote the §7.3 callout and the Q6 trap line to state the real rule (shard boundary must align with whole heads; splitting inside a head is the actual error)",
+          "Rewrote §4.4 and §12.3 ZeRO-Infinity descriptions to state the training-scale design goal instead of 'mainly inference/fine-tuning'",
+          "Relabeled §A heading + build_4d_model docstring as 3D parallelism with a CP placeholder dimension, in both ZH and EN",
+          "Rewrote train_step_4d to only call torch.stack(losses).mean() when len(losses) > 0, else return None, in both ZH and EN",
+          "Added the ×q byte-per-element factor to the §9.6 PP transfer-size formula",
+          "Rewrote the static_graph=False code comment to describe its real effect (skip unused-param traversal, enable cross-iteration grad accumulation / multi-backward)"
+        ]
       }
     ]
   },
@@ -114,10 +153,10 @@
     ]
   },
   "summary": "3-round math/code review (FAIL/FAIL/FAIL — each round caught + fixed real bugs; round 3 residual arithmetic was patched post-hoc) + 2-round render review (FAIL list-marker -> PASS). Final HTML passes all 13 render-stage checks.",
-  "rendered_at": "2026-05-19",
-  "lines_md": 1587,
-  "bytes_html": 88974,
+  "rendered_at": "2026-07-12",
+  "lines_md": 1595,
+  "bytes_html": 110703,
   "toc_entries": 78,
-  "source_sha256": "9fca080f5e600043ddd52586fa501f8c9d13acf3bb876f66cae5a17cbffadd6b",
+  "source_sha256": "99b42980f21030f3b7054517edab91eb80ab729f1b8126b9133c725e3a0c9f10",
   "thread_id": "019e7cad-0387-7e03-b931-7fd25046017a"
 }

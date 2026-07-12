@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/moe_tutorial_en.md",
-  "source_sha256": "0a6fed1518a5af3dde885a37accae4ee87b9d98255eb42ea84ad806aa554add2",
+  "source_sha256": "55eea74b4e1f3d2c18998f46674a0c1baa994f1deef03b18987761b0d8ea55ad",
   "output": "docs/tutorials/moe_tutorial_en.html",
   "zh_source": "docs/tutorials/moe_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -23,6 +23,30 @@
       "date": "2026-06-29",
       "fix": "Qwen2-57B-A14B shared-expert count corrected 0 to 1 (it has a shared-expert path, inherited from Qwen1.5-MoE; only Qwen3 dropped shared experts). (EN edition mirrors the ZH fix.)",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection re-sweep audit (Codex candidate-finding → independent Claude adversarial verification), EN mirrors ZH fix set",
+      "verdict": "16 CONFIRMED + 1 NEEDS_NUANCE, all fixed",
+      "date": "2026-07-12",
+      "fix_summary": [
+        "§0/§7.1: 'k/N × dense' compute claim corrected to 'k × single expert-FFN, independent of N'.",
+        "§0/§2.1 table: Qwen3-MoE split out as top-8/128 (no shared); DeepSeek-V2 corrected to 6 routed+2 shared (was miswritten as +1); DeepSeek-V3 kept at 8 routed+1 shared.",
+        "§0/§6.2: 'V3 drops aux loss' softened to 'bias is primary, tiny sequence-wise aux loss remains as backstop'.",
+        "§2.2: Σf_i·P_i 'uniform = global minimum' claim corrected — uniform is only a self-consistent fixed point (counterexample N=2 added); Q3 answer aligned.",
+        "§2.3: Expert Choice 'no token dropping' corrected to 'no expert overflow' + token-side 0-hit caveat.",
+        "§2.4/§3.1/§6.1: DeepSeek-V3 biased-score formula corrected — bias added AFTER sigmoid (s_i=σ(u_t·e_i) is already the affinity), not to raw pre-sigmoid logits; gating renormalizes the un-biased affinity directly; added missing routed_scaling_factor≈2.5 note in formula, code comments, and the §6.1 diagram.",
+        "§2.5 (NEEDS_NUANCE): noisy top-k's purpose reframed as exploration + differentiable load-estimate proxy, not 'softening TopK itself to be differentiable'.",
+        "§4.2: 'Token Drop vs Residual Bypass' reframed as the same mechanism under standard residual connections; added note that Mixtral/DeepSeek-V3 are dropless in practice; Q4 answer aligned.",
+        "§4.3: Z-loss mislabeled as 'entropy regularizer' corrected to the log-partition stabilization term; 'enlarge capacity factor to punish collapse' removed as a false fix.",
+        "§4.4: gradient-w.r.t.-excluded-logit claim corrected from 'indirectly nonzero' to exactly zero, with full derivation; aligned with §10 Q12.",
+        "§6.3: Node-Limited Routing's fabricated 'each node capped at 3 experts' constraint removed, replaced with the actual node-scoring + top-4-node + global-top-8 mechanism.",
+        "§7.3: 'V3 KV cache ~5% of LLaMA-3-70B' corrected to ~21% (LLaMA-3-70B already uses GQA; 93.3% is a different MLA-vs-MHA baseline).",
+        "§9.1/Q10: same-active-params 'bandwidth advantage' inverted claim corrected to same-total-params comparison; capacity-ceiling table row fixed.",
+        "Q18: '8×H100 minimum for V3' corrected — 640GB < 671GB required; needs 9+ cards, in practice 16×H100 or 8×H200.",
+        "Q20: Mixtral 8x7B parameter breakdown replaced with an exact derivation giving 46.70B total / 12.87B active.",
+        "Appendix: Switch Transformers citation year corrected from '(2021) JMLR' to '(2022) JMLR, arXiv preprint 2021'."
+      ],
+      "note": "2026-07-12 full-collection re-sweep audit: same Codex GPT-5.6-sol candidate-finding → independent fresh Claude adversarial-verification pass as the ZH source (16 CONFIRMED + 1 NEEDS_NUANCE, 0 overturned). All 17 findings translated into natural English and applied to this file, mirroring the ZH edits 1:1 with surrounding-text consistency passes. Source re-rendered, sidecar hash refreshed."
     }
   ]
 }

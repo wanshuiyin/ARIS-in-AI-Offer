@@ -6,11 +6,11 @@
 
 2. **SGD / Momentum / Nesterov**: plain SGD $\theta_t=\theta_{t-1}-\eta g_t$; heavy-ball momentum $v_t=\mu v_{t-1}+g_t,\ \theta_t=\theta_{t-1}-\eta v_t$ (damps oscillation, accelerates consistent directions); Nesterov evaluates the gradient at the **look-ahead point** $\theta-\eta\mu v$ (corrects overshoot). Momentum $\approx$ an **exponential moving average** of gradients with window $\sim 1/(1-\mu)$.
 
-3. **AdaGrad → RMSProp → Adam**: AdaGrad's per-coordinate step $\propto 1/\sqrt{\sum g^2}$ (**accumulates all history** → LR monotonically → 0, "can't learn" on long training); RMSProp replaces the sum with an **EMA** (fixes the monotonic decay); Adam = RMSProp's second-moment EMA + **first-moment momentum** + **bias correction**.
+3. **AdaGrad → RMSProp → Adam**: AdaGrad's per-coordinate step $\propto 1/\sqrt{\sum g^2}$ (**accumulates all history** → as long as the gradient never stays zero forever ($\Sigma g^2\to\infty$, almost always true on long runs), LR monotonically → 0, "can't learn" on long training); RMSProp replaces the sum with an **EMA** (fixes the monotonic decay); Adam = RMSProp's second-moment EMA + **first-moment momentum** + **bias correction**.
 
 4. **Adam bias correction**: $m,v$ start at 0, biased early (toward 0); dividing by $1-\beta^t$ de-biases. Since $\beta_2$ (0.999) is closer to 1 than $\beta_1$ (0.9), $v$ is biased more → **without correction the early step is too LARGE** (with default $\beta$ the first step $\approx\frac{1-\beta_1}{\sqrt{1-\beta_2}}=3.16$× $\eta$), correction returns the first step to $\eta$. Note $\epsilon$ is **outside** the sqrt (PyTorch).
 
-5. **AdamW decoupled weight decay**: **Adam's L2 regularization $\ne$ weight decay**. L2 adds $\lambda\theta$ to the **gradient** → it gets scaled by $1/\sqrt{\hat v}$ → params with large historical gradients get decayed less (decoupling broken). AdamW (Loshchilov & Hutter) **decouples**: subtract $\eta\lambda\theta$ directly from the weights, outside the Adam step. This is the modern default; the two coincide for SGD but not for Adam.
+5. **AdamW decoupled weight decay**: **Adam's L2 regularization $\ne$ weight decay**. L2 adds $\lambda\theta$ to the **gradient** → it gets scaled by $1/\sqrt{\hat v}$ → params with large historical gradients get decayed less (decoupling broken). AdamW (Loshchilov & Hutter) **decouples**: subtract $\eta\lambda\theta$ directly from the weights, outside the Adam step. This is the modern default; the two coincide for **plain SGD (no momentum)** but not for Adam (momentum-SGD with coupled L2 accumulates the decay term across the momentum buffer across steps, so it is no longer exactly equivalent to decoupled SGDW).
 
 6. **Frontier optimizers**: **Muon** (**orthogonalize** the momentum of 2D weights via Newton-Schulz iterations, hidden 2D layers only, used by Kimi-K2), **Lion** (**sign momentum**, single state → half Adam's memory), **Shampoo** (Kronecker-factored **full-matrix preconditioner**), **SOAP** (run Adam in Shampoo's eigenbasis), **Adafactor** (factored second moment → sublinear memory), **LAMB** (layer-wise adaptive, huge batch), **Sophia** (light second-order, diagonal Hessian).
 
@@ -83,7 +83,7 @@ AdaGrad (Duchi, Hazan & Singer, JMLR 2011) gives each coordinate an **independen
 
 $$G_t = G_{t-1} + g_t^2 \ (\text{elementwise}), \qquad \theta_t = \theta_{t-1} - \frac{\eta}{\sqrt{G_t}+\epsilon}\odot g_t.$$
 
-Effect: coordinates with persistently large gradients have large $G$ → small step; sparse/rare features have small $G$ → large step. Very effective on convex optimization and sparse features (early NLP, recommendation). **Fatal flaw**: $G_t$ is a **monotonically increasing** cumulative sum, so the denominator $\sqrt{G_t}$ only grows → the effective learning rate monotonically tends to 0. On a deep net's long training run the step shrinks to nearly 0 partway through and it **can't learn** anymore (premature stagnation).
+Effect: coordinates with persistently large gradients have large $G$ → small step; sparse/rare features have small $G$ → large step. Very effective on convex optimization and sparse features (early NLP, recommendation). **Fatal flaw**: $G_t$ is a **monotonically increasing** cumulative sum, so the denominator $\sqrt{G_t}$ only grows → the effective learning rate is **monotonically non-increasing**; as long as $\Sigma g_t^2\to\infty$ (the gradient doesn't stay exactly zero forever, almost always true on long runs), it tends to 0. On a deep net's long training run the step shrinks to nearly 0 partway through and it **can't learn** anymore (premature stagnation).
 
 ### 3.2　RMSProp: replace the cumulative sum with an EMA
 
@@ -124,7 +124,7 @@ The key point, also frequently probed deeply: **without correction, the early ef
 
 $$\frac{m_1}{\sqrt{v_1}} = \frac{(1-\beta_1)\,g_1}{\sqrt{(1-\beta_2)}\,\lvert g_1\rvert} = \frac{1-\beta_1}{\sqrt{1-\beta_2}}\,\mathrm{sign}(g_1).$$
 
-Plugging in defaults: $\frac{1-0.9}{\sqrt{1-0.999}}=\frac{0.1}{0.0316}\approx 3.16$. That is, **the uncorrected first step is about 3.16× the target $\eta$** — because $v$ (with $\beta_2$ closer to 1) is pushed toward 0 harder than $m$, the denominator $\sqrt{v}$ is too small, which inflates the step instead. Bias correction restores $\hat m_1=g_1,\ \hat v_1=g_1^2$, returning the first step exactly to $\eta\cdot\mathrm{sign}(g_1)$, of magnitude $\eta$. (§A's [d] verifies this 3.16 numerically.)
+Plugging in defaults: $\frac{1-0.9}{\sqrt{1-0.999}}=\frac{0.1}{0.0316}\approx 3.16$. That is, **the uncorrected first step is about 3.16× the target $\eta$** — because $v$ (with $\beta_2$ closer to 1) is pushed toward 0 harder than $m$, the denominator $\sqrt{v}$ is too small, which inflates the step instead. Bias correction restores $\hat m_1=g_1,\ \hat v_1=g_1^2$, returning the first step to $\eta\cdot\dfrac{g_1}{\lvert g_1\rvert+\epsilon}\approx\eta\cdot\mathrm{sign}(g_1)$ (the strict form includes $\epsilon$: $\eta\lvert g_1\rvert/(\lvert g_1\rvert+\epsilon)<\eta$, which only approaches $\eta$ when $\lvert g_1\rvert\gg\epsilon$ — training-time gradients are typically $\gg 10^{-8}$, so this approximation holds well in practice). (§A's [d] verifies this 3.16 numerically.)
 
 > ⚠️ **Don't blurt out "without correction the step is too small"**
 > The naive intuition only watches the numerator $m$ biased toward 0 → assumes the step is too small, **missing that the denominator $v$ is biased harder**. For standard $\beta_2=0.999$, the net effect is an early step that's too **large** ($\approx 3.16\eta$), which can cause early instability/divergence — another reason early training pairs with warmup (§7). Getting the direction backwards is a top-lab favorite to catch.
@@ -154,7 +154,7 @@ $$\boxed{\;\theta_t = \theta_{t-1} - \eta\Big(\frac{\hat m_t}{\sqrt{\hat v_t}+\e
 
 i.e. compute the Adam step on the raw gradient $g$ (**without** $\lambda\theta$), then separately subtract an $\eta\lambda\theta_{t-1}$. Equivalently $\theta_t=(1-\eta\lambda)\theta_{t-1}-\eta\,\hat m_t/(\sqrt{\hat v_t}+\epsilon)$ — a clean, **$\hat v$-independent** uniform shrinkage (PyTorch's `AdamW` multiplies the decay by lr).
 
-Why it's usually better (more controllable): after decoupling, **all params receive the same relative shrinkage $\lambda$**, the regularization strength is no longer distorted by each param's gradient history, more faithful to "controlling the weight norm"; Loshchilov & Hutter showed empirically that AdamW is **often** stably better than Adam+L2 across tasks, and the optimal LR and wd are easier to tune decoupled (no need to absolutize it to "more generalizing on all tasks," but it is the more controllable, more common default). **Why SGD makes them coincide**: SGD has no $1/\sqrt{\hat v}$ adaptive scaling layer, so $\lambda\theta$ added to the gradient is used as-is, which is exactly uniform shrinkage; once there's an adaptive denominator, adding to the gradient (L2) and shrinking directly (decay) part ways.
+Why it's usually better (more controllable): after decoupling, **all params receive the same relative shrinkage $\lambda$**, the regularization strength is no longer distorted by each param's gradient history, more faithful to "controlling the weight norm"; Loshchilov & Hutter showed empirically that AdamW is **often** stably better than Adam+L2 across tasks, and the optimal LR and wd are easier to tune decoupled (no need to absolutize it to "more generalizing on all tasks," but it is the more controllable, more common default). **Why plain SGD makes them coincide**: plain SGD has neither the $1/\sqrt{\hat v}$ adaptive scaling layer nor a momentum buffer that accumulates $\lambda\theta$ across steps, so $\lambda\theta$ added to the gradient is used as-is, which is exactly uniform shrinkage; once you introduce an adaptive denominator (Adam) or a momentum buffer (SGD+momentum — the SGDW-vs-coupled-L2+momentum distinction), adding to the gradient (L2) and shrinking directly (decay) part ways.
 
 > ✅ **The modern default IS AdamW**
 > Transformer/LLM training almost always uses AdamW (not Adam). Asked "the difference between Adam and AdamW," the standard answer is "**L2 goes through the $1/\sqrt{\hat v}$ scaling, decoupled decay doesn't**; they coincide for SGD, differ for Adam." Answering only "AdamW adds weight decay" misses the point (Adam can also take a weight_decay, but that's L2).
@@ -194,8 +194,8 @@ Remember just **one core idea** for each — being able to state "which part of 
 
 **Warmup** linearly ramps the LR from 0 (or very small) **up to the peak** over the first few hundred ~ few thousand steps, then hands off to the subsequent decay. Two motivations:
 
-1. **Adam's early variance is high**: $\hat v$ is estimated from very few samples in the first steps, with **high variance**, making the adaptive step jittery or even too large (the 3.16× effect of §4.2). Use a small LR first to let $m,v$'s statistics "warm up" to reliability, then scale up the step.
-2. **Large-batch / Post-LN instability**: large-batch early gradients are large in scale; Post-LN Transformers have naturally large top-layer gradients (see the normalization tutorial, §5) — hitting them with a large LR right away easily diverges. Warmup suppresses early instability.
+1. **Adam's early variance is high**: $\hat v$ is estimated from very few samples in the first steps — even though bias correction guarantees $\mathbb{E}[\hat v_t]$ is unbiased (§4.2), any single realization of $\hat v_t$ is still a high-variance estimate, so on individual steps $\hat v_t$ can fall well below the true second moment, making $\hat m/\sqrt{\hat v}$ swing wildly and occasionally spike into an oversized effective step (the core motivation behind RAdam, Liu et al. 2019). This is a different issue from the "uncorrected first step is systematically 3.16× too large" discussed in §4.2 — that's a deterministic bias standard Adam already cancels exactly via bias correction, not the real source of early instability. Use a small LR first to let $m,v$'s statistics "warm up" to reliability, then scale up the step.
+2. **Large-batch / Post-LN instability**: under mean-reduction the batch-averaged gradient is unbiased ($\mathbb{E}[g_B]=\mathbb{E}[g]$); enlarging the batch only lowers the variance ($\mathrm{Var}\propto 1/B$), it doesn't inflate the gradient's scale itself. The real source of instability is that **a larger batch is paired with a larger LR via the linear scaling rule** (§8.2), and early on the weights are far from converged and change fast, so a large LR diverges more easily; on top of that, Post-LN Transformers have naturally large top-layer gradients (see the normalization tutorial, §5) — the two stack, so hitting the network with a large LR right away easily diverges. Warmup suppresses early instability.
 
 ### 7.2　Cosine annealing (+ warm restarts)
 
@@ -232,7 +232,7 @@ One-cycle (Smith, *Super-Convergence*, 1708.07120): the whole training is **one 
 
 ### 8.1　What weight decay does (incl. a modern view)
 
-Classic view: weight decay is **regularization** — each step shrinks the weight toward 0, bounding the weight norm, limiting model complexity, resisting overfitting. **Modern view** (in nets with normalization layers): because LayerNorm/RMSNorm make the weights **scale-invariant** (multiply $W$ by a constant and the normalized output is unchanged), the weight's "absolute size" doesn't directly affect the function, so wd's real role is more like **tuning the effective learning rate / controlling the weight-norm equilibrium** — larger wd, smaller weight norm, relatively larger effective gradient step. This is an important observation in recent training-dynamics research (treating wd as an "effective-LR knob" rather than pure regularization).
+Classic view: weight decay is **regularization** — each step shrinks the weight toward 0, bounding the weight norm, limiting model complexity, resisting overfitting. **Modern view** (for the part of the network's weights that are **scale-invariant**): a weight matrix $W$ that feeds directly and exclusively into a normalization layer, with no intervening scale-sensitive path such as a residual add (e.g. the linear-layer weights immediately followed by LayerNorm/RMSNorm inside a Pre-LN block) is **scale-invariant** — multiply $W$ by a positive constant and the normalized output is unchanged; that weight's "absolute size" doesn't directly affect the function, so wd's real role there is more like **tuning the effective learning rate / controlling the weight-norm equilibrium** — larger wd, smaller weight norm, relatively larger effective gradient step. **Caveat**: this argument does not apply to weights on the residual branch, the norm layer's own $\gamma/\beta$, biases, or the output head — their scale directly affects the network's output, so they are not scale-invariant. This is an important observation in recent training-dynamics research (treating wd as an "effective-LR knob" rather than pure regularization, but only for the part of the weights that are actually scale-invariant).
 
 ### 8.2　Scaling LR with batch size
 
@@ -382,7 +382,7 @@ Dropping bias correction; or putting $\epsilon$ inside the sqrt.
 <summary>Q3. What is warmup for?</summary>
 
 - Early in training **ramp the LR linearly** from 0/very-small to the peak (a few hundred ~ few thousand steps)
-- Early Adam's $\hat v$ uses few samples, high variance → adaptive step unstable/too large; large-batch and Post-LN early gradients are large
+- Early Adam's $\hat v$ uses few samples, high variance → adaptive step unstable/too large; large batch paired with a large LR (linear scaling) + early weights changing fast + Post-LN's naturally large top-layer gradients → together cause early instability
 - Warmup suppresses early instability, avoiding immediate divergence
 
 Treating warmup as black magic, unable to state the "early high variance / large gradients" mechanism.
@@ -394,7 +394,7 @@ Treating warmup as black magic, unable to state the "early high variance / large
 <summary>Q4. What is AdaGrad? Why does it "stop learning" on long training?</summary>
 
 - Per-coordinate accumulation of **all** historical squared gradients $G=\sum g^2$, step $\propto\eta/\sqrt{G}$
-- $G$ monotonically grows → effective LR monotonically → 0 → after long training the step is nearly 0, stagnation
+- $G$ monotonically grows → effective LR is monotonically non-increasing, and (as long as $\Sigma g^2\to\infty$) tends to 0 → after long training the step is nearly 0, stagnation
 - Good for convex / sparse features, bad for deep-net long training
 
 Not knowing it's "accumulating all history" that decays the LR to 0.
@@ -430,7 +430,7 @@ Saying only "Adam converges fast," unable to answer "adaptive = diagonal precond
 <summary>Q7. What do weight decay / L2 regularization intuitively do? Same for SGD and Adam?</summary>
 
 - Each step shrinks the weight toward 0 → bounds the weight norm, controls complexity
-- **SGD**: L2 and weight decay coincide ($\theta\mathrel{-}=\eta(g+\lambda\theta)=(1-\eta\lambda)\theta-\eta g$)
+- **Plain SGD (no momentum)**: L2 and weight decay coincide ($\theta\mathrel{-}=\eta(g+\lambda\theta)=(1-\eta\lambda)\theta-\eta g$); **SGD with momentum is strictly no longer equivalent** — decoupled SGDW is needed to keep the shrinkage uniform
 - **Adam**: the two are **not** equivalent (L2 is scaled by $1/\sqrt{\hat v}$), use AdamW, see Q11
 
 Thinking L2 and weight decay are always the same thing (untrue for adaptive optimizers).
@@ -563,7 +563,7 @@ Blindly applying uniform wd to all params, decaying norm gains / biases too.
 
 <summary>Q18. AdaGrad → RMSProp → Adam, what did each step fix in the previous?</summary>
 
-- AdaGrad: accumulates **all** $g^2$ → LR monotonically → 0 (dies on long training)
+- AdaGrad: accumulates **all** $g^2$ → LR monotonically non-increasing, tends to 0 once $\Sigma g^2\to\infty$ (dies on long training)
 - RMSProp: switches to an **EMA** → fixes the LR decay (doesn't die)
 - Adam: RMSProp + **first-moment momentum** + **bias correction** → fast and stable
 
@@ -664,7 +664,7 @@ This tutorial's from-scratch implementations should satisfy the following key in
 1. **[a] from-scratch SGD+momentum == `torch.optim.SGD`**: with $v_t=\mu v_{t-1}+g_t,\ \theta\mathrel{-}=\eta v_t$ (PyTorch convention: $v$ init 0, no damping), after a few steps the two are elementwise equal within float error (`atol≈1e-5`).
 2. **[b] from-scratch Adam == `torch.optim.Adam`**: $\hat m=m/(1-\beta_1^t),\ \hat v=v/(1-\beta_2^t),\ \theta\mathrel{-}=\eta\hat m/(\sqrt{\hat v}+\epsilon)$ ($\epsilon$ outside the sqrt) should match PyTorch elementwise.
 3. **[c] AdamW $\ne$ Adam+L2, and from-scratch decoupled decay == `torch.optim.AdamW`**: at the same `weight_decay=λ`, `torch.optim.AdamW` (decoupled) and `torch.optim.Adam(weight_decay=λ)` (L2) produce **different** updates ($\lVert\Delta\rVert\gt 0$); the from-scratch "Adam step first, then subtract $\eta\lambda\theta$" decoupled implementation should match `AdamW`. This is the core of §5.
-4. **[d] bias correction returns the first step to $\eta$**: at $t=1$ the **uncorrected** effective step $\approx 3.16\eta$ ($=\frac{1-\beta_1}{\sqrt{1-\beta_2}}$, because $v$ is pushed toward 0 harder by $\beta_2$ than $m$ → denominator too small → step **too large**), corrected it returns to $\eta$. Verify the corrected/uncorrected ratio $=\frac{\sqrt{1-\beta_2}}{1-\beta_1}\approx 0.316$.
+4. **[d] bias correction returns the first step approximately to $\eta$** (when $|g_1|\gg\epsilon$; the strict form is $\eta|g_1|/(|g_1|+\epsilon)<\eta$): at $t=1$ the **uncorrected** effective step $\approx 3.16\eta$ ($=\frac{1-\beta_1}{\sqrt{1-\beta_2}}$, because $v$ is pushed toward 0 harder by $\beta_2$ than $m$ → denominator too small → step **too large**), corrected it returns approximately to $\eta$ (again requiring $|g_1|\gg\epsilon$). Verify the corrected/uncorrected ratio $=\frac{\sqrt{1-\beta_2}}{1-\beta_1}\approx 0.316$.
 5. **[e] cosine-with-warmup schedule shape**: $\eta(0)\approx 0$, the peak $\eta_{\max}$ is hit at the warmup boundary, decays to $\sim\eta_{\min}$ at the end, and is monotonically non-increasing after warmup.
 6. **[f] momentum accelerates an ill-conditioned quadratic**: on a quadratic with large condition number $\kappa$, using a **small** $\eta$ inside the stability bound for $N$ steps, GD+momentum's final loss is markedly lower than plain GD's (momentum accumulates and accelerates on the shallow direction).
 
@@ -818,7 +818,7 @@ all optimizer / LR-schedule sanity checks passed ✓
 - **RMSProp** — Hinton, *Neural Networks for Machine Learning*, Coursera Lecture 6e (2012) (course lecture, **no formal paper / arXiv id**).
 - **Nesterov accelerated gradient** — Nesterov, *A method of solving a convex programming problem with convergence rate $O(1/k^2)$*, Soviet Math. Doklady 27 (1983) (**no arXiv id**).
 - **Momentum for deep nets** — Sutskever, Martens, Dahl & Hinton, *On the importance of initialization and momentum in deep learning*, ICML 2013 (PMLR proceedings; **no standalone arXiv id**, cited by venue).
-- **AMSGrad (Adam convergence)** — Reddi, Kale & Kumar, *On the Convergence of Adam and Beyond*, ICLR 2018 (OpenReview; no confirmed standalone arXiv id, cited by venue).
+- **AMSGrad (Adam convergence)** — Reddi, Kale & Kumar, *On the Convergence of Adam and Beyond*, arXiv 1904.09237 (2019), ICLR 2018.
 - **SGDR / cosine annealing** — Loshchilov & Hutter, *SGDR: Stochastic Gradient Descent with Warm Restarts*, arXiv 1608.03983 (2016), ICLR 2017.
 - **Transformer / Noam schedule** — Vaswani et al., *Attention Is All You Need*, arXiv 1706.03762 (2017), NeurIPS 2017.
 - **Linear scaling rule** — Goyal et al., *Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour*, arXiv 1706.02677 (2017).

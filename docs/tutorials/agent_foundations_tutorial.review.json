@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/agent_foundations_tutorial.md",
-  "source_sha256_prefix": "a329ddea9be664b9",
+  "source_sha256_prefix": "dd08d13d305176c7",
   "output": "docs/tutorials/agent_foundations_tutorial.html",
   "topic": "Agent Foundations (LLM agents — ReAct / Plan-and-Solve / Reflexion / Toolformer / Function Calling / MCP / A2A / Computer Use / Benchmarks / Production Patterns)",
   "effort": "max",
@@ -142,5 +142,13 @@
     ]
   },
   "summary": "9-round math/code review (Codex gpt-5.5 xhigh fresh threads) settled at WARN (length only, no factual error); 1-round render review settled at PASS.",
-  "rendered_at": "2026-05-19"
+  "rendered_at": "2026-05-19",
+  "post_ship_review": [
+    {
+      "scope": "full-collection rescan + adversarial re-audit (Codex GPT-5.6-sol + independent Claude cross-check)",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "2026-07-12 全集重扫复审: Codex GPT-5.6-sol 找候选错误 (15 条), 独立 Claude 对抗验证 (逐条尝试推翻) → 11 CONFIRMED + 3 NEEDS_NUANCE 已修复, 1 REFUTED 保留原文。修复摘要: (1) CoT “latent space” 措辞改为“自身 token 序列内推理”(TL;DR + Q1, 澄清 CoT 与 ReAct 的真实区别是有无外部 grounding 而非 latent-vs-explicit); (2) §1.1 POMDP 用词精确化, 区分隐藏 state s_t / 历史 h_t (充分统计量) / belief b_t (最小充分统计量), 并让 §1.3 state 行与之统一; (3) 区分 Plan-and-Solve (Wang 2023, 单次生成内纯 prompting, 不含工具调用) 与生产界 Plan-and-Execute 架构 (工具调用+replan 的后续工程模式), 避免误将后者内容归到 Wang 2023 论文 (TL;DR + §3.1); (4) Function Calling schema 合规性去绝对化: 普通 function calling 不保证 100% 合规, 100% 靠 2024-08 起 strict/Structured Outputs, 补充 OpenAI gpt-4-0613 35.4% 合规率数据 (§5.1 表格 + §5.3 + Q5); (5) §5.3 JSON 示例澄清为 Anthropic 专属字段名 (input_schema/tool_use/input), 并注明 OpenAI 对应字段是 parameters/tool_calls/function.arguments; (6) MCP 标准化的是应用层 (JSON-RPC message schema + capability negotiation) 而非 transport 层 (§5.1 末尾); (7) stdio 安全模型去误导化: 子进程继承宿主用户完整权限, 无额外 sandbox, 相对安全性只来自无公网暴露面而非 OS 强制隔离 (§6.1.4); (8) MCP prompt injection 段落澄清信任边界完全在 host 应用层, 协议本身不做 trusted/untrusted 标记, 与 Q13 已有的准确表述保持一致 (§6.1.4); (9) §7.3 working memory mitigation 修正 “prepend 到最后” 的自相矛盾, 改为 “prepend 到开头”; (10) §9.3 Pass@k 公式补充 i.i.d. 前提 (agent retry 常相关, 实际可靠性提升低于公式理论值), Q19 同步补充; (11) Q6 “AlfWorld 75 → 97” 修正为 “75/134 (约56%) → 130/134 (约97%)”, 避免原始计数与百分比混用; (12) Q18 “Verified 抽样确保两者都干净” 弱化为 “旨在筛除最明显问题”, 消除与同一答案后文 “~59% 仍含瑕疵” 的自相矛盾; (13) Q24 DeepSeek-R1 与 OpenAI o-series 的 rule-based reward 表述分离, R1 已证实、o-series 为社区推测未经证实; (14) Q25 “Human upper bound” 改为 “Human reference score”, 补充 §8.3 已有的 Simular 2025-12-16 OSWorld 72.6% 越过人类基线的事实, 避免暗示人类基线不可超越。REFUTED 未改动: L444 “HTTPS POST + SSE 双向流” 的措辞经核实是 POST(client→server)+SSE(server→client) 合并描述双向流, 而非声称 SSE 本身双向, 不算错误。EN 版 (agent_foundations_tutorial_en.md) 同步做了对应的自然英文修正。两版已重新渲染 HTML, sidecar hash 已刷新。"
+    }
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/vlm_multimodal_tutorial_en.md",
-  "source_sha256": "6472f6d9202d3190c9d00f0c1433ad10b099f9c07bdbaa1e59cf94b71c4f4a85",
+  "source_sha256": "91bc0a436875c8edd12e01ae133e5eedabf98fd771ee236cf7d3594b4ee81b8a",
   "output": "docs/tutorials/vlm_multimodal_tutorial_en.html",
   "zh_source": "docs/tutorials/vlm_multimodal_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -15,5 +15,14 @@
     "issues": [],
     "summary": "Fresh independent Codex (GPT-5.5 xhigh, thread 019e7cc2-b79a-7332-9e0d-6328adb9b39e) audited the English edition /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/vlm_multimodal_tutorial_en.md and its rendered /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/vlm_multimodal_tutorial_en.html against the Chinese source of truth /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/vlm_multimodal_tutorial.md. Verdict: PASS, zero issues. Both markdown files share an identical 1446-line structure, enabling a line-by-line / section-by-section comparison. Codex confirmed all four fidelity dimens"
   },
-  "rendered_at": "2026-05-31"
+  "resweep_2026_07_12": {
+    "run": "2026-07-12-resweep",
+    "date": "2026-07-12",
+    "reviewer": "codex gpt-5.6-sol ultra (candidate errors, full-collection sweep on ZH source) + independent Claude fresh-thread adversarial verification (tried to overturn every candidate)",
+    "verdict": "FIXED",
+    "scope": "ZH source's 17 candidate findings (11 CONFIRMED + 6 NEEDS_NUANCE) ported to this EN edition at every corresponding location, same fix strength (CONFIRMED = full rewrite, NEEDS_NUANCE = qualifier only, no change to core claim)",
+    "summary": "2026-07-12 full-collection resweep found 17 issues in the ZH source (11 CONFIRMED technical errors + 6 NEEDS_NUANCE overstated details); every fix was mirrored into this EN edition at the matching location — BLIP-2 cross-attn location, ViT-L/14 attribution, DDP gradient-checkpointing claim, POPE/Winoground mix-up, LLaVA-NeXT AnyRes training-vs-inference + token formula, Q-Former ITM self-attn-mask mechanism, Qwen2-VL smart_resize patch count, LongVA vs M-RoPE, VLM2Vec last-token+LoRA mechanism, LLaVA-Instruct-158K text-only GPT-4, SigLIP stage-1 stability claim, original-Qwen-VL-vs-Qwen2-VL patch merger, τ clamp direction, symmetric-loss 'one-sided collapse' framing, InfoNCE batch-size causality, Q22 rank-inequality rigor, and Q14 mrope_section rationale hedging.",
+    "source_sha256_before": "6472f6d9202d3190c9d00f0c1433ad10b099f9c07bdbaa1e59cf94b71c4f4a85"
+  },
+  "rendered_at": "2026-07-12"
 }

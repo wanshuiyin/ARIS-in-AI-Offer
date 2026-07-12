@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/rag_embedding_retrieval_tutorial.md",
-  "source_sha256": "9534fd9052074c17225bb0396f7dce3be11995ca1bbded691f371271dc495a4b",
+  "source_sha256": "503e40435df4b1f2ad180a16d34431b2f2bc7555e49ee6889c1c7cdd752015b8",
   "output": "docs/tutorials/rag_embedding_retrieval_tutorial.html",
   "runnable_code": "docs/tutorials/code/rag_embedding.py",
   "topic": "RAG + 文本嵌入/检索/重排 — InfoNCE / 难负例 / Matryoshka / 双塔 vs cross-encoder / ColBERT late interaction / BM25 / RRF / HNSW / HyDE / Self-RAG / CRAG / GraphRAG / RAGAS",
@@ -79,6 +79,13 @@
       "verdict": "FIXED",
       "thread": "019ec996 (found)",
       "notes": "2 minor errors fixed: HyDE = generate a hypothetical DOCUMENT/passage (not 'answer'), §7+Q18; CRAG scores RETRIEVED-doc relevance/confidence (not 'recall', untestable at inference), §7+Q24. Enrichment (compact): SPLADE learned-sparse (§5.3), ColBERTv2/PLAID + single-vs-multi-vector tradeoff (§6), Contextual Retrieval + late chunking (§10), BEIR/MTEB benchmarks (§8.3); +7 refs (citations verified; ColBERTv2 title corrected to 'Efficient and Effective')."
+    },
+    {
+      "scope": "2026-07-12 全集重扫复审 (P0 resweep): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "notes": "1 CONFIRMED finding (none REFUTED on adversarial re-check): §A sanity-check bullet 'RRF 混合召回 ⊇ 关键命中' was listed under 'key invariants' but RRF's rank-fusion formula only guarantees the candidate pool is the union of both retrievers' rankings — it does not guarantee an exact-entity BM25 hit survives truncation to the final top-k (depends on competing documents' ranks and the constant k). Reframed L634 (ZH) / L634 (EN) from an absolute invariant to an engineering goal, with the lexical-quota/pinning caveat for production systems. No math/code/citation changes; prose precision only."
     }
-  ]
+  ],
+  "last_updated": "2026-07-12"
 }

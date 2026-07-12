@@ -8,7 +8,7 @@
 
 3. **NTK-aware (bloc97 2023)**: change the base; new base $b' = b \cdot s^{d/(d-2)}$. **Low-frequency dimensions are heavily compressed while high-frequency dimensions are almost unchanged**, so zero-shot extrapolation is better than PI.
 
-4. **YaRN (Peng 2023)**: NTK-by-parts (segment-wise frequency handling) + temperature scaling (the fitted formula $\sqrt{1/t} \approx 0.1\ln s + 1$, i.e., $t \approx 1/(0.1\ln s + 1)^2$) + attention scale. The three components respectively solve: handle high/low frequencies separately, dilute the softmax, and compensate for post-extrapolation attention entropy inflation.
+4. **YaRN (Peng 2023)**: NTK-by-parts (segment-wise frequency handling) + temperature scaling (the fitted formula $\sqrt{1/t} \approx 0.1\ln s + 1$, i.e., $t \approx 1/(0.1\ln s + 1)^2$, implemented in practice as "attention scale" by multiplying into the cos/sin cache, not an independent third component). The two components respectively solve: handle high/low frequencies separately, and compensate for post-extrapolation attention entropy inflation (dilution of the softmax).
 
 5. **LongRoPE (Ding 2024 ICML)**: evolutionary search for an independent scaling factor $\lambda_i$ per dimension, plus a short-context "rescue", pushing context to 2M tokens.
 
@@ -65,11 +65,11 @@ The last step uses $R_m^\top R_n = R_{n-m}$ (additivity of 2D rotations). **The 
 Treat $\theta_i$ as angular velocity. Larger dimension $i$ means smaller $\theta_i$ and **slower** rotation (low frequency); smaller dimension $i$ (close to 0) means $\theta_i$ close to 1 and **faster** rotation (high frequency).
 
 - **High-frequency dimensions**: short period ($2\pi/\theta_i$ short), phase is sensitive to position changes — encodes fine-grained local relative positions
-- **Low-frequency dimensions**: long period (maximum $2\pi \cdot 10000$), phase changes slowly with position — encodes coarse long-range positions
+- **Low-frequency dimensions**: long period (maximum $\lambda_\text{max} = 2\pi \cdot b^{(d-2)/d}$, which numerically is $\approx 54{,}410$ for $d=128$, not $2\pi \cdot 10000 \approx 62{,}832$ — the latter is only the limit as $d\to\infty$), phase changes slowly with position — encodes coarse long-range positions
 
 This **geometric-progression frequency distribution** matches Vaswani 2017 sinusoidal PE (not a coincidence: sinusoidal PE also uses $10000^{-2i/d}$), letting the model resolve positions at multiple time scales simultaneously.
 
-> 💡 **Wavelength vs training context** — the wavelength of dimension $i$ is $\lambda_i = 2\pi b^{2i/d}$. When $\lambda_i$ **exceeds the training length** $L$, that dimension has not seen a complete period during training — this is the key observation behind NTK-by-parts: phase interpolation on low-frequency dimensions is risky (extrapolation enters unseen regions), while high-frequency dimensions are safe.
+> 💡 **Wavelength vs training context** — the wavelength of dimension $i$ is $\lambda_i = 2\pi b^{2i/d}$. When $\lambda_i$ **exceeds the training length** $L$, that dimension has not seen a complete period during training — this is the key observation behind NTK-by-parts: on low-frequency dimensions, extrapolating the phase directly **without interpolating** is risky (the phase enters a region unseen during training); high-frequency dimensions are safe even when extrapolated.
 
 ### 2.4 RoPE code from scratch
 
@@ -246,11 +246,10 @@ def precompute_rope_cache_ntk(seq_len: int, dim: int,
 
 ### 6.1 Overview
 
-Peng et al. 2023 ("YaRN: Efficient Context Window Extension of Large Language Models") systematizes the NTK-aware idea, splitting it into three relatively independent components:
+Peng et al. 2023 ("YaRN: Efficient Context Window Extension of Large Language Models") systematizes the NTK-aware idea; at its core are two components:
 
 1. **NTK-by-parts**: split dimensions into three bands by wavelength and handle them separately
-2. **Temperature scaling**: apply a global temperature to logits before softmax
-3. **Attention scale** (an alternative implementation equivalent to temperature): scale Q/K norms in sync
+2. **Temperature scaling**: apply a global temperature to logits before softmax — implemented in practice by multiplying $\sqrt{1/t}$ into the RoPE cos/sin cache, i.e. so-called **attention scale**: it is just one implementation of temperature scaling, not an independent third component
 
 We derive each below.
 
@@ -304,15 +303,15 @@ YaRN implements this by multiplying the scaling factor directly into the RoPE ca
 
 $$\text{cos}'_m = \cos(m \theta'_i) \cdot \sqrt{1/t}, \quad \text{sin}'_m = \sin(m \theta'_i) \cdot \sqrt{1/t}$$
 
-Note this only affects the RoPE part, but **the overall effect is equivalent to amplifying query/key norms by $\sqrt{1/t}$** (when $t < 1$ this factor $> 1$) — provided the Q/K norms are dominated by the post-RoPE part. In practice YaRN's attention scale implementation simply multiplies the cos/sin cache by $\sqrt{1/t}$. **This is equivalent to changing the temperature without modifying the attention kernel**.
+Note this only affects the RoPE part, but **the overall effect is equivalent to amplifying query/key norms by $\sqrt{1/t}$** (when $t < 1$ this factor $> 1$) — provided the Q/K norms are dominated by the post-RoPE part (this holds strictly under a standard full-dimensional RoPE architecture such as LLaMA, where 100% of dimensions rotate; but under a partial-RoPE architecture, e.g. GPT-NeoX's rotary_pct<1, or MLA's decoupled RoPE key, scaling cos/sin only amplifies the rotary sub-term $q^R, k^R$ — the non-RoPE content part $q^C, k^C$ is unaffected, so equivalence to a global softmax temperature no longer holds strictly). In practice YaRN's attention scale implementation simply multiplies the cos/sin cache by $\sqrt{1/t}$. **Under standard full-dimensional RoPE this is equivalent to changing the temperature without modifying the attention kernel**.
 
-### 6.5 What does each of YaRN's three components solve (a must-ask L3 question)
+### 6.5 What does each of YaRN's components solve (a must-ask L3 question)
 
 | Component | Problem solved | What happens without it |
 | --- | --- | --- |
 | **NTK-by-parts** | High frequencies should be preserved, low frequencies should be interpolated, mid frequencies need a smooth transition | Using NTK-aware globally, large expansion ratios cause low-frequency collapse |
 | **Temperature scaling** | After context lengthens, softmax distribution is diluted | Attention entropy too high, long-range signal drowned |
-| **Attention scale (implementation-layer)** | Realize temperature without modifying softmax kernel | Need to rewrite the FlashAttention kernel |
+| ↳ **Attention scale** (implementation of Temperature scaling, not an independent component) | Realize temperature scaling without modifying softmax kernel | Need to rewrite the FlashAttention kernel |
 
 YaRN paper shows: just 400 fine-tuning steps push LLaMA-2-7B from 4K to 128K ($s = 32$), outperforming PI and NTK-aware.
 
@@ -376,7 +375,7 @@ Ding et al., ICML 2024 (Microsoft) asks further: **can the optimal scaling facto
 | Stage | What |
 | --- | --- |
 | **Stage 1: Evolution search (256K)** | Each RoPE dimension scaled independently by $\lambda_i$; evolutionary search for the $\{\lambda_i\}$ giving the lowest long-context PPL |
-| **Stage 2: Fine-tune at 256K** | Brief fine-tuning (≈ 400 steps) with the searched $\{\lambda_i\}$ |
+| **Stage 2: Fine-tune at 256K** | Brief fine-tuning (≈ 1000 steps, i.e. 1k) with the searched $\{\lambda_i\}$ |
 | **Stage 3: Re-search at 2M + short-context rescue** | Further search up to 2M; maintain two scaling sets — short context uses $\{\lambda_i^\text{short}\}$ (close to 1), long context uses $\{\lambda_i^\text{long}\}$ |
 
 ### 7.3 Search space
@@ -396,9 +395,9 @@ Evolutionary algorithm (CMA-ES or similar) maintains a population, iterating to 
 | PI | All dimensions same $1/s$ | yes (≥ 1000 steps) | 32K |
 | NTK-aware | Gradual (single param $\alpha$) | no (zero-shot) | 16K |
 | YaRN | Three-band ramp (fixed $\alpha, \beta$) | yes (≈ 400 steps) | 128K |
-| LongRoPE | **Per-dim independent** | yes (≈ 400 steps) | **2M** |
+| LongRoPE | **Per-dim independent** | yes (≈ 1000 steps) | **2M** |
 
-> 💡 **Significance of short-context rescue** — directly applying long-context scaling makes the model worse on short contexts (e.g., 1K-4K, covering most real use cases). LongRoPE switches the scaling table at inference based on the actual length of the current batch; this dual-table design is a common trick in production-grade long-context models (DeepSeek-V2 / Qwen2.5 / Llama-3.1 also have similar dual-table designs).
+> 💡 **Significance of short-context rescue** — directly applying long-context scaling makes the model worse on short contexts (e.g., 1K-4K, covering most real use cases). LongRoPE switches the scaling table at inference based on the actual length of the current batch (a genuine short/long dual-table design like this is not widely used elsewhere in production; Llama-3.1 uses a single piecewise-linear frequency scaling function, not table switching, and DeepSeek-V2's long-context extension uses standard YaRN, likewise a single scaling scheme).
 
 ## §8 ABF and NoPE — Two "Non-Mainstream" Extensions
 
@@ -614,7 +613,7 @@ def sliding_window_mask(L: int, W: int, device=None) -> torch.Tensor:
 # row 7: [F F F F T T T T]
 ```
 
-> 💡 **Practical significance of SWA** — Mistral-7B trained at length 8K can handle 32K+ context at inference with SWA (each layer sees only 4K locally; multi-layer stacking sees globally), with memory/compute scaling linearly. But pure SWA's **long-range exact retrieval** (e.g., needle-in-haystack far away) is weak — this is exactly why StreamingLLM adds attention sink.
+> 💡 **Practical significance of SWA** — Mistral-7B trained at length 8K can handle 32K+ context at inference with SWA (each layer sees only 4K locally; multi-layer stacking sees globally), with memory/compute scaling linearly. But pure SWA cannot retain tokens outside the window (so it naturally has no **long-range exact retrieval** ability, e.g. needle-in-haystack). StreamingLLM adds an attention sink to **prevent** the PPL blow-up that happens when naive window eviction removes the softmax's "trash bin" for early tokens, enabling **unbounded streaming generation** — the sink does not recover any information from evicted tokens, so long-range retrieval ability is still missing (see §10.3).
 
 ### 10.2 StreamingLLM — Attention Sink + Sliding Window
 
@@ -747,7 +746,7 @@ Megatron-Core's Context Parallel (CP) is an engineering-grade version of Ring At
 FlashAttention v1 (Dao 2022) core is IO-aware exact attention, but v1's loop structure is unbalanced on long sequences.
 
 - **v2 (Dao 2023)**: swaps inner/outer loops (Q-outer, KV-inner), better warp-level parallelism, 2× throughput on long sequences.
-- **v3 (Dao 2024)**: targets H100, uses WGMMA / TMA / FP8 asynchronous pipeline.
+- **v3 (Shah et al. 2024, with Tri Dao as a co-author)**: targets H100, uses WGMMA / TMA / FP8 asynchronous pipeline.
 
 In long-context scenarios, FlashAttention is **the default in almost all training / inference stacks** (avoiding materializing the $L \times L$ score matrix).
 
@@ -792,7 +791,7 @@ Note: SWA / Streaming and GQA / MLA are **orthogonal** — multiplying them toge
 | FlashAttention | $O(L \cdot N_h d_h)$ | $O(L)$ (no intermediate scores) |
 | Sliding Window | $O(W \cdot N_h d_h)$ | $O(L \cdot W)$ |
 | Streaming (S+W) | $O((S+W) \cdot N_h d_h)$ | $O((S+W)^2)$ |
-| Ring (P GPU) | $O(L \cdot N_h d_h / P)$ per GPU | $O(L^2 / P)$ per GPU |
+| Ring (P GPU) | $O(L \cdot N_h d_h / P)$ per GPU | persistent $O(Ld/P)$ (local K/V shard); local block peak $O(L^2/P^2)$ (not $O(L^2/P)$) |
 | MLA | $O(L \cdot N_h (d_c + d_h^R))$ | + projection overhead |
 
 ## §13 Overall Comparison and Selection Decision Tree
@@ -983,11 +982,10 @@ Pitfall: just memorizing the formula without being able to derive.
 
 <details>
 
-<summary>Q12. What does each of YaRN's three components solve?</summary>
+<summary>Q12. What does each of YaRN's components solve?</summary>
 
 - **NTK-by-parts**: handle high/mid/low frequencies in separate bands; finer than NTK-aware's single-parameter ramp
-- **Temperature scaling**: after context lengthens, softmax distribution flattens; lower temperature $t < 1$ sharpens it
-- **Attention scale (implementation-layer)**: implement temperature $1/t$ as Q/K norm scaling (equivalent to multiplying into cos/sin cache), without modifying the attention kernel
+- **Temperature scaling**: after context lengthens, softmax distribution flattens; lower temperature $t < 1$ sharpens it — implemented in practice as **attention scale**: temperature $1/t$ realized as Q/K norm scaling (equivalent to multiplying into cos/sin cache), without modifying the attention kernel; attention scale is just an implementation of temperature scaling, not an independent third component
 
 Pitfall: just saying "YaRN is an improved NTK-aware" without decomposing.
 
@@ -1118,7 +1116,7 @@ Pitfall: just saying "NTK does not change high frequencies" — without explaini
 
 - **Key answer: it is not injected**. MLA's non-RoPE main body $\mathbf{k}_t^{C,(h)} = W_\text{UK}^{(h)} \mathbf{c}_t^{KV}$ has no position encoding at all
 - The position signal is **provided only by the shared RoPE key** $\mathbf{k}_t^R = \mathrm{RoPE}(W_\text{KR} \mathbf{h}_t)$
-- The attention score is additively decomposed: $\mathbf{q}_t^{C\top} \mathbf{k}_s^C$ (content) + $\mathbf{q}_t^{R\top} \mathbf{k}_s^R$ (position)
+- The attention score is decomposed into: $\mathbf{q}_t^{C\top} \mathbf{k}_s^C$ (pure content interaction, no positional modulation) + $\mathbf{q}_t^{R\top} \mathbf{k}_s^R$ (still a content interaction, but modulated by the relative-position rotation $R_{s-t}$ — not a pure position term, since $q^R, k^R$ are themselves generated linearly from hidden-state content)
 - This is what "decoupling" means: the content path and the position path are **independent**, not polluting the absorbing trick
 
 Pitfall: assuming MLA absorbs RoPE into the latent — wrong.
@@ -1146,7 +1144,7 @@ Pitfall: just saying "RoPE is position-dependent" — not enough; you need to st
 
 - **Direct temperature change**: divide logits by $t$ in the attention kernel, requiring modification of fused kernels like FlashAttention
 - **Attention scale**: multiply $\sqrt{1/t}$ into the RoPE cos/sin cache, equivalent to **amplifying** Q/K norms by $\sqrt{1/t}$ ($\sqrt{1/t} > 1$ when $t < 1$); $QK^\top$ naturally amplified by $1/t$
-- The two are **mathematically equivalent** (provided Q/K norms come mainly from the post-RoPE part)
+- The two are **mathematically equivalent** (provided Q/K norms come mainly from the post-RoPE part — this holds strictly under standard full-dimensional RoPE such as LLaMA; under a partial-RoPE architecture, e.g. GPT-NeoX's rotary_pct<1 or MLA's decoupled RoPE key, scaling cos/sin only amplifies $q^R,k^R$ and leaves $q^C,k^C$ unaffected, so the equivalence no longer holds strictly)
 - Engineering advantage: **no attention kernel modification at all**, only the RoPE precomputation
 - This is a major selling point of YaRN being "infrastructure-friendly"
 
@@ -1160,7 +1158,7 @@ Pitfall: saying "the two are the same thing" — mathematically equivalent but e
 
 Reference Qwen2.5-1M / DeepSeek-V3 ideas:
 
-- **Position encoding**: YaRN / LongRoPE to push RoPE to 1M (per-dim scaling search)
+- **Position encoding**: YaRN (NTK-by-parts analytical ramp, no search needed) or LongRoPE (evolutionary search for per-dimension scaling factors $\lambda_i$) to push RoPE to 1M
 - **KV cache compression**: MLA (cut cache 50×) to fit the 1M cache "latent" on a single card
 - **Attention algorithm**: FlashAttention 3 + Ring Attention (if multi-card) or Sliding Window combined with sink (if streaming)
 - **Inference optimization**: vLLM PagedAttention for cache pagination; speculative decoding to speed up decode; chunked prefill (feed prompt in batches to avoid OOM)
@@ -1210,4 +1208,4 @@ Pitfalls:
 | 128K-2M | LongRoPE + fine-tune | MLA + Ring/CP |
 | Streaming generation | StreamingLLM (sink + window) | Any; cache is constant size |
 
-**Long Context Quick Reference** · Main references: Su et al. 2021/2024 (RoPE/RoFormer, Neurocomputing), Chen et al. 2023 (PI, arXiv:2306.15595, Meta), bloc97 / jquesnelle 2023 (NTK-aware, LocalLLaMA community), Peng et al. 2023 (YaRN, arXiv:2309.00071), Ding et al. 2024 (LongRoPE, ICML 2024, Microsoft), DeepSeek-AI 2024 (DeepSeek-V2, arXiv:2405.04434), Jiang et al. 2023 (Mistral 7B, arXiv:2310.06825), Xiao et al. 2024 (StreamingLLM, ICLR 2024), Nelson F. Liu et al. (Lost in the Middle, arXiv:2307.03172, arXiv 2023 / TACL 2024), Hao Liu et al. 2023 (Ring Attention, arXiv:2310.01889), Dao et al. 2022-2024 (FlashAttention 1/2/3)
+**Long Context Quick Reference** · Main references: Su et al. 2021/2024 (RoPE/RoFormer, Neurocomputing), Chen et al. 2023 (PI, arXiv:2306.15595, Meta), bloc97 / jquesnelle 2023 (NTK-aware, LocalLLaMA community), Peng et al. 2023 (YaRN, arXiv:2309.00071), Ding et al. 2024 (LongRoPE, ICML 2024, Microsoft), DeepSeek-AI 2024 (DeepSeek-V2, arXiv:2405.04434), Jiang et al. 2023 (Mistral 7B, arXiv:2310.06825), Xiao et al. 2024 (StreamingLLM, ICLR 2024), Nelson F. Liu et al. (Lost in the Middle, arXiv:2307.03172, arXiv 2023 / TACL 2024), Hao Liu et al. 2023 (Ring Attention, arXiv:2310.01889), Dao et al. 2022-2023 (FlashAttention 1/2), Shah et al. 2024 (FlashAttention-3, with Tri Dao)

@@ -4,9 +4,9 @@
 
 1. **Agent = LLM policy + tool I/O + memory + control loop**。最小骨架（ReAct, Yao et al. 2022, arXiv:2210.03629, ICLR 2023）：循环 `Thought → Action → Observation → Thought …` 直到生成 `Finish[answer]`。Action 调外部工具（search / calculator / shell），observation 反喂 context，scratchpad 在每轮拼回 prompt。
 
-2. **比起 vanilla CoT 的关键收益**：CoT 只在 latent space 里"想"，hallucination 会一路传播；ReAct 让模型在每一步可以**离开自己脑子去查证**（Wikipedia API、Python interpreter、code execution）→ 在 ALFWorld / WebShop 等 interactive decision 任务上比 IL/RL baseline 绝对成功率高 34% / 10%（仅 1-2 个 in-context examples）。但纯 ReAct 在 HotpotQA EM 上 (27.4) 反而**低于**纯 CoT (29.4) 和 CoT-SC (33.4)；真正最强的是 **ReAct ↔ CoT-SC 互补 fallback** (HotpotQA 35.1, Fever 64.6)。
+2. **比起 vanilla CoT 的关键收益**：CoT 只在模型自己生成的 token 序列内"推理"（没有外部 action grounding），hallucination 会一路传播；ReAct 让模型在每一步可以**离开自己脑子去查证**（Wikipedia API、Python interpreter、code execution）→ 在 ALFWorld / WebShop 等 interactive decision 任务上比 IL/RL baseline 绝对成功率高 34% / 10%（仅 1-2 个 in-context examples）。但纯 ReAct 在 HotpotQA EM 上 (27.4) 反而**低于**纯 CoT (29.4) 和 CoT-SC (33.4)；真正最强的是 **ReAct ↔ CoT-SC 互补 fallback** (HotpotQA 35.1, Fever 64.6)。
 
-3. **Plan-and-Execute / Plan-and-Solve (Wang et al. 2023, ACL, arXiv:2305.04091)**：先 plan（"Let's first understand the problem and devise a plan… Then carry out the plan step by step."），再逐步 execute。优势是 horizon 长时不会"走着走着忘了目标"；缺点是 plan 错就一路错（缺乏 replan 机制时）。生产里通常 hybrid：Plan-and-Execute 起手 + ReAct 每步 fall-back。
+3. **Plan-and-Solve (Wang et al. 2023, ACL, arXiv:2305.04091)**：先 plan（"Let's first understand the problem and devise a plan… Then carry out the plan step by step."），再逐步 execute——这是单次生成内的 zero-shot CoT prompting 技术，不涉及工具调用或多轮 LLM 执行。优势是 horizon 长时不会"走着走着忘了目标"；缺点是 plan 错就一路错（缺乏 replan 机制时）。生产界借鉴"先规划再执行"的思路搭建出 **Plan-and-Execute** 架构（独立 planner+executor 组件、支持工具调用与 replan，是后续工程模式而非 Wang 2023 论文内容）：通常 hybrid，Plan-and-Execute 起手 + ReAct 每步 fall-back。
 
 4. **Tool use 的三大范式**：(a) **Prompt-time tool use**（ReAct、ART, Paranjape 2023, arXiv:2303.09014）—— 给 demo 让模型 in-context 学；(b) **Self-supervised fine-tuning**（Toolformer, Schick 2023 NeurIPS, arXiv:2302.04761）—— 模型自己标 API call、用 loss 筛"有用的"；(c) **Structured Function Calling**（OpenAI 2023-06-13 / Anthropic Tool Use 2024 / Gemini Tools）—— RLHF/SFT 后端模型出 JSON-schema 结构化 tool call，最稳，是 2024-2026 工业部署默认范式。
 
@@ -52,7 +52,7 @@ Agent 把它包成一个 **闭环系统**：
                        └──→ 回到 LLM
 ```
 
-这就是 **POMDP 的特例**：state = 完整对话历史 $h_t = (q, a_1, o_1, \dots, a_{t-1}, o_{t-1})$，policy $\pi_\theta(a_t | h_t)$，trajectory 在 LLM 自己生成 `Finish[answer]` 时终止。
+这是 **POMDP 的一个实例化**：环境隐藏状态是 $s_t$（agent 不可直接观测），$h_t = (q, a_1, o_1, \dots, a_{t-1}, o_{t-1})$ 只是历史，是一个（非最小的）充分统计量；最小充分统计量是 belief $b_t = P(s_t \mid h_t)$。因为 $h_t$ 本身也是 sufficient statistic，可以把这个 POMDP 等价转成一个以 $h_t$ 为 state 的 derived MDP，所以 policy 可以直接写成 $\pi_\theta(a_t \mid h_t)$，trajectory 在 LLM 自己生成 `Finish[answer]` 时终止。
 
 > 💡 **面试常考：agent 和 chatbot 区别是什么？** —— chatbot 是 single-turn / multi-turn 但**只在 token 空间里行动**；agent 必然有**外部 side effect**（call API、写文件、动鼠标），observation 来自真实环境。"能不能调工具"是判定 agent 的硬边界。
 
@@ -76,7 +76,7 @@ Agent 把它包成一个 **闭环系统**：
 |---|---|---|
 | **policy** | 神经网络 $\pi_\theta(a \lvert s)$ | LLM autoregressive sampling |
 | **action space** | 数百离散 / 低维连续 | **整个 token 序列**（极大动作空间） |
-| **state** | image / sensor | 文本 history（POMDP，无完整 state） |
+| **state** | image / sensor | 文本 history $h_t$（POMDP：真实 state $s_t$ 不可观测，$h_t$ 只是非最小充分统计量） |
 | **reward** | 每步密集 / sparse terminal | 极稀疏（终态正确 = 1）或来自 RM |
 | **learning** | RL（policy gradient / Q-learning） | 多数靠 in-context demo + RLHF/SFT 微调 |
 | **环境** | simulator | 真实 API / OS / web |
@@ -214,7 +214,7 @@ def react_loop(llm, question, max_steps=8):
 Plan-and-Solve (Wang et al. 2023 ACL, arXiv:2305.04091) 把推理拆成两阶段：
 
 1. **Plan**：给定 question，模型先**写出 N 步抽象计划**（"Step 1: find X. Step 2: compute Y. Step 3: ..."），不执行；
-2. **Execute**：按 plan 顺序执行，每步可以是 LLM 推理或调工具。
+2. **Execute**：论文本身是单次生成内按 plan 顺序逐步推理（zero-shot CoT prompting，不涉及工具调用或多轮 LLM 执行，用于纯推理任务如 GSM8K/SVAMP/AQuA）；生产界扩展出的 **Plan-and-Execute** 架构（独立 planner + executor 组件、支持工具调用与 replan）才允许每步调工具——这是后续工程模式，非 Wang et al. 2023 论文内容。
 
 为什么 plan 单独一步有用？因为 LLM **写 plan 时不被 observation 干扰**，更容易保持全局视角；而 ReAct 风格的 step-by-step 容易被前一步 observation 拽歪（"observation 说 X，那我下一步追 X"，忘了 user 原本问的是 Y）。
 
@@ -339,9 +339,9 @@ def reflexion_agent(llm, question, evaluator, max_episodes=3):
 | **0 代：prompt-only** | 2022Q4 之前 | 大模型 + 正则解析 | 模型在 free-form text 里 emit `[CALL: search("x")]`，外部用正则抠出来 |
 | **1 代：in-context demo** | 2022Q4-2023Q1 | ReAct, ART (Paranjape 2023, arXiv:2303.09014), HuggingGPT (Shen 2023 NeurIPS, arXiv:2303.17580) | demo 教模型 emit 固定语法，仍是 string parsing |
 | **2 代：SFT for tools** | 2023Q1 | **Toolformer** (Schick 2023 NeurIPS, arXiv:2302.04761) | 模型自标 API call，按 utility loss 筛 → fine-tune base model |
-| **3 代：Structured Function Calling** | 2023-06-13 起 | OpenAI Function Calling, Anthropic Tool Use (公测 2024-04，GA 2024-05-30), Gemini Tools | RLHF/SFT 后端模型输出**严格 JSON-schema** tool call；前端框架直接解析 |
+| **3 代：Structured Function Calling** | 2023-06-13 起 | OpenAI Function Calling, Anthropic Tool Use (公测 2024-04，GA 2024-05-30), Gemini Tools | RLHF/SFT 后端模型输出结构化 JSON tool call（是否严格遵循 schema 取决于是否启用 constrained-decoding 的 strict 模式；普通 function calling 不保证 100% 合规）；前端框架直接解析 |
 
-到 2024-2026，主流框架都已经站在第 3 代之上。MCP（§6）则在 transport 层标准化了 tool 的服务端实现。
+到 2024-2026，主流框架都已经站在第 3 代之上。MCP（§6）在应用层标准化了 tool/resource/prompt 的服务端实现（JSON-RPC 2.0 message schema + capability negotiation），本身跑在 stdio / Streamable HTTP 这些既有 transport 之上，并非发明或标准化了 transport 层。
 
 ### 5.2　Toolformer：自监督打标的核心 trick
 
@@ -362,7 +362,7 @@ Toolformer 想解决"如何让模型学会用 API 而无需人标"：
 
 ### 5.3　Structured Function Calling 的 schema 规范
 
-以 OpenAI Function Calling（2023-06-13）和 Anthropic Tool Use（2024 起）为代表，schema 长这样：
+以 Anthropic Tool Use（2024 起）为例，schema 长这样（字段名 `input_schema`/`tool_use`/`input` 是 Anthropic 专属；OpenAI Function Calling 对应字段名是 `parameters`，模型输出走 `tool_calls`→`function.arguments`（JSON 字符串），语义等价但字段命名不同）：
 
 ```json
 {
@@ -392,7 +392,7 @@ Toolformer 想解决"如何让模型学会用 API 而无需人标"：
 
 - **JSON-schema validation**：参数类型 / enum / required 都能在前端校验，错了直接拒绝；
 - **Parallel tool calls**：一次推理出多个 tool_use block，并行执行（Anthropic 2024 起原生支持）；
-- **决定性强**：模型经过 SFT 对齐到 schema，几乎不会出语法错。
+- **决定性较强，但非绝对**：SFT/RLHF 对齐让语法错误率显著下降，但普通 function calling 不保证 schema 100% 合规——OpenAI 自述 gpt-4-0613 在复杂 schema、未开 Structured Outputs 时仅 35.4% 严格合规；真正的强保证来自 2024-08 起的 `strict: true` / Structured Outputs（constrained decoding），host 侧仍需做 schema validation 兜底。
 
 ### 5.4　Parallel Tool Use 的注意点
 
@@ -475,9 +475,9 @@ Anthropic 在 2024-11-25 开源了 MCP，到 2025 已经成为事实标准（Ope
 
 #### 6.1.4 安全模型（面试常被追问）
 
-- **Local stdio**：进程隔离 + OS 权限，host 才能 spawn server，相对安全；
+- **Local stdio**：server 作为 host 的子进程运行，继承宿主进程（即当前登录用户）的完整文件系统/网络权限，没有额外 sandbox（无 seccomp/容器隔离）；相对 remote HTTP 的"安全性"仅体现在无公网暴露面、且用户自己选择要 spawn 哪个本地二进制，而非因为有 OS 强制的权限隔离；
 - **Remote HTTP**：走 **OAuth 2.1**（2025-03 spec 加入），加上 `Authorization` header；DCR (Dynamic Client Registration, RFC 7591) 在 2025-11-25 spec 已经从 SHOULD 降级到 **MAY**——客户端和授权服务器**可以**支持，但不再强制；同时引入 **CIMD (Client ID Metadata Documents)** 作为不需要预注册的另一条路；
-- **Prompt injection via tool/resource output**：协议层无法防——MCP 把任意 content 直接塞回 LLM context，恶意 server 可以注入 `"<system>Ignore previous instructions and ..."`。生产 mitigation：**(1) 在 host 端打安全标记 + 内容隔离 (sandbox content)；(2) 用 classifier 过滤 tool result；(3) 限制能拉起的 server 白名单**。
+- **Prompt injection via tool/resource output**：协议层无法防——MCP 只把 server 返回的 tool/resource 内容原样交给 client；是否、以及如何把它塞进 LLM context 完全由 host 应用决定，协议本身没有 trusted/untrusted 标记，恶意 server 可以在返回内容里注入 `<system>Ignore previous instructions and ...</system>`。生产 mitigation：**(1) 在 host 端打安全标记 + 内容隔离 (sandbox content)；(2) 用 classifier 过滤 tool result；(3) 限制能拉起的 server 白名单**。
 
 ### 6.2　A2A (Agent-to-Agent Protocol)
 
@@ -677,7 +677,7 @@ agent memory 通常分两层：
 | **Working memory** | 单次任务内 | 把 history 全塞 context window；超长时用 summarization |
 | **Episodic / long-term** | 跨任务 | Vector store（语义检索） + KG（结构化关系） + 时间索引 |
 
-- **Working memory** 的 footgun 是 **lost-in-the-middle**（Liu et al. 2023, arXiv:2307.03172）—— 长 context 中段信息被忽略；mitigation 是 **summarization + reordering**（把关键事实 prepend 到最后）。
+- **Working memory** 的 footgun 是 **lost-in-the-middle**（Liu et al. 2023, arXiv:2307.03172）—— 长 context 中段信息被忽略；mitigation 是 **summarization + reordering**（把关键事实 prepend 到开头，紧跟在 system/任务指令之后；如需同时利用首尾 recency 效应，也可以再 append 一份摘要到结尾）。
 - **Long-term memory** 的 footgun 是 **stale recall**——retrieve 出来的旧记忆和当前任务冲突；mitigation 是 **memory aging / decay** 或 reflection 时主动 prune。
 
 ### 7.4　Token budget / early termination
@@ -782,7 +782,7 @@ $$\text{Latency} \approx \sum_{t=1}^{T} \big[ T_{\text{LLM}}(t) + T_{\text{tool}
 
 $$\text{Pass@}k = 1 - (1 - p_1)^k$$
 
-其中 $p_1$ 是单次 success rate。如果 $p_1 = 0.5$，$\text{Pass@}5 \approx 97\%$。但**前提是有一个 ground-truth verifier**（unit test / 环境 reward / 人工）能可靠判断成败。
+其中 $p_1$ 是单次 success rate。如果 $p_1 = 0.5$，理论上 $\text{Pass@}5 \approx 97\%$——但这需要两个前提：(1) 有 **ground-truth verifier**（unit test / 环境 reward / 人工）能可靠判断成败；(2) $k$ 次尝试近似 **i.i.d.**（如同 prompt 独立温度采样）。生产 agent 的 retry 往往复用同一套推理/工具调用逻辑，失败模式高度相关，实际可靠性提升通常明显低于该公式给出的理论值。
 
 τ-bench (Yao 2024-06, arXiv:2406.12045) 的 $\text{pass}^k$（**所有 k 次都对**）远低于 $\text{pass@}k$（**至少一次对**），是 reliability 的更严苛指标——GPT-4o 在 retail 上 $\text{pass}^8 < 25\%$，意味着"一致地稳定做对"还差得很远。
 
@@ -796,7 +796,7 @@ $$\text{Pass@}k = 1 - (1 - p_1)^k$$
 
 <summary>Q1. ReAct 比 CoT 强在哪？什么时候用？</summary>
 
-- CoT 只在 latent 推理，hallucination 一路传播
+- CoT 只在自身 token 序列内推理（无外部工具/环境 grounding），hallucination 一路传播
 - ReAct 在每步可调外部工具（search / Python / lookup）→ 用 ground truth 修正推理
 - 实证（Yao 2022/2023 Table 1, PaLM-540B）：
   - **ALFWorld / WebShop 大幅领先**——绝对 success 比 IL/RL baseline 高 +34% / +10%
@@ -855,7 +855,7 @@ $$\text{Pass@}k = 1 - (1 - p_1)^k$$
 
 - JSON-schema validation：类型 / enum / required 都能前端拦
 - Parallel tool calls：一次推理多个 tool_use block 并行执行
-- 决定性：模型经过 SFT 对齐 schema，几乎不出语法错
+- 决定性较强但非绝对：SFT 对齐让语法错误率显著下降；100% schema 合规要靠 2024-08 起的 strict/Structured Outputs（constrained decoding），host 侧仍需 validation 兜底
 - 但 ReAct 不需要 fine-tune 后端，只要 prompting
 - OpenAI Function Calling 上线于 2023-06-13 (gpt-4-0613 / gpt-3.5-turbo-0613)
 
@@ -870,7 +870,7 @@ $$\text{Pass@}k = 1 - (1 - p_1)^k$$
 - **不是 RL**——没有 gradient update，权重不变
 - 是 **"verbal RL"**：用自然语言写反思，存进 episodic memory，下个 episode 拼回 prompt
 - 等于 in-context learning 在模拟 policy iteration
-- 论文 (Shinn 2023 NeurIPS, arXiv:2303.11366) HumanEval pass@1 80.1 → 91.0 (GPT-4 base)；AlfWorld 75 → 97
+- 论文 (Shinn 2023 NeurIPS, arXiv:2303.11366) HumanEval pass@1 80.1 → 91.0 (GPT-4 base)；AlfWorld 75/134（约56%，ReAct baseline）→ 130/134（约97%，ReAct+Reflexion）
 - **强依赖 base model capability** + **强依赖 evaluator 质量**
 
 把 reflection 当 "magic prompt"——它需要可信的 evaluator（rule-based / 单元测试 / 环境 reward）才稳
@@ -1049,7 +1049,7 @@ MCP "替代了" REST API——它**不替代**，它是 host (LLM) ↔ server (d
 
 - **SWE-bench** (Jimenez et al. 2024 ICLR, arXiv:2310.06770)：2294 个真实 GitHub Python issue，给 codebase 让 agent fix
 - **SWE-bench Verified** (OpenAI Preparedness team 2024-08-13)：原版的 500-题 **人类审核子集**——93 个签约工程师筛掉问题描述不清 / 单元测试不公平 / 时间预算不合理的题
-- OpenAI 报告原版样本中 **38.3% 题面描述 underspecified**、**61.1% 单元测试可能误判正解**；Verified 抽样确保两者都干净
+- OpenAI 报告原版样本中 **38.3% 题面描述 underspecified**、**61.1% 单元测试可能误判正解**；Verified 抽样旨在筛除最明显的这两类问题（而非"确保两者都干净"——见下一条，抽审仍发现 ~59% 失败任务含瑕疵）
 - 2025-2026 frontier model + scaffold（Claude Opus 4.x、GPT-5.x、Gemini 3、Live-SWE-agent 等）在 Verified 上突破 75-80%
 - **OpenAI 在 2026-02-23 公告不再用 SWE-bench Verified 评估前沿能力**（团队抽审失败任务发现仍有 ~59% 含瑕疵 + 训练数据污染问题），社区在向 SWE-bench Pro 等更严格 benchmark 迁移
 
@@ -1064,6 +1064,7 @@ MCP "替代了" REST API——它**不替代**，它是 host (LLM) ↔ server (d
 - **pass@k**：k 次尝试至少一次成功（best-of-k）
 - **pass^k**：k 次尝试**全部**成功（"持续可靠"）
 - pass^k ≪ pass@k：单次成功率 0.5 → pass@8 ≈ 0.996 但 pass^8 ≈ 0.004
+- 两个公式都假设 $k$ 次尝试近似 **i.i.d.**；真实 agent retry 常复用同一套推理/工具调用逻辑，失败模式相关，实际数字通常比公式理论值更差
 - τ-bench (Yao 2024-06, arXiv:2406.12045) 论文：GPT-4o 在 retail 上 pass^8 < 25%
 - Implication：**"做对一次" ≠ "能可靠部署"**——客服 / 金融 / 医疗这种容错低的场景，pass^k 才是真指标
 
@@ -1154,7 +1155,7 @@ MCP "替代了" REST API——它**不替代**，它是 host (LLM) ↔ server (d
   - 难点：依赖 evaluator；evaluator 是 LLM 时容易 drift
 - 路径 3：**Online RL (RLHF / GRPO on agent task)**
   - 难点：tool I/O 是真实环境，rollout 成本高 + 不可重放；reward 来自终态，credit assignment 困难
-  - DeepSeek-R1 / o-series 在数学/code 上靠 rule-based reward 突破了，但 agent benchmark 上仍 frontier-only
+  - DeepSeek-R1（arXiv:2501.12948，已证实）在数学/code 上明确使用 rule-based reward（答案匹配/单测执行）；OpenAI 的 o-series 是否采用同类可验证奖励机制训练，官方从未公开细节，目前只是社区据信/推测——但两者在 agent benchmark 上都仍 frontier-only
 - 路径 4：**Meta-prompting / Agent generates new agents**（OpenAI Agent Builder、Manus / Devin 的自我修正、AutoGen / CrewAI 等工作流自动生成）
   - 难点：generated agent 的 verification 不可靠 → 没法可信地继续自动迭代
   - 注：Anthropic 2025 的 **Constitutional Classifiers** 是 jailbreak 防御 classifier，**不属于** self-improvement 范畴（早期版本草稿把它放进这里是错的）
@@ -1175,7 +1176,7 @@ MCP "替代了" REST API——它**不替代**，它是 host (LLM) ↔ server (d
   4. **Multi-domain**：单一域容易 overfit benchmark；AgentBench 8 个环境就是这个出发点
   5. **Reliability metric (not just pass@1)**：τ-bench 的 pass^k 抓 "持续可靠性"
   6. **Cost-aware**：Pareto curve (success vs cost) 比单点更有用
-  7. **Human upper bound**：要给参考线（GAIA 人类 92% / WebArena 人类 78.24% / OSWorld 人类 72.36%——任务本身就难，人也不是 100%）
+  7. **Human reference score**（而非绝对 upper bound）：要给参考线（GAIA 人类 92% / WebArena 人类 78.24% / OSWorld 人类 72.36%——任务本身就难，人也不是 100%；这些是经验性人类平均成功率，不代表 agent 理论上不能超越——如 §8.3 所述，2025-12-16 Simular 已在 OSWorld 上以 72.6% 首次越过该基线）
   8. **Open + reproducible**：开源 evaluator + docker；闭源的没法长期对比
 - **各 benchmark 的"做对了什么"**：
   - **GAIA** (Mialon 2024 ICLR, arXiv:2311.12983)：真实多模态 + tool use 综合；人类 92% vs GPT-4 plugins 15% 的差异最 striking

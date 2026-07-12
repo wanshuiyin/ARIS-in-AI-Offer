@@ -2,13 +2,13 @@
 
 > 💡 **8 句话搞定 MoE** — 一页拿下 2026 秋招核心要点（详见后文 §1–§9 推导）。
 
-1. **核心思想**：把单个 FFN 换成 $N$ 个 expert + 一个 router，每个 token 只走 $k \ll N$ 个 expert，**总参数 ↑、激活参数不变**（sparse activation）。计算量约等于 $k/N$ × dense，但内存 / 显存按总参数计。
+1. **核心思想**：把单个 FFN 换成 $N$ 个 expert + 一个 router，每个 token 只走 $k \ll N$ 个 expert，**总参数 ↑、激活参数不变**（sparse activation）。计算量约等于 $k$ × 单个 expert-FFN（等价于 $k$ 个等宽 dense FFN，与 $N$ 无关，详见 §7.1），但内存 / 显存按总参数计。
 
 2. **路由公式**（Token-Choice top-k）：$g_i(x) = \text{softmax}(W_g x)_i$，选 $\mathcal{T}_k(x) = \text{TopK}_i\, g_i(x)$，输出 $y = \sum_{i \in \mathcal{T}_k(x)} g_i(x) \cdot E_i(x)$。Gate 概率作为 **soft 权重**乘到 expert 输出上，反传时让 router 可微。
 
 3. **历史脉络（必背 5 篇）**：Shazeer 2017（首个深度学习里可工作的 MoE 层）→ GShard 2020（top-2 + capacity factor + all-to-all）→ Switch Transformer 2021（top-1 极简，aux loss + load balance）→ Mixtral 8x7B/8x22B 2024（首个开源主流 MoE，top-2）→ DeepSeek-V3 2024（671B/37B，**aux-loss-free**，fine-grained + 1 shared）。
 
-4. **DeepSeek 路线（2026 面试热点）**：DeepSeekMoE 2024 提出 **fine-grained experts**（拆细，$mN$ 个小 expert 选 $mK$ 个）+ **shared experts**（少数 expert 给所有 token，吸收通用知识）。V2 用 MLA + DeepSeekMoE，V3 把路由专家做到 256 + 1 shared，**取消 aux loss**，改用 expert bias 在线更新。
+4. **DeepSeek 路线（2026 面试热点）**：DeepSeekMoE 2024 提出 **fine-grained experts**（拆细，$mN$ 个小 expert 选 $mK$ 个）+ **shared experts**（少数 expert 给所有 token，吸收通用知识）。V2 用 MLA + DeepSeekMoE，V3 把路由专家做到 256 + 1 shared，改用 expert bias 在线更新做主要负载均衡（仍保留极小权重的 sequence-wise aux loss 兜底，非完全取消 aux loss，详见 §6.2）。
 
 5. **Aux-loss-free balance**：在 router score 上加每 expert 的偏置 $b_i$，**只用于 top-k 选择**，不进梯度（也不进最终 gate 权重）；每个 step 按"实际 load - 期望 load"反向更新 $b_i$（多负载 expert 减偏置）。**不破坏 sparse gradient，不引入干扰梯度**。
 
@@ -73,8 +73,10 @@ $$y = \sum_{i \in \mathcal{T}_k(x)} \tilde{g}_i(x) \cdot E_i(x), \quad \tilde{g}
 | 模型 | $k$ | 备注 |
 | --- | :-: | --- |
 | Switch Transformer | 1 | 极简，被证明也能 work |
-| GShard / Mixtral / Qwen3-MoE | 2 | 主流；2 个 expert 足够"集成" |
-| DeepSeek-V2 / V3 | 6 / 8（routed）+ 1 shared | 配合 fine-grained 拆细 |
+| GShard / Mixtral | 2 | 主流；2 个 expert 足够"集成" |
+| Qwen3-MoE | 8 | 128 选 8，无 shared expert（见 §5.1 表） |
+| DeepSeek-V2 | 6（routed）+ 2 shared | 配合 fine-grained 拆细 |
+| DeepSeek-V3 | 8（routed）+ 1 shared | 配合 fine-grained 拆细 |
 | Llama 4 Scout | 1（仅 1 个 routed）+ 1 shared | 16 experts，1 shared |
 | Llama 4 Maverick | 1 routed + 1 shared | 128 experts |
 
@@ -95,7 +97,7 @@ $$\boxed{\;\mathcal{L}_\text{aux} = \alpha \cdot N \sum_{i=1}^{N} f_i \cdot P_i\
 
 **关键点 / 易混淆**：
 
-1. $f_i$ 给"实际频率"，$P_i$ 给"梯度通路"。乘起来 $\sum_i f_i P_i$ 当两者都集中在同一组 expert 时最大；均匀分布时最小（$= 1/N$，乘以 $N$ 后 = 1）。
+1. $f_i$ 给"实际频率"，$P_i$ 给"梯度通路"。乘起来 $\sum_i f_i P_i$ 当两者都集中在同一组 expert 时最大；但 $\sum_i f_i P_i$ **并非**在均匀分布处取得无条件全局最小值——反例：$N=2$ 时可构造 $f=(2/3,1/3)$、$P=(1/3,2/3)$，则 $f\cdot P = 4/9 < 1/2 = 1/N$。均匀分布 $f=P=1/N$（此时取值 $=1/N$，乘以 $N$ 后 $=1$）只是该量的一个**自洽不动点**，不是数学上的无条件最小值。
 2. 这是 **encourage 均匀分布**，不是硬约束。极端 collapse 会被惩罚，但日常小幅不均不会被强力惩罚。
 3. Switch top-1 公式直接如此；top-k 时把 $f_i$ 改成"top-k 命中频率"（更准确写法见 GShard 论文）。
 4. **$\alpha$ 太大会干扰主任务梯度**——这是 DeepSeek 改 aux-loss-free 的根本动机。
@@ -109,7 +111,7 @@ $$s(x) \in \mathbb{R}^{T \times N}, \quad \mathcal{T}_M^{(i)} = \text{TopM}_{t}\
 **优点**：
 
 - **天然平衡**：每个 expert 严格选 $M$ 个 token，不需要 aux loss
-- **不丢 token**：理论上不会有"溢出"（capacity 是 hard 给定）
+- **不会 expert overflow**：每个 expert 严格选 $M$ 个 token，容量不会被突破；但 token 侧仍可能 **0 命中**（未被任何 expert 选中，等效被跳过），不能笼统说"不丢 token"（见下方缺点第二条）
 
 **缺点 / 限制**：
 
@@ -123,15 +125,17 @@ $$s(x) \in \mathbb{R}^{T \times N}, \quad \mathcal{T}_M^{(i)} = \text{TopM}_{t}\
 
 DeepSeek（Wang et al., arXiv 2408.15664, 2024）提出的方案，被 V3 全面采纳。核心一句话：**给每个 expert 加一个偏置项 $b_i$，只用于 top-k 选择，不进梯度**。
 
-具体地，原 score 是 $s_i(x)$，做 top-k 选择时用 **biased score**：
+具体地，DeepSeek-V3 的 affinity 先过 sigmoid：$s_i(x) = \sigma(u_t^\top e_i)$（$u_t$ 是 token 的 hidden state，$e_i$ 是 expert $i$ 的 centroid 向量），做 top-k 选择时用 **biased score**（bias 加在 sigmoid **之后**，不是加在未过 sigmoid 的原始 logits 上）：
 
 $$\tilde{s}_i(x) = s_i(x) + b_i$$
 
 $$\mathcal{T}_k(x) = \text{TopK}_i\, \tilde{s}_i(x)$$
 
-但**最终 gating weight** 仍用原始 $s_i$ 的 softmax（或 sigmoid 后 renormalize，DeepSeek-V3 用 sigmoid）：
+但**最终 gating weight** 用不含 bias 的原始 affinity $s_i(x)$ renormalize（$s_i(x)$ 已经是 sigmoid 输出，不需要再过一次 sigmoid）：
 
-$$g_i(x) = \frac{\sigma(s_i(x))}{\sum_{j \in \mathcal{T}_k(x)} \sigma(s_j(x))}, \quad i \in \mathcal{T}_k(x)$$
+$$g_i(x) = \frac{s_i(x)}{\sum_{j \in \mathcal{T}_k(x)} s_j(x)}, \quad i \in \mathcal{T}_k(x)$$
+
+此外 V3 / R1 还会给 routed-expert 的组合输出乘一个 **routed_scaling_factor**（官方 config 约 2.5），本节公式与下文 §3.1 代码均未体现这一步，实现时不要漏掉。
 
 $b_i$ 的更新规则（每 step 一次，**out-of-graph**，非梯度更新）：
 
@@ -151,7 +155,7 @@ Shazeer 等 2017 论文里在 score 上加可学习的 Gaussian noise：
 
 $$s_i(x) = (W_g x)_i + \text{StandardNormal}() \cdot \text{Softplus}((W_\text{noise} x)_i)$$
 
-噪声为了让 top-k 选择"软化"、避免 collapse。后被 GShard / Switch 用更明确的 load balance loss 取代——但概念（"top-k 不可微 → 需要某种 stochastic 软化"）仍有教学价值。
+噪声的作用主要是：(1) 训练早期做 exploration，让暂时落后的 expert 仍有机会被选中、拿到梯度；(2) 构造一个关于 expert 负载的可微近似估计（基于高斯 CDF），支撑一个可微的 load-balancing 辅助 loss——并不是让 TopK 这个离散操作本身变得可微（可微性来自 gate 权重进入输出加权求和，见 §4.4）。后被 GShard / Switch 用更明确的 load balance loss 取代，但 exploration + 可微负载估计这两个设计动机仍有教学价值。
 
 ## §3 实现细节：核心 60 行 PyTorch
 
@@ -263,13 +267,14 @@ class MoEAuxFree(nn.Module):
         T = B * L
         x_flat = x.view(T, D)
 
-        # Router score (V3 用 sigmoid 不是 softmax, 但 top-k 逻辑一样)
+        # Router score (V3 用 sigmoid affinity 而非 softmax)
         logits = self.router(x_flat)                       # [T, N]
-        # ★ Top-k 用 biased score, 但 gating weight 用原始 score
-        biased_logits = logits + self.expert_bias.unsqueeze(0)
-        _, top_idx = biased_logits.topk(self.top_k, dim=-1)         # [T, k]
-        # 取出原始 score 对应位置, sigmoid 后 renormalize
-        gate_raw = torch.sigmoid(logits).gather(-1, top_idx)        # [T, k]
+        affinity = torch.sigmoid(logits)                   # [T, N], s_i(x) = sigmoid affinity
+        # ★ Top-k 用 biased score (bias 加在 sigmoid 之后), gating weight 用未加 bias 的原始 affinity
+        biased_affinity = affinity + self.expert_bias.unsqueeze(0)
+        _, top_idx = biased_affinity.topk(self.top_k, dim=-1)        # [T, k]
+        # 取出未加 bias 的原始 affinity, renormalize (已经是 sigmoid 输出, 不再过一次 sigmoid)
+        gate_raw = affinity.gather(-1, top_idx)                      # [T, k]
         top_weights = gate_raw / (gate_raw.sum(dim=-1, keepdim=True) + 1e-9)
 
         # ----- 在线更新 expert_bias (无梯度, 论文 sign 更新) -----
@@ -299,8 +304,8 @@ class MoEAuxFree(nn.Module):
 注意：
 
 1. `expert_bias` 是 buffer 不是 parameter，**不进梯度图、不被 optimizer step**——只被 §forward 末尾的"sign 更新"修改。
-2. **biased_logits 只用于选 top-k，gating weight 来自原始 logits**（这是 V3 论文反复强调的点）。如果连 gating weight 都用 biased，相当于把控制信号污染到主梯度路径，aux-loss-free 的好处就丢了。
-3. V3 实际是 sigmoid + 256 experts + 9 选（8 routed + 1 shared 在 §6 讲），这里简化成 softmax + top-k 演示原理。
+2. **biased affinity 只用于选 top-k（bias 加在 sigmoid 之后），gating weight 来自未加 bias 的原始 affinity**（这是 V3 论文反复强调的点）。如果连 gating weight 都用 biased，相当于把控制信号污染到主梯度路径，aux-loss-free 的好处就丢了。
+3. V3 实际是 256 个 expert 选 8 routed + 1 shared（§6 详述）；这里的 `num_experts` / `top_k` 只是演示原理时的可调小规模参数，公式（sigmoid affinity + bias 加在 sigmoid 之后）已经和 V3 一致，但省略了 routed_scaling_factor。
 
 ### 3.2　Fine-Grained + Shared Expert Layer（DeepSeekMoE 风格）
 
@@ -374,18 +379,17 @@ $$\boxed{\;C = \left\lceil \alpha \cdot \frac{T \cdot k}{N} \right\rceil\;}$$
 
 **$\alpha = 1$**：均匀分布下刚好够用，但稍微不均就 drop；**$\alpha = 1.25$**（Switch / GShard 默认）：留 25% 余量缓冲不均匀；**$\alpha > 2$**：基本不 drop 但浪费显存。
 
-### 4.2　Token Dropping vs Residual Bypass
+### 4.2　Token Dropping = Residual Bypass（同一机制），Dropless 才是主流
 
-当某 expert 已收满 $C$ 个 token，新来的 token 怎么办？**两条路线**：
+当某 expert 已收满 $C$ 个 token，新来的 token 怎么办？在标准 transformer 里 MoE 子层外层就有 residual connection（$y = x + \text{MoE}(x)$），所以"丢弃"在实现上就是：**把该 token 对应的 MoE 分支输出置 0**——外层 skip connection 自动透传原始 $x$，token 表示退化为直通残差，而不是变成真正的 0 向量。
 
-| 方案 | 行为 | 谁用 |
-| --- | --- | --- |
-| **Token Drop** | 直接丢，输出 0 | GShard 早期；通常 ↓ 训练稳定性 |
-| **Residual Bypass** | Expert 输出置 0，但 **residual $x$ 自然通过 layer norm + skip connection 透传** | Switch Transformer / Mixtral / DeepSeek 默认 |
+也就是说，常被并列讲的"Token Drop"与"Residual Bypass"**其实是同一个机制**，不是两条互斥的工程路线：只要架构里有 residual connection（GShard / Switch / Mixtral / DeepSeek 用的都是标准 transformer，都有），drop 在实现上就自动等价于 bypass。
 
 Residual bypass 的好处：被 drop 的 token **不是变 0**——它在残差通路上仍然带着自己的表示，只是这层"没被任何 expert 加工"，相当于退化成 identity layer。整个网络仍然能学到东西。
 
 > ⚠️ **必考易踩坑** — 面试常问"MoE 为什么不 catastrophic 地坏掉"。答案：residual bypass + 多层堆叠下，**单层 drop 不致命**——下一层 router 仍然能为该 token 选到合适 expert。
+
+**Dropless 已是主流**：Mixtral、尤其是 DeepSeek-V3（论文明确宣称训练和推理都不丢 token）在实践中通常做到 **dropless**——不设硬 capacity 上限；现代 EP 调度用 grouped GEMM / block-sparse kernel，天然支持每个 expert 收到数量不固定的 token，不强制要求提前用固定 capacity 静态截断。§4.1 的 capacity factor 更多是"给显存 / 通信 buffer 分配上限"的工程折中，不是所有生产系统的必需项。
 
 ### 4.3　Routing Collapse（💣 经典 bug）
 
@@ -400,26 +404,31 @@ Residual bypass 的好处：被 drop 的 token **不是变 0**——它在残差
 修复手段：
 
 1. **Aux loss**（Switch 公式，§2.2）
-2. **Expert dropout** / **Z-loss**（对 router logits 加 entropy regularizer）
+2. **Expert dropout** / **Z-loss**（对 router logits 加 log-partition 稳定项 $\beta \cdot (\log \sum_i e^{s_i})^2$，抑制 logit 数值爆炸，不是 entropy regularizer，公式详见 §10 Q24）
 3. **Expert Choice**（§2.3，硬约束每 expert 选固定数 token）
 4. **Aux-loss-free bias**（§2.4，DeepSeek-V3）
-5. **Capacity factor 适度调大**（让 collapse 触发 drop，间接惩罚集中）
+
+以上 1-4 是真正能治疗 collapse 的主动均衡机制。**Capacity factor 不是治疗手段**：调大 capacity factor 只会减少因过载触发的 drop（§4.1：$\alpha > 2$ 基本不 drop），不会反过来惩罚 routing 集中化——它只控制"drop 造成的次生损失"，不解决 routing 本身不均的问题。
 
 ### 4.4　Top-k 的"硬"选择如何反传梯度？
 
 经典问题：$\text{TopK}$ 是不可微的离散操作。
 
-答案：**top-k 只决定走哪条路径（discrete），不参与梯度**；softmax 权重 $g_i(x)$ 进入最终输出 $y = \sum_i g_i E_i(x)$，对 $g_i$ 求导是连续的（standard softmax 链式法则）。所以 router 的 $W_g$ 是可微的（注意 softmax / renorm 的耦合带来 **完整 Jacobian**，不只是对角项）：
+答案：**top-k 只决定走哪条路径（discrete），不参与梯度**；softmax 权重 $g_i(x)$ 进入最终输出 $y = \sum_i g_i E_i(x)$，对 $g_i$ 求导是连续的（standard softmax 链式法则）。所以 router 的 $W_g$ 是可微的——但 $g_i$ 实际上等价于**只在 top-k 集合内部重新做的局部 softmax**，对被排除的 logit 完全没有函数依赖：
 
-记 $s = W_g x$（logits），$p = \text{softmax}(s)$，top-k 选 $\mathcal{T}_k(x)$ 后做 renormalize $g_i = p_i / Z$（$Z = \sum_{j \in \mathcal{T}_k} p_j$）：
+记 $s = W_g x$（logits），前向按 §3 代码先算全量 $p_i = e^{s_i}/D$（$D = \sum_{j=1}^N e^{s_j}$ 是全局配分函数），top-k 选出 $\mathcal{T}_k(x)$ 后做 renormalize $g_i = p_i / Z$（$Z = \sum_{j \in \mathcal{T}_k} p_j$）。代入化简：
 
-$$\frac{\partial g_i}{\partial s_l} = \mathbf{1}[i \in \mathcal{T}_k]\cdot\left(\frac{\partial p_i / \partial s_l}{Z} - \frac{p_i}{Z^2}\cdot \mathbf{1}[l \in \mathcal{T}_k] \cdot \frac{\partial Z}{\partial s_l}\right)$$
+$$g_i = \frac{p_i}{Z} = \frac{e^{s_i}/D}{\sum_{j \in \mathcal{T}_k} e^{s_j}/D} = \frac{e^{s_i}}{\sum_{j \in \mathcal{T}_k} e^{s_j}}, \quad i \in \mathcal{T}_k(x)$$
 
-其中 $\partial p_i/\partial s_l = p_i(\delta_{il} - p_l)$ 是 softmax Jacobian（含交叉项 $-p_i p_l$，不只是对角 $p_i(1-p_i)$）。汇总：
+**关键**：全局配分函数 $D$ 精确抵消——$g_i$ 数学上就是 top-k 子集内部的局部 softmax，对 $\mathcal{T}_k$ 之外任何 $s_l$ 都没有函数依赖。因此：
 
-$$\frac{\partial \mathcal{L}}{\partial W_g} = \sum_{i \in \mathcal{T}_k(x)}\sum_{l} \frac{\partial \mathcal{L}}{\partial g_i} \cdot \frac{\partial g_i}{\partial s_l} \cdot \frac{\partial s_l}{\partial W_g}$$
+$$\frac{\partial g_i}{\partial s_l} = g_i(\delta_{il} - g_l), \ l \in \mathcal{T}_k(x); \qquad \frac{\partial g_i}{\partial s_l} = 0, \ l \notin \mathcal{T}_k(x)\ (\textbf{精确为零，不是"间接非零"})$$
 
-对 $l \notin \mathcal{T}_k$（被 top-k 排除），$\partial g_i/\partial s_l$ 通过 $p_l$ 仍非零（softmax 的全局耦合），但这一项在 forward 不影响输出、在 backward 的贡献仅经 $\partial p_i / \partial s_l = -p_i p_l$ 间接进入。**实操上**，只有 top-k 内的 expert 才能拿到主导梯度信号；top-k 外的 expert 长期得不到 "我应该被选" 的训练 push——这是 chicken-and-egg：不被选 → 不更新 → 永远不被选。Aux loss / bias 就是为了打破这个循环。
+$l \in \mathcal{T}_k(x)$ 时的形式是 top-k 子集内部的局部 softmax Jacobian（含交叉项 $-g_i g_l$，不只是对角 $g_i(1-g_i)$）。汇总：
+
+$$\frac{\partial \mathcal{L}}{\partial W_g} = \sum_{i \in \mathcal{T}_k(x)}\sum_{l \in \mathcal{T}_k(x)} \frac{\partial \mathcal{L}}{\partial g_i} \cdot \frac{\partial g_i}{\partial s_l} \cdot \frac{\partial s_l}{\partial W_g}$$
+
+**实操上**，只有 top-k 内的 expert 才能拿到梯度信号；top-k 外的 expert 这一 step **完全拿不到梯度**（与下文 §10 Q12 一致）——这是 chicken-and-egg：不被选 → 不更新 → 永远不被选。Aux loss / bias 就是为了打破这个循环。
 
 ## §5 经典模型谱系：从 Shazeer 到 DeepSeek-V3
 
@@ -471,12 +480,12 @@ DeepSeek-V3（DeepSeek-AI, arXiv 2412.19437, 2024.12）是 2026 面试季最高�
          │
          └──────► Router (D → 256)
                    │
-                   ├ score s_i(x) + b_i  (bias 仅用于 top-k 选择)
+                   ├ affinity s_i(x)=σ(u_t^T e_i)，top-k 用 s_i(x)+b_i  (bias 加在 sigmoid 之后，仅用于 top-k 选择)
                    │
                    ↓
                 Top-8 (256 选 8)
                    │
-                   │  实际 gating weight: sigmoid(s_i) / Σ sigmoid(s_j)
+                   │  实际 gating weight: s_i(x) / Σ s_j(x)  (不含 bias，s_i 已是 sigmoid 输出)
                    ↓
         ┌────────┬────────┬────────┬────────┐
         ↓        ↓        ↓        ↓        ↓
@@ -485,7 +494,7 @@ DeepSeek-V3（DeepSeek-AI, arXiv 2412.19437, 2024.12）是 2026 面试季最高�
         └─ × g ─┴─ × g ─┴─ × g ─┴─ × g ─┘
                           │
                           ↓
-                routed_out  +  shared_out  →  y
+       routed_out × routed_scaling_factor(≈2.5)  +  shared_out  →  y
 ```
 
 关键数字：
@@ -507,7 +516,7 @@ V3 论文里写了两件事的组合：
 
 ### 6.3　Node-Limited Routing
 
-V3 训练时跑 64-way EP 跨 8 个 node。Naïve top-8 routing 可能让一个 token 的 8 个 expert 散布到所有 8 个 node → 严重 all-to-all 通信。V3 加了硬约束：**每个 token 最多路由到 4 个 node**，且每 node 最多选 3 个 expert。这是 algorithm × system 联合优化。
+V3 训练时跑 64-way EP 跨 8 个 node（256 个 routed expert 平均分到 8 个 node，每 node 32 个）。Naïve top-8 routing 可能让一个 token 的 8 个 expert 散布到所有 8 个 node → 严重 all-to-all 通信。V3 加了硬约束：把 256 个 expert 按 node 分组，每个 token 先按"每组内 top-$(K_r/M)$ 个 expert 的 affinity 分数之和"给 8 个 node 打分，选出得分最高的 **$M=4$ 个 node**，再在这 4 个 node 覆盖的全部 expert 范围内做一次**全局 top-8 选择**——不存在"每 node 再硬性限选 3 个 expert"这样的额外约束，8 个 expert 在 4 个入选 node 间的实际分布并不固定。这是 algorithm × system 联合优化。
 
 ### 6.4　System：DualPipe + DeepEP
 
@@ -554,7 +563,7 @@ $$\text{Params}_\text{FFN}^\text{MoE} = N \cdot 8D^2 + D \cdot N \;(\text{router
 
 ### 7.3　KV Cache
 
-MoE 不直接影响 KV cache 大小——KV 与 attention 相关，与 FFN sparsity 无关。但 V2/V3 同时引入 **MLA** 把 KV 压缩到低秩 latent，所以 V3 的 KV cache 是 LLaMA-3 70B 的 ~5%。**面试要区分"MoE 减的是 FFN 显存（FP8 OK），MLA 减的是 KV 显存"**——是两条互相独立的优化线。
+MoE 不直接影响 KV cache 大小——KV 与 attention 相关，与 FFN sparsity 无关。V2/V3 引入 **MLA** 把 KV 压缩到低秩 latent，相比**标准 MHA**（DeepSeek-V2 论文自己的对比基线，见 §5 表格"KV cache 减 93.3%"）确实降幅巨大；但如果拿 V3 去和**已经用 GQA 压缩过 KV 的 LLaMA-3-70B** 比，两者不是同一基线：粗略估算 LLaMA-3-70B（GQA，8 个 KV head，head_dim=128，80 层，bf16）每 token KV cache ≈327KB，DeepSeek-V3 MLA（压缩维度 512+64，约 61 层，bf16）每 token ≈70KB，比例约 **~21%**，不是 ~5%。**面试要区分"MoE 减的是 FFN 显存（FP8 OK），MLA 减的是 KV 显存"，也要区分"93.3% 是相对 MHA 说的，相对已经用 GQA 的模型只有 ~21%"**——两条优化线互相独立，比较基线也不能混用。
 
 ## §8 EP / TP / PP / DP：MoE 并行的 4 维交织
 
@@ -609,8 +618,8 @@ $$\text{all-to-all volume per layer} \approx 2 \cdot T \cdot k \cdot D \cdot \fr
 
 | 角度 | Dense | MoE |
 | --- | --- | --- |
-| 同 active 参数 | 表现更稳 | 容量上限低 |
-| 同 total 参数 | 计算成本高 | **MoE 算力高效，容量大** |
+| 同 active 参数 | 容量上限 = active（无冗余容量） | **容量更大**（total ≫ active） |
+| 同 total 参数 | 计算成本高（全部参数都算） | **MoE 算力高效**（只算 active 部分） |
 | 训练稳定性 | 高 | 中（routing collapse / EP comm 不稳） |
 | 推理显存 | 按 total ≈ 按 active | **按 total（必须全 expert 常驻）** |
 | 推理 latency | memory-bound | **memory bandwidth 优势**（active 部分小） |
@@ -705,10 +714,10 @@ MoD（Raposo et al. 2024）思路不同：**每层选 top-k 个 token 走完整�
 
 - $C = \lceil \alpha \cdot Tk/N \rceil$，每个 expert 的容量上限
 - $\alpha = 1.25$ 是 Switch / GShard 默认（留 25% 缓冲）
-- 超 capacity 的 token → **residual bypass**（expert 输出 0，残差通过）
-- 没 capacity 限制无法静态 buffer，EP 通信无法 schedule
+- 超 capacity 的 token → **residual bypass**（expert 输出 0，残差通过；Token Drop 与 Residual Bypass 本质是同一机制，见 §4.2）
+- 传统实现里没 capacity 限制会让静态 buffer / EP 通信调度变复杂；但 grouped GEMM / block-sparse kernel（如 DeepSeek-V3 的 dropless 实践）可以支持变长 token 数，capacity 不是绝对必需项
 
-只答"防止 OOM"；不知道 residual bypass，以为 drop 就是直接归零。
+只答"防止 OOM"；不知道 residual bypass，以为 drop 就是直接归零；或以为 capacity factor 是唯一可行方案（忽略 dropless 已是主流实践）。
 
 </details>
 
@@ -780,11 +789,12 @@ MoD（Raposo et al. 2024）思路不同：**每层选 top-k 个 token 走完整�
 
 <summary>Q10.MoE 在 inference 端的好处是什么？</summary>
 
-- 同 active 参数下，**memory bandwidth 优势**：每 token 只读 ~active/total 比例权重
-- 推理多数 token-by-token 是 memory-bound，bandwidth 减小 → throughput ↑
-- 671B / 37B → 每 token 读 ~5% 权重 → 与 ~30B dense 同 latency
+- **不是**"同 active 参数下比 dense 有 bandwidth 优势"——同 active 参数时，dense 和 MoE 每 token 读取的权重量级本来就接近
+- 真正的优势场景是**同 total 参数**（即同等知识容量）的对比：要撑起 MoE 那么大的总参数（知识容量），全激活 dense 模型每 token 都要读完整权重；MoE 只需读 active 的那一小部分，bandwidth 大幅更小
+- 换句话说：MoE 能用接近小 dense 模型的带宽预算，撑起远大于它的知识容量——这才是 sparse activation 的杠杆点，不是"同预算比较出的优势"
+- 671B / 37B 的 V3 每 token 只读 ~5.5% 权重 → bandwidth 与 ~37B dense 相近，但知识容量对齐的是全激活 671B dense（成本高得多）
 
-只说"算力少"——但显存上不去（全 expert 加载），所以单卡 deployment 还是难。
+只说"算力少"——但显存上不去（全 expert 加载），所以单卡 deployment 还是难；也不要说成"同 active 参数下 MoE 天然带宽更省"。
 
 </details>
 
@@ -849,7 +859,7 @@ MoD（Raposo et al. 2024）思路不同：**每层选 top-k 个 token 走完整�
 
 <summary>Q15.DeepSeek-V3 的 aux-loss-free balance 怎么做的？</summary>
 
-- 每 expert 一个偏置 $b_i$，top-k 选择用 **biased score** $s_i + b_i$
+- 每 expert 一个偏置 $b_i$，top-k 选择用 **biased score** $s_i + b_i$（$s_i$ 是 sigmoid affinity，bias 加在 sigmoid 之后，详见 §2.4）
 - 但 **gating weight 用原始 $s_i$**（保持主梯度路径干净）
 - 每 step 按 sign 更新：$b_i \leftarrow b_i - u \cdot \text{sign}(c_i - \bar{c}_i)$
 - $b_i$ 是 buffer 不进梯度图，不被 optimizer 更新
@@ -892,7 +902,7 @@ MoD（Raposo et al. 2024）思路不同：**每层选 top-k 个 token 走完整�
 - 好处转移到 **memory bandwidth**——每 token 只读 active 比例权重
 - LLM decode 是 memory-bound（不是 compute-bound），所以 bandwidth 减小直接转化为 throughput
 - 671B/37B 模型：每 token 读 ~5% 权重 → throughput ≈ 30B dense
-- 但显存仍按总参数预算：单 H100 80G **跑不动 V3**，需 8 卡 minimum
+- 但显存仍按总参数预算：671B FP8 裸权重 ≈671GB > 8×80GB(H100)=640GB，单纯 8 张 H100-80G **放不下**（不是"8 卡就够用"）；按裸权重算至少需要 9 张 80G 卡，加上 KV cache/激活值等开销，实际部署常见 **16×H100(2 节点)** 或 **8×H200 141G**（与本文 §7.2 表格一致）
 
 以为 sparse 推理可以"按需 load 1 个 expert"——硬件延迟禁止；或以为 throughput 收益来自 FLOPs 节省（实际更多来自 bandwidth）。
 
@@ -916,9 +926,9 @@ MoD（Raposo et al. 2024）思路不同：**每层选 top-k 个 token 走完整�
 <summary>Q20.Mixtral 8x7B 实际总参数为什么不是 56B 而是 46.7B？</summary>
 
 - 8 个 expert 只在 **FFN 层** —— attention / norm / embedding / unembedding **全部共享，只算一份**
-- 设 Mistral-7B 的 dense 总参 $\approx 7.24\text{B}$（FFN 约 $4.8\text{B} \approx 2/3$，shared = attention+embed+norm $\approx 2.4\text{B} \approx 1/3$）
-- Mixtral 8x7B 总参 = **共享部分 + 8 × FFN** = $2.4 + 8 \times 4.8 \approx 2.4 + 38.4 \approx 40.8\text{B}$；再加上 Mistral-7B 比 LLaMA-2-7B 略大、Mixtral 还增加了 router weight，官方 **46.7B**
-- 激活参数（per token，top-2）= **共享部分 + 2 × FFN** = $2.4 + 2 \times 4.8 \approx 12\text{B}$（论文给出 12.9B / 13B active）
+- Mixtral 用 hidden_size=4096、intermediate_size=14336、SwiGLU（3 个矩阵）FFN、32 层：单个 expert 全模型累计参数 $\approx 3 \times 4096 \times 14336 \times 32 \approx 5.637\text{B}$；shared 部分（attention + embed + norm，全模型累计）$\approx 1.60\text{B}$
+- Mixtral 8x7B 总参 = **shared + 8 × 单 expert** = $1.60 + 8 \times 5.637 \approx 46.70\text{B}$——与官方 **46.7B** 精确吻合，不需要"router weight"之类的模糊修正项
+- 激活参数（per token，top-2，shared 只算一次）= $1.60 + 2 \times 5.637 \approx 12.87\text{B}$，与论文给出的 **12.9B** 一致
 
 直接 $8 \times 7 = 56$ 当总参（把 attention/embed 也乘 8）；或激活算成 $2 \times 7 = 14$ 忘掉 shared 已经只算一份。
 
@@ -1014,7 +1024,7 @@ MoD（Raposo et al. 2024）思路不同：**每层选 top-k 个 token 走完整�
 
 1. **Shazeer, N., Mirhoseini, A., Maziarz, K., Davis, A., Le, Q., Hinton, G., Dean, J.** (2017). Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer. ICLR. arXiv:1701.06538.
 2. **Lepikhin, D., Lee, H., Xu, Y., Chen, D., Firat, O., Huang, Y., Krikun, M., Shazeer, N., Chen, Z.** (2020). GShard: Scaling Giant Models with Conditional Computation and Automatic Sharding. arXiv:2006.16668.
-3. **Fedus, W., Zoph, B., Shazeer, N.** (2021). Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity. JMLR. arXiv:2101.03961.
+3. **Fedus, W., Zoph, B., Shazeer, N.** (2022). Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity. JMLR 23(120):1-40. arXiv:2101.03961（预印本发布于 2021 年，正式发表于 JMLR 2022 年）。
 4. **Zhou, Y., Lei, T., Liu, H., Du, N., Huang, Y., Zhao, V., Dai, A., Chen, Z., Le, Q., Laudon, J.** (2022). Mixture-of-Experts with Expert Choice Routing. NeurIPS. arXiv:2202.09368.
 5. **Zoph, B., Bello, I., Kumar, S., Du, N., Huang, Y., Dean, J., Shazeer, N., Fedus, W.** (2022). ST-MoE: Designing Stable and Transferable Sparse Expert Models. arXiv:2202.08906.（Z-loss 来源）
 6. **Dai, D., Deng, C., Zhao, C., Xu, R., et al.** (2024). DeepSeekMoE: Towards Ultimate Expert Specialization in Mixture-of-Experts Language Models. ACL. arXiv:2401.06066.

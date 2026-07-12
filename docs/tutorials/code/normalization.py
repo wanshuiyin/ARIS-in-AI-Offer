@@ -16,7 +16,7 @@ What it demonstrates:
       [a] LayerNorm from scratch == nn.LayerNorm (population var, eps inside the sqrt)
       [b] RMSNorm from scratch == nn.RMSNorm; LayerNorm(x+c)==LayerNorm(x) but RMSNorm(x+c)!=RMSNorm(x)
       [c] BatchNorm train != eval: train uses batch stats (+updates running stats), eval uses running stats
-      [d] Post-LN piles parameter gradients near the OUTPUT (top-heavy, last/first>1, needs warmup); Pre-LN spreads them evenly across depth
+      [d] Post-LN piles parameter gradients near the OUTPUT (top-heavy, last/first>1, needs warmup); Pre-LN piles them near the INPUT instead (bottom-heavy, opposite skew, comparable magnitude)
       [e] Kaiming preserves the second moment E[y^2] through Linear+ReLU (factor 2/fan_in); Xavier-for-ReLU halves it to ~0.5
       [f] GPT-2 residual scaling 1/sqrt(2N) keeps the residual-stream variance bounded vs linear growth
 
@@ -75,7 +75,10 @@ class ResidualStack(nn.Module):
 def block_grad_topheavy(depth, d, pre_ln):
     """Build a fresh stack, one forward+backward, return the LAST-block / FIRST-block
     weight-grad-norm ratio. >1 means the gradient is concentrated near the OUTPUT
-    (top-heavy). This ratio is robust to the loss choice (Xiong et al. 2020's actual claim)."""
+    (top-heavy). Using a relative ratio (rather than an absolute grad norm) is meant to
+    reduce sensitivity to the loss choice / output normalization; this script only runs
+    a single seed with a single quadratic loss, so "robust to loss choice" itself is not
+    exhaustively verified here (would need multi-seed stats and a non-quadratic loss)."""
     torch.manual_seed(0)                                    # same init for both variants
     stack = ResidualStack(depth, d, pre_ln=pre_ln)
     stack(torch.randn(16, d)).pow(2).mean().backward()
@@ -125,14 +128,16 @@ def main():
     assert c_ok
 
     # [d] Post-LN concentrates parameter gradients near the OUTPUT (top-heavy -> needs warmup);
-    #     Pre-LN's clean identity path spreads them evenly across depth (Xiong et al. 2020)
+    #     Pre-LN's clean identity path instead skews slightly toward the INPUT (bottom-heavy),
+    #     at a comparable magnitude but opposite direction (Xiong et al. 2020's asymptotic claim)
     depth = 48
-    r_pre = block_grad_topheavy(depth, d, pre_ln=True)     # ~0.4: balanced (slightly bottom-heavy)
+    r_pre = block_grad_topheavy(depth, d, pre_ln=True)     # ~0.4: bottom-heavy (bottom grad ~2.5x the top)
     r_post = block_grad_topheavy(depth, d, pre_ln=False)   # ~2.3: top-heavy (gradient piled at the top)
     d_ok = r_post > 1.3 and r_post > 2 * r_pre              # Post-LN top-heavy AND more imbalanced than Pre-LN
     print(f"[d] per-block weight-grad top/bottom ratio (last/first over {depth} blocks): "
-          f"Pre-LN={r_pre:.2f} (balanced)  Post-LN={r_post:.2f} (top-heavy, >1)  "
-          f"-> Post-LN piles gradient near the output, needs warmup  {'OK' if d_ok else 'FAIL'}")
+          f"Pre-LN={r_pre:.2f} (bottom-heavy)  Post-LN={r_post:.2f} (top-heavy, >1)  "
+          f"-> opposite skew, comparable magnitude; Post-LN piles gradient near the output, needs warmup  "
+          f"{'OK' if d_ok else 'FAIL'}")
     assert d_ok
 
     # [e] Kaiming preserves the SECOND MOMENT E[y^2] through Linear+ReLU (the quantity He et al.
@@ -149,19 +154,23 @@ def main():
           f"Xavier = {ms_xavier:.3f} (~0.5, halves per layer)  {'OK' if e_ok else 'FAIL'}")
     assert e_ok
 
-    # [f] GPT-2 residual scaling 1/sqrt(2N): residual-stream variance stays bounded vs linear growth
+    # [f] GPT-2 residual scaling 1/sqrt(2N): residual-stream variance stays bounded vs linear growth.
+    # Nlayers = number of transformer layers; each layer writes to the residual stream TWICE
+    # (attn output-proj + FFN down-proj), so there are 2*Nlayers total writes, each scaled by
+    # 1/sqrt(2*Nlayers) -- matching GPT-2's actual "N layers -> 2N writes" semantics.
     Nlayers, width = 50, 256
+    n_writes = 2 * Nlayers
     h_plain = torch.randn(N, width)
     h_scaled = h_plain.clone()
     v0 = h_plain.var().item()
-    for _ in range(Nlayers):
-        delta = torch.randn(N, width)                        # each block adds an O(1)-variance update
-        h_plain = h_plain + delta                            # no scaling -> Var grows ~linearly with depth
-        h_scaled = h_scaled + delta * (1.0 / (2 * Nlayers) ** 0.5)   # GPT-2 1/sqrt(2N) residual scaling
-    growth_plain = h_plain.var().item() / v0                 # ~ (1 + Nlayers)
+    for _ in range(n_writes):
+        delta = torch.randn(N, width)                        # each write adds an O(1)-variance update
+        h_plain = h_plain + delta                            # no scaling -> Var grows ~linearly with #writes
+        h_scaled = h_scaled + delta * (1.0 / n_writes) ** 0.5   # GPT-2 1/sqrt(2N) residual scaling
+    growth_plain = h_plain.var().item() / v0                 # ~ (1 + 2*Nlayers)
     growth_scaled = h_scaled.var().item() / v0               # ~ O(1), bounded
     f_ok = growth_plain > 10 * growth_scaled
-    print(f"[f] residual-stream var growth over {Nlayers} blocks: "
+    print(f"[f] residual-stream var growth over {Nlayers} layers ({n_writes} writes): "
           f"unscaled ×{growth_plain:.1f}  vs  1/sqrt(2N)-scaled ×{growth_scaled:.2f}  "
           f"{'OK' if f_ok else 'FAIL'}")
     assert f_ok

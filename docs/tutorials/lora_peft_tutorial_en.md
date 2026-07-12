@@ -127,8 +127,10 @@ class LoRALinear(nn.Module):
         self.scaling = alpha / (math.sqrt(r) if rslora else r)
 
         # A: [r, in] Kaiming random; B: [out, r] zero -> start with ΔW = 0
-        self.lora_A = nn.Parameter(torch.empty(r, in_f))
-        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        # new_empty/new_zeros inherit base.weight's device/dtype, avoiding a mismatch
+        # when the base is on GPU/bf16 but lora_A/lora_B would otherwise default to CPU/fp32
+        self.lora_A = nn.Parameter(base.weight.new_empty(r, in_f))
+        self.lora_B = nn.Parameter(base.weight.new_zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
 
         self.lora_dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
@@ -161,7 +163,10 @@ class LoRALinear(nn.Module):
 
 def inject_lora(model: nn.Module, target_names=("q_proj", "v_proj"),
                 r=8, alpha=16, dropout=0.0):
-    """Replace nn.Linear modules in `model` whose name matches target_names with LoRALinear."""
+    """Replace nn.Linear modules in `model` whose name matches target_names with LoRALinear;
+    freeze the whole model first so unmatched modules (embedding/LayerNorm/FFN, ...) don't stay trainable."""
+    for p in model.parameters():
+        p.requires_grad_(False)
     for name, module in list(model.named_modules()):
         for child_name, child in list(module.named_children()):
             if isinstance(child, nn.Linear) and child_name in target_names:
@@ -175,6 +180,7 @@ Key points:
 - Note `x @ A.t() @ B.t()`: $x$ has shape $[\dots, k]$, $A^\top$ is $[k, r]$, $B^\top$ is $[r, d]$, output $[\dots, d]$, aligned with the base output.
 - `merge()` uses `@torch.no_grad()` + `add_` to modify `base.weight` in place; after merging, `forward` skips the bypass.
 - dropout acts only on the **input entering the bypass**, not the main path (the standard LoRA practice).
+- `inject_lora()` starts by calling `requires_grad_(False)` on the whole `model`: `LoRALinear.__init__` only freezes the base submodule it wraps, so without a global freeze first, the embedding / LayerNorm / any FFN not in `target_names` would stay at their default trainable state — silently turning the run into full fine-tuning.
 
 > 💡 **dropout on the bypass input** — LoRA dropout acts on $x$ before it enters $A$, acting as regularization on the low-rank adaptation; the main path $W_0 x$ has no dropout (the base is frozen and needs no regularization).
 
@@ -217,7 +223,7 @@ QLoRA (Dettmers et al., 2023, arXiv 2305.14314, NeurIPS 2023) lets a single 48GB
 
 Observation: neural network weights approximately follow a zero-mean normal distribution $\mathcal{N}(0,\sigma^2)$. Plain 4-bit integer quantization (INT4, equally-spaced bins) wastes bins on a normal distribution — tail bins receive almost no values. **NF4's idea is to make each quantization bin receive an equal number of weights (equal probability mass); under the assumption "weights are zero-mean normal + quantile quantization," this is information-theoretically optimal for that fixed distribution.**
 
-Construction (simplified): take $2^4=16$ quantile points of the standard normal $\mathcal{N}(0,1)$ as quantization levels so that adjacent levels carry equal probability mass; make it **asymmetric** so 0 is represented exactly (zero-preserving, friendly to pruning / padding). When quantizing, normalize weights to $[-1,1]$ per block (QLoRA uses block size 64) via the absmax, then look up the nearest NF4 level:
+Construction (simplified): estimate quantile points separately for the negative and positive halves of the standard normal $\mathcal{N}(0,1)$ (the bitsandbytes implementation uses 8 levels on the negative side, including 0, and 7 on the positive side, 16 total, with an empirically-tuned offset rather than pure theoretical quantile boundaries), so each bin carries approximately equal probability mass, while forcing 0 to be represented exactly (**asymmetric** + zero-preserving, friendly to pruning / padding) — so it is not a strictly equal-probability quantile split, but an engineering approximation of equal-probability quantization under the zero-preserving constraint. When quantizing, normalize weights to $[-1,1]$ per block (QLoRA uses block size 64) via the absmax, then look up the nearest NF4 level:
 
 $$w \;\xrightarrow{\text{normalize by absmax}}\; \hat{w} \in [-1,1] \;\xrightarrow{\text{nearest NF4 level}}\; q \in \{n_0,\dots,n_{15}\}$$
 
@@ -235,7 +241,7 @@ That saves about **0.37 bit per param** on average — about 3 GB for a 65B mode
 
 ### 5.3　Paged Optimizer
 
-With long sequences / large batches, optimizer states can spike memory and OOM. QLoRA uses NVIDIA **unified memory** to **page** the optimizer states: when memory is tight it pages optimizer states out to CPU memory and back when needed, like OS memory paging, avoiding OOM crashes.
+The optimizer states' logical size is basically fixed ($\propto$ the trainable parameter count, independent of batch / seq_len); what actually spikes memory with long sequences / large batches is **activations and intermediate buffers**. QLoRA uses NVIDIA **unified memory** to **page** the optimizer states: when such a transient spike fills up GPU memory, the (otherwise resident) optimizer states are paged out to CPU memory to make room, then paged back in when a parameter update is needed — like OS memory paging, avoiding OOM crashes.
 
 ### 5.4　How forward / backward flow
 
@@ -283,8 +289,9 @@ class DoRALinear(nn.Module):
             p.requires_grad_(False)
         in_f, out_f = base.in_features, base.out_features
         self.scaling = alpha / r
-        self.lora_A = nn.Parameter(torch.empty(r, in_f))
-        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        # same as LoRALinear: new_empty/new_zeros inherit base.weight's device/dtype
+        self.lora_A = nn.Parameter(base.weight.new_empty(r, in_f))
+        self.lora_B = nn.Parameter(base.weight.new_zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
         # per-output magnitude: weight is [out, in], norm over the in dim (dim=1) -> [out, 1] (same as HF PEFT)
         self.m = nn.Parameter(self.base.weight.norm(dim=1, keepdim=True))  # [out, 1]
@@ -314,7 +321,7 @@ class DoRALinear(nn.Module):
 
 A few worth expanding:
 
-- **PiSSA**: instead of random init, do SVD on $W_0$ and initialize $A,B$ with the **principal singular values/vectors** (adapting the "most important" subspace), freezing the residual $W_0 - BA$. Aligning with principal components from the start gives faster convergence and often better quality.
+- **PiSSA**: do SVD on $W_0$ to get its principal singular values/vectors, and use them to initialize $A_0,B_0$ (e.g. $A_0=U_{:,:r}\Sigma_{:r,:r}^{1/2}$, $B_0=\Sigma_{:r,:r}^{1/2}V_{:,:r}^\top$, so $B_0A_0$ approximates $W_0$'s top-$r$ rank component), freezing the residual $W_{\text{res}} = W_0 - \gamma B_0 A_0$ ($\gamma=\alpha/r$ is the same LoRA scaling as in §2; if you reuse the standard scaled forward, the residual must subtract the $\gamma$-scaled $B_0A_0$ to guarantee $h=W_0x$ at $t=0$ — equivalently you can set $\alpha=r$, i.e. $\gamma=1$, to absorb the scaling into the initialization, which simplifies to $W_0-B_0A_0$). Aligning with principal components from the start gives faster convergence and often better quality.
 - **AdaLoRA**: parameterize $\Delta W$ in SVD form $P\Lambda Q$, and during training **dynamically prune** by singular-value importance, allocating the limited rank budget to layers that need it more (different $r$ per layer) instead of uniformly.
 - **(IA)³**: instead of a low-rank matrix, learn three **scaling vectors** $l_k, l_v, l_{ff}$, applied element-wise to the key, value, and FFN hidden activations: $k \to l_k \odot k$. Its parameter count is an order of magnitude smaller than LoRA; T-Few uses it for few-shot beating in-context learning.
 
@@ -537,7 +544,7 @@ Just memorizing "rsLoRA uses $\sqrt r$" without the variance/magnitude-stability
 
 <summary>Q14. What is NF4? Why better than INT4 for weight quantization?</summary>
 
-- NF4 = 4-bit NormalFloat, 16 levels placed at standard-normal quantiles so bins carry equal probability mass
+- NF4 = 4-bit NormalFloat, 16 levels placed at quantiles estimated separately for the negative/positive halves of the standard normal (negative side includes 0), so bins carry approximately equal probability mass (not a strictly theoretical equal-quantile split — an engineering approximation under the zero-preserving constraint)
 - Weights are ~$\mathcal{N}(0,\sigma^2)$; **under the normal assumption** equal-mass bins are info-theoretically optimal for that fixed distribution (quantile quantization)
 - INT4 is equally spaced and wastes bins on normal tails; NF4 is also zero-preserving
 
@@ -686,7 +693,7 @@ Key invariants of `LoRALinear` (verifiable with a short script):
 
 - **Start equivalence**: after injecting LoRA and before training, the output should equal the base elementwise (since $B=0 \Rightarrow \Delta W=0$).
 - **Merge consistency**: outputs before/after `merge()` for the same input should match numerically (under fp32 / eval / dropout=0 the error is ~1e-6 from pure float accumulation; under bf16 or train-mode dropout the error is larger and this value shouldn't be promised).
-- **Trainable set**: only `lora_A`, `lora_B` (and DoRA's `m`) have `requires_grad=True`, the base all `False`.
+- **Trainable set**: only `lora_A`, `lora_B` (and DoRA's `m`) have `requires_grad=True`, the base all `False`. (This invariant holds for the standalone `LoRALinear`/`DoRALinear` unit-test script, where the tested model is entirely wrapped by LoRA/DoRA layers. If you use §3's `inject_lora()` on a full model, be sure to call `requires_grad_(False)` on the whole model first — otherwise modules not matched by `target_names` stay trainable by default.)
 - **Parameter count**: adapting $q,v$, $r=8$, $d=4096$, $L$ layers gives trainable params $= L \times 2 \times 8 \times (4096+4096)$.
 
 Below is the **real run** output of [`code/lora.py`](code/lora.py) ($\text{IN}=32, \text{OUT}=48, r=8, \alpha=16$) on **PyTorch 2.10 / CPU** (each line has an `assert`; the summary prints only if all pass):
@@ -723,7 +730,7 @@ Pure PyTorch, runs on CPU in seconds with no GPU: `python docs/tutorials/code/lo
 - **QLoRA** — Dettmers et al., *QLoRA: Efficient Finetuning of Quantized LLMs*, arXiv 2305.14314 (2023), NeurIPS 2023.
 - **DoRA** — Liu et al., *DoRA: Weight-Decomposed Low-Rank Adaptation*, arXiv 2402.09353 (2024), ICML 2024.
 - **rsLoRA** — Kalajdzievski, *A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA*, arXiv 2312.03732 (2023).
-- **PiSSA** — Meng et al., *PiSSA: Principal Singular Values and Singular Vectors Adaptation*, arXiv 2404.02948 (2024), NeurIPS 2024.
+- **PiSSA** — Meng et al., *PiSSA: Principal Singular Values and Singular Vectors Adaptation of Large Language Models*, arXiv 2404.02948 (2024), NeurIPS 2024.
 - **LoRA-GA** — Wang et al., *LoRA-GA: Low-Rank Adaptation with Gradient Approximation*, arXiv 2407.05000 (2024).
 - **AdaLoRA** — Zhang et al., *Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning*, arXiv 2303.10512 (2023), ICLR 2023.
 - **LoRA+** — Hayou et al., *LoRA+: Efficient Low Rank Adaptation of Large Models*, arXiv 2402.12354 (2024).

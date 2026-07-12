@@ -6,7 +6,7 @@
 
 2. **multi-agent 三大原型**：
    - **role-play 对话**（CAMEL, Li et al. NeurIPS 2023, arXiv 2303.17760）：assistant-user 双角色 inception prompting；
-   - **SOP / 流水线**（MetaGPT, Hong et al. ICLR 2024, arXiv 2308.00352）：把软件开发拆成 PM / Architect / Engineer / QA 七个固定角色；
+   - **SOP / 流水线**（MetaGPT, Hong et al. ICLR 2024, arXiv 2308.00352）：把软件开发拆成 ProductManager / Architect / ProjectManager / Engineer / QAEngineer 五个固定角色；
    - **debate / aggregation**（Du et al. ICML 2024 arXiv 2305.14325 + Liang et al. EMNLP 2024 arXiv 2305.19118）：N agent 独立解答 → 互看 → 多轮迭代到一致。
 
 3. **MoA (Mixture-of-Agents, Wang et al. ICLR 2025 Spotlight, arXiv 2406.04692)**：N 个 proposer 各出回答，aggregator 把 N 个回答 concat 进 prompt 再合成。开源 6.5B-70B 组合在 AlpacaEval 2.0 上**超过 GPT-4 Omni**。
@@ -21,7 +21,7 @@
    - **ToT (Yao et al., NeurIPS 2023, arXiv 2305.10601)** = BFS/DFS + LLM evaluator；
    - **RAP (Hao et al., EMNLP 2023, arXiv 2305.14992)** = MCTS + world-model rollout；
    - **LATS (Zhou et al., ICML 2024, arXiv 2310.04406)** = MCTS + 自反思 (Reflexion) + value 估计；
-   - **Agent-Q (Putta et al., 2024, arXiv 2408.07199)** = MCTS + DPO 离线训练 policy。共性：用 **PUCT** 公式 $a^* = \arg\max_a Q(s,a) + c_\text{puct} P(s,a) \sqrt{N(s)} / (1+N(s,a))$ 平衡 exploit / explore。
+   - **Agent-Q (Putta et al., 2024, arXiv 2408.07199)** = MCTS + DPO 离线训练 policy。**ToT**（BFS/DFS + LLM evaluator）没有 tree-search 置信区间公式；**RAP、LATS 原论文用的是标准 UCT**（UCB1 for Trees：$Q(s,a) + w\sqrt{\ln N(s)/N(s,a)}$，不含 AlphaZero 式已学习先验 $P(s,a)$）；本教程 §6.7 的实现示例额外引入 $\text{softmax}(\text{LLM\_logp})$ 作为先验，写成 **PUCT** 公式 $a^* = \arg\max_a Q(s,a) + c_\text{puct} P(s,a) \sqrt{N(s)} / (1+N(s,a))$——这是教程自身的工程改造，不是 RAP/LATS 原论文的统一做法。
 
 8. **long-horizon benchmark 三件套**：**TAU-bench**（Yao et al. 2024 arXiv 2406.12045，customer service multi-turn）、**OSWorld** (Xie et al. NeurIPS 2024 arXiv 2404.07972，real OS GUI)、**SWE-bench** (Jimenez et al., ICLR 2024, arXiv 2310.06770，真实 GitHub issue 修复)。SOTA 2026-05 在 SWE-bench Verified ≈ 75%（Claude 4.6 Sonnet / o3 等），但 OSWorld 仍 < 60%。
 
@@ -107,8 +107,10 @@ class GroupChat:
         self.max_round = max_round
 
     def select_speaker(self, last_speaker):
-        # 三种策略: round_robin / random / llm_selector (LLM 自己决定下一个)
-        # 实际产品常用 llm_selector: 给 manager LLM 看 history + 角色描述, 选下一个
+        # AutoGen GroupChat 内置 speaker_selection_method 支持四种取值:
+        # auto (默认, 由 GroupChatManager 的 LLM 自动选择下一个) / manual (人工选择) /
+        # random / round_robin, 也可传入自定义 Callable
+        # 生产里最常用 auto: 给 manager LLM 看 history + 角色描述, 选下一个
         ...
 
     def run(self, init_msg):
@@ -123,7 +125,7 @@ class GroupChat:
         return self.messages
 ```
 
-> 💡 **selector 设计是 AutoGen 的成败点** — round-robin 简单但容易让弱 agent 拖后腿；random 缺乏控制；**llm_selector** 让 manager LLM 看 history 选下一个发言，是 production 默认（也是 cost 高的根源——多了一次 manager call）。
+> 💡 **selector 设计是 AutoGen 的成败点** — round-robin 简单但容易让弱 agent 拖后腿；random 缺乏控制；**auto**（`speaker_selection_method="auto"`）让 manager LLM 看 history 选下一个发言，是 production 默认（也是 cost 高的根源——多了一次 manager call）。
 
 ### 2.3　MetaGPT：SOP-driven 软件公司模拟
 
@@ -137,7 +139,7 @@ Engineer        → Code (multiple .py files)
 QAEngineer      → Test Cases
 ```
 
-每个角色**只接收上一节点的 structured output（不是自由对话）**，输出也是 structured（文档/代码/测试）。
+角色之间通过共享 **message pool** 发布/订阅结构化消息，不是严格的单前驱链——例如 Engineer 可以同时订阅 PRD 和 Tech Design 两个上游产物；输出也是 structured（文档/代码/测试），而不是自由对话。
 
 > 💡 **structured vs unstructured 是 multi-agent 工程化的最大分水岭** — CAMEL / 早期 AutoGen 是 unstructured（自由聊天）；MetaGPT / ChatDev / 现代 production agent 都是 structured（pipeline of artifacts）。原因：unstructured 容易 hallucinate "我们已经完成了"，structured 强制每一步产出可 inspect 的 artifact。
 
@@ -149,13 +151,13 @@ QAEngineer      → Test Cases
 
 > ⚠️ **Generative Agents 的 emergence 不等于真智能** — Park 2023 强调这是 "believable behavior"（让人觉得像真人），不是有意识或有 agency。Reddit / Twitter 上常被夸大成 "AI village"，面试时要克制：**这是一个 prompt 工程极致的 case study，不是 AGI 雏形**。
 
-### 2.5　Mixture-of-Agents (MoA) — 2024 NeurIPS 最 catchy 工作
+### 2.5　Mixture-of-Agents (MoA) — 2025 ICLR Spotlight 最 catchy 工作
 
 MoA (Wang et al., ICLR 2025 Spotlight, arXiv 2406.04692, Together AI) 的核心 idea **简单到没人会信**：
 
 ```
         ┌─ proposer_1 (Qwen2-72B)
-prompt ─┼─ proposer_2 (LLaMA3-70B)  ──→ aggregator (Qwen2-72B):
+prompt ─┼─ proposer_2 (LLaMA3-70B)  ──→ aggregator (Qwen1.5-110B-Chat):
         ├─ proposer_3 (WizardLM)         "把这 N 个 response 综合
         └─ proposer_N (Mixtral)            成最终答案"
 ```
@@ -265,7 +267,7 @@ def multi_agent_debate(query, agents, num_rounds=3):
 
 > ✅ **正确说法（consensus dynamics）** — 应该说收敛到 **fixed-point set**（一致 cluster），而非唯一 fixed point：
 
-1. **Linear averaging case**：若 $T$ 是线性 doubly-stochastic operator $A$（即 $A \mathbf{1} = \mathbf{1}, A^\top \mathbf{1} = \mathbf{1}$），按 Perron-Frobenius，iterates $x_k = A^k x_0 \to \pi^\top x_0 \cdot \mathbf{1}$，即收敛到 **consensus value**（所有 agent 同答案），但**起点不同 consensus value 不同** —— fixed-point set 是 $\{c \cdot \mathbf{1} : c \in \mathbb{R}\}$
+1. **Linear averaging case**：若 $T$ 是线性 doubly-stochastic operator $A$（即 $A \mathbf{1} = \mathbf{1}, A^\top \mathbf{1} = \mathbf{1}$），且 $A$ 额外满足**不可约（irreducible）与非周期（aperiodic）**（即 primitive matrix），则按 Perron-Frobenius，iterates $x_k = A^k x_0 \to \pi^\top x_0 \cdot \mathbf{1}$，即收敛到 **consensus value**（所有 agent 同答案），但**起点不同 consensus value 不同** —— fixed-point set 是 $\{c \cdot \mathbf{1} : c \in \mathbb{R}\}$；若 $A$ 可约或有周期性（如循环置换矩阵），$A^k$ 不会收敛到 rank-1 极限，可能永远振荡，此时连"收敛到某个 consensus"都不成立
 2. **非线性 case（softmax / majority vote）**：fixed-point set 通常是若干离散 consensus cluster（每个对应一个候选答案的全员同意）；从不同 initial 出发收敛到哪个 cluster 取决于初始多数派
 3. **真要 Banach 不动点**：需要额外引入外部 contraction（如固定 reference answer 的 anchor agent），但这等价于退化为非 debate 算法
 
@@ -442,11 +444,11 @@ MemGPT (Packer et al., arXiv 2310.08560, 2023-10; engineered as **Letta** 2024+)
 
 ### 5.3　MemoryBank：海马体启发
 
-MemoryBank (Zhong et al., AAAI 2024, arXiv 2305.10250) 受 **Ebbinghaus forgetting curve** 启发，每条 memory 带 **strength** 和 **last_access_time**，用指数衰减：
+MemoryBank (Zhong et al., AAAI 2024, arXiv 2305.10250) 受 **Ebbinghaus forgetting curve** 启发，每条 memory 带**两个不同的量**：会衰减的**保持率 retention/retrievability**（$R$）和会增强的**记忆强度 strength**（$S$，衰减速度由它决定，$S$ 越大衰减越慢）：
 
-$$S_t = S_0 \exp\left(-\frac{t - t_\text{last\_access}}{\tau}\right)$$
+$$R_t = \exp\left(-\frac{t - t_\text{last\_access}}{S}\right)$$
 
-retrieval 时按 **similarity × current strength** 排序，**经常被访问的 memory 强度回升**（mimic 海马体 reactivation）。
+每次该条 memory 被访问后，$S$ 会增大（如 $S \leftarrow S + 1$），从而让未来的衰减变慢（mimic 海马体 reactivation）；retrieval 时按 **similarity × $R_t$** 排序。注意 $R$（该衰减）和 $S$（该增强）是两个不同变量，不能共用同一个衰减符号。
 
 > 💡 **MemoryBank vs MemGPT** — MemGPT 把 memory 当 disk（无优先级，按 query 检索），MemoryBank 给 memory 加 dynamic priority（按访问频率衰减/强化）。production agent 常**两者结合**：MemGPT 的 disk 抽象 + MemoryBank 的 forgetting curve 做 cache eviction。
 
@@ -475,10 +477,14 @@ Stage 2 (online, cheap):
 
 **Wins**：
 
-| Benchmark | Vector RAG | GraphRAG | Δ |
-|---|---|---|---|
-| Multi-hop QA (HotpotQA-class) | ~50% | ~70% | +20pp |
-| Global summarization | poor | strong | qualitative |
+GraphRAG 原论文（Edge et al. 2024）实际测评对象是 **podcast 转录 + 新闻文章数据集**上的 **global sensemaking** 任务，用 LLM 判官在 comprehensiveness / diversity / empowerment 等维度做与 baseline 方法的 **pairwise win-rate** 对比——不是 multi-hop QA 准确率：
+
+| Benchmark | 对比对象 | GraphRAG 表现 |
+|---|---|---|
+| Global sensemaking（podcast/新闻数据集，LLM 判官 pairwise win-rate） | vector RAG baseline | comprehensiveness/diversity 上显著更高 win-rate |
+| 单跳 factoid QA | vector RAG baseline | 无明显优势，vector RAG 已够用 |
+
+> 注：GraphRAG 原论文并未报告 HotpotQA 等 multi-hop QA 数据集上的准确率数字；教程早期版本给出的"Multi-hop QA ~50%→~70%"是编造数据，已删除。
 
 **Loss**：
 
@@ -606,21 +612,21 @@ RAP (Hao et al., EMNLP 2023, arXiv 2305.14992) 升级：把 ToT 的 LLM-as-evalu
 
 ```
 MCTS step:
-  1. select: 按 PUCT 公式选 leaf
+  1. select: 按 tree-search 置信区间公式选 leaf
   2. expand: LLM propose next action
   3. simulate: LLM rollout 到 terminal, 估 reward
   4. backup: 把 reward 沿 path 回溯更新 Q(s,a)
 
-PUCT 公式 (UCT 的 AlphaGo 改良版):
-  a* = argmax_a [ Q(s, a) + c_puct * P(s,a) * sqrt(N(s)) / (1 + N(s,a)) ]
+RAP / LATS 原论文用的标准 UCT (UCB1 for Trees):
+  a* = argmax_a [ Q(s, a) + w * sqrt(ln N(s) / N(s,a)) ]
 ```
 
-公式各项：
+> ⚠️ **RAP / LATS 原论文用的是标准 UCT，不是 PUCT** — UCT 只有访问计数的置信区间项，不含 AlphaZero 式已学习的先验 $P(s,a)$。本教程 §6.7 的实现示例为了展示工程上常见的做法，额外引入 $\text{softmax}(\text{LLM\_logp})$ 作为先验，把 selection 公式写成下面的 **PUCT** 形式——这是教程自身的工程改造，并非 RAP/LATS 原论文的统一公式：
 
 $$\boxed{\;a^* = \arg\max_a \left[ Q(s, a) + c_\text{puct} \cdot P(s, a) \cdot \frac{\sqrt{N(s)}}{1 + N(s, a)} \right]\;}$$
 
 - $Q(s, a)$：从 $(s,a)$ 出发 rollout 的 mean reward
-- $P(s, a)$：prior probability（LLM 给的 action 概率）
+- $P(s, a)$：prior probability（本教程实现中用 LLM 给的 action 概率，原论文 UCT 中无此项）
 - $N(s)$：状态 $s$ 的访问数
 - $N(s, a)$：(s, a) 边的访问数
 - $c_\text{puct}$：exploration constant（典型 1.0-3.0）
@@ -659,7 +665,7 @@ Offline:
 Inference: 直接用 fine-tuned LLM (无 MCTS)，速度 ↑↑
 ```
 
-**结果**：WebShop 任务上从 28% → 51% success rate，且 inference 速度比 in-loop MCTS 快 10×。
+**结果**：论文里 28% → 51% success rate 是纯 offline DPO 微调后、推理时不再用 MCTS 的 **policy-only** 成功率，inference 速度比 in-loop MCTS 快 10×；若推理阶段再叠加 online MCTS/search，论文报告的最终成功率约 **95.4%**，接近/超过人类平均水平——这才是 Agent-Q 真正的旗舰数字，51% 只是不带推理时 search 的中间结果。
 
 ### 6.7　LATS 风格 tree-search 实现（核心 60 行）
 
@@ -750,15 +756,15 @@ def lats_search(initial_state, llm_propose, llm_propose_one, llm_value, env_step
 
 | Benchmark | 论文 | 任务类型 | 步长 | 2026-05 SOTA |
 |---|---|---|---|---|
-| **AgentBench** | Liu et al., ICLR 2024, arXiv 2308.03688 | 8 envs (OS, DB, WebShop, HouseHold...) | 10-50 | GPT-4 ≈ 4.0/10 overall |
+| **AgentBench** | Liu et al., ICLR 2024, arXiv 2308.03688 | 8 envs (OS, DB, WebShop, HouseHold...) | 10-50 | GPT-4 综合分 ≈ 4.01（跨 8 个环境加权聚合，非满分 10 分制的直接百分比） |
 | **τ-bench (TAU-bench)** | Yao et al., 2024, arXiv 2406.12045 | customer service multi-turn (retail, airline) | 20-50 | Claude 3.5 Sonnet ≈ 45-55% (retail) |
 | **OSWorld** | Xie et al., NeurIPS 2024, arXiv 2404.07972 | real OS GUI (Linux/macOS/Win, ≈ 369 任务) | 5-100 | Anthropic Claude (2026-05) ≈ 60% (subset) |
-| **WebArena** | Zhou et al., ICLR 2024, arXiv 2307.13854 | self-hosted web (Reddit-clone, Gitea, etc.) | 5-30 | GPT-4 ≈ 14.4% (2024)，2026 头部 ~ 50% |
+| **WebArena** | Zhou et al., ICLR 2024, arXiv 2307.13854 | self-hosted web (Reddit-clone, self-hosted GitLab, etc.) | 5-30 | GPT-4 ≈ 14.4% (2024)，2026 头部 ~ 50% |
 | **VisualWebArena** | Koh et al., ACL 2024, arXiv 2401.13649 | WebArena + 视觉理解 | 10-30 | GPT-4V ≈ 16.4% |
-| **SWE-bench / Verified** | Jimenez et al., ICLR 2024, arXiv 2310.06770 | 2294 真实 GitHub issue (Python repos) | 多文件多 commit | Claude 4.6 Sonnet (2026-05) ~ 75% (Verified) |
+| **SWE-bench / Verified** | Jimenez et al., ICLR 2024, arXiv 2310.06770 | 2294 真实 GitHub issue 全集 (Python repos)；Verified 是其中人审过的 500 题子集 | 多文件多 commit | Claude 4.6 Sonnet (2026-05) ~ 75% (Verified 500 题子集) |
 | **MLE-bench** | Chan et al., 2024 (OpenAI), arXiv 2410.07095 | 75 Kaggle ML 比赛任务 | 24h compute budget | o1-preview + AIDE ≈ 16.9% medals |
 | **SWE-Lancer** | OpenAI, 2025, arXiv 2502.12115 | 1488 真实 Upwork freelance task ($1M+ payout) | 持续 hours-days | GPT-4o ≈ 8% (managerial), 26% (IC) |
-| **Adventure / TextWorld** | Yuan et al., AAAI 2019, arXiv 1806.11532 | text adventure game | 50-500 | RL-trained baseline + LLM > 80% on Coin Collector |
+| **Adventure / TextWorld** | Côté et al., 2018 (workshop paper), arXiv 1806.11532 | text adventure game | 50-500 | RL-trained baseline + LLM > 80% on Coin Collector |
 
 ### 7.2　benchmark 选择决策表
 
@@ -1151,13 +1157,14 @@ inception prompt = **强约束的 system prompt**（"你只能给 instruction，
 
 <summary>Q3. AutoGen 的 GroupChat selector 有几种策略？production 怎么选？</summary>
 
-三种：
+AutoGen GroupChat 内置 `speaker_selection_method` 支持四种取值，也可传入自定义 Callable：
 
 1. **round_robin**：按顺序轮 —— 简单，但弱 agent 拖后腿
 2. **random**：随机选 —— 缺乏控制
-3. **llm_selector**：用一个 manager LLM 看 history 决定下一个 —— production 默认，但每轮多一次 LLM call
+3. **manual**：人工选择下一个发言人
+4. **auto**（默认）：用一个 manager LLM 看 history 决定下一个 —— production 默认，但每轮多一次 LLM call
 
-实际产品（如 Microsoft 自家产品）几乎都是 llm_selector，**因为 round_robin 在 N>3 时容易 chaos**。
+实际产品（如 Microsoft 自家产品）几乎都用 auto，**因为 round_robin 在 N>3 时容易 chaos**。（注：LLM 自动选择的官方取值名是 `auto`，不是 `llm_selector`。）
 
 </details>
 
@@ -1177,7 +1184,7 @@ Engineer → code (.py files)
 QA → test cases
 ```
 
-每个角色**只接收上一节点的 structured output**（不是自由 chat），强制可 inspect。
+角色之间通过共享 **message pool** 发布/订阅 structured output（不是自由 chat，也不是严格单前驱链——如 Engineer 可同时订阅 PRD 和 tech design 两个上游产物），强制可 inspect。
 
 → **structured vs unstructured 是 multi-agent 工程化的最大分水岭**。
 
@@ -1274,7 +1281,7 @@ Round 2: 再修订
 - **LATS** (Zhou 2024, ICML) = RAP + Reflexion（自然语言反思） + value estimate
 - **Agent-Q** (Putta 2024, arXiv 2408.07199) = MCTS at training-time + DPO 训 policy → inference 不再需要 MCTS（10× 速度）
 
-**共性**：都用 **PUCT 公式** $a^* = \arg\max_a [Q + c P \sqrt{N} / (1 + N_a)]$ 平衡 exploit / explore。
+**共性与差异**：ToT 没有 tree-search 置信区间公式，只是 LLM 打分 + BFS/DFS；RAP、LATS 原论文用的是标准 **UCT**（UCB1 for Trees：$Q + w\sqrt{\ln N / N_a}$，不含已学习的先验 $P$）；本教程 §6.7 的实现额外引入 LLM 先验 $P$，写成 **PUCT 公式** $a^* = \arg\max_a [Q + c P \sqrt{N} / (1 + N_a)]$ 平衡 exploit / explore——这是教程自身的工程改造，不是四篇论文的统一公式。
 
 **演化逻辑**：ToT 起步 → MCTS 显式化 → 加反思 → 训出来不用 search。
 
@@ -1327,7 +1334,7 @@ Round 2: 再修订
 1. **diversity 来源**：SC 靠 sampling temperature，MoA 靠**模型异质性**——后者更强（不同模型偏置不同 → independent error）
 2. **聚合方式**：SC 是 hard vote（丢弃 reasoning trace），MoA 是 LLM-as-aggregator（保留 trace 信息，做 latent synthesis）
 
-但 MoA 的强可能也部分来自 **aggregator 是大模型**（Qwen2-72B）——如果 aggregator 用小模型，gap 缩小。
+但 MoA 的强可能也部分来自 **aggregator 是大模型**（65.1% 那组配置的 aggregator 是 Qwen1.5-110B-Chat）——如果 aggregator 用小模型，gap 缩小。
 
 **面试加分**：MoA 本质是 "self-consistency 把 majority vote 升级成 LLM-as-aggregator + 模型异质性"——两次升级的乘积。
 
@@ -1407,7 +1414,7 @@ Stage 2 (online):
   global query: 用社区摘要 map-reduce
 ```
 
-**性价比**：multi-hop QA 上 ~ +20pp；single-hop factoid 没收益但 cost 高。
+**性价比**：GraphRAG 原论文实测的是 global sensemaking（podcast/新闻数据集，LLM 判官 pairwise win-rate），并未报告 multi-hop QA 上的准确率提升数字；single-hop factoid 没收益但 cost 高。
 
 </details>
 
@@ -1429,7 +1436,7 @@ $$a^* = \arg\max_a \left[ Q(s, a) + c_\text{puct} \cdot P(s, a) \cdot \frac{\sqr
 - 任务 reward 干净 + branching factor 高 → $c_\text{puct}$ 中等
 - 任务 prior 很准（LLM 提议质量高）→ $c_\text{puct}$ 小（trust prior）
 
-AlphaZero 用 1.25-3.0，LATS/RAP 实现常用 1.0-2.0。
+AlphaZero 用 1.25-3.0，本教程风格的（带 LLM 先验的）实现常用 1.0-2.0；注意 RAP/LATS 原论文本身用的是标准 UCT（无先验项 $P$），这里讨论的是本教程 §6.7 引入 LLM 先验后的 PUCT 变体调参经验。
 
 </details>
 
@@ -1534,7 +1541,7 @@ Joint operator $T : \mathcal{A}^N \to \mathcal{A}^N, \; (T(x))_i = T_i(x)$。
 
 $$x_i^{(k+1)} = \sum_{j} A_{ij}\, x_j^{(k)},\quad A \in \mathbb{R}^{N \times N}\text{ doubly-stochastic}$$
 
-由 Perron-Frobenius，$\lim_{k \to \infty} A^k = \mathbf{1} \pi^\top$（$\pi$ 是 stationary distribution），故 $x_i^{(k)} \to \pi^\top x^{(0)}$，**所有 agent 同意 stationary mean**。fixed-point set 是 $\{c \mathbf{1} : c \in \mathbb{R}\}$（参数化的 consensus 直线），起点不同 $c$ 不同——所以不是 Banach 唯一不动点。
+若 $A$ 额外满足不可约（irreducible）与非周期（aperiodic），由 Perron-Frobenius，$\lim_{k \to \infty} A^k = \mathbf{1} \pi^\top$（$\pi$ 是 stationary distribution），故 $x_i^{(k)} \to \pi^\top x^{(0)}$，**所有 agent 同意 stationary mean**。fixed-point set 是 $\{c \mathbf{1} : c \in \mathbb{R}\}$（参数化的 consensus 直线），起点不同 $c$ 不同——所以不是 Banach 唯一不动点。（若 $A$ 可约或有周期性，如循环置换矩阵，$A^k$ 不收敛，可能永远振荡。）
 
 **非线性 case (softmax-over-peers)**：
 
@@ -1550,11 +1557,11 @@ Liang 把 agent 分两组 (affirmative / negative)，affirmative 倾向 confirm 
 
 $$x^{(k+1)} = J(x_\text{aff}^{(k)}, x_\text{neg}^{(k)})$$
 
-$J$ 是 **外部 contractive operator**（不基于 affirmative/negative 内部 update，由独立 judge LLM 决策），把整个迭代映射到一个新的 contractive 系统。**Judge 引入了人工 contraction**——这是 Liang 2024 加 judge 的本质：用 design 引入 $\beta < 1$ 的外部信号。
+$J$（judge LLM）在直觉上起到**外部纠偏**作用——不基于 affirmative/negative 内部 update，由独立 judge 决策，打破两组互推的僵局。但 $J$ 没有解析形式，没有 Lipschitz 常数 <1 的证明，**不能严格断言它是压缩映射（contractive operator）**；"Judge 引入了人工 contraction" 只是一个直觉类比，不是被证明的性质。
 
 **经验校准**：
 
-Du 2023 实验观察到 GSM8K 类推理任务上：N=1 baseline → N=3 R=2-3 即可大幅提升 (+5-10pp)，N=5 在 N=3 之上仅边际提升。这与 $\beta \approx 0.5$ 的几何收敛速度 $\beta^3 \approx 0.125$ 匹配（即 ~12.5% 的剩余不一致后就达到饱和）。Liang 2024 的 affirmative/negative + judge 设计在翻译 / counter-intuitive 推理上有类似 +5-8pp 的提升。
+Du 2023 实验观察到 GSM8K 类推理任务上：N=1 baseline → N=3 R=2-3 即可大幅提升 (+5-10pp)，N=5 在 N=3 之上仅边际提升。这一饱和模式与几何衰减的直觉类似，但 $\beta$ 并非从理论推导得出的收缩系数，只是启发式类比，不构成对 $\beta$ 的反推证明——把 N=3→N=5 的边际收益骤降拿来"匹配"某个 $\beta \approx 0.5$ 是事后数字游戏（post-hoc numerology），不是真实推导。Liang 2024 的 affirmative/negative + judge 设计在翻译 / counter-intuitive 推理上有类似 +5-8pp 的提升。
 
 </details>
 
@@ -1683,11 +1690,12 @@ $$\mathcal{L}_\text{DPO} = -\log \sigma\!\left( \beta \log\frac{\pi_\theta(a^+ |
 | Base LLM | 28% | 1× |
 | ReAct | 38% | 1× |
 | In-loop MCTS | 48% | ~100× |
-| Agent-Q (DPO from MCTS) | **51%** | 1× |
+| Agent-Q (DPO from MCTS，policy-only，推理时不用 MCTS) | **51%** | 1× |
+| Agent-Q + 推理时叠加 online MCTS/search | **~95.4%** | 接近 in-loop MCTS 量级 |
 
-→ **MCTS at training, fast policy at inference** 是 2024-2026 一个关键 design pattern——类比 AlphaGo Zero 的 self-play + DPO 风格 distillation。
+→ 51% 是不带推理时 search 的 policy-only 结果；论文真正的旗舰数字是叠加推理时 search 后的 ~95.4%（接近/超过人类平均水平）。**MCTS at training, fast policy at inference（可选再叠加推理时 search 拿最高分）** 是 2024-2026 一个关键 design pattern——类比 AlphaGo Zero 的 self-play + DPO 风格 distillation。
 
-**面试加分**：这个 pattern 也出现在 **DeepSeek-R1 distill**（R1-Zero MCTS-like search 产数据 → 蒸馏小模型）、**rStar-Math**（Microsoft 2025 MCTS + PPM self-evolution）——共同主题是 **inference-time search 是产数据手段，不是部署目标**。
+**面试加分**：这个 pattern（MCTS 产数据、fast policy 部署）也出现在 **rStar-Math**（Microsoft 2025 MCTS + PPM self-evolution）——共同主题是 **inference-time search 是产数据手段，不是部署目标**。但要注意区分：**DeepSeek-R1-Zero** 走的是不同路线，它用 **GRPO**（Group Relative Policy Optimization）纯 RL 直接在 base model 上训练产生长链 CoT，论文中明确**未使用 MCTS**，不属于这一 MCTS-distill pattern——这是一个常见的混淆点。
 
 </details>
 
@@ -1753,14 +1761,14 @@ $$\mathcal{L}_\text{DPO} = -\log \sigma\!\left( \beta \log\frac{\pi_\theta(a^+ |
 | 2025-03 | OpenAI Agents SDK | (no arXiv) | handoff / guardrails / tracing 抽象 |
 | 2025-01 | OpenAI Operator | (no arXiv) | CUA-trained vision-language agent for web |
 | 2024-10 | Claude Computer Use | (no arXiv) | desktop GUI agent，OSWorld ~ 14.9% (2024) |
-| 2024-08 | Agent-Q | 2408.07199 | MCTS + DPO，WebShop 28% → 51% |
+| 2024-08 | Agent-Q | 2408.07199 | MCTS + DPO，policy-only 28% → 51%；叠加推理时 search 达 ~95.4% |
 | 2024-06 | MoA (Mixture of Agents) | 2406.04692 | N 个 proposer + aggregator 超 GPT-4 Omni |
 | 2024-06 | TAU-bench | 2406.12045 | customer service multi-turn agent benchmark |
 | 2024-05 | SWE-Agent | 2405.15793 | ACI for SWE-bench Lite 18.0% |
 | 2024-04 | OSWorld | 2404.07972 | real OS GUI 369 任务 |
 | 2024-04 | GraphRAG | 2404.16130 | LLM-extracted KG + community for global QA |
 | 2024-01 | VisualWebArena | 2401.13649 | vision + web 任务 |
-| 2023-12 | Math-Shepherd | 2312.08935 | MCTS rollout 自动标 PRM |
+| 2023-12 | Math-Shepherd | 2312.08935 | 对每个中间步骤做多次 Monte Carlo 补全采样(非树搜索)自动标 PRM |
 | 2023-10 | LATS | 2310.04406 | MCTS + Reflexion + value |
 | 2023-10 | SWE-bench | 2310.06770 | 2294 真实 GitHub Python bug |
 | 2023-10 | MemGPT | 2310.08560 | OS-style virtual memory for LLM |

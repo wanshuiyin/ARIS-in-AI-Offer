@@ -83,7 +83,7 @@ INT8 对 $\mathcal{N}(0, 1)$ 用 $\beta = 3\sigma$ 截断时，每减 1 bit SNR 
 | **per-group** | 每 $g$ 个元素共享一个 $s$（一般沿 input/K 维分组） | $O(NK/g)$ | 高（$g = 32 / 64 / 128$） |
 | **per-token (act only)** | activation 每个 token (一行) 一个 $s$ | $O(L)$ | 高，但每 step 算一次 |
 
-> 💡 **Per-group 是 W4 量化的工业标准** — GPTQ / AWQ / GGUF Q4_K 默认 group_size = 128：在 input dim 上每 128 个 weight 共享 scale（+zero-point）。Storage 开销：W4 + group128（INT4 quant + FP16 scale per 128 weights）≈ $4 + 16/128 = 4.125$ bits/weight；group32 ≈ $4 + 16/32 = 4.5$ bits/weight，精度更高。
+> 💡 **Per-group 是 W4 量化的工业标准** — GPTQ / AWQ / GGUF Q4_K 默认 group_size = 128：在 input dim 上每 128 个 weight 共享一个 scale。Storage 开销（对称量化，无 zero-point）：W4 + group128（INT4 quant + FP16 scale per 128 weights）≈ $4 + 16/128 = 4.125$ bits/weight；group32 ≈ $4 + 16/32 = 4.5$ bits/weight，精度更高。若是非对称量化（每组还需存一个 INT4 zero-point），公式应为 $4 + (16+4)/g$：group128 ≈ 4.156 bits/weight，group32 ≈ 4.625 bits/weight。
 
 ### 2.4 Rounding 模式
 
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     print(f"max abs err = {err:.4e} (should be ≤ max_scale/2)")
 ```
 
-> ⚠️ **PyTorch 早期版本的 `round` 是 banker's rounding (RNE)，与 CUDA / TensorRT 不一致** — 跨 backend 部署时务必用同一 rounding，否则同一份量化 weight 在两端产出会差 0.5 ULP。
+> ⚠️ **PyTorch 早期版本的 `round` 是 banker's rounding (RNE)，与 CUDA / TensorRT 不一致** — 跨 backend 部署时务必用同一 rounding；在 tie 点（$x/s$ 恰为整数 + 0.5）不同 rounding 惯例给出的整数 $q$ 相差整整 1 个 quantization level，反量化后差一个完整的 quantization step $s$（1 LSB），而不是 0.5 ULP。
 
 ## §3 LLM 的 Outlier 问题
 
@@ -245,7 +245,9 @@ $$w_j \leftarrow w_j - \frac{w_q - \mathrm{Quant}(w_q)}{[H^{-1}]_{qq}}\,[H^{-1}]
 
 直接对每个 $q$ 求 $H^{-1}$ 的列代价 $O(K^2)$；GPTQ 用 Cholesky 分解 $H^{-1} = U^\top U$（$U$ 上三角，等价地 $H^{-1} = L L^\top$ 若取下三角 $L = U^\top$），扫到第 $q$ 列时只需 $U$ 的子矩阵，且更新可向量化。
 
-GPTQ 的实际实现是把 $K$ 列按 **block size = 128** 分块，每个 block 内部按列 quantize 并 update，block 间一次性 sync update（Cholesky decomposition based）。整体复杂度：$O(K^3 + K \cdot K^2)$ per layer，对 7B 模型单 A100 上 ~30 分钟即可量化完。
+GPTQ 的实际实现是把 $K$ 列按 **block size = 128** 分块，每个 block 内部按列 quantize 并 update，block 间用懒惰的批量（lazy batched）方式一次性 sync update（Cholesky decomposition based），从而减少内存访问次数。整体复杂度：$O(MK^2 + K^3 + NK^2)$ per layer（$M$ = calibration 样本数，$K$ = input dim，$N$ = output dim；$MK^2$ 来自算 Hessian $H=X^\top X$，$K^3$ 来自 Cholesky 分解，$NK^2$ 来自跨 $N$ 列共享 $H^{-1}$ 的更新传播），对 7B 模型单 A100 上 ~30 分钟即可量化完。
+
+> 💡 **block size ≠ group_size** — 这里的 "block size = 128"（更新批处理粒度，纯工程加速手段，决定多少列的更新被延迟合并再一次性写回）与 §2.3 提到的 **group_size**（量化 scale 的共享粒度）是两个独立概念，只是常见实现里两者都取 128，容易被混为一谈。
 
 ### 4.5 GPTQ-style 伪代码（必考写法）
 
@@ -261,12 +263,22 @@ def gptq_quantize_layer(
     damp_percent: float = 0.01,
 ):
     """
-    Block-wise GPTQ for ONE linear weight matrix.
+    Direct (non-batched) GPTQ for ONE linear weight matrix.
 
     Hessian H = X^T X is shared across rows of W.
     We quantize columns of W one-by-one (so we walk along K).
     After quantizing column q, propagate the residual error
     along H^-1 to all yet-unquantized columns j > q.
+
+    NOTE: for clarity this directly updates ALL remaining columns
+    W[:, q+1:] after every single column (mathematically identical to
+    §4.3's OBS update). The real GPTQ implementation instead delays
+    the update within a `block_size`-wide window (lazy batched update):
+    it only updates columns inside the current block after each step,
+    and applies the full cross-block update once per block — same
+    result, far fewer memory passes. `block_size` here is an update-
+    batching granularity, distinct from `group_size` (the quantization
+    scale granularity above), even though both commonly default to 128.
     """
     N, K = W.shape
     device = W.device
@@ -338,7 +350,7 @@ $$Y = (X / S) (S \cdot W) = \tilde{X} \tilde{W}$$
 
 其中 $S = \mathrm{diag}(s_1, \ldots, s_K)$，$\tilde{X}_{:, c} = X_{:, c} / s_c$，$\tilde{W}_{c, :} = s_c \cdot W_{c, :}$。**在 FP16 下两者完全相等**。但量化后：
 
-- $\tilde{W} = S W$：salient row $w_{c, :}$ 被乘以 $s_c$（变大），单 channel 量化更精细（per-channel scale 更小）。
+- $\tilde{W} = S W$：salient row $w_{c, :}$ 被乘以 $s_c$（变大）。**注意**：保护不是来自"per-channel scale 变小、量化更精细"——group 内所有 channel 共享同一个 $\Delta$，salient channel 被放大反而可能把 $\Delta$（组内 absmax）顶得更大。真正的保护来自反变换：量化误差经 $w \to w\cdot s_c$（对应 activation 除以 $s_c$）后，salient channel 换算回原始尺度的有效误差被压低约 $1/s_c$ 倍，只要 $s_c$ 不过大导致 $\Delta$ 涨幅超过 $s_c$ 本身。
 
 - $\tilde{X} = X / S$：activation 没量化（weight-only PTQ 不动 activation），但下游若有 act quant 则误差也降。
 
@@ -359,7 +371,7 @@ $$s_c = \mathrm{mean}(|x_c|)^\alpha,\quad \alpha \in \{0.0, 0.1, \ldots, 1.0\}$$
 | 推理 dequant | 可能需要 act reordering | 无额外开销（scale 可吸收进 LayerNorm / W） |
 | 与 W 重排兼容 | 较弱 | 强（scale 是 elementwise，不破坏 GEMM 结构） |
 
-> 💡 **AWQ 的工程亲和性** — Per-channel $s_c$ 可以**预 merge 进上游 LayerNorm / RMSNorm 的 weight**：$\mathrm{LN}(x) \cdot \gamma$ 中 $\gamma \leftarrow \gamma / s$，下游 $w \leftarrow s \cdot w$，运行时**完全没有额外 elementwise 操作**。这是 AWQ 比 SmoothQuant 更易部署的原因之一（SmoothQuant 也能 merge，但若 LN 后接 cat / residual 则不能）。
+> 💡 **AWQ 的工程亲和性** — Per-channel $s_c$ 可以**预 merge 进上游 LayerNorm / RMSNorm 的 weight**：$\mathrm{LN}(x) \cdot \gamma$ 中 $\gamma \leftarrow \gamma / s$，下游 $w \leftarrow s \cdot w$，运行时**完全没有额外 elementwise 操作**。这是 AWQ 比 SmoothQuant 更易部署的原因之一（SmoothQuant 也能 merge，但若 LN 后接 cat / residual 则不能）。**注意**：这个等价变换要求 LN 无 bias（或 bias 同步除以 $s$）——带 bias 的标准 LayerNorm（$\mathrm{LN}(x)=\gamma\odot\mathrm{norm}(x)+\beta$，OPT/BLOOM 用）只除 $\gamma$ 不够，须同时 $\beta \leftarrow \beta / s$ 才能保持等价；RMSNorm 因无 $\beta$ 不受影响。
 
 ### 5.4 AWQ-style per-channel scale 搜索代码
 
@@ -393,7 +405,7 @@ def awq_search_scale(
     for i in range(n_grid + 1):
         alpha = i / n_grid
         s = x_mean.pow(alpha)
-        # Normalize s so that geometric mean is 1: keeps scale of W stable.
+        # Normalize s so that its arithmetic mean is 1: keeps scale of W stable.
         s = s / s.mean()
         s = s.clamp(min=1e-4)
 
@@ -463,7 +475,7 @@ SmoothQuant 论文在 OPT / BLOOM 上扫 $\alpha \in [0.3, 0.7]$，typically 0.5
 
 - 数学等价：对角矩阵作用是 channelwise multiplication，与 GEMM 的内积顺序无关，最终输出 $Y$ 在 FP16 下逐元素相等。
 
-- 工程实现：$S^{-1}$ 可以 fuse 进**上一层的 LayerNorm weight**（$\gamma \leftarrow \gamma / s$），$S$ 可以 fuse 进**本层 weight**（$W \leftarrow SW$，离线一次性），inference 时**完全没有 elementwise overhead**。
+- 工程实现：$S^{-1}$ 可以 fuse 进**上一层的 LayerNorm weight**（$\gamma \leftarrow \gamma / s$），$S$ 可以 fuse 进**本层 weight**（$W \leftarrow SW$，离线一次性），inference 时**完全没有 elementwise overhead**。若上一层 LN 带 bias（$\beta$），需同步 $\beta \leftarrow \beta / s$ 才能保持等价；RMSNorm 无 $\beta$ 不受此限制；若 LN 输出还喂给其他未同步缩放的下游消费者，也需一并处理。
 
 - 不破坏的关键：$S$ 是 diagonal，rescale 在 K 维上每个 channel 独立。如果 $S$ 是 dense / rotation matrix，则需 explicit matmul，下面的 QuaRot / SpinQuant 选择了那个方向，但代价更大。
 
@@ -489,15 +501,27 @@ def compute_smooth_scale(
 
 
 @torch.no_grad()
-def apply_smoothing(W: torch.Tensor, s: torch.Tensor, prev_ln_weight: torch.Tensor):
+def apply_smoothing(
+    W: torch.Tensor,
+    s: torch.Tensor,
+    prev_ln_weight: torch.Tensor,
+    prev_ln_bias: torch.Tensor = None,   # pass this if the upstream LN has a bias (e.g. OPT/BLOOM)
+):
     """
-    Fuse smoothing into upstream LayerNorm weight and current layer W:
+    Fuse smoothing into upstream LayerNorm weight (+ bias) and current layer W:
         gamma_new = gamma / s   (so output of LN becomes x / s)
+        beta_new  = beta / s    (REQUIRED if LN has bias: LN(x) = gamma*norm(x) + beta;
+                                  dividing gamma alone gives (gamma/s)*norm(x)+beta,
+                                  which is NOT (gamma*norm(x)+beta)/s unless beta is
+                                  also divided by s)
         W_new     = W * s       (broadcasts over output dim of W)
     After this, FP16 forward is identical, but X and W are reshaped
     such that simple per-tensor / per-channel quant works well.
+    RMSNorm has no bias (beta), so prev_ln_bias is simply omitted there.
     """
     prev_ln_weight.div_(s)                                  # in-place modify γ
+    if prev_ln_bias is not None:
+        prev_ln_bias.div_(s)                                # in-place modify β (bias-bearing LN only)
     W.mul_(s.unsqueeze(0))                                  # [N, K] broadcasts s along K dim
     return W
 ```
@@ -508,7 +532,7 @@ def apply_smoothing(W: torch.Tensor, s: torch.Tensor, prev_ln_weight: torch.Tens
 
 - ✅ FFN 和 attention input projection（K, V, Q）：smoothing 可与上游 LN merge。
 
-- ⚠️ Out projection 和 down projection：上游不是 LN（是 residual / attention output），smoothing 需要 explicit elementwise op，工程上 SmoothQuant 默认跳过这两层（保留 FP16 input）。
+- ⚠️ Out projection 和 down projection：上游不是 LN（是 residual / attention output），smoothing 需要 explicit elementwise op，工程上 SmoothQuant 默认跳过这两层的 smoothing 预处理——但这不等于保留 FP16 input：这两层仍会做 INT8 量化（通常是简单的 per-tensor / per-token 动态量化，不做离线 outlier-migration），只是不享受 smoothing 带来的额外精度保护。
 
 - ⚠️ INT4 activation：W4A4 用 SmoothQuant 单独不够，需要配合 QuaRot / SpinQuant 旋转。
 
@@ -524,7 +548,7 @@ SmoothQuant 用 **diagonal**（per-channel）scale 抑制 outlier；但 outlier 
 
 - 关键性质：随机 sign flip 后的 Hadamard 变换可证明把 weight 的 incoherence（最大 column $\ell_2$ norm 与 Frobenius norm 比）压到 $O(\sqrt{\log d / d})$ 级别。
 
-- $W' = U W V^\top$，FP16 等价（$U, V$ orthogonal）；量化 $W'$ 比量化 $W$ 损失小（因为 incoherent）。
+- $W' = U W V^\top$（$U, V$ orthogonal）；量化 $W'$ 比量化 $W$ 损失小（因为 incoherent）。**完整等价关系**是 $Wx = U^\top W'(Vx)$：需先用 $V$ 旋转输入，用 $W'$ 计算后再用 $U^\top$ 旋转输出才能复原 $Wx$，而不是简单地"$W'$ 与 $W$ FP16 等价"。工程上 $V$ 需吸收进上一层的输出权重，$U^\top$ 需吸收进下一层的输入权重，才能做到 runtime 零额外开销。
 
 代价：inference 时需保留 $U, V$ 的 matmul（一次 dense rotation）。Hadamard 变换有 fast algorithm（$O(d \log d)$），但仍比 SmoothQuant 的对角 fuse 慢。
 
@@ -534,7 +558,7 @@ SmoothQuant 用 **diagonal**（per-channel）scale 抑制 outlier；但 outlier 
 
 - 在每个 residual stream 进入 transformer block 前，**乘上一个 Hadamard $H$**。
 
-- Hadamard 是 orthogonal，可以"穿过" RMSNorm（RMSNorm 是 elementwise，$\mathrm{RMSNorm}(Hx) \cdot \gamma = H \cdot \mathrm{RMSNorm}(x) \cdot (H \gamma)$ 不严格成立，但 QuaRot 用"online Hadamard"绕过）。
+- Hadamard 是 orthogonal，纯归一化部分（无 $\gamma$）与 $H$ 可交换（$\mathrm{rms}(Hx) = \mathrm{rms}(x)$），但 $\mathrm{diag}(\gamma)$ 与稠密的 $H$ 一般不交换，直接对带 $\gamma$ 的 RMSNorm 输出穿过 $H$ 不严格成立。QuaRot 的做法是先把 $\gamma$ **离线吸收进下一层权重**（$W \leftarrow \mathrm{diag}(\gamma) W$），使 RMSNorm 变成不含 $\gamma$ 的纯归一化后再与 $H$ 精确交换；"online Hadamard" 只用于少数无法离线吸收旋转的位置（如非线性之后、KV cache），不是解决 $\gamma$ 不交换问题本身的机制。
 
 - Activation 旋转后呈现更 Gaussian 的分布，**outlier 被打散到所有维度**，INT4 activation 量化误差大幅下降。
 
@@ -612,7 +636,8 @@ def fp8_e4m3_encode(x: float) -> int:
         if m_int == 8:                                      # mantissa overflow
             m_int = 0
             biased_e += 1
-        if biased_e >= 15:                                  # exceeds max exp
+        if biased_e > 15:                                   # exceeds max exp (biased_e==15 with
+                                                             # mantissa 0-6 is still legal: 256-448)
             return (sign << 7) | 0b1111_110                 # saturate
         exp_bits = biased_e
 
@@ -636,7 +661,7 @@ def fp8_e4m3_decode(b: int) -> float:
 assert abs(fp8_e4m3_decode(fp8_e4m3_encode(448.0)) - 448.0) < 1e-6
 ```
 
-### 8.3 MX 格式（OCP / Microsoft 2024）
+### 8.3 MX 格式（OCP / Microsoft 2023）
 
 OCP (Open Compute Project) MX (Microscaling) 规范：把 32 个元素组成一个 block，共享一个 **8-bit shared scale**（E8M0 格式，即 power-of-two scale）；block 内每个元素用 FP4/FP6/FP8 编码。
 
@@ -647,7 +672,7 @@ OCP (Open Compute Project) MX (Microscaling) 规范：把 32 个元素组成一�
 | MXFP4 | FP4 (E2M1) | 32 | E8M0 | $4 + 8/32 = 4.25$ |
 | MXINT8 | INT8 | 32 | E8M0 | $8.25$ |
 
-E8M0 是 1 字节、纯指数（无 mantissa、无 sign）的 power-of-two scale：$s = 2^{e - 127}$，$e \in [0, 255]$。这种 scale 在 dequant 时是 bit shift（最便宜的硬件操作）。
+E8M0 是 1 字节、纯指数（无 mantissa、无 sign）的 power-of-two scale：$s = 2^{e - 127}$，$e \in [0, 254]$（255 = 0xFF 保留给 NaN，故 E8M0 无法表示 NaN 以外的 255 号码点，也没有精确的 zero scale）。这种 scale 在 dequant 时是 bit shift（最便宜的硬件操作）。
 
 ### 8.4 NVFP4（Blackwell 2025 NVIDIA）
 
@@ -733,7 +758,7 @@ QServe 推出 **W4A8KV4** 全栈量化 + 自定义 GPU kernel。关键工程点�
 
 - **QoQ (quattuor-octo-quattuor)**：4+8+4 命名，4-bit weight, 8-bit activation, 4-bit KV。
 
-QServe 在 A100 / H100 上比 vanilla TensorRT-LLM FP16 throughput 提升 1.2-3.5$\times$，端到端 LLaMA-3-70B-Instruct 解码达 1000+ tokens/s/H100。
+QServe 论文主要实测硬件是 A100 / L40S（部分对比含 A6000），并非 H100；相比 vanilla TensorRT-LLM FP16，throughput 提升约 1.2-3.5$\times$（例如让更便宜的 L40S 在吞吐上追平/超过更贵的硬件跑 TensorRT-LLM FP16，是论文的核心卖点之一）。
 
 ### 9.5 KV cache quant 代码示意（per-channel K, per-token V）
 
@@ -999,7 +1024,7 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 
 - 所以剩余列更新 $w_j \mathrel{+}= (c_q / [H^{-1}]_{qq}) \cdot [H^{-1}]_{jq}$（等价于 §4.3 中用 $-(w_q-\mathrm{Quant}(w_q))/[H^{-1}]_{qq}\cdot[H^{-1}]_{jq}$ 的写法）
 
-只背公式不会推；或把 $H$ 当 weight 的 Hessian（错，是 input Hessian）；或忘了量化第 $q$ 列后还要 propagate 误差到剩余列。
+只背公式不会推；或混淆 $H = X^\top X$ 的双重身份——它既是对 $w$ 的真实 Hessian，也恰好是输入 Gram 矩阵，二者是同一件事，不是需要区分对错的两个不同概念；或忘了量化第 $q$ 列后还要 propagate 误差到剩余列。
 
 </details>
 
@@ -1163,7 +1188,7 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 
 - Hadamard $H \in \{+1, -1\}^{d\times d} / \sqrt{d}$：把每个 channel 变成所有 channel 的 $\pm$ 等权平均，**集中 outlier 被打散到所有维度**
 
-- 数学：若 $x$ 有 $k \ll d$ 个 outlier，$Hx$ 的 $\ell_\infty$ norm 约 $\sqrt{k/d} \cdot \max|x|$（incoherence 性质）
+- 数学：若 $x$ 有 $k \ll d$ 个 outlier，$Hx$ 的 $\ell_\infty$ norm 约 $\sqrt{k/d} \cdot \max|x|$（incoherence 性质）。**注意**：这需要 $H$ 是带随机符号翻转的 Hadamard（$HD$），且是高概率（非确定性）成立——固定、不加随机化的 Hadamard 矩阵可能与 $x$ 对齐（如 $x$ 正比于某一行）而完全打不散 outlier；精确的集中不等式还需再乘一个 $\sqrt{\log d}$ 因子：$\|Hx\|_\infty \lesssim \sqrt{k/d}\cdot\max|x|\cdot\sqrt{\log d}$。
 
 - QuaRot 在 RMSNorm 处穿过（用 online Hadamard 绕开 $\gamma$ 不通过 $H$ 的问题），SpinQuant 学习 $R$ 而非随机
 
@@ -1181,11 +1206,11 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 
 - QServe 的 kernel：每个 W4 weight 在 register 里 dequant 到 INT8（lookup table），然后做 INT8×INT8 matmul
 
-- 关键优化：dequant + Tensor Core MMA fused 在同一个 warp instruction 内，**避免 FP16 中间 buffer**
+- 关键优化：dequant 与 Tensor Core MMA（`mma.sync`，一条固定的硬件指令，本身不含通用 dequant 逻辑）在同一个 kernel 内通过**软件流水线（pipelining）**时间重叠、寄存器内完成——下一个 tile 的 dequant 与当前 tile 的 MMA 并行执行，而不是融合成同一条 warp instruction，**避免 FP16 中间 buffer 的写回/读取**
 
 - KV4 attention：K, V 都 INT4，与 INT8 query 做 mixed-precision dot，需要 attention kernel 内的 dequant 路径
 
-- 端到端：LLaMA-3-70B H100 解码 1000+ tokens/s/GPU，比 FP16 TensorRT-LLM 快 1.2-3.5$\times$
+- 端到端：QServe 论文主要实测硬件是 A100 / L40S（不是 H100），比 FP16 TensorRT-LLM 快 1.2-3.5$\times$
 
 只说"W4A8 比 FP16 快"，不解释为什么需要 kernel-level co-design（stock GEMM 不支持 W4 input）。
 
@@ -1279,7 +1304,7 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 | LLM-QAT | Liu et al., 2023 | Self-distillation QAT for W4 |
 | BitNet b1.58 | Ma et al., 2024 | Ternary weight LLM from scratch |
 | FP8 Training | Micikevicius et al., 2022 | E4M3 forward / E5M2 backward |
-| MX formats | OCP / Microsoft, 2024 | Block-scaled FP4/6/8 with E8M0 |
+| MX formats | OCP / Microsoft, 2023 | Block-scaled FP4/6/8 with E8M0 |
 | NVFP4 | NVIDIA Blackwell, 2025 | FP4 E2M1 + FP8 E4M3 block + FP32 tensor scale |
 
 ### A.2 一图速查：选什么量化方案

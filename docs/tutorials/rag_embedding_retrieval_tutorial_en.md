@@ -631,7 +631,7 @@ Key invariants of `info_nce_in_batch` and mini-RAG (verifiable with a script):
 - **Normalization**: encoder output $\lVert\mathbf{q}\rVert\approx1$, dot product in $[-1,1]$.
 - **Temperature direction**: with fixed logits, lowering $\tau$ makes the softmax probabilities more concentrated (lower entropy).
 - **RRF monotone**: if a document moves earlier in any retriever's rank, its RRF score should not drop.
-- **Hybrid recall ⊇ exact hits**: a precise-entity passage that BM25 can hit should be kept in the hybrid result (pure dense may miss it).
+- **Hybrid recall tends to keep exact hits (engineering goal, not a strict invariant)**: a precise-entity passage that BM25 hits *usually* survives into the hybrid result (pure dense may miss it) — but RRF only guarantees the candidate pool is the union of the two rankings; whether a hit stays inside the truncated top-k after fusion depends on how other documents rank across both retrievers and on the constant $k$, so it's not strictly guaranteed. In practice, exact/entity matches often need a lexical quota or explicit pinning as a backstop.
 
 Below is the **real run** output of [`code/rag_embedding.py`](code/rag_embedding.py) on **PyTorch 2.10 / CPU** (each line has an `assert`; the summary prints only if all pass):
 

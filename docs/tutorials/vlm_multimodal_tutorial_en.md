@@ -4,7 +4,7 @@
 
 1. **Vision encoder = ViT-dominated**: Dosovitskiy et al. 2021 (ICLR) slice images into $P\times P$ patches (typically $P=14$ or $16$), apply a linear projection + learnable positional embedding + optional `[CLS]` token, and feed them into a Transformer encoder. **The vision side of CLIP / SigLIP / LLaVA is all a ViT variant.**
 
-2. **CLIP symmetric InfoNCE (must derive)**: Radford et al. 2021 (ICML) make image embeddings $\mathbf{u}_i$ and text embeddings $\mathbf{v}_i$ do contrastive learning in a shared space, with loss = **average of row softmax + column softmax**: $\mathcal{L} = \tfrac{1}{2}(\mathcal{L}_{i\to t} + \mathcal{L}_{t\to i})$. The temperature $\tau$ is learnable (log-parameterized, clipped to $[0,100]$).
+2. **CLIP symmetric InfoNCE (must derive)**: Radford et al. 2021 (ICML) make image embeddings $\mathbf{u}_i$ and text embeddings $\mathbf{v}_i$ do contrastive learning in a shared space, with loss = **average of row softmax + column softmax**: $\mathcal{L} = \tfrac{1}{2}(\mathcal{L}_{i\to t} + \mathcal{L}_{t\to i})$. The temperature $\tau$ is learnable (log-parameterized as `logit_scale=log(1/τ)`; what actually gets clipped is the upper bound 100 on $\exp(\text{logit\_scale})=1/\tau$, i.e. a lower bound of 0.01 on $\tau$, not $\tau$ itself clipped to 100).
 
 3. **SigLIP replaces softmax with sigmoid**: Zhai et al. 2023 (ICCV) treat each entry of the N×N similarity matrix as an independent binary CE, **getting rid of batch-wise softmax normalization**, so it is no longer linearly sensitive to batch size and can train with 32k+ batches on a single machine; a learnable bias $b$ corrects early negative dominance. **SigLIP-2 (Google 2025)** adds caption + self-distillation + dense local objectives and extends to multilingual.
 
@@ -34,7 +34,7 @@ Think of an image as "another language". The work of a VLM splits into three par
 
 - **Projector fusion (visual tokens → LLM context)**: LLaVA / Qwen-VL, project image embeddings into LLM token space and **concatenate as input tokens**, then autoregressively decode
 
-- **Cross-attn fusion (image as KV, text as Q)**: Flamingo / BLIP-2 / Llama-3.2-V, add cross-attention layers so **the LLM's text tokens actively query the visual KV**
+- **Cross-attn fusion (new dedicated cross-attn layers inside the LLM)**: Flamingo / Llama-3.2-V, add cross-attention layers so **the LLM's text tokens actively query the visual KV**. BLIP-2's cross-attention happens only inside the Q-Former (32 learnable queries as Q, frozen image encoder output as K/V); the resulting 32 visual tokens are then concatenated as prefix tokens into the frozen LLM's input sequence — at the LLM interface this is actually the same as the LLaVA/Qwen-VL projector paradigm, and the LLM itself gets no new cross-attention layers
 
 Compare from a Q/K/V perspective: in the projector paradigm the image is part of the LLM's input sequence (full interaction inside self-attention); in the cross-attn paradigm the image is always KV and is **only queried** — this causes **different KV cache handling at inference time**.
 
@@ -65,13 +65,15 @@ Pre-norm (LN at the input of each sub-layer), MLP uses GELU. Note that the origi
 | Model | Patch | Hidden $D$ | Layers | Heads | Params | Source |
 | --- | --- | --- | --- | --- | --- | --- |
 | ViT-B/16 | 16 | 768 | 12 | 12 | 86M | Dosovitskiy 2021 |
-| ViT-L/14 | 14 | 1024 | 24 | 16 | 304M | Dosovitskiy 2021 |
+| ViT-L/14 | 14 | 1024 | 24 | 16 | 304M | Radford et al. 2021 (CLIP) |
 | ViT-H/14 | 14 | 1280 | 32 | 16 | 632M | Dosovitskiy 2021 |
 | ViT-g/14 | 14 | 1408 | 40 | 16 | 1.0B | Zhai et al. 2022 |
 | ViT-bigG/14 | 14 | 1664 | 48 | 16 | 1.8B | OpenCLIP, 2023 |
 | EVA-02-L/14 | 14 | 1024 | 24 | 16 | 304M | Fang 2023 |
 | SigLIP SoViT-400M/14 | 14 | 1152 | 27 | 16 | 400M | Alabdulmohsin 2023 |
 
+> ⚠️ **Correcting the ViT-L/14 source** — the Large architecture itself (D=1024, 24 layers, 16 heads) does come from Dosovitskiy et al. 2021; but the original ViT paper only reports B/16, B/32, L/16, L/32, H/14, and **never trains a patch=14 Large config**. The specific ViT-L/14 combination was first trained and popularized by CLIP (Radford et al. 2021, ICML).
+>
 > 💡 **head_dim is typically fixed at 64** — ViT-family models mostly follow head_dim ≈ 64–88, i.e. $D / H$. Scaling laws suggest head_dim should not be too small, otherwise per-head expressiveness is limited.
 
 ### 2.4　Code: ViT patch embed + backbone (core 60 lines)
@@ -160,7 +162,7 @@ Define the similarity matrix $\mathbf{S} \in \mathbb{R}^{N\times N}$ (the "logit
 
 $$S_{ij} = \frac{\mathbf{u}_i^\top \mathbf{v}_j}{\tau}$$
 
-where $\tau > 0$ is the learnable temperature (engineered as `logit_scale = log(1/τ)`, which is more stable in backprop, clamped in $[\log 1, \log 100]$).
+where $\tau > 0$ is the learnable temperature (engineered as `logit_scale = log(1/τ)`, which is more stable in backprop; the §3.5 code below only clamps the upper bound, i.e. `logit_scale` is clamped to $(-\infty, \log 100]$, equivalent to a lower bound of 0.01 on $\tau$ with no upper bound — some implementations, e.g. OpenCLIP, additionally floor it, but that is not a universal rule).
 
 ### 3.2　Symmetric InfoNCE loss (average of row + column softmax)
 
@@ -188,7 +190,7 @@ $$\frac{\partial \mathcal{L}_{i\to t}}{\partial S_{ij}} = \frac{1}{N}\left(p_{ij
 
 - $j \neq i$ (negative): gradient $\propto p_{ij} > 0$, **pushes** $\mathbf{u}_i, \mathbf{v}_j$ apart
 
-With only one direction $\mathcal{L}_{i\to t}$, $\mathbf{v}_j$ receives gradient from all $\mathbf{u}_i$, but **cannot in turn constrain how $\mathbf{u}_i$ behaves when retrieved by other $\mathbf{v}_k$**. Symmetrization adds the text→image retrieval constraint, **preventing one-sided collapse** in the embedding space (where image-side clusters tightly but text-side drifts).
+In the one-directional $\mathcal{L}_{i\to t}$, $S_{ij}$ already depends on both $\mathbf{u}_i$ and $\mathbf{v}_j$, so even with only this one direction of loss, **both encoders receive gradient** — the text encoder is not actually "unconstrained". The real value of symmetrization is that it **explicitly optimizes both the image→text and text→image retrieval directions**, which empirically improves bidirectional retrieval quality, rather than preventing some mathematical notion of representational collapse.
 
 ### 3.4　Role of temperature
 
@@ -200,7 +202,7 @@ $$\mathcal{L}_{i\to t} = -\frac{1}{N}\sum_i \log\frac{\exp(\mathbf{u}_i^\top \ma
 
 - **OpenAI CLIP's learned steady state**: $\tau \approx 0.01$ (`logit_scale ≈ log(100)`), with the upper bound clamped to prevent collapse
 
-> 💡 **InfoNCE as a lower bound** — Oord et al. 2018 (CPC) proved InfoNCE is a lower bound on the mutual information $I(U; V)$: $I(U; V) \ge \log N - \mathcal{L}_\text{InfoNCE}$. So **increasing batch size $N$ while reducing loss directly raises the MI lower bound** — this is why CLIP / SigLIP both chase huge batches.
+> 💡 **InfoNCE as a lower bound** — Oord et al. 2018 (CPC) proved InfoNCE is a lower bound on the mutual information $I(U; V)$: $I(U; V) \ge \log N - \mathcal{L}_\text{InfoNCE}$. This bound only holds at the loss value **actually achieved** — as $N$ grows the task itself gets harder, so $\mathcal{L}_\text{InfoNCE}$ generally rises too and does not fall automatically. Only if representation quality improves enough to offset the harder task can the loss stay flat or drop, tightening the bound. **You cannot conclude the bound rises automatically just from a larger batch size** — this is a well-known limitation of InfoNCE-style MI estimators (Poole et al. 2019; McAllester & Stratos 2020); CLIP / SigLIP chasing huge batches is better explained empirically by "more negatives forces a harder task, which pushes representations to improve" than by an automatic rise in the bound.
 
 ### 3.5　Code: CLIP symmetric InfoNCE (core 50 lines)
 
@@ -252,7 +254,7 @@ if __name__ == "__main__":
     print(f"loss={loss.item():.4f}  logit_scale={scale.item():.2f}")
 ```
 
-> ⚠️ **Under DDP you must all-gather to get true InfoNCE** — on a single GPU, the batch $N$ loss only covers local negatives. Production CLIP (OpenCLIP / OpenAI) does `dist.all_gather` on $\mathbf{u}, \mathbf{v}$ after forward, so the negative pool = global batch size (e.g. 32k). **Gradient is computed for only the local row / column on the host GPU via gradient checkpointing** — this is an engineering trick, not a math change.
+> ⚠️ **Under DDP you must all-gather to get true InfoNCE** — on a single GPU, the batch $N$ loss only covers local negatives. Production CLIP (OpenCLIP / OpenAI) does `dist.all_gather` on $\mathbf{u}, \mathbf{v}$ after forward, so the negative pool = global batch size (e.g. 32k). **Correct cross-GPU backprop requires a differentiable all-gather** (e.g. `torch.distributed.nn.functional.all_gather`, whose autograd correctly scatters/reduces upstream gradients back to each rank) or OpenCLIP's `local_loss=True` trick (backprop only through the local slice of embeddings, while the loss denominator still uses the global negatives) — this is an engineering trick, not a math change. **Note that gradient checkpointing is purely a memory-for-recompute trade and has nothing to do with cross-GPU gradient propagation**; it cannot substitute for a differentiable all-gather or local_loss.
 
 ### 3.6　CLIP training data & scale
 
@@ -270,7 +272,7 @@ if __name__ == "__main__":
 
 - **Fine-grained counting fails**: "5 birds" vs "6 birds" is nearly indistinguishable in CLIP embeddings (the "counting problem")
 
-- **Weak on spatial relations**: "cat on top of dog" vs "dog on top of cat" is hard to distinguish (POPE / Winoground benchmarks quantify this)
+- **Weak on spatial relations**: "cat on top of dog" vs "dog on top of cat" is hard to distinguish (Winoground / ARO benchmarks quantify this; POPE measures object hallucination, not spatial relations)
 
 - **Bag-of-words tendency**: Yuksekgonul et al. 2023 (ICLR) showed CLIP is barely sensitive to word order in captions
 
@@ -524,11 +526,11 @@ class LLaVA(nn.Module):
 | --- | --- | --- |
 | LLaVA-1.0 | 2023.04 | Single Linear projector; CLIP ViT-L/14@224², visual tokens = 256 ($16\times 16$) |
 | LLaVA-1.5 | 2023.10 | 2-layer MLP; resolution up to 336², visual tokens = 576 ($24\times 24$); adds OCR / GQA / VQAv2 academic data |
-| LLaVA-1.6 / NeXT | 2024.01 | **AnyRes**: slice the image into $2\times 2 / 2\times 3 / \dots$ tiles and encode each, supporting any aspect ratio; token count $(1{+}n{\cdot}m)\cdot 576$ (2×2→2880, 2×3→4032) |
+| LLaVA-1.6 / NeXT | 2024.01 | **AnyRes**: trained from the start on a tiling grid $2\times 2 / 2\times 3 / \dots$, each tile encoded and concatenated, supporting any aspect ratio; token count ≈$(1{+}n{\cdot}m)\cdot 576$ (2×2→~2880, 2×3→~4032; the real implementation applies unpad + image_newline, so actual counts are slightly lower) |
 | LLaVA-OneVision | 2024.08 | Unified single / multi-image / video; introduces a mix of SI (single image) + OV (onevision) data |
 | LLaVA-NeXT-Video | 2024.04 | Video version; feed the LLM serialized visual features from multiple frames |
 
-> 💡 **Core trick of AnyRes (LLaVA-1.6)** — training assumes a fixed 336²; at inference, a high-res image is sliced into $n \times m$ tiles of 336² each, encoded individually, plus one "global thumbnail" (the full image resized to 336²). **Tokens go from 576 to (1 + n·m)·576**, but each tile passes through the same frozen ViT. **The same family as InternVL / Qwen-VL tiling**.
+> 💡 **Core trick of AnyRes (LLaVA-1.6)** — LLaVA-NeXT/1.6 adopts the AnyRes tiling grid **starting in training** (not merely an inference-time trick), so the model actually learns to handle the multi-tile + global-thumbnail spatial layout: a high-res image is sliced into $n \times m$ tiles of 336² each, encoded individually, plus one "global thumbnail" (the full image resized to 336²). **Tokens go from 576 to roughly (1 + n·m)·576** (real implementations also apply unpad to remove padded regions from the aspect-ratio fit, and insert an image_newline token between tile rows, so actual counts are slightly below this formula), but each tile passes through the same frozen ViT. **The same family as InternVL / Qwen-VL tiling**.
 
 ## §7 BLIP-2: Q-Former cross-attention
 
@@ -553,10 +555,10 @@ $$\mathbf{q}^{(\ell)} = \text{FFN}(\mathbf{q}^{(\ell)})$$
 
 ### 7.3　Two-stage training
 
-**Stage 1: Representation Learning** (only Q-Former trained, vision encoder frozen)
-- ITC (Image-Text Contrastive): query embedding contrasted with text [CLS] in CLIP fashion
-- ITM (Image-Text Matching): query and text tokens interact via cross-attn, followed by binary classification
-- ITG (Image-grounded Text Generation): query does not interact with text; let the text decoder generate captions based on queries (causal mask controls visibility)
+**Stage 1: Representation Learning** (only Q-Former trained, vision encoder frozen); the Q-Former's cross-attention **always connects query ↔ frozen image encoder** (regardless of training objective) — query/text interaction actually happens inside the **shared self-attention layer**, controlled by an attention mask that switches per objective:
+- ITC (Image-Text Contrastive): query embedding contrasted with text [CLS] in CLIP fashion (self-attn uses a **uni-modal mask**, query and text mutually invisible)
+- ITM (Image-Text Matching): query and text tokens interact inside the shared self-attention layer via a **bi-directional mask** (mutually visible), followed by binary classification
+- ITG (Image-grounded Text Generation): self-attn uses a **causal mask** so text can see the query and preceding text only (query cannot see text); the text decoder generates captions based on the queries
 
 **Stage 2: Generative Learning** (only Q-Former trained, LLM frozen)
 - Project Q-Former output into the LLM embedding space, so **the LLM does prefix-tuned captioning / VQA based on the 32 visual tokens**
@@ -630,7 +632,7 @@ class QFormer(nn.Module):
 | LLM context usage | Large (576–2880 tokens) | Small (32 tokens) |
 | Best for | High resolution / detail tasks | LLM context-limited / batched multimodal inference |
 
-> 💡 **2024–2025 mainstream returns to projector** — Qwen-VL / LLaVA-NeXT / InternVL-2 / DeepSeek-VL2 all use projector (with spatial reduction / pixel shuffle to control token count); **Q-Former has faded out in industrial VLMs**. But the Q-Former idea is still active in video VLMs (using queries for frame-level pooling).
+> 💡 **2024–2025 mainstream returns to projector** — Qwen2-VL / LLaVA-NeXT / InternVL-2 / DeepSeek-VL2 all use projector (with spatial reduction / pixel shuffle to control token count; the original Qwen-VL used a single-layer cross-attention query resampler, and it was Qwen2-VL that switched to an MLP patch merger with pixel shuffle); **Q-Former has faded out in industrial VLMs**. But the Q-Former idea is still active in video VLMs (using queries for frame-level pooling).
 
 ## §8 Flamingo: Perceiver Resampler + Gated Cross-Attn
 
@@ -724,7 +726,7 @@ Qwen2-VL (Wang et al. 2024), DeepSeek-VL (Lu et al. 2024), and InternVL-2 all ab
 
 - **Preserve original aspect ratio**: resize images to the largest size near the original that is an integer multiple of patch_size
 
-- **Dynamic patch count**: a $1024 \times 768$ image at $P=14$ slices into $73 \times 54 \approx 3942$ patches
+- **Dynamic patch count**: Qwen2-VL's `smart_resize` first rounds each edge to a multiple of 28 ($=2P$, matching the subsequent 2×2 spatial merge) — e.g. a $1024 \times 768$ image is first resized to roughly $1036 \times 756$; slicing at $P=14$ gives $74 \times 54 = 3996$ patches, which after 2×2 spatial merge become 999 visual tokens
 
 - **No fixed pos embed table**: must use an **extensible positional encoding** (RoPE or 2D ALiBi-like)
 
@@ -742,7 +744,7 @@ $$(\cos(m_\text{axis}\,\theta_k),\ \sin(m_\text{axis}\,\theta_k)), \quad \text{a
 
 Specifically, Qwen2-VL's `mrope_section` (**unit is pairs of half head_dim**, i.e. each number represents how many $(2k, 2k+1)$ pairs). One pair = 2 real dimensions, so "section sum × 2 = head_dim".
 
-> 💡 **Qwen2-VL default `mrope_section = [16, 24, 24]`** — that is, the three axes occupy 16 / 24 / 24 dim pairs respectively; total $(16+24+24) \times 2 = 128 = $ head_dim. The implementation doubles the section to $[16, 24, 24, 16, 24, 24]$ to slice head_dim, with position ids of (t, h, w, t, h, w) used for rotation — **all 128 dims rotate**, none "left unrotated". Spatial dims (h, w) occupy 48 pairs > the temporal dim (t)'s 16 pairs, reflecting that inter-frame changes in video are slow while spatial content changes within a frame are dramatic.
+> 💡 **Qwen2-VL default `mrope_section = [16, 24, 24]`** — that is, the three axes occupy 16 / 24 / 24 dim pairs respectively; total $(16+24+24) \times 2 = 128 = $ head_dim. The implementation doubles the section to $[16, 24, 24, 16, 24, 24]$ to slice head_dim, with position ids of (t, h, w, t, h, w) used for rotation — **all 128 dims rotate**, none "left unrotated". Spatial dims (h, w) occupy 48 pairs > the temporal dim (t)'s 16 pairs; this is an intuitively plausible explanation (temporal change is typically slower than spatial content change), but it is **not a design rationale explicitly confirmed by the Qwen2-VL paper** — the specific 16/24/24 split may simply be an empirically tuned hyperparameter.
 
 A text token has no explicit (h, w): Qwen2-VL sets $m_t = m_h = m_w$ equal to that text token's 1D position id, so all three axes yield **the same rotation angle**, equivalent to ordinary 1D RoPE.
 
@@ -849,7 +851,7 @@ Problem: $K=32, N=576 \Rightarrow 18432$ tokens — beyond the context of an LLM
 
 ### 11.3　LongVA / Long-context video
 
-LongVA (Zhang et al. 2024) and others exploit long-context LLMs (200K+ tokens) to directly consume **long video unrolled into a token sequence**, paired with the M-RoPE temporal dim, for hour-long video QA. Qwen2-VL reports handling 20-minute video; Qwen2.5-VL pushes to 1+ hour.
+LongVA (Zhang et al. 2024) uses a **long-context Qwen2 LLM + CLIP vision tower + spatial pooling** to compress per-frame tokens, then leverages the language model's already-extended long-context ability (standard 1D positional-encoding extension, **not** the (t,h,w)-decomposed M-RoPE specific to Qwen2-VL/Qwen2.5-VL) to directly consume very long unrolled visual token sequences, for hour-long video QA. Qwen2-VL reports handling 20-minute video; Qwen2.5-VL pushes to 1+ hour.
 
 ### 11.4　Video benchmarks
 
@@ -906,7 +908,7 @@ CLIP is trained for "image ↔ short caption" alignment, but performs poorly on 
 
 - **Jina-CLIP-v1 (2024)**: adds long-text contrastive (text-text task) + multi-resolution on top of CLIP; a single embedding model does image-text and text-text retrieval
 - **BGE-VL (2024)**: the BGE team's multimodal version; uses SigLIP-So400M + a small LLM for instruction-aware retrieval
-- **VLM2Vec (Jiang et al. 2024)**: instruction-conditioned mean pool of the last hidden state of a VLM (LLaVA / Qwen-VL); **trains only a contrastive head**, significantly beating CLIP on the MMEB benchmark
+- **VLM2Vec (Jiang et al. 2024)**: takes the hidden state of the **last output token** of a VLM (LLaVA / Qwen-VL) as the embedding (following the common causal-LM text-embedding convention), and does **LoRA fine-tuning of the entire VLM** for contrastive learning (rather than a frozen backbone with only a small added contrastive head), significantly beating CLIP on the MMEB benchmark
 - **mmE5 (2024)**: multimodal version of E5, supporting 12 types of retrieval tasks
 
 ### 13.3　Core tricks
@@ -929,7 +931,7 @@ CLIP is trained for "image ↔ short caption" alignment, but performs poorly on 
 
 - $\mathcal{L}_{t\to i}$: **column softmax**, NLL of the diagonal (text retrieves image)
 
-- **Necessity of symmetry**: one direction constrains only one retrieval direction; symmetrization lets image / text embeddings constrain each other, preventing "one-sided collapse" — e.g. image-side clusters but text-side drifts
+- **Necessity of symmetry**: in the one-directional loss the similarity $S_{ij}$ already depends on both the image and text encoder outputs, so both receive gradient; the real value of symmetrization is **explicitly optimizing both the image→text and text→image retrieval directions**, which empirically improves bidirectional retrieval quality, rather than preventing some mathematical notion of representational collapse
 
 Pitfall: answering only "InfoNCE" without saying "average of two softmaxes", or saying "do it backward once" without explaining why it is necessary.
 
@@ -1023,7 +1025,7 @@ Pitfall: saying both stages "train the projector"; or omitting that stage 1 free
 
 - Cons: **large information loss** (256 patches compressed to 32), more parameters (~180M), complex training (two stages: stage 1 representation learning includes joint ITC+ITM+ITG, stage 2 connects to frozen LLM for generation)
 
-- **2024 mainstream returns to projector**: Qwen-VL / LLaVA-NeXT / InternVL-2 all use projector
+- **2024 mainstream returns to projector**: Qwen2-VL / LLaVA-NeXT / InternVL-2 all use projector (the original Qwen-VL was a single-layer cross-attention resampler; Qwen2-VL switched to an MLP patch merger)
 
 Pitfall: treating Q-Former as a synonym for projector; or not knowing modern VLMs prefer projectors.
 
@@ -1117,11 +1119,11 @@ Pitfall: treating the 0 init as just a "common init trick"; or not realizing it 
 
 <summary>Q13. How is LLaVA-1.6 / NeXT's AnyRes implemented?</summary>
 
-- Training assumes a fixed 336²; inference slices a high-res image by aspect ratio into $n \times m$ tiles of 336² each (e.g. $2\times 2, 2\times 3$)
+- LLaVA-NeXT/1.6 **adopts the AnyRes tiling grid starting in training** (not just an inference-time trick): a high-res image is sliced by aspect ratio into $n \times m$ tiles of 336² each (e.g. $2\times 2, 2\times 3$)
 
 - Each tile passes through the frozen ViT to get 576 tokens; add a **global thumbnail** (whole image resized to 336² and encoded)
 
-- Concatenate: $(1 + n\cdot m) \times 576$ visual tokens to the LLM
+- Concatenate: roughly $(1 + n\cdot m) \times 576$ visual tokens to the LLM (real implementations also apply unpad to remove padded tile regions plus an image_newline token between tile rows, so actual token counts are slightly below this theoretical value)
 
 - Choice of slicing: pick the grid (from a predefined set such as $\{1\times 1, 2\times 2, 1\times 4, 4\times 1, ...\}$) closest to the original aspect ratio
 
@@ -1137,7 +1139,7 @@ Pitfall: treating AnyRes as a synonym for dynamic resolution — technically dif
 
 - **All 128 dims rotate** — different dim pairs use different axes (t/h/w) and their position ids to compute rotation angles
 
-- **Reason for non-uniform allocation**:
+- **Possible reason for non-uniform allocation** (an intuitively plausible explanation, but not a design rationale explicitly confirmed by the Qwen2-VL paper — the specific 16/24/24 split may simply be an empirically tuned hyperparameter):
 
   - Inter-frame variation in video is slow (adjacent frames are very similar), so $s_t = 16$ has a small share
 
@@ -1209,7 +1211,7 @@ Pitfall: saying only "fewer parameters"; not recognizing this is an architecture
 
 - Human-labeled visual instructions (e.g. VQAv2 questions) are small in scale and stylistically uniform
 
-- **GPT-4 + image + caption → generate multi-turn dialog / reasoning tasks / detailed descriptions**: this is how LLaVA-Instruct-158K was made
+- **GPT-4 (a text-only version at the time, predating the public release of GPT-4V) never saw the image directly** — it was instead fed a textualized representation of the image: a caption plus bounding boxes from an object detector, and prompted with this symbolic information to **generate multi-turn dialog / reasoning tasks / detailed descriptions**: this is how LLaVA-Instruct-158K was made
 
 - Prompt engineering controls coverage (three classes: detailed description, conversation, complex reasoning)
 
@@ -1305,7 +1307,7 @@ $$\frac{\partial \mathcal{L}}{\partial S_{ij}} = \frac{1}{N}\cdot \frac{-y_{ij}}
 
 - **Q-Former**: 32 queries is a fixed bottleneck; significant information compression, unfriendly to detail tasks (OCR / counting)
 
-- Suppose visual encoder output rank is $r$; LLaVA visual context rank $\le r$ (preserved), Q-Former rank $\le \min(r, 32)$
+- Suppose the visual encoder output has rank $r$; LLaVA's 2-layer MLP + GELU projector is a row-wise nonlinear map, so it does **not** satisfy a linear-algebraic rank bound (it cannot simply be written as rank $\le r$); the Q-Former output's rank is bounded above by the fixed 32 query rows, $\le \min(32, d_q)$ — this bottleneck has no direct $\min(r,32)$ relationship to the input's rank $r$. Treat this as an **intuitive analogy**, not a rigorous derivation
 
 **Compute / Memory**:
 
@@ -1390,7 +1392,7 @@ Design trade-offs:
 
 2. **Resolution-friendly**: SigLIP already trained at 384²/512² extensively; CLIP is mostly 224²+336²; VLM tasks generally need high resolution, so SigLIP transfers more smoothly
 
-3. **Batch-independent loss → stable fine-tune**: SigLIP's sigmoid yields more predictable gradients when unfreezing the vision tower in stage 1
+3. ~~Batch-independent loss → stable fine-tune~~: this argument does not hold up — stage-1 VLM alignment typically **freezes the vision tower** anyway, training with a next-token prediction loss (see §12.1), with no contrastive loss involved at all; SigLIP's batch-independence is a property only of its own image-text contrastive pretraining and does not automatically carry over just because SigLIP weights are used downstream in autoregressive training. A better case for SigLIP vision towers should rest on defensible reasons instead (e.g. higher-resolution training data, stronger zero-shot feature quality — see points 1 and 2 above)
 
 4. **Multilingual support**: SigLIP-2 / mSigLIP natively support multiple languages
 

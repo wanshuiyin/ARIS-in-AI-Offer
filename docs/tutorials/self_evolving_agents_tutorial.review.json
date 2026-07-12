@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/self_evolving_agents_tutorial.md",
-  "source_sha256": "54d12af77efd62930756e829385fbdfa344a7cf23a4160d6c01767afde24ebcd",
+  "source_sha256": "360387887f1378c62182607b31e492a4bb3c23f8160f22e30a3b6a0f23ee518f",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/self_evolving_agents_tutorial.html",
   "topic": "Self-Evolving Agents — Ctx2Skill / Native Evolution / A²RD / Voyager / Reflexion / STaR",
@@ -70,6 +70,13 @@
       "date": "2026-06-29",
       "fix": "Voyager venue corrected NeurIPS 2023 to TMLR (it appeared in TMLR plus a NeurIPS workshop, not the main track).",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection re-sweep audit (Codex candidate-finding pass + independent Claude adversarial verification pass)",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "10 findings adjudicated: 8 CONFIRMED + 2 NEEDS_NUANCE, all fixed. (1) §2.1 removed Voyager from the policy-gradient unification list — it freezes weights and uses no reward (contradicted §4.1). (2) TL;DR mislabeled STaR's grounding as 'math checker'; corrected to 'ground-truth-answer matching + rationalization'. (3) §3.2 Native Evolution K bullet list had copy-forward contamination from the unrelated §7.2 A²RD/MVMem video-memory schema (Visual arcs/Camera states); replaced with a text/web-agent-appropriate list (site map, entity/page relations, failure notes). (4) §5.3 Easy-set selection prose claimed 'fewest rubric passes' which is undefined once solved := all(rubric) (pass_rate always 1.0); reworded to match what the code actually does, plus the Laplace-smoothing formula/code changed from (s+1)/(n+1) to the textbook (s+1)/(n+2) rule of succession (both prose formula and the laplace_smoothed_rate() code+docstring). (5) §6.5 section heading said '14B Qwen3' while the table below is Qwen3-30B; heading corrected, 14B noted as the separate transfer-learning result. (6) Q14 KL-grounding derivation illegitimately flipped a proven lower bound into an asserted upper bound; reworded as an explicit heuristic with no claimed monotone-improvement theorem. (7) §12.1 KL penalty on skill-set markdown diffs is undefined (KL requires probability distributions, not deterministic text); relabeled as a generic divergence-like penalty with BLEU/edit-distance as the approximation, with an explicit non-KL caveat. (8) Q21 monotone-convergence claim used a fixed per-iteration failure prob delta without a summability requirement; added sum_i delta_i < infinity, and added a Borel-Cantelli caveat plus a note that score convergence doesn't rule out skill-set oscillation. (9) Q22 stated K* = argmax I(K;E) as if it were Native Evolution's actual training objective and used DPI to assert a monotone Success-vs-MI relationship; added a caveat that the real training signal is the outcome-based R_evolve (§6.2), and the MI story is only a post-hoc heuristic, not an equivalence. (10) Q18 Generative Agents decay factor corrected from gamma=0.995/hour to the paper's gamma=0.99/hour; Q19 MemoryBank 'inspired by MemGPT' claim was chronologically impossible (MemoryBank predates MemGPT by ~5 months) — corrected to independent concurrent development.",
+      "note": "Round 1: Codex GPT-5.6-sol ultra fresh-context candidate-finding pass over the full tutorial. Round 2: an independent fresh Claude thread adversarially attempted to overturn every candidate finding (no access to round-1 reasoning). Result: 8/10 CONFIRMED outright, 2/10 NEEDS_NUANCE (both substantively real but the adversarial pass sharpened the exact location/framing — the Easy-set finding's Laplace-smoothing sub-point, and the KL-grounding finding's exact flawed line). All 10 applied verbatim per the adjudicated fix_text, in both ZH and EN. Source re-rendered, sidecar hash refreshed."
     }
   ]
 }

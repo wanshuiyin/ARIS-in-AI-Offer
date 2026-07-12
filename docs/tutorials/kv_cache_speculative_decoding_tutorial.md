@@ -16,7 +16,7 @@
 
 7. **接受概率公式**：单 token 接受率 $\alpha = \mathbb{E}_{x \sim q}[\min(1, p(x)/q(x))]$；期望生成 token 数 $E[\tau] = \dfrac{1-\alpha^{K+1}}{1-\alpha}$（$K$ 是 draft 长度，含最后 bonus token）。
 
-8. **Medusa / EAGLE / Lookahead**：Medusa（Cai et al., ICML 2024）多头 + 静态 tree attention；EAGLE/2/3（Li et al., 2024-2025）特征级 draft + 动态 tree；Lookahead Decoding（Fu et al., ICML 2024）Jacobi iteration——**都是同一接受率框架下的不同 drafter**。
+8. **Medusa / EAGLE / Lookahead**：Medusa（Cai et al., ICML 2024）多头 + 静态 tree attention，默认走 typical acceptance（不严格保证 exact，可换标准 rejection sampling 换取 exact）；EAGLE/2/3（Li et al., 2024-2025）特征级 draft + 动态 tree，走标准 rejection sampling（保 exact）；Lookahead Decoding（Fu et al., ICML 2024）是 Jacobi iteration + n-gram pool 验证，机制上不是同一套 rejection-sampling $\alpha$ 框架——**三者的 draft 生成和 verification 机制均不同**。
 
 ## §1 直觉
 
@@ -26,7 +26,7 @@
 
 一条核心 mental model：
 
-> Modern LLM inference is **bandwidth-bound during decode and memory-bound during long-context prefill**, not compute-bound.
+> Modern LLM inference is **compute-bound during prefill (increasingly so as context grows, since attention FLOPs scale $O(L^2)$ vs. $O(L)$ KV reads) and bandwidth-bound during decode** — not the reverse.
 
 KV cache 是把"重复计算"换成"存储 + 带宽"的经典权衡。一旦把整段对话历史的 K/V 都缓存起来，每生成一个新 token 只需要：
 
@@ -155,7 +155,7 @@ MQA（Shazeer 2019）：$H$ 个 Q head 共享 **1** 组 K/V。$W_k, W_v \in \mat
 
 GQA（Ainslie 2023）：$H$ 个 Q head 分成 $G$ 组，每组共享一组 K/V。K+V 参数 $= 2 G D d_\text{head}$。LLaMA-2-70B 用 $H=64, G=8 \Rightarrow$ KV cache 缩小 8×。
 
-> ⚠️ **MQA 训练不稳定的现象** — 从头训练 MQA 模型相比 MHA 经常出现质量小幅下降甚至训练不稳定。GQA 论文给的实践：**先用 MHA 训完，再 "uptrain" 成 GQA**——把 $H$ 组 K/V 沿 head 维 mean-pool 成 $G$ 组初始化，再小 budget（5% 原始训练 compute）finetune 一下。这是为什么 LLaMA-2 70B 能 0-shot 切到 GQA。
+> ⚠️ **MQA 训练不稳定的现象** — 从头训练 MQA 模型相比 MHA 经常出现质量小幅下降甚至训练不稳定。GQA 论文给的实践：**先用 MHA 训完，再 "uptrain" 成 GQA**——把 $H$ 组 K/V 沿 head 维 mean-pool 成 $G$ 组初始化，再小 budget（5% 原始训练 compute）finetune 一下，用于把已有的 MHA checkpoint（如 T5）转换成 GQA。**LLaMA-2-70B 则是从头原生训练的 GQA 架构，并未经过这套 uptraining 转换流程**。
 
 ### 4.3　MLA：low-rank latent K/V（DeepSeek-V2 核心创新）
 
@@ -202,7 +202,7 @@ $$q_t^{(i)\top} k_s^{(i)} = (W^{UQ, (i)} c_t^Q)^\top (W^{UK, (i)} c_s^{KV}) = c_
 - 计算 attention score 时直接 $c_t^{Q\top} \tilde W^{QK, (i)} c_s^{KV}$，**完全不需要还原 K/V**
 - V 同理可以把 $W^{UV, (i)}$ 吸进 output projection $W^O$
 
-这就是为什么 MLA cache 那么小但推理 FLOPs 没爆炸：**矩阵吸收把"省 cache"和"省 compute"解耦了**。
+这就是为什么 MLA cache 那么小但推理仍然可行：**矩阵吸收把"省 HBM 读取流量"和"省 FLOPs"解耦了**——absorb 主要节省的是从 HBM 读取/物化每个 head 的 $d_\text{head}$ 维 K/V 的带宽，但 latent 维 $d_c$ 常常大于 $d_\text{head}$（DeepSeek-V2 中 512>128），逐 head 的 attention score 计算 FLOPs 实际可能增加；这笔 trade 划算是因为 decode 阶段本来就是 bandwidth-bound、算力有富余，用富余算力换更少的 HBM 流量，而不是"不增 compute"。
 
 ### 4.4　MLA 的 RoPE 难题——为什么必须 decoupled
 
@@ -231,7 +231,7 @@ DeepSeek-V2 的解法：**给 RoPE 一个独立的小维度通道**。
 - Latent 通道（无 RoPE）：负责内容信息，cache 一份 $c_t^{KV} \in \mathbb{R}^{d_c}$，attention 算分时走 absorb
 - RoPE 通道（有 RoPE）：负责位置信息，cache 一份 $k_t^R \in \mathbb{R}^{d_r}$，attention 算分时走标准带旋转的 dot product
 
-具体来说，引入两个新投影 $W^{KR} \in \mathbb{R}^{D \times d_r}$ 和 $W^{QR, (i)} \in \mathbb{R}^{d_c' \times d_r}$（per-head）。**$k_t^R$ 在所有 head 间共享**：
+具体来说，引入两个新投影 $W^{KR} \in \mathbb{R}^{d_r \times D}$ 和 $W^{QR, (i)} \in \mathbb{R}^{d_r \times d_c'}$（per-head），与文中 $W^{DKV}, W^{UK,(i)}$ 的（输出维度 × 输入维度）列向量约定一致。**$k_t^R$ 在所有 head 间共享**：
 
 $$k_t^R = \text{RoPE}_t(W^{KR} h_t), \quad q_t^{R, (i)} = \text{RoPE}_t(W^{QR, (i)} c_t^Q)$$
 
@@ -290,7 +290,7 @@ PagedAttention（Kwon et al., SOSP 2023）从操作系统 paging 借鉴：
 - 同 GPU 上 active batch size 翻 2-4×，吞吐相应提升
 - 支持 **copy-on-write 共享**：beam search、parallel sampling、prefix caching 自然实现
 
-> ⚠️ **PagedAttention 的代价** — 间接寻址会引入 ~1-5% kernel overhead（block lookup + scattered HBM access）。但批量大了之后带来的吞吐增益完全 dominate。CUDA Graph 不易兼容（每次 block table 变化要重 capture），所以 vLLM 用 piecewise CUDA Graph。
+> ⚠️ **PagedAttention 的代价** — 间接寻址会引入 ~1-5% kernel overhead（block lookup + scattered HBM access）。但批量大了之后带来的吞吐增益完全 dominate。CUDA Graph 的兼容性常被说反：只有当输入张量的显存地址、shape（如 batch size 跨越预分配的 bucket）或控制流路径改变时才需要重新 capture；block table 的**内容**（block id 数值）可以在固定的输入 buffer 里原地更新后直接 replay，不需要重新 capture——这正是 vLLM 用 CUDA Graph 加速 decode 的关键（按 batch size 分桶各 capture 一次，之后反复 replay），而不是"每次 block table 变化都要重 capture"。
 
 ### 5.3　Block Table 数据结构（简略）
 
@@ -483,7 +483,7 @@ class MLAAttention(nn.Module):
         # RoPE 通道：K 共享 (head 间共享)
         self.W_KR = nn.Linear(d_model, d_r, bias=False)
         # Q 端：先压成 latent (省训练显存)，再升回 Q_C 和 Q_R
-        d_c_q = 4 * d_head            # 论文里 d_c_q ≠ d_c
+        d_c_q = 12 * d_head           # DeepSeek-V2 论文值：d_head=128 时 d_c_q=1536，是独立于 d_c=512 的超参，非 4*d_head
         self.W_DQ = nn.Linear(d_model, d_c_q, bias=False)
         self.W_UQ = nn.Linear(d_c_q, num_heads * (d_head + d_r), bias=False)
         self.W_o = nn.Linear(num_heads * d_head, d_model, bias=False)
@@ -623,8 +623,8 @@ $$\boxed{\;E[\tau] = \frac{1 - \alpha^{K+1}}{1 - \alpha}\;}$$
 **极限分析**：
 
 - $\alpha \to 1$（draft 完美）：$E[\tau] \to K+1$，加速 $K+1$ 倍
-- $\alpha \to 0$（draft 全错）：$E[\tau] \to 1$，无加速但也没倒退
-- 实际 LLaMA-7B draft LLaMA-70B：$\alpha \approx 0.6-0.7$，$K=4$ 时 $E[\tau] \approx 2.7$
+- $\alpha \to 0$（draft 全错）：$E[\tau] \to 1$，即平均每个 spec step 只产出 1 个 token；但这还没算上 draft 自己的 forward 开销——一旦计入（见下方加速比公式），完整加速比 $\text{speedup} = E[\tau]/(1+Kc) \to 1/(1+Kc) < 1$，是实打实的倒退（比不用 SD 更慢），并非"无倒退"
+- 实际 LLaMA-7B draft LLaMA-70B：$\alpha \approx 0.6\text{-}0.7$，$K=4$ 时 $E[\tau]$ 在 **2.31**（$\alpha=0.6$）到 **2.77**（$\alpha=0.7$）之间，并非统一的 2.7
 
 > 💡 **加速比的真实公式** — 还要扣 draft 模型自己的 forward 开销。设 $c = T_q / T_p$（draft 单 step 时间 / target 单 step 时间，典型 0.05-0.15）：
 
@@ -736,7 +736,7 @@ def speculative_decode(target, draft, prompt_ids, max_new_tokens, K=4, temperatu
 Medusa（Cai et al., ICML 2024）的核心：**在 target 模型的最后 hidden state 上加 $N$ 个并行的 prediction heads**，第 $k$ 个 head 直接预测"未来第 $k+1$ 个 token"。
 
 - 不需要单独 draft 模型；只 finetune 这几个 head（参数量小）
-- $N$ 个 head 的 top-$K$ 候选组合成一棵 **静态 tree**（如每 head 取 top-5，总 $5^N$ 条路径但用 typical acceptance 剪枝）
+- $N$ 个 head 的 top-$K$ 候选组合成一棵 **静态 tree**（如每 head 取 top-5，理论上 $5^N$ 条路径；实际部署时用**离线设计好的固定稀疏 tree 结构**，只保留统计上常见的几十/几百条候选路径——这个筛选发生在 tree 结构设计阶段，与 typical acceptance 无关）
 - Tree attention：把 tree 里所有节点拍平输入 target 一次 forward，每节点的 attention mask 只看其祖先（causal in the tree）
 
 > 💡 **Tree attention 的 mask** — 把 tree 节点按 BFS 排成线性序列 $[t_0, t_1, \dots, t_M]$，节点 $i$ 的 ancestor 集合 $\mathcal A(i)$（含自己），mask $M[i, j] = 1$ iff $j \in \mathcal A(i)$。这样每个节点只看到从 root 到自己的路径，logits 正确。
@@ -784,7 +784,7 @@ Lookahead Decoding：
 
 ### 8.5　长 context 专属：TriForce / MagicDec
 
-> ⚠️ **长 context 下 vanilla SD 失效** — 当 context 长（如 128K），target 模型每 forward 都要扫整条 KV cache，**HBM 带宽** 才是瓶颈，而不是 weight 加载。普通 SD 节省的是 weight loading 频率，到这种 regime 收益变小。
+> ⚠️ **长 context 下 vanilla SD 收益变小** — target 单次 verify forward（一次算 $K+1$ 个候选位置）本身就能摊销 weight 和 KV cache 的 HBM 读取——这 $K+1$ 个 query 位置共享同一次对 KV cache 的批量矩阵乘法（类似 flash-attention 的 KV tile 复用），cache 只需从 HBM 读一次，不是读 $K+1$ 次。真正拖垮长 context 下加速比的是 **draft 侧的串行读取**：若 draft 模型维护和 target 同样长度的完整 KV cache，draft 生成 $K$ 个 token 是**串行自回归**的，每一步都要单独重新读一遍自己的 $O(L_\text{ctx})$ cache，总开销正比 $K \cdot L_\text{ctx}$（详见 §10 Q24）。
 
 **TriForce**（Sun et al., 2024, arxiv 2404.11912）：三层 hierarchy。
 
@@ -800,7 +800,7 @@ Lookahead Decoding：
 
 > 💡 **不需要外部 draft model 的极端版** — Zhang et al. 2024 提出 "self-speculative"：用 **target 模型本身跳层（skip a subset of layers）** 作为 draft。
 
-- 在 target 第 $L_d < L$ 层取 logits 作为 draft（早期 exit）
+- 在 target 里跳过一个精选的层子集作为 draft（通过 Bayesian optimization 搜出哪些中间层/子层可以跳过），**不是**在某个固定深度 $L_d$ 处截断的 early exit——后段的层（含最后的 layernorm 和 LM head）仍照常跑，以保证输出落在与 target 一致的表征空间
 - 用完整 target 做 verify
 - 完全 backwards-compatible：不需要训新模型，不需要 finetune
 - 加速一般 1.5-2×（不如 EAGLE，但零额外训练）
@@ -841,7 +841,7 @@ $$\text{tokens / sec}_\text{SD} = \frac{\text{tokens / sec}_\text{baseline} \cdo
 | activation peak (decode, batch 8) | ~2 GB |
 | 总 | ~152 GB → 2×80GB A100 紧；通常 4×80GB |
 
-如果用 vanilla SD，draft model（7B fp16）+14 GB；EAGLE 的 draft head 只 ~200 MB。
+如果用 vanilla SD，draft model（7B fp16）+14 GB；EAGLE 的 draft head 大小随 target hidden dim 缩放，不是固定值：论文报告 7B target（如 Vicuna-7B）对应 draft 约 0.24B 参数（fp16 ≈0.5 GB），70B target（如 LLaMA-2-70B-Chat）对应 draft 约 0.99-1B 参数（fp16 ≈2 GB）——都远小于 vanilla SD 的完整 7B draft，但并非固定 ~200 MB。
 
 ## §10 25 高频面试题
 
@@ -1057,7 +1057,7 @@ $$\text{tokens / sec}_\text{SD} = \frac{\text{tokens / sec}_\text{baseline} \cdo
 
 <summary>Q16.Self-speculative decoding 和普通 spec decoding 区别？</summary>
 
-- Self-spec：draft 是 target 自己跳层 / 早 exit
+- Self-spec：draft 是 target 自己跳过一个精选层子集（见 §8.6，非固定深度的 early exit）
 - 不需要独立 draft model，零额外训练
 - 但 draft 与 target 高度相关，$\alpha$ 通常较高
 - 加速一般 1.5-2×（不如 EAGLE 但更省事）
@@ -1152,9 +1152,9 @@ $$\text{tokens / sec}_\text{SD} = \frac{\text{tokens / sec}_\text{baseline} \cdo
 - inference 时直接 $(c_t^Q)^\top \tilde W^{QK,(i)} c_s^{KV}$，**完全不算 $k_s$**
 - 类似地 attention output：$\text{out}^{(i)} = \sum_s w_s v_s^{(i)} = (\sum_s w_s c_s^{KV})^\top W^{UV,(i)\top}$
 - 把 $W^{UV,(i)}$ 吸进 $W^O$：$W^O_\text{absorbed} = W^O (\text{blockdiag}(W^{UV,(i)}))$
-- 结论：cache 只 latent，compute 在 latent 空间，**省 cache 不增 compute**
+- 结论：cache 只 latent，compute 在 latent 空间；absorb 省的是 HBM 读取/物化 K/V 的带宽，FLOPs 因 $d_c$（512）常大于 $d_\text{head}$（128）反而可能略增，但换来的带宽节省对 decode 这种 bandwidth-bound 阶段是划算的（**不是"省 cache 不增 compute"**）
 
-朴素地说"还原 K/V 不就行了"——还原后 compute 退化到 MHA；不知道 absorb 是 inference 专属，训练时不能 absorb 因为要 backprop。
+朴素地说"还原 K/V 不就行了"——还原后 compute 退化到 MHA；以为 absorb 只能用在 inference 是因为"不能 backprop"——错，absorb 后的形式完全可微，训练时同样能用；真正原因是训练时权重每步都在更新，若用 absorb 形式就得每步重新计算组合矩阵 $\tilde W^{QK}$，这笔额外开销并不经济，不如直接用未吸收的两段投影做 forward/backward——absorb 的收益来自推理时权重固定，组合矩阵只需算一次并长期复用。
 
 </details>
 
@@ -1166,7 +1166,7 @@ $$\text{tokens / sec}_\text{SD} = \frac{\text{tokens / sec}_\text{baseline} \cdo
 - 替代方案 1：把 RoPE 直接放在 latent $c^{KV}$ 上——但 latent 维度小，旋转语义不对（RoPE 设计在 head dim 上配对 sin/cos）
 - 替代方案 2：用 ALiBi（直接加 bias 不旋转）——但破坏 LLaMA-3 兼容预训练
 - 替代方案 3：放弃 absorb，每 step 还原 K/V——compute 退化到 MHA
-- DeepSeek-V2 的选择：**decoupled RoPE 通道 $d_r=64$ 所有 head 共享**，cache 增量极小（约 5%），content 通道保持 absorb
+- DeepSeek-V2 的选择：**decoupled RoPE 通道 $d_r=64$ 所有 head 共享**，cache 增量约 **12.5%**（$d_r/d_c = 64/512$；按总量算约 11.1%，$d_r/(d_c+d_r) = 64/576$），并非约 5%，content 通道保持 absorb
 - 妙处：这个独立通道在所有 head 间共享 $k_t^R$，是"省 cache 的最后一公里"
 
 说"加 RoPE 不影响 MLA"——错；不知道 decoupled 通道是 head-shared。
@@ -1177,11 +1177,10 @@ $$\text{tokens / sec}_\text{SD} = \frac{\text{tokens / sec}_\text{baseline} \cdo
 
 <summary>Q24.长 context（128K+）下，为什么 vanilla speculative decoding 收益坍塌？怎么救？</summary>
 
-- Vanilla SD 的收益假设：weight loading 是瓶颈，一次 verify 摊销 $K$ 个 token 的 weight load
-- 长 context 下 **KV cache 远大于 weights**，bandwidth 主要花在读 cache 上
-- 每 verify 读完整 cache 一次，省不了 cache loading
-- 直觉：vanilla SD 加速比 $\propto E[\tau] / (1 + Kc)$ 假设 $T_p$ 主要是 weight loading，但长 context 下 $T_p \approx T_\text{cache\_read} + T_\text{weight\_read}$ 且前者占大头；每次 verify 仍要读全 cache，**$K$ 个 token 不能摊销 cache loading**，所以 $E[\tau]$ 的优势被吃掉
-- 救法 1：**MagicDec** — draft 用 sparse KV（StreamingLLM），target 用 full cache verify
+- Vanilla SD 的收益假设：target 单次 verify forward 能摊销 weight + KV cache 的 HBM 读取（$K+1$ 个候选位置共享同一次批量矩阵乘法，cache 只读一次）——这个摊销假设本身在长 context 下依然成立，**不是**它收益坍塌的原因
+- 真正的问题在 **draft 侧**：若 draft 模型维护和 target 同样长度的完整 KV cache，draft 生成 $K$ 个 token 是**串行自回归**过程，每一步都要单独重新读一遍自己的 $O(L_\text{ctx})$ cache，总开销正比 $K \cdot L_\text{ctx}$——这才是长 context 下拖累加速比的主因
+- 另外，"HBM 带宽（cache）取代 weight 加载成为瓶颈"对 GQA 模型不该在 128K 就成立：LLaMA-2/3-70B（GQA, $H_\text{kv}=8$）在 128K context 下 KV cache 约 **40 GiB**，仍明显小于 **140 GB** 权重，要到远超 128K（约 **450K+ token**）才会反超
+- 救法 1：**MagicDec** — draft 用 sparse KV（StreamingLLM），把 draft 侧的串行 $O(L_\text{ctx})$ 读取压成常数窗口
 - 救法 2：**TriForce** — 三层：小 LM → target+sparse cache → target+full cache
 - 救法 3：合并 KV cache 压缩（H2O eviction）+ SD：cache 小了 vanilla SD 也救活
 
@@ -1195,7 +1194,7 @@ $$\text{tokens / sec}_\text{SD} = \frac{\text{tokens / sec}_\text{baseline} \cdo
 
 - **Step 1 测 workload**：prompt 长度分布、生成长度分布、QPS
 - **Step 2 按瓶颈选优化**：(a) 显存不够装 batch → PagedAttention + prefix caching + KV 量化；(b) 长 prefill 卡 decode → Sarathi-Serve chunked prefill；(c) 短 batch decode 带宽 bound → spec decoding（小 batch 收益最大）；(d) 长 context 带宽 bound → MagicDec / TriForce；(e) 跨请求 prompt 重复 → prefix caching + COW
-- **Step 3 注意互动**：SD + large batch 收益降（large batch 已经 compute-bound）；PagedAttention + SD cache rollback 用 page table 改指针；KV 量化 + SD 要 draft/target 用一致 quant scheme
+- **Step 3 注意互动**：SD + large batch 收益降（large batch 已经 compute-bound）；PagedAttention + SD cache rollback 用 page table 改指针；KV 量化 + SD **不要求** draft/target 用一致量化方案（如 target FP8、draft INT4 都合法，exactness 只依赖各自真实计算出的 $p, q$，与 §7.5 sampler 不必一致同理）——量化方案不同只会拉大 $p, q$ 差距、降低接受率 $\alpha$，不影响输出分布的 exactness
 - **Step 4 监控 metrics**：tokens/sec, p95 TTFT, p95 TPOT, GPU utilization
 - 关键 trade-off：throughput vs latency，SD 偏 latency 改善，continuous batching 偏 throughput
 

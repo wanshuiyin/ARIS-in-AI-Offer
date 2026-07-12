@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/agentic_rl_tutorial_en.md",
-  "source_sha256": "054caf591f6911dc3f0f55511ed3cd15db5b69316c69b4eb0e4da36b4a807060",
+  "source_sha256": "2a27c689e96398780ff8211f24c45a9573fc96ac7c6a380284f7330fc0a167e0",
   "output": "docs/tutorials/agentic_rl_tutorial_en.html",
   "zh_source": "docs/tutorials/agentic_rl_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -15,5 +15,11 @@
     "issues": [],
     "summary": "Fresh cross-model verify (Codex GPT-5.5 xhigh, fresh thread 019e7d10-35ae-7f73-8916-0aa3fafdae4c) of the EN edition docs/tutorials/agentic_rl_tutorial_en.md + .html against the ZH source of truth docs/tutorials/agentic_rl_tutorial.md. Verdict: PASS. Both targeted fixes confirmed landed: (a) Q24 speculation block — ZH's hedged '可能' (4 bullets) is now matched in EN by hedged modals \"May be\" / \"Possibly\" / \"may use\" / \"may be\", the over-asserting 'likely' was removed; (b) Q14 认错对错 is now rendered bidirectionally in EN as \"the judge itself can be wrong (misjudging which answers are right vs wrong)"
   },
-  "rendered_at": "2026-05-31"
+  "content_parity_audit_2026_07_12": {
+    "verdict": "PASS",
+    "date": "2026-07-12",
+    "reviewer": "Round A: Codex GPT-5.6-sol (candidate-error sweep on ZH source) → Round B: independent fresh Claude thread (adversarial verification) — same audit that drove the ZH-source fixes",
+    "summary": "All 12 substantive fixes from the 2026-07-12 ZH re-sweep (9 CONFIRMED + 3 NEEDS_NUANCE) ported into natural English at the corresponding EN locations: RLHF-vs-Agentic-RL 'reward from RM vs environment' false binary softened; §7.3 value-loss/observation-V nuance note added; sparse-reward GAE formula corrected to the λ-dependent form; Q15 value-target-near-0 conflation fixed; Q22 GRPO advantage reframed as biased-but-consistent; Q9 clamp-σ 'keeps a small signal' corrected to 'NaN guard only'; Q18 per-step-vs-trajectory-KL reframed via the chain-rule identity; §8.2 WebRL learned-ORM vs rule-based distinction restored; DAPO overlong shaping corrected from exponential decay to piecewise-linear ramp; ReFT citation 'Trung et al.' -> 'Luong et al.' fixed at all 3 occurrences (TL;DR, §6.4 heading, references list); SWE-RL 76M+ triple count hedged; StarPO acronym unified to 'StarPO (State-Thinking-Actions-Reward Policy Optimization)' at Q12, matching §6.8 and the references list, no hedge (primary-source-confirmed via RAGEN paper abstract, arXiv 2504.20073)."
+  },
+  "rendered_at": "2026-07-12"
 }

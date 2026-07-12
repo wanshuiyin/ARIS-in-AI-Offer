@@ -2,13 +2,13 @@
 
 > 💡 **9 sentences to nail Agentic RL** — RL for LLM agents is the 2024-2026 paradigm pushing reasoning RL into real tool use, the web, code, and GUI (see §1-§9 for derivations + §10 for the 25 frequently-asked questions).
 
-1. **The fundamental difference between Agentic RL and RLHF**: RLHF is single-turn preference alignment with reward from an RM scoring an entire response; **Agentic RL is multi-turn decision-making, state is (obs, history), action is (thought, tool_call), and reward comes from the external environment (test-pass, task success, verifier) rather than an RM**. Trajectory length grows from RLHF's hundreds of tokens to an agent's thousands or even tens of thousands of tokens, taking credit assignment difficulty up a notch.
+1. **The fundamental difference between Agentic RL and RLHF**: RLHF is single-turn preference alignment with reward from an RM scoring an entire response; **Agentic RL is multi-turn decision-making, state is (obs, history), action is (thought, tool_call), and leans on programmatically verifiable objective outcomes (test-pass, task success, verifier) as the backbone rather than RM-style subjective preference scoring** (though it can still use a learned reward model, e.g. WebRL's ORM — the two are not a strict either/or). Trajectory length grows from RLHF's hundreds of tokens to an agent's thousands or even tens of thousands of tokens, taking credit assignment difficulty up a notch.
 
 2. **Key modifications PPO/GRPO need on agents** (must memorize): the **token mask** must restrict the loss to tokens the agent itself generates — observation tokens (the stdout / search snippet returned by tools) belong to the environment, the policy gradient must not flow there; otherwise the model will try to "teach the tool how to respond" and behavior collapses. GRPO's advantage is more pronounced: on long-horizon trajectories, a value model can hardly learn per-token V (almost all middle rewards are 0); intra-group normalization is a more stable baseline.
 
-3. **Three-tier reward design pyramid**: (a) **Outcome reward** is cheapest and sparsest — final answer/task success 0/1; (b) **Process reward** scores each step, requiring a PRM or step verifier; (c) **Hybrid / shaping** — tool-call shaping (encourage calling the right tool), length penalty (prevent the agent from dragging too long), format reward (strictly constrain output schema). The R1 line uses rule-based outcome reward (math correctness + format), SWE-RL uses test-pass, WebRL uses task success — **rule-based outcome reward + dense format shaping** is the most stable combination empirically in 2025 industry.
+3. **Three-tier reward design pyramid**: (a) **Outcome reward** is cheapest and sparsest — final answer/task success 0/1; (b) **Process reward** scores each step, requiring a PRM or step verifier; (c) **Hybrid / shaping** — tool-call shaping (encourage calling the right tool), length penalty (prevent the agent from dragging too long), format reward (strictly constrain output schema). The R1 line uses rule-based outcome reward (math correctness + format), SWE-RL uses test-pass (rule-based), while WebRL trains an ORM to score task success (a learned-RM route, see §6.9) — **outcome-level verification signal (rule-based or learned ORM) + dense format shaping** is the most stable combination empirically in 2025 industry.
 
-4. **Representative early work**: **AgentTuning** (Zeng et al. 2023 arXiv 2310.12823 THU) — agent SFT dataset + multi-task training; **Agent-FLAN** (Chen et al. 2024 ACL Findings arXiv 2403.12881) — splits agent corpus into multi-turn / formatted / negative example three classes; **ReFT** (Trung et al. 2024 ACL arXiv 2401.08967) — SFT warm-start + online RL on math reasoning, PPO gains +9pp on GSM8K. These three are the "SFT first, then RL" standard three-stage of Agentic RL.
+4. **Representative early work**: **AgentTuning** (Zeng et al. 2023 arXiv 2310.12823 THU) — agent SFT dataset + multi-task training; **Agent-FLAN** (Chen et al. 2024 ACL Findings arXiv 2403.12881) — splits agent corpus into multi-turn / formatted / negative example three classes; **ReFT** (Luong et al. 2024 ACL arXiv 2401.08967) — SFT warm-start + online RL on math reasoning, PPO gains +9pp on GSM8K. These three are the "SFT first, then RL" standard three-stage of Agentic RL.
 
 5. **Tool-augmented reasoning RL**: **ToolRL** (Qian et al. 2025 arXiv 2504.13958) — embeds tool calls into GRPO with reward = correctness + format + tool-use efficiency; **ReSearch** (Chen et al. 2025 arXiv 2503.19470) — treats search calls as first-class actions and learns multi-hop search with rule-based reward; **RAGEN / StarPO** (Wang et al. 2025 arXiv 2504.20073) — a multi-turn RL training framework with state-action token-level loss + critic-free GRPO variant. Common thread: **outcome-only reward + format shaping + token-mask loss + GRPO**.
 
@@ -30,7 +30,7 @@ RLHF trains an LLM into a policy that "writes per human preference"; but an RLHF
 - **The RM learns "which style humans prefer"**, not "which call order solves the problem"
 - **Reward is over the entire response**, with no way to distinguish "the first 100 tokens reasoned correctly but token 101 chose the wrong tool"
 
-The essence of Agentic RL is to hang the RL signal on **objective trajectory-terminal outcomes** (test pass, math correct, web task completed) rather than the RM's subjective preference. This step upgrades alignment-style RL into **decision-making RL**.
+The core difference between Agentic RL and RLHF is not a strict either/or over "reward must come from an RM vs. must come from the environment" — it's the **timescale of credit assignment** (RLHF's immediate reward on a single response vs. Agentic RL's credit assignment over a trajectory dozens of steps long) and the **mode of verification** (RLHF relies on an RM's subjective scoring of style/preference; Agentic RL leans more on programmatically verifiable objective outcomes such as test pass, math correct, or web task completed — though it can still use a learned reward model, e.g. §6.9's WebRL ORM, just with more emphasis on verifiable signals as the backbone than traditional RLHF-RM). This step upgrades alignment-style RL into **decision-making RL**.
 
 ### 1.2　Mental model: MDP / POMDP formulation
 
@@ -42,6 +42,8 @@ The essence of Agentic RL is to hang the RL signal on **objective trajectory-ter
 | Horizon $T$ | 1 (one response) | 10-200 steps (agent loop) |
 | Trajectory length (tokens) | $10^2$-$10^3$ | $10^3$-$10^5$ |
 | Environment | RM (neural net) | Real environment (shell / browser / search / Python) |
+
+> 📝 The table above contrasts **typical** configurations, not a strict binary — Agentic RL can equally use a learned reward model for scoring (e.g. §6.9's WebRL ORM); it just leans more on programmatically verifiable signals (test-pass, task success) as the backbone than traditional RLHF-RM. The real dividing line is the timescale of credit assignment and the mode of verification, not "whether reward comes from an RM" per se.
 
 ```
 
@@ -275,7 +277,7 @@ or a softer sigmoid form:
 
 $$r_\text{adjusted} = r_\text{outcome} \cdot \sigma\!\big(-(T - T_\text{target}) / \tau\big)$$
 
-DAPO reports "overlong shaping" — exponential reward decay after exceeding the length budget, preventing the agent from extending to the context limit.
+DAPO reports "overlong reward shaping" — once generation length enters the buffer zone $(L_\text{max}-L_\text{cache}, L_\text{max}]$, reward ramps down piecewise-linearly from 0 to -1 (and is fixed at -1 beyond $L_\text{max}$), rather than decaying exponentially, replacing a hard cutoff with a smooth penalty to avoid training instability.
 
 ### 3.5　Tool-call shaping reward
 
@@ -345,11 +347,11 @@ Recall GAE:
 
 $$A_t = \sum_l (\gamma\lambda)^l \delta_{t+l}, \quad \delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$$
 
-Under sparse terminal reward ($r_t = 0$ for $t \lt T$, $r_T = R$):
+Under sparse terminal reward ($r_t = 0$ for $t \lt T$, $r_T = R$), expanding $\delta_{t+l}$ and summing over $l$ gives:
 
-$$A_t = \gamma^{T-t} R - V(s_t) + \text{value correction terms}$$
+$$A_t = (\gamma\lambda)^{T-t} R - V(s_t) + \gamma(1-\lambda)\sum_{l\ge0}(\gamma\lambda)^l V(s_{t+l+1})$$
 
-That is, **advantage ≈ discounted return - baseline**. If $V_\phi$ is inaccurate (often the case in agents), this degenerates into raw MC return; GAE's bias-variance trade-off fails.
+Only when $\lambda=1$ does the trailing term telescope away exactly, degenerating to $A_t = \gamma^{T-t} R - V(s_t)$ (pure discounted MC return minus baseline, i.e. **advantage ≈ discounted return - baseline**); for general $\lambda<1$ a string of $\lambda$-dependent value-correction terms remains. If $V_\phi$ is inaccurate (often the case in agents), this $\lambda=1$ limiting case degenerates into raw MC return; GAE's bias-variance trade-off fails.
 
 **Practical take**: on agent RL, GAE is less stable than group-relative advantage (GRPO); this is one of the fundamental reasons why GRPO is more sample efficient than PPO on agents.
 
@@ -483,7 +485,7 @@ Sorted by "time + data/task type", each with one sentence + key formula.
 
 **Key**: **negative examples significantly reduce hallucinated tool calls** — SFT doesn't just see "how to do it right", it also sees "why this is wrong". An important milestone for agent SFT engineering.
 
-### 6.4　ReFT (Trung et al. 2024 ACL arXiv 2401.08967)
+### 6.4　ReFT (Luong et al. 2024 ACL arXiv 2401.08967)
 
 **Setting**: math reasoning agent; SFT warm-start, then PPO with rule-based outcome reward (answer correctness).
 
@@ -577,7 +579,7 @@ where $r_\text{tool-eff}$ penalizes redundant/invalid tool calls.
 
 **Key features**:
 
-- Data scale: Meta constructs 76M+ context-issue-patch triples from GitHub PR commit history
+- Data scale: Meta constructs 76M+ context-issue-patch triples from GitHub PR commit history (check the original paper's Table/Section for the exact scale — this tutorial could not verify offline whether 76M+ is the final triple count or the raw PR/commit event count)
 - Reward: edit similarity (oracle patch ↔ predicted patch) + binary test pass
 - Algorithm: pure GRPO + format reward
 
@@ -729,7 +731,7 @@ def ppo_agent_step(policy, value, batch, eps_clip=0.2, c_v=0.5, c_e=0.01):
     # Mean over masked positions (avoid observation tokens lowering loss scale)
     policy_loss = -((torch.min(surr1, surr2) * mask).sum() / mask.sum().clamp_min(1.0))
 
-    # Value loss: also only on agent tokens (V of observation tokens is meaningless)
+    # Value loss: only on agent tokens — this is an engineering simplification, not a claim that V at observation positions is itself meaningless (see note below)
     V = value(batch["input_ids"]).squeeze(-1)            # [B, L]
     value_loss = (((V - batch["returns"]) ** 2) * mask).sum() / mask.sum().clamp_min(1.0)
 
@@ -752,6 +754,8 @@ def ppo_agent_step(policy, value, batch, eps_clip=0.2, c_v=0.5, c_e=0.01):
         "approx_kl": approx_kl.item(),
     }
 ```
+
+> 📝 **The critic mask can be defined independently of the policy mask** — the policy loss must exclude observation tokens (to keep the policy gradient from flowing into environment-generated text); but the value function is conceptually $V(s_t)$, whose natural anchor sits at the state boundary (i.e. the last observation token / right before the next action begins), so $V$ at that boundary position is meaningful — it is exactly the source of the $V(s_0)\dots V(s_T)$ bootstrap values used by GAE in §7.2. Restricting value loss to agent tokens above is an engineering simplification; readers should understand this simplification in relation to the boundary-based definition of $V$, rather than reading it as "V at observation positions has no meaning."
 
 > ⚠️ **5 common mistakes with agent_mask** —
 
@@ -915,7 +919,7 @@ verl (ByteDance 2024+), OpenRLHF, TRL have all made GRPO / RLOO / ReMax first-cl
 
 ### 8.2　The victory of rule-based reward on agents
 
-What WebRL / ReSearch / SWE-RL / RAGEN have in common: **outcome reward + format reward, all rule-based**, avoiding the main failure mode of reward hacking on learned RMs.
+ReSearch / SWE-RL / RAGEN are all **outcome reward + format reward, rule-based**; WebRL, however, trains an ORM (learned outcome reward model) to score (see §6.9) — a learned-RM route, unlike the other three's pure rule-based verification. What all four share is that they use **outcome-level (rather than token-level subjective preference) signal**, not that they're all rule-based; it's the rule-based branch specifically that avoids the main failure mode of reward hacking on learned RMs.
 
 **Why has rule-based suddenly become viable**:
 
@@ -1133,7 +1137,7 @@ Saying only "RL is slow, SFT speeds it up" isn't enough; the core issue is actio
 
 - Agents easily learn the shortcut of "drag the trajectory to get the answer correct" (reward hacking)
 - Length penalty deducts for over-budget trajectories: $r = r_\text{outcome} - \lambda \max(0, T - T_\text{target})$
-- DAPO's "overlong shaping" is an industrial implementation (exponential decay)
+- DAPO's "overlong reward shaping" is an industrial implementation (piecewise-linear ramp to -1 once inside the buffer zone, rather than exponential decay)
 - Limitation: too large a penalty discourages exploration; cap is needed
 
 Not knowing that length-explosion is a common agent RL failure mode; or unable to write the length-penalty formula.
@@ -1149,8 +1153,8 @@ Not knowing that length-explosion is a common agent RL failure mode; or unable t
 - Without $\epsilon$ it's NaN
 - Practice:
   - **Skip the prompt** (data filter): common approach, avoids signal-less updates
-  - **Clamp σ at a lower bound** (e.g. 0.1): keeps a small signal
-  - **DAPO dynamic sampling**: drop all-correct / all-wrong groups
+  - **Clamp σ at a lower bound** (e.g. 0.1): only a numerical-stability trick to avoid $0/0$ producing NaN — in an all-identical group the numerator $r_i - \mu$ is already exactly 0, so no matter what the denominator is clamped to, the advantage stays exactly 0; this **does not recover any training signal**
+  - **DAPO dynamic sampling**: drop all-correct / all-wrong groups — this is the approach that actually fixes the "no signal" problem
 
 Saying it always NaNs (depends on implementation); or not knowing that such prompts indicate the task is too easy/hard.
 
@@ -1160,7 +1164,7 @@ Saying it always NaNs (depends on implementation); or not knowing that such prom
 
 <summary>Q10. How is SWE-RL trained?</summary>
 
-- Data: GitHub PR commit history, constructing ~76M context-issue-patch triples (Meta public)
+- Data: GitHub PR commit history, constructing ~76M context-issue-patch triples (Meta public figure; whether this is the final triple count or the raw PR/commit event count should be checked against the original paper)
 - Reward: rule-based = patch similarity (oracle ↔ pred) + binary test pass
 - Algorithm: pure GRPO + format reward
 - Model: Llama-3.3-70B
@@ -1190,7 +1194,7 @@ Writing the formula without explaining the mask's role; or forgetting that norma
 
 <summary>Q12. Key contributions of RAGEN / StarPO?</summary>
 
-- **StAble multi-tuRn Policy Optimization**: critic-free GRPO variant; whole trajectory shares the advantage
+- **StarPO** (**S**tate-**T**hinking-**A**ctions-**R**eward Policy Optimization): critic-free GRPO variant; whole trajectory shares the advantage
 - **Strict token mask**: observation positions mask = 0; loss only on agent tokens
 - **Rollout diversity = collapse firebreak**: group_size $G = 16$ is significantly more stable than $G = 4$
 - **Trajectory length signal**: when failed trajectories are long, add a length penalty
@@ -1235,11 +1239,11 @@ Saying self-rewarding is always dangerous (it can still be used on alignment); o
 - Value $V_\phi(s_t) = \mathbb{E}_\pi[\sum_{l \ge 0} \gamma^l r_{t+l} \mid s_t]$
 - Sparse terminal reward → $V(s_t) \approx \gamma^{T-t} \cdot P(\text{success} \mid s_t)$
 - The value of an intermediate state $s_t$ depends almost entirely on "will it succeed in the future" — implicit long-horizon prediction
-- Value MSE loss $(V_\phi - V_\text{target})^2$ has target near 0 on most steps, gradient is tiny
-- Equivalent to "almost no supervision" — value can't be learned, an inevitable consequence of sparse reward
-- This is also the theoretical basis for GRPO saving the critic: the critic couldn't be learned anyway; saving it avoids noise
+- **Sparse per-step reward (mostly 0) does not mean the training target is near 0**: the value MSE loss's target is the bootstrapped return, and when $\gamma$ is close to 1 (the tutorial's default $\gamma=0.99$), the target for intermediate states approximates the terminal outcome $P(\text{success} \mid s_t)$, which can stay high for long stretches; if $\gamma=1$, then for an already-successful trajectory the MC target at every step before the end is exactly the terminal reward and never approaches 0
+- What actually makes the critic hard to learn is that **this target has high variance** and requires long-horizon prediction of eventual success, not that the target value or gradient is small
+- This is also the theoretical basis for GRPO saving the critic: what the critic would have to learn is a high-variance, long-horizon-dependent quantity; saving it avoids that noise
 
-Saying only "the critic can't be learned"; unable to derive $V \approx \gamma^{T-t} P(\text{success})$; or not knowing this is GRPO's design motivation.
+Saying only "the critic can't be learned"; unable to derive $V \approx \gamma^{T-t} P(\text{success})$; or conflating "sparse per-step reward" with "value target near 0" — these are different quantities.
 
 </details>
 
@@ -1277,11 +1281,11 @@ Not knowing the HER origin; or not knowing the applicability boundary (open env 
 
 - **Per-step KL**: compute KL($\pi_\theta(\cdot \mid s_t) \| \pi_\text{ref}(\cdot \mid s_t)$) on every agent token; added to reward or loss
 - **Trajectory KL**: one KL for the entire trajectory; added to loss
-- Per-step is finer-grained and controls per-step drift; trajectory is simpler but lacks token-level resolution
-- GRPO uses per-step + K3 estimator (numerically stable)
-- Per-step is the mainstream on agent RL (trajectories are long; a single KL is numerically unstable)
+- The two are not fundamentally different divergences — by the chain rule, $\log\pi(\tau) = \sum_t \log\pi(a_t \mid s_t)$, so in expectation "trajectory KL" equals the sum of per-step KLs; the real implementation differences are: (a) whether KL is folded into the reward step by step as shaping, or added as a single scalar term to the overall loss; (b) whether the aggregation uses sum or mean; (c) which numerically stable estimator is used
+- GRPO sums a per-token K3 estimator (numerically stable)
+- Per-step is the mainstream on agent RL (trajectories are long; taking KL directly on a sequence-level log-ratio is numerically unstable)
 
-Confusing the two; or not knowing the K3 estimator solves numerical issues (K3: $\text{KL} \approx \exp(\Delta) - \Delta - 1$ non-negative).
+Treating the two as fundamentally different divergences (they're the same quantity under the chain rule; the difference is in implementation); or not knowing the K3 estimator solves numerical issues (K3: $\text{KL} \approx \exp(\Delta) - \Delta - 1$ non-negative).
 
 </details>
 
@@ -1351,7 +1355,7 @@ Unable to derive step 4 (mask placement affecting ratio values); or memorizing t
 **Natural alignment of trace-level reward with trace-level credit** (not just "saves the critic"):
 
 1. **Critic can't learn under sparse terminal reward**: $V(s_t) \approx \gamma^{T-t} P(\text{success})$, gradient is tiny; PPO's GAE-advantage is dragged by a noisy critic
-2. **GRPO uses trace-level reward as the advantage directly**: equivalent to sequence-level MC return, an unbiased estimator under sparse reward
+2. **GRPO uses reward normalized by the group's (including its own) mean/std as the advantage**: this is a biased-but-lower-variance estimator of sequence-level advantage that is asymptotically unbiased (consistent) as $G$ grows — sources of bias include: (a) a $(1-1/G)$ shrinkage from including the sample itself in the mean (relative to a leave-one-out baseline); (b) a nonlinear, difficulty-dependent bias introduced by std normalization; (c) additional bias from the PPO clip itself
 3. **Group baseline is more stable than critic baseline**: G rollouts per prompt → group mean automatically reflects task difficulty; variance reduction is more precise
 4. **PPO clipping + group size jointly limit update magnitude**: avoids a single outlier reward sending the policy flying
 5. **Saving value-model VRAM** is a secondary benefit, not the primary reason
@@ -1465,7 +1469,7 @@ Grouped by direction; papers verified via web search + arXiv for authors / year 
 
 - Zeng et al. 2023 arXiv 2310.12823 *AgentTuning: Enabling Generalized Agent Abilities for LLMs* (THU)
 - Chen et al. 2024 ACL Findings arXiv 2403.12881 *Agent-FLAN: Designing Data and Methods of Effective Agent Tuning for LLMs*
-- Trung et al. 2024 ACL arXiv 2401.08967 *ReFT: Reasoning with Reinforced Fine-Tuning*
+- Luong et al. 2024 ACL arXiv 2401.08967 *ReFT: Reasoning with Reinforced Fine-Tuning*
 
 **RL for agent / reasoning (fundamental algorithms)**
 

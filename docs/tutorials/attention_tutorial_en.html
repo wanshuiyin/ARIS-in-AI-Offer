@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/attention_tutorial_en.md">
-<meta name="aris:source-sha256" content="52fb9664c6793bc81ab2abdec83fbd0978574b6e370057af74ae62525bacf33a">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="f057c218d5b6435d443d904c25e0e732705172efce84a0918a984c166a516800">
+<meta name="aris:generated-at" content="2026-07-12 04:18 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -590,8 +590,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/attention_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>52fb9664c679</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>f057c218d5b6</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:18 UTC</span>
     
   </div>
 </header>
@@ -603,7 +603,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>The essence of attention is <strong>learned retrieval</strong>:</p>
 <ul><li>Each <strong>query</strong> ("what information do I need right now?")</li><li>Computes similarity against all <strong>keys</strong> ("what does each position claim to offer?")</li><li>Softmax-normalizes into a <strong>weight distribution</strong></li><li>Takes a weighted sum of all <strong>values</strong> ("what each position actually contributes")</li></ul>
 <p>Contrast with RNNs: an RNN <strong>compresses past information into a fixed-size hidden state</strong>, so long sequences inevitably lose information; attention <strong>directly, globally, and dynamically</strong> retrieves all past positions at every step, which is why it suits long-range dependencies.</p>
-<p>"Q/K/V come from the same vector passed through three different projections" — proactively say this in interviews, since newcomers often mistakenly think Q/K/V are three separate inputs.</p>
+<p>"In self-attention, Q/K/V come from the same vector passed through three different projections" — proactively say this in interviews, since newcomers often mistakenly think Q/K/V are three separate inputs (note that in cross-attention Q does <em>not</em> share a source with K/V — see §4).</p>
 <h2 id="2-scaled-dot-product-attention">§2 Scaled Dot-Product Attention</h2>
 <h3 id="21-formula">2.1　Formula</h3>
 <p>$$\boxed{\;\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right) V\;}$$</p>
@@ -748,15 +748,15 @@ out, _ = mha(x, x, x, mask=pmask)</code></pre>
 <ul><li>Self-attention's $L^2$ <strong>compute</strong> is acceptable (GPU parallel), but <strong>$L^2$ memory</strong> (score matrix) is the real bottleneck — this is the pain point Flash Attention attacks</li><li>At LLM inference, the prefill stage is $O(L^2)$; the decode stage with KV cache is $O(L)$ per step (see §6)</li><li>When $L \approx D$, attention and FFN take similar time; when $L \gg D$, attention dominates</li></ul>
 <h2 id="6-kv-cache--mqa--gqa">§6 KV Cache + MQA / GQA</h2>
 <h3 id="61-kv-cache-key-optimization-for-autoregressive-inference">6.1　KV Cache (key optimization for autoregressive inference)</h3>
-<p>Problem: when GPT generates autoregressively, every new token re-runs the entire prefix through the forward pass — across $t$ steps that's $O(t^2)$ redundant computation.</p>
+<p>Problem: when GPT generates autoregressively, every new token re-runs the entire prefix through the forward pass — a single step at position $t$ costs $O(t^2)$, and summing over $T$ steps gives $O(T^3)$ cumulative redundant computation (not $O(T^2)$).</p>
 <p>Solution: cache each layer's $K^{(\ell)}, V^{(\ell)}$. When generating the $(t+1)$-th token:</p>
 <ul><li>Compute only the new token's $q_{t+1}, k_{t+1}, v_{t+1}$ (size $1 \times D$)</li><li>Append $k_{t+1}, v_{t+1}$ to the cache</li><li>The new $q$ attends over the full cache ($O(t)$, not $O(t^2)$)</li></ul>
-<div class="callout callout-warn"><div class="callout-title">Footgun</div><p>KV cache is an <strong>inference optimization</strong>; it <strong>cannot</strong> be used in training — at training time all positions do attention simultaneously, there is no "token-by-token generation".</p></div>
+<div class="callout callout-warn"><div class="callout-title">Footgun</div><p>KV cache is an <strong>inference optimization</strong>; standard teacher-forced parallel training (SFT / pretraining forward-backward) has no use for it, since every position is processed in parallel and there is no "token-by-token generation". But RLHF / GRPO-style training with on-policy rollout sampling <em>does</em> perform genuinely autoregressive generation during the rollout phase, so KV cache speeds that up too.</p></div>
 <p><strong>KV cache memory (per sample)</strong>:</p>
 <p>$$\text{KV cache} = L_\text{ctx} \cdot n_\text{layers} \cdot \underbrace{2}_{K, V} \cdot H_\text{kv} \cdot d_\text{head} \cdot \text{bytes\_per\_elem}$$</p>
-<p>Note: under MQA/GQA $H_\text{kv} \ll H$, shrinking the cache dramatically. For LLaMA-2-70B (GQA, $H_\text{kv}=8$), $L_\text{ctx}=4096$, 80 layers, fp16: about <strong>1.25 GB / sample</strong> — this is why LLaMA-2 uses GQA instead of MHA (vanilla MHA would reach 10 GB / sample).</p>
+<p>Note: under MQA/GQA $H_\text{kv} \ll H$, shrinking the cache dramatically. For LLaMA-2-70B (GQA, $H_\text{kv}=8$), $L_\text{ctx}=4096$, 80 layers, fp16: about <strong>1.25 GiB</strong> (≈1.34 GB) <strong>/ sample</strong> — this is why LLaMA-2 uses GQA instead of MHA (vanilla MHA would reach about <strong>10 GiB ≈ 10.74 GB / sample</strong>).</p>
 <h3 id="62-mqa--gqa-attacking-kv-cache-memory">6.2　MQA / GQA (attacking KV-cache memory)</h3>
-<table><thead><tr><th>Variant</th><th>Q heads</th><th>K/V heads</th><th>KV cache reduction</th><th>Used in</th></tr></thead><tbody><tr><td><strong>MHA</strong> (vanilla)</td><td>$H$</td><td>$H$</td><td>1×</td><td>original Transformer</td></tr><tr><td><strong>MQA</strong> (Multi-Query)</td><td>$H$</td><td><strong>1</strong></td><td>$H \times$</td><td>PaLM, Falcon</td></tr><tr><td><strong>GQA</strong> (Grouped-Query)</td><td>$H$</td><td>$G$ ($1 &lt; G &lt; H$)</td><td>$H/G \times$</td><td>LLaMA-2/3, Mistral</td></tr></tbody></table>
+<table><thead><tr><th>Variant</th><th>Q heads</th><th>K/V heads</th><th>KV cache reduction</th><th>Used in</th></tr></thead><tbody><tr><td><strong>MHA</strong> (vanilla)</td><td>$H$</td><td>$H$</td><td>1×</td><td>original Transformer</td></tr><tr><td><strong>MQA</strong> (Multi-Query)</td><td>$H$</td><td><strong>1</strong></td><td>$H \times$</td><td>PaLM, Falcon</td></tr><tr><td><strong>GQA</strong> (Grouped-Query)</td><td>$H$</td><td>$G$ ($1 &lt; G &lt; H$)</td><td>$H/G \times$</td><td>LLaMA-2-70B (7B/13B are still MHA), all of LLaMA-3, Mistral</td></tr></tbody></table>
 <p>Core idea: <strong>multiple Q heads share one set of K/V</strong>. MQA is extreme but slightly hurts quality; GQA is a compromise (e.g., H=32, G=8) that cuts memory/bandwidth by 4× with essentially no quality loss.</p>
 <div class="callout callout-bad"><div class="callout-title">Footgun</div><p>MQA/GQA reduce <strong>KV-cache memory + memory bandwidth</strong>, <strong>not</strong> Q-projection compute (Q head count is unchanged). Interviewers love to push back with "what exactly did it reduce?".</p></div>
 <h2 id="7-flashattention-core-tricks">§7 FlashAttention Core Tricks</h2>
@@ -935,7 +935,7 @@ FFN → next layer</code></pre>
 <details>
 
 <summary>Q24. RoPE vs ALiBi vs absolute position? What is attention sink?</summary>
-<ul><li><strong>Absolute</strong>: position vectors added to the input embedding (Vaswani sinusoidal / GPT-2 learned)</li><li><strong>RoPE</strong>: apply position-dependent rotation to $Q, K$, preserving <strong>relative position</strong> info ($q_m^\top k_n$ depends only on $m-n$)</li><li><strong>ALiBi</strong>: add a distance bias $-m |i-j|$ to scores, extrapolates naturally</li><li><strong>Attention sink</strong>: trained LLMs assign abnormally high attention to the first 1-4 tokens (especially [BOS]) even when content-irrelevant — softmax forces sum to 1 so the model needs a "junk slot". StreamingLLM exploits this for long-sequence inference.</li></ul>
+<ul><li><strong>Absolute</strong>: position vectors added to the input embedding (Vaswani sinusoidal / GPT-2 learned)</li><li><strong>RoPE</strong>: apply position-dependent rotation to $Q, K$, preserving <strong>relative position</strong> info (the position term enters $q_m^\top k_n$ only through $m-n$, but the content vectors still determine the actual value — it's not position-only)</li><li><strong>ALiBi</strong>: add a distance bias $-m |i-j|$ to scores, extrapolates naturally</li><li><strong>Attention sink</strong>: trained LLMs assign abnormally high attention to the first 1-4 tokens (especially [BOS]) even when content-irrelevant — softmax forces sum to 1 so the model needs a "junk slot". StreamingLLM exploits this for long-sequence inference.</li></ul>
 <p>Treating attention sink as normal padding / CLS token behavior.</p>
 </details>
 <details>
@@ -945,19 +945,18 @@ FFN → next layer</code></pre>
 <p>Saying diffusion relies only on convolutions; or that attention exists only in DiT (wrong — U-Net has plenty too).</p>
 </details>
 <h2 id="a-appendix-full-from-scratch-code-skeleton">§A Appendix: Full from-scratch code skeleton</h2>
-<p>The reference from-scratch implementation contains:</p>
-<ul><li><code>scaled_dot_product_attention()</code> — with NaN guard</li><li><code>MultiHeadAttention</code> — standard MHA, supports 4 mask shapes</li><li><code>SelfAttention</code> / <code>CrossAttention</code> — thin wrappers with clear call semantics</li><li><code>causal_mask()</code> / <code>padding_mask()</code> / <code>combine_masks()</code></li><li>9 sanity checks (self / causal / padding / cross / wrappers / nn.MHA alignment / NaN guard / d_model%H / return_weights=False)</li></ul>
-<p>Actual sanity-check output (PyTorch 2.x, single-machine GPU):</p>
-<pre><code>[a] self-attn  out=(2, 5, 16) weights=(2, 4, 5, 5)  weights row-sum=1 ✓
-[b] causal mask: upper triangle ~ 0  ✓
-[c] padding mask: pad-key columns ~ 0 in sample-1  ✓
-[d] cross-attn out=(2, 7, 16) weights=(2, 4, 7, 5)  ✓
-[e] SelfAttention(causal) ✓   CrossAttention(context-pad) ✓
-[f] vs nn.MultiheadAttention:  |Δout|=0.00e+00  |Δweights|=0.00e+00  ✓
-[g] all-masked row: no NaN, weights row = 0  ✓
-[h] d_model not divisible by num_heads -&gt; ValueError  ✓
-[i] return_weights=False -&gt; weights is None  ✓</code></pre>
-<p>Code passed independent reviewer static check + PyTorch sanity-check run, diff vs <code>nn.MultiheadAttention</code> = 0.</p>
+<p>The reference from-scratch implementation (<code>code/mha.py</code>) contains:</p>
+<ul><li><code>MultiHeadAttention</code> — standard multi-head self-attention (a single fused <code>qkv</code> Linear producing Q/K/V at once, <code>[N,N]</code> additive mask; no NaN guard for fully-masked rows, no cross-attention wrapper); <code>__init__</code> checks <code>assert embed_dim % num_heads == 0</code>, raising <code>AssertionError</code> on mismatch (note: <code>assert</code> is stripped entirely under <code>python -O</code> / <code>PYTHONOPTIMIZE</code>, so production code should use an explicit <code>raise ValueError(...)</code> instead)</li><li><code>make_causal_mask()</code> — builds an upper-triangular <code>-inf</code> causal mask</li><li>3 sanity checks: <code>sanity_check()</code> (numerical parity against <code>nn.MultiheadAttention</code>, diff &lt; 1e-5), <code>shape_check()</code>, <code>causal_check()</code></li></ul>
+<p>Actual sanity-check output (PyTorch 2.x, runs on CPU in seconds):</p>
+<pre><code>== Multi-Head Attention sanity ==
+[sanity] max diff vs nn.MultiheadAttention = 5.96e-08
+[sanity] PASS
+[shape] input  x: (2, 1024, 768)
+[shape] output y: (2, 1024, 768)
+[causal] applied causal mask, output shape (1, 8, 32)
+
+All checks passed.</code></pre>
+<p>Code passed independent reviewer static check + PyTorch sanity-check run, diff vs <code>nn.MultiheadAttention</code> &lt; 1e-5.</p>
 <hr />
 <h2 id="runnable-code">📜 Runnable Code</h2>
 <p>Minimal runnable PyTorch implementations of this tutorial's core concepts live in <a href="code/"><code>docs/tutorials/code/</code></a>:</p>
@@ -967,8 +966,8 @@ FFN → next layer</code></pre>
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/attention_tutorial_en.md</code> ·
-  SHA256 <code>52fb9664c679</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>f057c218d5b6</code> ·
+  generated at 2026-07-12 04:18 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

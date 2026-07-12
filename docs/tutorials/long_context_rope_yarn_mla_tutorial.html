@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/long_context_rope_yarn_mla_tutorial.md">
-<meta name="aris:source-sha256" content="8adc3b0e3df387bebfbfba969b892dcf2a2173522f0636cd3ac7fd28bd291716">
-<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
+<meta name="aris:source-sha256" content="4c9ce195190fb0bd8ab2e905b49b2a962a5910c7825444df7778d954de6bbefb">
+<meta name="aris:generated-at" content="2026-07-12 04:20 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -556,7 +556,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#62-ntk-by-parts--分频段处理">6.2 NTK-by-parts — 分频段处理</a></li>
 <li><a href="#63-temperature-scaling--注意力熵补偿">6.3 Temperature Scaling — 注意力熵补偿</a></li>
 <li><a href="#64-attention-scale--与-temperature-等价的另一实现">6.4 Attention Scale — 与 Temperature 等价的另一实现</a></li>
-<li><a href="#65-yarn-三组件各解决什么l3-必问">6.5 YaRN 三组件各解决什么（L3 必问）</a></li>
+<li><a href="#65-yarn-组件各解决什么l3-必问">6.5 YaRN 组件各解决什么（L3 必问）</a></li>
 <li><a href="#66-yarn-代码ntk-by-parts--temperature">6.6 YaRN 代码（NTK-by-parts + temperature）</a></li>
 </ul>
 </li>
@@ -637,15 +637,15 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/long_context_rope_yarn_mla_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>8adc3b0e3df3</code></span>
-    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
+    <span><strong>SHA256:</strong> <code>4c9ce195190f</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:20 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
 <div class="callout callout-info"><div class="callout-title">8 句话搞定 Long Context</div><p>一页拿下面试核心要点（详见后文 §2–§9 推导）。</p></div>
-<ol><li><strong>RoPE</strong>：对每对维度 $(2i, 2i+1)$ 做位置 $m$ 相关的 2D 旋转，$\theta_i = 10000^{-2i/d}$。$q_m^\top k_n$ 仅依赖<strong>相对位置</strong> $m-n$（不依赖绝对 $m, n$ 各自），且无需训练参数。</li><li><strong>PI (Position Interpolation, Chen 2023)</strong>：把所有 $\theta_i$ 同除以 $s = L_\text{new}/L_\text{train}$（等价于把绝对位置 $m$ 缩到 $m/s$）。<strong>伤害高频</strong>（早期维度的相位分辨率被压缩），但实现简单。</li><li><strong>NTK-aware (bloc97 2023)</strong>：换底，新底 $b' = b \cdot s^{d/(d-2)}$。<strong>低频维度被强压缩、高频维度几乎不变</strong>，零样本外推优于 PI。</li><li><strong>YaRN (Peng 2023)</strong>：NTK-by-parts（分段处理频率）+ temperature scaling（拟合公式 $\sqrt{1/t} \approx 0.1\ln s + 1$，即 $t \approx 1/(0.1\ln s + 1)^2$）+ attention scale。三组件分别解决：高频/低频分别处理、稀释 softmax、补偿外推后注意力熵增。</li><li><strong>LongRoPE (Ding 2024 ICML)</strong>：演化搜索每维独立的缩放因子 $\lambda_i$，加上 short-context "rescue"，把上下文推到 2M tokens。</li><li><strong>MLA (DeepSeek-V2)</strong>：$\mathbf{c}_t^{KV} = W_\text{DKV}\mathbf{h}_t$ 把 K/V 压成 $d_c \ll N_h d_h$ 的 latent；RoPE 必须<strong>解耦</strong>——单独留一份 $d_h^R$ 维 RoPE key（共享 across heads），否则旋转矩阵不能"吸进" $W_\text{UK}$ 里。</li><li><strong>Streaming + Sink (Xiao 2024 ICLR)</strong>：保留前 4 个 token（attention sink，softmax 的"垃圾桶"）+ 滑动窗口；window 外的 token 直接丢，但 sink 不能丢，否则 PPL 爆炸。</li><li><strong>System</strong>：Ring Attention / Context Parallel 跨设备 chunk K/V；FlashAttention 2/3 块化 + online softmax；Mistral SWA 把每层感受野从 $L$ 降到 $W$（多层叠加仍可看远）。</li></ol>
+<ol><li><strong>RoPE</strong>：对每对维度 $(2i, 2i+1)$ 做位置 $m$ 相关的 2D 旋转，$\theta_i = 10000^{-2i/d}$。$q_m^\top k_n$ 仅依赖<strong>相对位置</strong> $m-n$（不依赖绝对 $m, n$ 各自），且无需训练参数。</li><li><strong>PI (Position Interpolation, Chen 2023)</strong>：把所有 $\theta_i$ 同除以 $s = L_\text{new}/L_\text{train}$（等价于把绝对位置 $m$ 缩到 $m/s$）。<strong>伤害高频</strong>（早期维度的相位分辨率被压缩），但实现简单。</li><li><strong>NTK-aware (bloc97 2023)</strong>：换底，新底 $b' = b \cdot s^{d/(d-2)}$。<strong>低频维度被强压缩、高频维度几乎不变</strong>，零样本外推优于 PI。</li><li><strong>YaRN (Peng 2023)</strong>：NTK-by-parts（分段处理频率）+ temperature scaling（拟合公式 $\sqrt{1/t} \approx 0.1\ln s + 1$，即 $t \approx 1/(0.1\ln s + 1)^2$，工程上以 attention scale 的方式乘进 cos/sin cache 实现，非独立第三组件）。两组件分别解决：高频/低频分别处理、补偿外推后注意力熵增（稀释 softmax）。</li><li><strong>LongRoPE (Ding 2024 ICML)</strong>：演化搜索每维独立的缩放因子 $\lambda_i$，加上 short-context "rescue"，把上下文推到 2M tokens。</li><li><strong>MLA (DeepSeek-V2)</strong>：$\mathbf{c}_t^{KV} = W_\text{DKV}\mathbf{h}_t$ 把 K/V 压成 $d_c \ll N_h d_h$ 的 latent；RoPE 必须<strong>解耦</strong>——单独留一份 $d_h^R$ 维 RoPE key（共享 across heads），否则旋转矩阵不能"吸进" $W_\text{UK}$ 里。</li><li><strong>Streaming + Sink (Xiao 2024 ICLR)</strong>：保留前 4 个 token（attention sink，softmax 的"垃圾桶"）+ 滑动窗口；window 外的 token 直接丢，但 sink 不能丢，否则 PPL 爆炸。</li><li><strong>System</strong>：Ring Attention / Context Parallel 跨设备 chunk K/V；FlashAttention 2/3 块化 + online softmax；Mistral SWA 把每层感受野从 $L$ 降到 $W$（多层叠加仍可看远）。</li></ol>
 <h2 id="1-long-context-为什么难--一段直觉">§1 Long Context 为什么难 — 一段直觉</h2>
 <p>把 Transformer 推到 100K-2M token 上下文，难点其实是 <strong>三件事并存</strong>：</p>
 <ul><li><strong>位置编码外推 (extrapolation)</strong>：训练时只见过 $m \in [0, 4096)$，推理时给 $m = 100{,}000$，模型必须知道这是"很远"而不是数值崩坏。<strong>RoPE 默认不外推</strong>：未见过的旋转相位让 $q_m^\top k_n$ 的相对位置信号失效。</li><li><strong>KV cache 显存</strong>：自回归 decode 时 $\text{cache} \propto L \cdot n_\text{layers} \cdot 2 \cdot N_h \cdot d_h \cdot \text{bytes}$。对 LLaMA-2-7B（32 层, $N_h=32, d_h=128$, fp16，MHA）一条 4K 上下文 $\approx 2.1$ GB，一条 100K $\approx 52$ GB，单卡装不下。MQA/GQA 把 $N_h \to G$，MLA 把 $N_h d_h \to d_c$。</li><li><strong>注意力本身的 $O(L^2)$</strong>：$L=100\text{K}$ 时 $L^2 = 10^{10}$，分数矩阵装不下。两条路：<strong>算法变稀疏/线性</strong>（sliding window, sparse attention, linear attention）或 <strong>系统切分</strong>（Ring Attention, Context Parallelism, FlashAttention 块化）。</li></ul>
@@ -667,9 +667,9 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>最后一步用 $R_m^\top R_n = R_{n-m}$（2D 旋转的可加性）。<strong>相对位置 $n - m$ 被显式编码到内积里</strong>。</p>
 <h3 id="23-为什么-thetai--10000-2id频率分布">2.3 为什么 $\theta_i = 10000^{-2i/d}$（频率分布）</h3>
 <p>把 $\theta_i$ 看作角速度。维度 $i$ 越大，$\theta_i$ 越小，旋转<strong>越慢</strong>（低频）；维度 $i$ 越小（接近 0），$\theta_i$ 越接近 1，旋转<strong>越快</strong>（高频）。</p>
-<ul><li><strong>高频维度</strong>：周期短（$2\pi/\theta_i$ 短），位置变化对相位敏感——编码精细的局部相对位置</li><li><strong>低频维度</strong>：周期长（最大 $2\pi \cdot 10000$），相位随位置缓变——编码粗粒度的远程位置</li></ul>
+<ul><li><strong>高频维度</strong>：周期短（$2\pi/\theta_i$ 短），位置变化对相位敏感——编码精细的局部相对位置</li><li><strong>低频维度</strong>：周期长（最大 $\lambda_\text{max} = 2\pi \cdot b^{(d-2)/d}$，对 $d=128$ 数值上 $\approx 54{,}410$，而非 $2\pi \cdot 10000 \approx 62{,}832$——后者只是 $d\to\infty$ 时的极限值），相位随位置缓变——编码粗粒度的远程位置</li></ul>
 <p>这种 <strong>几何级数频率分布</strong> 与 Vaswani 2017 sinusoidal PE 相同（不是巧合：sinusoidal PE 也是 $10000^{-2i/d}$），让模型在多个时间尺度上同时分辨位置。</p>
-<div class="callout callout-info"><div class="callout-title">波长 vs 训练上下文</div><p>维度 $i$ 的波长 $\lambda_i = 2\pi b^{2i/d}$。当 $\lambda_i$ <strong>超过训练长度</strong> $L$ 时，这个维度在训练中没见过完整周期——这就是 NTK-by-parts 的关键观察：低频维度的相位插值很危险（外推时进入未见区域），高频维度安全。</p></div>
+<div class="callout callout-info"><div class="callout-title">波长 vs 训练上下文</div><p>维度 $i$ 的波长 $\lambda_i = 2\pi b^{2i/d}$。当 $\lambda_i$ <strong>超过训练长度</strong> $L$ 时，这个维度在训练中没见过完整周期——这就是 NTK-by-parts 的关键观察：低频维度的相位<strong>若不插值、直接外推</strong>会很危险（相位进入训练未见的区域）；高频维度即使外推也安全。</p></div>
 <h3 id="24-from-scratch-rope-代码">2.4 from-scratch RoPE 代码</h3>
 <div class="callout callout-info"><div class="callout-title">说明</div><p>后续所有 Python 代码块共享本块的 import 前导（<code>import torch</code> 等）；单独复制运行某个后续块时需自行补上 <code>import torch</code>。</p></div>
 <pre><code class="language-python">import torch
@@ -780,8 +780,8 @@ def rope_attention(Q, K, V, cos, sin, mask=None):
 <div class="callout callout-warn"><div class="callout-title">NTK-aware 的局限</div><p>在更大的扩展比 ($s \ge 8$) 下，最低频维度被压得太狠，仍会出现性能下降。这促成了 NTK-by-parts 的进一步改进，把不同频段<strong>分段处理</strong>——这正是 YaRN 的起点。</p></div>
 <h2 id="6-yarn--yet-another-rope-extension">§6 YaRN — Yet another RoPE extensioN</h2>
 <h3 id="61-总览">6.1 总览</h3>
-<p>Peng et al. 2023 ("YaRN: Efficient Context Window Extension of Large Language Models") 把 NTK-aware 思路系统化，拆成三个相对独立的组件：</p>
-<ol><li><strong>NTK-by-parts</strong>：按波长把维度分三段，分别处理</li><li><strong>Temperature scaling</strong>：在 softmax 之前对 logits 整体加温度</li><li><strong>Attention scale</strong>（与温度等价的另一种实现）：把 Q/K 的范数同步缩放</li></ol>
+<p>Peng et al. 2023 ("YaRN: Efficient Context Window Extension of Large Language Models") 把 NTK-aware 思路系统化，核心是两个组件：</p>
+<ol><li><strong>NTK-by-parts</strong>：按波长把维度分三段，分别处理</li><li><strong>Temperature scaling</strong>：在 softmax 之前对 logits 整体加温度——工程上通过把 $\sqrt{1/t}$ 乘进 RoPE cos/sin cache 来实现，即所谓 <strong>attention scale</strong>：它只是 temperature scaling 的一种实现方式，不是独立的第三个组件</li></ol>
 <p>下面分别推导。</p>
 <h3 id="62-ntk-by-parts--分频段处理">6.2 NTK-by-parts — 分频段处理</h3>
 <p>设 $L_\text{train}$ 是训练上下文长度。维度 $i$ 的波长 $\lambda_i = 2\pi / \theta_i = 2\pi b^{2i/d}$。定义比值</p>
@@ -805,9 +805,9 @@ def rope_attention(Q, K, V, cos, sin, mask=None):
 <p>直接改 softmax 温度需要改 attention kernel。等价做法：把 query 和 key 的范数同时<strong>乘以</strong> $\sqrt{1/t} = (0.1\ln s + 1) &gt; 1$（$t &lt; 1$ 时是放大），这样 $QK^\top$ 自然被放大 $1/t$ 倍，softmax 看到的就是除以 $t$ 后的 logits。</p>
 <p>YaRN 通过把 RoPE cache 直接乘进缩放因子来实现：</p>
 <p>$$\text{cos}'_m = \cos(m \theta'_i) \cdot \sqrt{1/t}, \quad \text{sin}'_m = \sin(m \theta'_i) \cdot \sqrt{1/t}$$</p>
-<p>注意这只对 RoPE 部分起作用，<strong>整体效果等价于把 query/key 范数放大 $\sqrt{1/t}$ 倍</strong>（$t &lt; 1$ 时该因子 $&gt; 1$）——前提是 Q/K 的范数主要由 RoPE 后的部分主导。实践中 YaRN 的 attention scale 实现就是把 cos/sin 缓存里乘上 $\sqrt{1/t}$。<strong>这等价于改温度且不动 attention kernel</strong>。</p>
-<h3 id="65-yarn-三组件各解决什么l3-必问">6.5 YaRN 三组件各解决什么（L3 必问）</h3>
-<table><thead><tr><th>组件</th><th>解决的问题</th><th>不要它会怎样</th></tr></thead><tbody><tr><td><strong>NTK-by-parts</strong></td><td>高频应保留，低频应插值，中频要平滑过渡</td><td>用 NTK-aware 全局换底，扩展比大时低频压崩</td></tr><tr><td><strong>Temperature scaling</strong></td><td>上下文变长后 softmax 分布被稀释</td><td>注意力熵过高，长程信号被淹没</td></tr><tr><td><strong>Attention scale (实现层面)</strong></td><td>不动 softmax kernel 实现温度</td><td>需要重写 FlashAttention kernel</td></tr></tbody></table>
+<p>注意这只对 RoPE 部分起作用，<strong>整体效果等价于把 query/key 范数放大 $\sqrt{1/t}$ 倍</strong>（$t &lt; 1$ 时该因子 $&gt; 1$）——前提是 Q/K 的范数主要由 RoPE 后的部分主导（标准全维度 RoPE 架构如 LLaMA 下严格成立，因为 100% 维度参与旋转；但在 partial-RoPE 架构，如 GPT-NeoX 的 rotary_pct&lt;1，或 MLA 的解耦 RoPE key 中，cos/sin 缩放只放大 rotary 子项 $q^R, k^R$，非 RoPE 的内容部分 $q^C, k^C$ 不受影响，此时与全局 softmax 温度缩放不再严格等价）。实践中 YaRN 的 attention scale 实现就是把 cos/sin 缓存里乘上 $\sqrt{1/t}$。<strong>这在标准全维度 RoPE 下等价于改温度且不动 attention kernel</strong>。</p>
+<h3 id="65-yarn-组件各解决什么l3-必问">6.5 YaRN 组件各解决什么（L3 必问）</h3>
+<table><thead><tr><th>组件</th><th>解决的问题</th><th>不要它会怎样</th></tr></thead><tbody><tr><td><strong>NTK-by-parts</strong></td><td>高频应保留，低频应插值，中频要平滑过渡</td><td>用 NTK-aware 全局换底，扩展比大时低频压崩</td></tr><tr><td><strong>Temperature scaling</strong></td><td>上下文变长后 softmax 分布被稀释</td><td>注意力熵过高，长程信号被淹没</td></tr><tr><td>↳ <strong>Attention scale</strong>（Temperature scaling 的实现方式，非独立组件）</td><td>不动 softmax kernel 实现温度缩放</td><td>需要重写 FlashAttention kernel</td></tr></tbody></table>
 <p>YaRN 论文展示：仅 400 步 fine-tune 把 LLaMA-2-7B 从 4K 推到 128K（$s = 32$），优于 PI 和 NTK-aware。</p>
 <h3 id="66-yarn-代码ntk-by-parts--temperature">6.6 YaRN 代码（NTK-by-parts + temperature）</h3>
 <pre><code class="language-python">import math
@@ -855,15 +855,15 @@ def precompute_rope_cache_yarn(
 <h3 id="71-关键观察">7.1 关键观察</h3>
 <ol><li><strong>不同维度对扩展长度的敏感性差异极大</strong>（同一 ramp 函数不一定最优）。</li><li><strong>超长上下文模型在短上下文 (≤ $L_\text{train}$) 上反而退化</strong>——因为 RoPE 缓存被改了，原训练分布被打乱。</li></ol>
 <h3 id="72-三阶段方案">7.2 三阶段方案</h3>
-<table><thead><tr><th>阶段</th><th>做什么</th></tr></thead><tbody><tr><td><strong>Stage 1: Evolution search (256K)</strong></td><td>每个 RoPE 维度独立缩放 $\lambda_i$，演化算法搜索使长上下文 PPL 最低的 $\{\lambda_i\}$</td></tr><tr><td><strong>Stage 2: Fine-tune at 256K</strong></td><td>用搜出的 $\{\lambda_i\}$ 短期微调（≈ 400 步）</td></tr><tr><td><strong>Stage 3: Re-search at 2M + short-context rescue</strong></td><td>进一步搜到 2M；并维护两套缩放因子，short context 用 $\{\lambda_i^\text{short}\}$（接近 1），long context 用 $\{\lambda_i^\text{long}\}$</td></tr></tbody></table>
+<table><thead><tr><th>阶段</th><th>做什么</th></tr></thead><tbody><tr><td><strong>Stage 1: Evolution search (256K)</strong></td><td>每个 RoPE 维度独立缩放 $\lambda_i$，演化算法搜索使长上下文 PPL 最低的 $\{\lambda_i\}$</td></tr><tr><td><strong>Stage 2: Fine-tune at 256K</strong></td><td>用搜出的 $\{\lambda_i\}$ 短期微调（≈ 1000 步，即 1k）</td></tr><tr><td><strong>Stage 3: Re-search at 2M + short-context rescue</strong></td><td>进一步搜到 2M；并维护两套缩放因子，short context 用 $\{\lambda_i^\text{short}\}$（接近 1），long context 用 $\{\lambda_i^\text{long}\}$</td></tr></tbody></table>
 <h3 id="73-搜索空间">7.3 搜索空间</h3>
 <p>每个维度 $i$ 的 $\lambda_i \in [1, s_\text{max}]$（$s_\text{max} = L_\text{new}/L_\text{train}$），新频率 $\theta'_i = \theta_i / \lambda_i$。</p>
 <p>搜索目标：</p>
 <p>$$\min_{\{\lambda_i\}} \mathrm{PPL}\!\left(M; \theta'_i = \theta_i / \lambda_i\right) \quad \text{on a long-context validation set}$$</p>
 <p>演化算法（CMA-ES 或类似）维护 population，迭代选优。论文实验上演化几百代即可收敛。</p>
 <h3 id="74-与-yarn-对比">7.4 与 YaRN 对比</h3>
-<table><thead><tr><th>方法</th><th>缩放粒度</th><th>Fine-tune 需求</th><th>最大上下文</th></tr></thead><tbody><tr><td>PI</td><td>全维度同 $1/s$</td><td>是 (≥ 1000 步)</td><td>32K</td></tr><tr><td>NTK-aware</td><td>渐变 (单参 $\alpha$)</td><td>否 (zero-shot)</td><td>16K</td></tr><tr><td>YaRN</td><td>三段 ramp (固定 $\alpha, \beta$)</td><td>是 (≈ 400 步)</td><td>128K</td></tr><tr><td>LongRoPE</td><td><strong>每维独立</strong></td><td>是 (≈ 400 步)</td><td><strong>2M</strong></td></tr></tbody></table>
-<div class="callout callout-info"><div class="callout-title">Short-context rescue 的意义</div><p>直接套用 long-context 缩放会让模型在短上下文（如 1K-4K，覆盖大多数实际用例）上变差。LongRoPE 在推理时根据当前 batch 的实际长度切换缩放表，是工业级长上下文模型的常见技巧（DeepSeek-V2 / Qwen2.5 / Llama-3.1 也有类似 dual-table 设计）。</p></div>
+<table><thead><tr><th>方法</th><th>缩放粒度</th><th>Fine-tune 需求</th><th>最大上下文</th></tr></thead><tbody><tr><td>PI</td><td>全维度同 $1/s$</td><td>是 (≥ 1000 步)</td><td>32K</td></tr><tr><td>NTK-aware</td><td>渐变 (单参 $\alpha$)</td><td>否 (zero-shot)</td><td>16K</td></tr><tr><td>YaRN</td><td>三段 ramp (固定 $\alpha, \beta$)</td><td>是 (≈ 400 步)</td><td>128K</td></tr><tr><td>LongRoPE</td><td><strong>每维独立</strong></td><td>是 (≈ 1000 步)</td><td><strong>2M</strong></td></tr></tbody></table>
+<div class="callout callout-info"><div class="callout-title">Short-context rescue 的意义</div><p>直接套用 long-context 缩放会让模型在短上下文（如 1K-4K，覆盖大多数实际用例）上变差。LongRoPE 在推理时根据当前 batch 的实际长度切换缩放表（真正类似这种 short/long 双表设计的工业实践并不多见；Llama-3.1 用的是单套分段线性频率缩放函数，并非切换表；DeepSeek-V2 的长上下文扩展用的是标准 YaRN，同样是单一缩放方案）。</p></div>
 <h2 id="8-abf-与-nope--两种非主流扩展">§8 ABF 与 NoPE — 两种"非主流"扩展</h2>
 <h3 id="81-abf--adjusted-base-frequency-xiong-et-al-effective-long-context-scaling-of-foundation-models-arxiv230916039-naacl-2024-meta">8.1 ABF — Adjusted Base Frequency (Xiong et al., "Effective Long-Context Scaling of Foundation Models", arXiv:2309.16039, NAACL 2024, Meta)</h3>
 <p>最朴素的"换底"——直接把 RoPE 底从 10000 改大（如 500000）。等价于全维度同步 NTK-aware 缩放，但不用考虑 ramp。</p>
@@ -999,7 +999,7 @@ class MultiHeadLatentAttention(nn.Module):
 # row 5: [F F T T T T F F]
 # row 6: [F F F T T T T F]
 # row 7: [F F F F T T T T]</code></pre>
-<div class="callout callout-info"><div class="callout-title">SWA 的实战意义</div><p>Mistral-7B 训练长度 8K，推理时配合 SWA 可处理 32K+ 上下文（每层只看本地 4K，多层叠出全局），同时显存/计算线性。但纯 SWA 对<strong>远距精确检索</strong>（如 needle-in-haystack 远端针）能力较弱——这正是 StreamingLLM 加 attention sink 的动机。</p></div>
+<div class="callout callout-info"><div class="callout-title">SWA 的实战意义</div><p>Mistral-7B 训练长度 8K，推理时配合 SWA 可处理 32K+ 上下文（每层只看本地 4K，多层叠出全局），同时显存/计算线性。但纯 SWA 无法保留窗口外的远距 token（自然没有<strong>远距精确检索</strong>能力，如 needle-in-haystack 远端针）。StreamingLLM 加 attention sink 的动机是<strong>防止</strong>朴素窗口驱逐早期 token 时 softmax 失去"垃圾桶"而导致 PPL 崩溃，从而支持<strong>无限流式生成</strong>——sink 并不能恢复被淘汰 token 的信息，远距检索能力仍然缺失（见 §10.3）。</p></div>
 <h3 id="102-streamingllm--attention-sink--sliding-window">10.2 StreamingLLM — Attention Sink + Sliding Window</h3>
 <p>Xiao et al. ICLR 2024 ("Efficient Streaming Language Models with Attention Sinks") 提出推理时一个关键发现：</p>
 <p><strong>LLM decode 时，softmax 强制 attention 权重和为 1，但 query 实际可能"什么也不想 attend"。模型于是把权重大量倒给前 1-4 个 token（特别是 <code>&lt;bos&gt;</code>），形成 attention sink。</strong> 这些 token 内容上没什么信息，但它们的 KV cache <strong>不能丢弃</strong>——丢了之后 softmax 没有"垃圾桶"，剩下 token 的注意力分布被强行重整，PPL 爆炸。</p>
@@ -1092,7 +1092,7 @@ def streaming_decode(model, input_ids, max_new_tokens,
 <ul><li>配合 FlashAttention 块化做 fused all-to-all 通信</li><li>解决 causal mask 下 chunk 间负载不均（前半 chunk attention 计算少、后半多，需要负载均衡）</li><li>与 ZeRO-3 兼容</li></ul>
 <h3 id="113-flashattention-23-与长上下文">11.3 FlashAttention 2/3 与长上下文</h3>
 <p>FlashAttention v1 (Dao 2022) 的核心是 IO-aware exact attention，但 v1 的循环结构对长序列负载不均。</p>
-<ul><li><strong>v2 (Dao 2023)</strong>：换内外循环 (Q-outer, KV-inner)，更好 warp-level parallelism，长序列吞吐提升 2×。</li><li><strong>v3 (Dao 2024)</strong>：针对 H100，使用 WGMMA / TMA / FP8 asynchronous pipeline。</li></ul>
+<ul><li><strong>v2 (Dao 2023)</strong>：换内外循环 (Q-outer, KV-inner)，更好 warp-level parallelism，长序列吞吐提升 2×。</li><li><strong>v3 (Shah et al. 2024，Tri Dao 为共同作者)</strong>：针对 H100，使用 WGMMA / TMA / FP8 asynchronous pipeline。</li></ul>
 <p>长上下文场景下，FlashAttention 是<strong>几乎所有训练 / 推理 stack 的默认</strong>（避免物化 $L \times L$ 分数矩阵）。</p>
 <h3 id="114-differential-attention可选microsoft-2024">11.4 Differential Attention（可选，Microsoft 2024）</h3>
 <p>Ye et al. 2024 ("Differential Transformer") 提出每个 attention head 用<strong>两个独立 Q/K 投影做差</strong>：</p>
@@ -1106,7 +1106,7 @@ def streaming_decode(model, input_ids, max_new_tokens,
 <table><thead><tr><th>方法</th><th>总 cache 大小（元素）</th><th>与 vanilla cache 对比（同 attention 变体下）</th></tr></thead><tbody><tr><td><strong>Vanilla (整段序列)</strong></td><td>$L \cdot 2 N_h d_h$</td><td>基准 1×</td></tr><tr><td><strong>SWA (window=W)</strong></td><td>$W \cdot 2 N_h d_h$（每层只看 W 个最近 token）</td><td>$W/L \times$</td></tr><tr><td><strong>Streaming (sink+win)</strong></td><td>$(S + W) \cdot 2 N_h d_h$（常数, 与 L 解耦）</td><td>$(S{+}W)/L \times$</td></tr></tbody></table>
 <p>注：SWA / Streaming 与 GQA / MLA 是<strong>正交</strong>的——两者乘起来即得到工业级 stack 的实际 cache 大小。</p>
 <h3 id="123-attention-时间与显存">12.3 Attention 时间与显存</h3>
-<table><thead><tr><th>方法</th><th>Time per token (decode)</th><th>Memory peak (prefill)</th></tr></thead><tbody><tr><td>Vanilla MHA</td><td>$O(L \cdot N_h d_h)$</td><td>$O(L^2)$ scores</td></tr><tr><td>FlashAttention</td><td>$O(L \cdot N_h d_h)$</td><td>$O(L)$（无中间 scores）</td></tr><tr><td>Sliding Window</td><td>$O(W \cdot N_h d_h)$</td><td>$O(L \cdot W)$</td></tr><tr><td>Streaming (S+W)</td><td>$O((S+W) \cdot N_h d_h)$</td><td>$O((S+W)^2)$</td></tr><tr><td>Ring (P GPU)</td><td>$O(L \cdot N_h d_h / P)$ per GPU</td><td>$O(L^2 / P)$ per GPU</td></tr><tr><td>MLA</td><td>$O(L \cdot N_h (d_c + d_h^R))$</td><td>+ 投影开销</td></tr></tbody></table>
+<table><thead><tr><th>方法</th><th>Time per token (decode)</th><th>Memory peak (prefill)</th></tr></thead><tbody><tr><td>Vanilla MHA</td><td>$O(L \cdot N_h d_h)$</td><td>$O(L^2)$ scores</td></tr><tr><td>FlashAttention</td><td>$O(L \cdot N_h d_h)$</td><td>$O(L)$（无中间 scores）</td></tr><tr><td>Sliding Window</td><td>$O(W \cdot N_h d_h)$</td><td>$O(L \cdot W)$</td></tr><tr><td>Streaming (S+W)</td><td>$O((S+W) \cdot N_h d_h)$</td><td>$O((S+W)^2)$</td></tr><tr><td>Ring (P GPU)</td><td>$O(L \cdot N_h d_h / P)$ per GPU</td><td>持久 $O(Ld/P)$（本地 K/V shard）；局部块峰值 $O(L^2/P^2)$（非 $O(L^2/P)$）</td></tr><tr><td>MLA</td><td>$O(L \cdot N_h (d_c + d_h^R))$</td><td>+ 投影开销</td></tr></tbody></table>
 <h2 id="13-综合对比与选型决策树">§13 综合对比与选型决策树</h2>
 <pre class="diagram"><code>Q: 我要把上下文从 4K 推到 N tokens, N=?
 │
@@ -1218,8 +1218,8 @@ Q: Attention 算不动 (L^2 太大)?
 </details>
 <details>
 
-<summary>Q12. YaRN 的三个组件各解决什么？</summary>
-<ul><li><strong>NTK-by-parts</strong>：高/中/低频分段处理，比 NTK-aware 单参数 ramp 更精细</li><li><strong>Temperature scaling</strong>：上下文变长后 softmax 分布扁平化，加温度 $t &lt; 1$ 让分布更尖锐</li><li><strong>Attention scale (实现层面)</strong>：把温度 $1/t$ 实现为 Q/K 范数缩放（等价于乘到 cos/sin cache），不动 attention kernel</li></ul>
+<summary>Q12. YaRN 的组件各解决什么？</summary>
+<ul><li><strong>NTK-by-parts</strong>：高/中/低频分段处理，比 NTK-aware 单参数 ramp 更精细</li><li><strong>Temperature scaling</strong>：上下文变长后 softmax 分布扁平化，加温度 $t &lt; 1$ 让分布更尖锐——工程上实现为 <strong>attention scale</strong>：把温度 $1/t$ 实现为 Q/K 范数缩放（等价于乘到 cos/sin cache），不动 attention kernel；attention scale 只是 temperature scaling 的实现方式，不是独立的第三个组件</li></ul>
 <p>只说"YaRN 是 NTK-aware 改进版"，不分解。</p>
 </details>
 <details>
@@ -1280,7 +1280,7 @@ Q: Attention 算不动 (L^2 太大)?
 <details>
 
 <summary>Q22. MLA 中 RoPE 解耦后，绝对位置信息如何注入到 K/V 的 latent 上投影部分？</summary>
-<ul><li><strong>关键回答：不注入</strong>。MLA 的 non-RoPE 主体 $\mathbf{k}_t^{C,(h)} = W_\text{UK}^{(h)} \mathbf{c}_t^{KV}$ 完全没有位置编码</li><li>位置信号<strong>仅由共享 RoPE key</strong> $\mathbf{k}_t^R = \mathrm{RoPE}(W_\text{KR} \mathbf{h}_t)$ 提供</li><li>Attention 分数被加性分解：$\mathbf{q}_t^{C\top} \mathbf{k}_s^C$ (内容) + $\mathbf{q}_t^{R\top} \mathbf{k}_s^R$ (位置)</li><li>这就是"解耦"的含义：内容路径和位置路径<strong>独立</strong>，互不污染 absorbing trick</li></ul>
+<ul><li><strong>关键回答：不注入</strong>。MLA 的 non-RoPE 主体 $\mathbf{k}_t^{C,(h)} = W_\text{UK}^{(h)} \mathbf{c}_t^{KV}$ 完全没有位置编码</li><li>位置信号<strong>仅由共享 RoPE key</strong> $\mathbf{k}_t^R = \mathrm{RoPE}(W_\text{KR} \mathbf{h}_t)$ 提供</li><li>Attention 分数被分解：$\mathbf{q}_t^{C\top} \mathbf{k}_s^C$（纯内容交互，无位置调制）+ $\mathbf{q}_t^{R\top} \mathbf{k}_s^R$（仍是内容交互，但受相对位置 $R_{s-t}$ 旋转调制——不是纯位置项，$q^R, k^R$ 本身仍由 hidden state 内容线性生成）</li><li>这就是"解耦"的含义：内容路径和位置路径<strong>独立</strong>，互不污染 absorbing trick</li></ul>
 <p>以为 MLA 把 RoPE 也吸进 latent 里 — 错。</p>
 </details>
 <details>
@@ -1292,14 +1292,14 @@ Q: Attention 算不动 (L^2 太大)?
 <details>
 
 <summary>Q24. YaRN 的 attention scale 和直接改 softmax 温度有什么实现层面的区别？</summary>
-<ul><li><strong>直接改温度</strong>：在 attention kernel 里把 logits 除以 $t$，需要修改 FlashAttention 等 fused kernel</li><li><strong>Attention scale</strong>：把 $\sqrt{1/t}$ 乘进 RoPE cos/sin cache，等价于 Q/K 范数<strong>放大</strong> $\sqrt{1/t}$ 倍（$t &lt; 1$ 时 $\sqrt{1/t} &gt; 1$），$QK^\top$ 自然放大 $1/t$ 倍</li><li>两者<strong>数学等价</strong>（前提：Q/K 范数主要来自 RoPE 后的部分）</li><li>工程优势：<strong>完全不动 attention kernel</strong>，只改 RoPE 预计算</li><li>这是 YaRN "infrastructure-friendly" 的一大卖点</li></ul>
+<ul><li><strong>直接改温度</strong>：在 attention kernel 里把 logits 除以 $t$，需要修改 FlashAttention 等 fused kernel</li><li><strong>Attention scale</strong>：把 $\sqrt{1/t}$ 乘进 RoPE cos/sin cache，等价于 Q/K 范数<strong>放大</strong> $\sqrt{1/t}$ 倍（$t &lt; 1$ 时 $\sqrt{1/t} &gt; 1$），$QK^\top$ 自然放大 $1/t$ 倍</li><li>两者<strong>数学等价</strong>（前提：Q/K 范数主要来自 RoPE 后的部分——标准全维度 RoPE 如 LLaMA 下严格成立；partial-RoPE 架构，如 GPT-NeoX 的 rotary_pct&lt;1 或 MLA 的解耦 RoPE key，cos/sin 缩放只放大 $q^R,k^R$，不影响 $q^C,k^C$，等价性不再严格成立）</li><li>工程优势：<strong>完全不动 attention kernel</strong>，只改 RoPE 预计算</li><li>这是 YaRN "infrastructure-friendly" 的一大卖点</li></ul>
 <p>说"两个就是同一件事" — 数学等价但工程意义不同。</p>
 </details>
 <details>
 
 <summary>Q25. 设计一个 1M context、可流式生成、单卡推理的方案。</summary>
 <p>参考 Qwen2.5-1M / DeepSeek-V3 思路：</p>
-<ul><li><strong>位置编码</strong>：YaRN / LongRoPE 把 RoPE 推到 1M（per-dim 缩放搜索）</li><li><strong>KV cache 压缩</strong>：MLA (cache 砍 50×) 让单卡能装下 1M cache 的"latent"</li><li><strong>Attention 算法</strong>：FlashAttention 3 + Ring Attention（如果跨多卡）或 Sliding Window 配合 sink（如果要流式）</li><li><strong>Inference 优化</strong>：vLLM PagedAttention 做 cache 分页；Speculative decoding 加速 decode；Chunked prefill 分批喂 prompt（避免一次性 OOM）</li><li><strong>训练</strong>：必须真的在长上下文数据上 fine-tune（≥ 1000 步），仅靠 zero-shot RoPE 改造不够</li></ul>
+<ul><li><strong>位置编码</strong>：YaRN（NTK-by-parts 解析 ramp，无需搜索）或 LongRoPE（每维独立缩放因子 $\lambda_i$ 的演化搜索）把 RoPE 推到 1M</li><li><strong>KV cache 压缩</strong>：MLA (cache 砍 50×) 让单卡能装下 1M cache 的"latent"</li><li><strong>Attention 算法</strong>：FlashAttention 3 + Ring Attention（如果跨多卡）或 Sliding Window 配合 sink（如果要流式）</li><li><strong>Inference 优化</strong>：vLLM PagedAttention 做 cache 分页；Speculative decoding 加速 decode；Chunked prefill 分批喂 prompt（避免一次性 OOM）</li><li><strong>训练</strong>：必须真的在长上下文数据上 fine-tune（≥ 1000 步），仅靠 zero-shot RoPE 改造不够</li></ul>
 <p>完整 stack：MLA + YaRN/LongRoPE + FlashAttn3 + (Ring/CP if 多卡) + StreamingLLM(if 流式) + vLLM 推理。</p>
 <ul><li>只说一种方法（如只说 YaRN）— 不够完整</li><li>没区分"扩上下文"和"压 cache"两个独立维度</li><li>漏掉"必须 fine-tune"</li></ul>
 </details>
@@ -1312,13 +1312,13 @@ Q: Attention 算不动 (L^2 太大)?
 <ul><li>Sink size $S = 4$ 经验最优（前 4 个 token）</li><li>Window size $W$ 选择：吞吐 vs 质量权衡，常用 $W \in [1024, 4096]$</li><li>Position ID 必须用<strong>逻辑位置</strong>而非绝对位置</li><li>与 RoPE / YaRN 兼容；按 §10.3 的做法 cache 应存 <em>RoPE 之前</em> 的 K，每次 forward 根据 sink / window 内 token 的<strong>当前逻辑位置</strong>重新施加 RoPE（部分 vendor 实现会把 sink 段当作"固定旋转 + 平移 attention key 索引"等价处理，效果近似）</li></ul>
 <h3 id="a4-速查表">A.4 速查表</h3>
 <table><thead><tr><th>上下文</th><th>推荐方案</th><th>KV cache 优化</th></tr></thead><tbody><tr><td>4K-16K</td><td>RoPE + ABF / NTK-aware (zero-shot)</td><td>GQA</td></tr><tr><td>16K-32K</td><td>PI / YaRN + fine-tune</td><td>GQA</td></tr><tr><td>32K-128K</td><td>YaRN + fine-tune</td><td>GQA / MLA</td></tr><tr><td>128K-2M</td><td>LongRoPE + fine-tune</td><td>MLA + Ring/CP</td></tr><tr><td>流式生成</td><td>StreamingLLM (sink + window)</td><td>任何，cache 常数大小</td></tr></tbody></table>
-<p><strong>Long Context Quick Reference</strong> · 主要参考：Su et al. 2021/2024 (RoPE/RoFormer, Neurocomputing), Chen et al. 2023 (PI, arXiv:2306.15595, Meta), bloc97 / jquesnelle 2023 (NTK-aware, LocalLLaMA community), Peng et al. 2023 (YaRN, arXiv:2309.00071), Ding et al. 2024 (LongRoPE, ICML 2024, Microsoft), DeepSeek-AI 2024 (DeepSeek-V2, arXiv:2405.04434), Jiang et al. 2023 (Mistral 7B, arXiv:2310.06825), Xiao et al. 2024 (StreamingLLM, ICLR 2024), Nelson F. Liu et al. (Lost in the Middle, arXiv:2307.03172, arXiv 2023 / TACL 2024), Hao Liu et al. 2023 (Ring Attention, arXiv:2310.01889), Dao et al. 2022-2024 (FlashAttention 1/2/3)</p>
+<p><strong>Long Context Quick Reference</strong> · 主要参考：Su et al. 2021/2024 (RoPE/RoFormer, Neurocomputing), Chen et al. 2023 (PI, arXiv:2306.15595, Meta), bloc97 / jquesnelle 2023 (NTK-aware, LocalLLaMA community), Peng et al. 2023 (YaRN, arXiv:2309.00071), Ding et al. 2024 (LongRoPE, ICML 2024, Microsoft), DeepSeek-AI 2024 (DeepSeek-V2, arXiv:2405.04434), Jiang et al. 2023 (Mistral 7B, arXiv:2310.06825), Xiao et al. 2024 (StreamingLLM, ICLR 2024), Nelson F. Liu et al. (Lost in the Middle, arXiv:2307.03172, arXiv 2023 / TACL 2024), Hao Liu et al. 2023 (Ring Attention, arXiv:2310.01889), Dao et al. 2022-2023 (FlashAttention 1/2), Shah et al. 2024 (FlashAttention-3, with Tri Dao)</p>
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/long_context_rope_yarn_mla_tutorial.md</code> ·
-  SHA256 <code>8adc3b0e3df3</code> ·
-  generated at 2026-06-29 10:11 UTC.
+  SHA256 <code>4c9ce195190f</code> ·
+  generated at 2026-07-12 04:20 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

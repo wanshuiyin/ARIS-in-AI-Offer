@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/attention_tutorial_en.md",
-  "source_sha256": "52fb9664c6793bc81ab2abdec83fbd0978574b6e370057af74ae62525bacf33a",
+  "source_sha256": "f057c218d5b6435d443d904c25e0e732705172efce84a0918a984c166a516800",
   "output": "docs/tutorials/attention_tutorial_en.html",
   "zh_source": "docs/tutorials/attention_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -15,5 +15,24 @@
     "issues": [],
     "summary": "Fresh cross-model translation-fidelity audit (Codex GPT-5.5 xhigh, read-only, fresh thread). Codex independently read the Chinese source of truth (docs/tutorials/attention_tutorial.md), the English translation (docs/tutorials/attention_tutorial_en.md), and the rendered English HTML (docs/tutorials/attention_tutorial_en.html), then compared EN against ZH across all five fidelity axes: (a) numbers/formulas/code/tensor shapes, (b) citations (author/year/venue) and model names, (c) completeness (no dropped section/claim/caveat, no new hallucinated claim), (d) terminology consistency, and (e) HTML "
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "2026-07-12 full-collection re-sweep: Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification (attempted to refute every candidate finding; only load-bearing ones kept)",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "summary": "8 findings verified against the ZH source (4 CONFIRMED + 4 NEEDS_NUANCE, 0 REFUTED); EN edition mirrors the ZH fixes with natural (non-machine-translated) phrasing.",
+      "fixes": [
+        "§1: 'Q/K/V share the same source, three projections' scoped explicitly to self-attention, with a cross-attention pointer to §4",
+        "§6.1: cumulative redundant compute over T generation steps without KV cache corrected O(t^2) -> O(T^3)",
+        "§6.1: 'KV cache cannot be used in training' softened — true for teacher-forced parallel SFT/pretraining, false for RLHF/GRPO on-policy rollout generation",
+        "§6.1: LLaMA-2-70B KV cache size relabeled GB -> GiB (1.25 GiB approx 1.34 GB; vanilla MHA 10 GiB approx 10.74 GB)",
+        "§6.2: GQA table 'used in' column qualified to LLaMA-2-70B only (7B/13B are still MHA)",
+        "§10 Q24: RoPE bullet restored the 'content vectors still determine the score' caveat already present in the §8 table",
+        "§A appendix rewritten to describe the actual code/mha.py (3 sanity checks: sanity_check/shape_check/causal_check; single self-attention MultiHeadAttention with fused qkv Linear and [N,N] mask; no SelfAttention/CrossAttention wrappers, no 4 mask shapes, no NaN guard) instead of fabricated 9-check output — chose to align appendix text to reality rather than add new code",
+        "§A appendix sanity-check transcript's exception type corrected ValueError -> AssertionError, matching mha.py's actual `assert embed_dim % num_heads == 0`; added a note that `assert` is stripped under python -O"
+      ],
+      "note": "Re-rendered attention_tutorial_en.html and refreshed source_sha256 (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ]
 }

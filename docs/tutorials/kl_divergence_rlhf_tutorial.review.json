@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/kl_divergence_rlhf_tutorial.md",
-  "source_sha256": "41d43aea2812bbdefdf9f6d0fc8e0f526b40f1335fc4bfdd35332f8d03eb7c92",
+  "source_sha256": "97d01f2b5501a2d9aacff056d08a57dee16555fb5cb430216e9bd230b2493105",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-20); not a new codex review",
   "output": "docs/tutorials/kl_divergence_rlhf_tutorial.html",
   "topic": "KL Divergence in RLHF — Schulman k1/k2/k3, PPO/GRPO/DPO/RLOO KL, forward vs reverse, Rethinking KL + Comedy of Estimators",
@@ -61,6 +61,25 @@
       "date": "2026-06-29",
       "fix": "Section 4.4 removed the Anthropic-paper 1707.06347 misattribution (1707.06347 is Schulman PPO); section 6.4.2 Gao-2023 RL/PPO overoptimization fit corrected from d(a-gd)-delta*d^1.5 to the published d(a - b*log d).",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection rescan re-audit (Codex GPT-5.6-sol candidate sweep + independent Claude adversarial verification)",
+      "verdict": "FIXED (11 of 12 candidates confirmed and fixed; 1 refuted, original text kept)",
+      "date": "2026-07-12",
+      "fix_summary": [
+        "§2.5/§9 Q25: 'small-KL token use k1, large-KL token use k3' operational rule is backwards — k3's e^Δ term explodes faster than k1 as KL grows; replaced with an empirical-variance-check recommendation, and added 'holds only when the two distributions are close' qualifiers to the k2/k3 variance-vs-k1 claims (§2.3, §2.4.2).",
+        "§2.6 simulation: k2 mean corrected 0.18 → 0.133 (matches the analytic 0.5·(μ²+(0.5μ²)²) derivation for μ=0.5).",
+        "k3_estimator() docstring: gradient sign fixed to (1 - e^Δ)∇logπ_θ under this section's Δ=logπ_ref-logπ_θ convention, with an explicit note that §3.6 uses the opposite Δ_t=logπ_θ-logπ_ref sign convention.",
+        "§3.6 (P2) row: k2-as-loss is gradient-equivalent to k1-in-reward only for single-step conditional KL, not the full sequence-level KL (missing reward-to-go cross terms across timesteps).",
+        "§7.2 GRPO code: added a rollout-staleness caveat — reusing old_log_probs' rollout across multiple gradient epochs makes kl_k3 an estimate under π_old, not the current π_θ^new.",
+        "§6.6/§7.5: 'prompt token KL=0 because policy and ref agree on the prompt' corrected to the actual mask-semantics reason (prompt tokens are exogenous input, not policy actions), fixed at both occurrences.",
+        "§7.5 checklist item 7: GRPO KL-dominates-loss comparison corrected — should compare β·KL against the z-score-normalized advantage (O(1) scale), not the raw un-normalized reward mean.",
+        "§9 Q23: PPO overoptimization fit corrected back to the log-form consistent with §6.4.2 (was drifted to an erroneous d^{3/2} 'third-order term' claim in the ZH edition only; EN edition was already consistent); early-stop threshold corrected KL_stop=0.5·KL_peak ⇒ √KL < d_peak/√2 (was √2 miscalculated as 2).",
+        "§8.4 DPO length bias: mechanism corrected from 'longer y_w -> more negative logπ(y_w)' (a non-sequitur, since that effect is symmetric between policy and ref and cancels in the log-ratio) to the correct explanation — length linearly amplifies an un-normalized sum of per-token log-ratio terms.",
+        "§5.3 SimPO: 'no reference model halves training memory' corrected — removing the reference only saves its read-only forward-pass footprint, which is small relative to the trainable policy's weights+gradients+optimizer state+activations; not a 50% total reduction.",
+        "REFUTED (kept as-is): the k3 unbiasedness derivation (§2.4.2) omitting the π_ref≪π_θ support condition — defensible since π_θ/π_ref are softmax distributions with full support by construction, and the same simplification is standard in the field (incl. Schulman's original blog)."
+      ],
+      "note": "First-pass candidates from Codex GPT-5.6-sol full-collection sweep, independently adversarially re-verified by a separate Claude thread attempting to refute each one (11 CONFIRMED, 1 REFUTED). EN edition (kl_divergence_rlhf_tutorial_en.md) received the same substantive fixes in natural English, except the §9 Q23 PPO-fit-form fix, which was not needed there (EN was already on the correct log-form). Source re-rendered, sidecar hash refreshed."
     }
   ]
 }

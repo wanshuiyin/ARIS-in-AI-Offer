@@ -1,43 +1,52 @@
 {
-  "skill": "interview-cheatsheet (EN translation-fidelity)",
-  "source": "docs/tutorials/lora_peft_tutorial_en.md",
-  "source_sha256": "74315b4172b6ac32a82828561fc6e9c23bebae667cd4e949cf126a9944e3202e",
-  "output": "docs/tutorials/lora_peft_tutorial_en.html",
-  "zh_source": "docs/tutorials/lora_peft_tutorial.md",
-  "reviewer": "codex gpt-5.5 xhigh, fresh thread per round",
-  "verdict": "PASS",
-  "thread_id": "019ec118-e4bf-7341-a153-1f8854db9327",
-  "translation_fidelity_review": {
-    "verdict": "PASS (after 2 rounds)",
-    "date": "2026-06-13",
-    "rounds": [
-      {
-        "run": 1,
-        "verdict": "FAIL — 3 fidelity issues",
-        "thread_id": "019ec111-8c72-7502-b3b5-4b5e12a02664",
-        "issues": [
-          "§0 item 2: EN re-introduced the pre-review 'low intrinsic RANK (of ΔW)' phrasing instead of the ZH's reviewed wording (intrinsic DIMENSION per Aghajanyan; Hu hypothesizes ΔW low-rank; empirical, not a theorem)",
-          "§3 LoRALinear merge() docstring: EN said 'Add (alpha/r) BA' dropping the ZH's restored rsLoRA nuance 'scaling·BA (standard alpha/r or rsLoRA alpha/sqrt(r))'",
-          "§11 Q24 title: EN re-introduced the false 'are both additive PEFT' claim that the ZH deliberately removed ((IA)³ is multiplicative)"
-        ],
-        "note": "Root cause: translated from the original structure, reviving two errors that were fixed in the ZH during its own review. The reviewer's 'code must be byte-identical' premise was incorrect for this repo (EN editions translate code comments to English, per attention_tutorial_en.md); only the merge-docstring CONTENT gap was a real code issue."
-      },
-      {
-        "run": 2,
-        "verdict": "PASS",
-        "thread_id": "019ec118-e4bf-7341-a153-1f8854db9327",
-        "issues": [],
-        "summary": "Fresh cross-model VERIFY (Codex GPT-5.5 xhigh, read-only) confirms all 3 fixes: §0 item 2 now matches the ZH intrinsic-dimension/hypothesis/not-a-theorem framing; §3 merge docstring restores the rsLoRA alpha/sqrt(r) nuance; Q24 no longer claims (IA)³ is additive. Final sweep found no remaining meaning-reversal, dropped/added content, or number/formula/citation mismatch. EN code blocks have faithful English comments (repo convention) with identical logic; all 15 citations match (3 venue-dropped ones arXiv-only in both); §A program-output block byte-identical."
-      }
-    ]
-  },
-  "summary": "EN edition of the LoRA/PEFT cheat sheet: 2-round cross-model translation-fidelity review (Codex GPT-5.5 xhigh, fresh thread per round). Round 1 caught 3 fidelity gaps (two were revived ZH-fixed errors: intrinsic-rank vs -dimension, Q24 additive mislabel; plus a merge-docstring rsLoRA nuance drop); round 2 PASS. Code logic identical to ZH with English-translated comments (repo convention); §A real-run output preserved byte-for-byte.",
-  "rendered_at": "2026-06-13",
-  "post_ship_review": [
-    {
-      "scope": "post-ship mirror of CN final-review fixes",
-      "verdict": "FIXED",
-      "notes": "Mirrored the DoRA per-output axis fix (§6 + Q17 + §A |Δ|=1.19e-7), §2.2 gradient hedge, and enrichments (S-LoRA, Biderman 2405.09673, QDoRA) into the EN edition; code dim=0->dim=1."
-    }
+ "skill": "interview-cheatsheet (EN translation-fidelity)",
+ "source": "docs/tutorials/lora_peft_tutorial_en.md",
+ "source_sha256": "b4579e9a8ba0c0c1d6e19f09d9299ffa0a7cc44257de91950b38c6ad60b9c9b4",
+ "output": "docs/tutorials/lora_peft_tutorial_en.html",
+ "zh_source": "docs/tutorials/lora_peft_tutorial.md",
+ "reviewer": "codex gpt-5.5 xhigh, fresh thread per round",
+ "verdict": "PASS",
+ "thread_id": "019ec118-e4bf-7341-a153-1f8854db9327",
+ "translation_fidelity_review": {
+  "verdict": "PASS (after 2 rounds)",
+  "date": "2026-06-13",
+  "rounds": [
+   {
+    "run": 1,
+    "verdict": "FAIL — 3 fidelity issues",
+    "thread_id": "019ec111-8c72-7502-b3b5-4b5e12a02664",
+    "issues": [
+     "§0 item 2: EN re-introduced the pre-review 'low intrinsic RANK (of ΔW)' phrasing instead of the ZH's reviewed wording (intrinsic DIMENSION per Aghajanyan; Hu hypothesizes ΔW low-rank; empirical, not a theorem)",
+     "§3 LoRALinear merge() docstring: EN said 'Add (alpha/r) BA' dropping the ZH's restored rsLoRA nuance 'scaling·BA (standard alpha/r or rsLoRA alpha/sqrt(r))'",
+     "§11 Q24 title: EN re-introduced the false 'are both additive PEFT' claim that the ZH deliberately removed ((IA)³ is multiplicative)"
+    ],
+    "note": "Root cause: translated from the original structure, reviving two errors that were fixed in the ZH during its own review. The reviewer's 'code must be byte-identical' premise was incorrect for this repo (EN editions translate code comments to English, per attention_tutorial_en.md); only the merge-docstring CONTENT gap was a real code issue."
+   },
+   {
+    "run": 2,
+    "verdict": "PASS",
+    "thread_id": "019ec118-e4bf-7341-a153-1f8854db9327",
+    "issues": [],
+    "summary": "Fresh cross-model VERIFY (Codex GPT-5.5 xhigh, read-only) confirms all 3 fixes: §0 item 2 now matches the ZH intrinsic-dimension/hypothesis/not-a-theorem framing; §3 merge docstring restores the rsLoRA alpha/sqrt(r) nuance; Q24 no longer claims (IA)³ is additive. Final sweep found no remaining meaning-reversal, dropped/added content, or number/formula/citation mismatch. EN code blocks have faithful English comments (repo convention) with identical logic; all 15 citations match (3 venue-dropped ones arXiv-only in both); §A program-output block byte-identical."
+   }
   ]
+ },
+ "summary": "EN edition of the LoRA/PEFT cheat sheet: 2-round cross-model translation-fidelity review (Codex GPT-5.5 xhigh, fresh thread per round). Round 1 caught 3 fidelity gaps (two were revived ZH-fixed errors: intrinsic-rank vs -dimension, Q24 additive mislabel; plus a merge-docstring rsLoRA nuance drop); round 2 PASS. Code logic identical to ZH with English-translated comments (repo convention); §A real-run output preserved byte-for-byte.",
+ "rendered_at": "2026-06-13",
+ "post_ship_review": [
+  {
+   "scope": "post-ship mirror of CN final-review fixes",
+   "verdict": "FIXED",
+   "notes": "Mirrored the DoRA per-output axis fix (§6 + Q17 + §A |Δ|=1.19e-7), §2.2 gradient hedge, and enrichments (S-LoRA, Biderman 2405.09673, QDoRA) into the EN edition; code dim=0->dim=1."
+  },
+  {
+   "scope": "2026-07-12 mirror of the ZH full-collection re-sweep (Codex GPT-5.6-sol candidates + independent Claude adversarial verification)",
+   "verdict": "FIXED — mirrored 4 CONFIRMED + 2 NEEDS_NUANCE fixes from the ZH edition, 1 REFUTED finding required no change in either edition",
+   "notes": "Same 6 substantive fixes as the ZH sidecar, translated with equivalent English wording and identical code-logic changes: (1) inject_lora() now freezes the whole model before wrapping target_names hits (§3, code + explanatory bullet + §A invariant caveat); (2) LoRALinear/DoRALinear lora_A/lora_B now use base.weight.new_empty/new_zeros instead of device/dtype-less torch.empty/torch.zeros (§3, §6); (3) §5.1 NF4 codebook wording softened from exact equal-probability bins to the bitsandbytes negative/positive-half quantile split with empirically-tuned offset, mirrored into §11 Q14; (4) §5.3 paged-optimizer causal chain corrected — optimizer-state size is fixed, activations/buffers cause the spike; (5) §7 PiSSA residual formula now carries the gamma=alpha/r scaling (with the alpha=r equivalence note) needed for the t=0 identity invariant; (6) §references PiSSA title completed to include 'of Large Language Models'. The one REFUTED finding (16 B/param mixed-precision qualifier) required no change in either edition since the qualifier was already present."
+  },
+  {
+   "date": "2026-07-12",
+   "note": "2026-07-12 follow-up: code/lora.py's DoRALinear.__init__ had the same device/dtype bug as LoRALinear (finding 157) but was out of the fix agent's flagged scope (that agent correctly noted the inconsistency and deferred it). Orchestrator applied the identical fix (torch.empty/zeros -> device=dev, dtype=dt) and re-verified on Server5: all 6 asserts pass ([a]-[f], incl. the DoRA-specific [f] check)."
+  }
+ ]
 }

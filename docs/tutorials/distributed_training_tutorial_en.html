@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/distributed_training_tutorial_en.md">
-<meta name="aris:source-sha256" content="d77696a976be35a41d404ade3705509a81a2f588885557d88414715c5231ccf9">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="3958310199cfb7455b4988358802b59edd8616fe043b6b9bf7ec5d77c67d2f77">
+<meta name="aris:generated-at" content="2026-07-12 04:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -644,7 +644,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#l3-advanced-variants-top-labs--in-house-infra-roles">L3 advanced variants (top labs / in-house infra roles)</a></li>
 </ul>
 </li>
-<li><a href="#a-appendix-complete-4d-wrap-code-skeleton">§A Appendix: complete 4D wrap code skeleton</a>
+<li><a href="#a-appendix-complete-4d-wrap-code-skeleton-with-a-placeholder-cp-dim">§A Appendix: complete 4D wrap code skeleton (with a placeholder CP dim)</a>
 </li>
 <li><a href="#b-references">§B References</a>
 </li>
@@ -659,8 +659,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/distributed_training_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>d77696a976be</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>3958310199cf</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:11 UTC</span>
     
   </div>
 </header>
@@ -686,7 +686,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Each ring step transmits $S/N$, total $2(N-1)$ steps → per-GPU total $2(N-1)S/N \approx 2S$ bytes (almost independent of $N$ — this is the elegance of the ring algorithm).</p>
 <div class="callout callout-warn"><div class="callout-title">Interview bonus: NCCL is not a single algorithm</div><p>NCCL uses <strong>tree all-reduce</strong> for small messages (latency-bound, $O(\log N)$ hops); <strong>ring all-reduce</strong> for large messages (bandwidth-bound, throughput-optimal). On NVLink topologies it also offers <strong>NVLS (NVLink SHARP)</strong> — hardware-side reduction (H100/H200 NVSwitch supports this).</p></div>
 <h3 id="22-nvlink--ib--topology">2.2 NVLink / IB / topology</h3>
-<table><thead><tr><th>Link</th><th>Unidirectional bandwidth (H100-generation)</th><th>Use</th></tr></thead><tbody><tr><td>NVLink 4.0</td><td>900 GB/s (per GPU, 18 lanes aggregated)</td><td>intra-node GPU↔GPU</td></tr><tr><td>PCIe 5.0 x16</td><td>64 GB/s</td><td>GPU↔CPU, slow path</td></tr><tr><td>InfiniBand NDR 400G</td><td>50 GB/s (per port)</td><td>inter-node</td></tr></tbody></table>
+<table><thead><tr><th>Link</th><th>Unidirectional bandwidth (H100-generation)</th><th>Use</th></tr></thead><tbody><tr><td>NVLink 4.0</td><td>450 GB/s (18 lanes aggregated, per GPU; the official 900 GB/s figure is bidirectional aggregate, unidirectional is about half)</td><td>intra-node GPU↔GPU</td></tr><tr><td>PCIe 5.0 x16</td><td>64 GB/s</td><td>GPU↔CPU, slow path</td></tr><tr><td>InfiniBand NDR 400G</td><td>50 GB/s (per port)</td><td>inter-node</td></tr></tbody></table>
 <p><strong>Rule of thumb</strong>: intra-node communication is <strong>10-20×</strong> faster than inter-node. So TP must fit inside a node; DP / PP can cross nodes. Llama 3 training topology: TP=8 (intra-node NVLink) × PP=16 (inter-node IB) × DP=128.</p>
 <h3 id="23-nccl-calls-in-pytorch">2.3 NCCL calls in PyTorch</h3>
 <pre><code class="language-python">import torch
@@ -762,7 +762,7 @@ def main(rank, world_size, local_rank):
         device_ids=[local_rank],
         bucket_cap_mb=25,                # bucket size
         gradient_as_bucket_view=True,     # memory opt: grad is a bucket view
-        static_graph=False,               # if graph is static, enables more fusion
+        static_graph=False,               # if you&#x27;re sure the compute graph is the same every iteration (no conditional branches / re-entrant checkpoint changes), set True; the main benefit is skipping the per-iteration unused-parameter traversal and enabling gradient accumulation across iterations / multiple backward passes, not &quot;more kernel fusion&quot;
     )
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
@@ -824,12 +824,12 @@ def zero3_backward(layer_idx, dy, sharded_W, cached_input):
 <div class="callout callout-info"><div class="callout-title">Key conclusion</div><p>ZeRO-1/2 communication is the same as DDP ($2\Phi$ buffer) but memory drops sharply; ZeRO-3 has $1.5\times$ communication for $N\times$ memory reduction. In practice ZeRO-3's communication can also be partially hidden by <strong>prefetch + overlap</strong>, making it the mainstream choice for 70B+ models. In bytes: DDP $\approx 4\Phi$ bytes, ZeRO-3 $\approx 6\Phi$ bytes.</p></div>
 <h3 id="44-zero-offload--zero-infinity">4.4 ZeRO-Offload / ZeRO-Infinity</h3>
 <p><strong>ZeRO-Offload</strong> (Ren et al., USENIX ATC 2021): offload optimizer state + part of gradient to <strong>CPU</strong>; CPU runs the Adam update. Cost: CPU↔GPU PCIe traffic + slow CPU compute. Best for <strong>small clusters + large models</strong> (e.g. 13B on a single 8-GPU node).</p>
-<p><strong>ZeRO-Infinity</strong> (Rajbhandari et al., SC 2021): further offload parameters / optimizer to <strong>NVMe</strong>. Theoretically lets a single machine train 1T parameters (in practice throughput is extremely low; mostly for inference / fine-tuning).</p>
+<p><strong>ZeRO-Infinity</strong> (Rajbhandari et al., SC 2021): further offload parameters / optimizer to <strong>NVMe</strong>. Theoretically lets a single machine train 1T parameters (throughput is bounded by NVMe bandwidth and training is very slow in practice, but the design goal and the paper's whole pitch is "train larger models with a limited GPU count," not inference / fine-tuning).</p>
 <div class="callout callout-warn"><div class="callout-title">Offload is a trade-off</div><p>CPU offload typically increases per-step time 1.5-3×; NVMe offload is 5-10× slower. Use only when "doesn't fit + can't afford more GPUs". Production training prefers scaling out GPU count.</p></div>
 <h2 id="5-fsdp--fsdp2--pytorch-native-zero-3">§5 FSDP / FSDP2 — PyTorch native ZeRO-3</h2>
 <p>Zhao et al. <strong>"PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel"</strong> (VLDB 2023) brings the ZeRO-3 idea into the PyTorch mainline. FSDP2 (PyTorch 2.4+, 2024) is a major rewrite: <strong>per-parameter DTensor sharding</strong> replaces FSDP1's flat-parameter mode.</p>
 <h3 id="51-fsdp1-vs-fsdp2-core-differences">5.1 FSDP1 vs FSDP2 core differences</h3>
-<table><thead><tr><th>Dimension</th><th>FSDP1 (2022-2023)</th><th>FSDP2 (2024+)</th></tr></thead><tbody><tr><td>Data structure</td><td><strong>FlatParameter</strong>: concatenate all params in the wrap unit into one 1D buffer, then chunk</td><td><strong>DTensor per-parameter</strong>: each param sharded independently along dim-0</td></tr><tr><td>State dict</td><td>needs all-gather to produce unflattened state dict</td><td>sharded state dict, communication-free</td></tr><tr><td>Frozen parameters</td><td>within a unit, all must be frozen or all trainable</td><td>each param independent, mixed frozen/trainable is natural</td></tr><tr><td>TP composition</td><td>difficult (flat-buffer conflicts with TP's different shard axis)</td><td><strong>natively compatible</strong>: DTensor describes multi-axis placement (<code>Shard(0)</code>, <code>Replicate</code>, <code>Shard(1)</code> combos)</td></tr><tr><td>API</td><td><code>FullyShardedDataParallel</code></td><td><code>fully_shard()</code> functional wrap</td></tr></tbody></table>
+<table><thead><tr><th>Dimension</th><th>FSDP1 (2022-2023)</th><th>FSDP2 (2024+)</th></tr></thead><tbody><tr><td>Data structure</td><td><strong>FlatParameter</strong>: concatenate all params in the wrap unit into one 1D buffer, then chunk</td><td><strong>DTensor per-parameter</strong>: each param sharded independently along dim-0</td></tr><tr><td>State dict</td><td>needs all-gather to produce unflattened state dict</td><td>sharded state dict, communication-free</td></tr><tr><td>Frozen parameters</td><td>Default (<code>use_orig_params=False</code>): within a unit, all must be frozen or all trainable; with <code>use_orig_params=True</code>, the original <code>nn.Parameter</code> objects are preserved, and mixed frozen/trainable within a unit is possible (the standard setup for LoRA-style partial fine-tuning)</td><td>each param independent, mixed frozen/trainable is natural</td></tr><tr><td>TP composition</td><td>difficult (flat-buffer conflicts with TP's different shard axis)</td><td><strong>natively compatible</strong>: DTensor describes multi-axis placement (<code>Shard(0)</code>, <code>Replicate</code>, <code>Shard(1)</code> combos)</td></tr><tr><td>API</td><td><code>FullyShardedDataParallel</code></td><td><code>fully_shard()</code> functional wrap</td></tr></tbody></table>
 <h3 id="52-fsdp-wrap-policy-the-most-important-design-decision">5.2 FSDP wrap policy (the most important design decision)</h3>
 <p>FSDP does not treat the whole model as one unit. It shards by <strong>custom unit boundaries</strong>; params in a unit all-gather / reduce-scatter together.</p>
 <pre><code class="language-python">import torch
@@ -914,13 +914,13 @@ forward (qwZ):    weight_shard (fp16) ──quant──&gt; shard (int8)
                                         ──dequant──&gt; full (fp16) ──compute</code></pre>
 <p>Cost: do block-wise quantization / dequantization before and after each all-gather (typical block size 2048-4096 elements with per-block scale). Block-quant is much more precise than per-tensor quant, with &lt; 1% effect on training loss.</p>
 <h3 id="62-hpz-hierarchical-partition">6.2 hpZ: Hierarchical Partition</h3>
-<p>Observation: <strong>all-gather during backward is more expensive than during forward</strong> (deeper layers backprop first). <code>hpZ</code> <strong>replicates weight within a node</strong> (all NVLink), and does not shard across nodes:</p>
-<ul><li>Intra-node: 8 GPUs each hold the full weight (hpZ = intra-node DDP)</li><li>Inter-node: weight is sharded (still ZeRO-3 mode)</li></ul>
-<p>Backward's weight all-gather only goes intra-node (NVLink, cheap), not across IB. Cost: per-node memory grows 8× — but model states are already sharded across 1024 GPUs, so 8× is still much less than DDP.</p>
+<p>Observation: <strong>all-gather during backward is more expensive than during forward</strong> (deeper layers backprop first). <code>hpZ</code> maintains a <strong>secondary ZeRO-3-style partition</strong> of the parameters within a node:</p>
+<ul><li>Intra-node: H GPUs (e.g. H=8) collectively hold one full copy of the weight, but it is still sharded ZeRO-3-style — each GPU only holds an extra Φ/H (not the full Φ)</li><li>Inter-node: weight is still sharded globally ZeRO-3-style (unaffected by hpZ)</li></ul>
+<p>During backward, an intra-node (NVLink) all-gather reassembles the H shards into the full weight, and the cross-node (IB) all-gather is no longer needed there — much cheaper. Cost: extra memory per GPU ≈ Φ/H (with H=8, roughly an extra Φ/8 on top of the original ZeRO-3 per-GPU cost), not a full copy of Φ per GPU as "intra-node DDP" would imply.</p>
 <h3 id="63-qgz-quantized-gradient-reduce">6.3 qgZ: Quantized Gradient reduce</h3>
-<p>Backward's tail reduce-scatter on gradients also uses int8 (fp16 → int8 + quantized reduce). The vanilla reduce-scatter SUM cannot be naïvely quantized (quant + sum accumulates error); ZeRO++ instead uses <strong>all-to-all + dequant + local sum</strong>.</p>
+<p>The tail reduce-scatter on gradients during backward uses <strong>INT4 (4-bit)</strong> block quantization (not INT8), paired with a hierarchical <strong>all-to-all + dequant + local sum</strong> reduction path to control precision loss. The vanilla reduce-scatter SUM cannot be naïvely quantized (quant + sum accumulates error), which is why the direct quantized all-reduce path is avoided in the first place.</p>
 <h3 id="64-combined-effect">6.4 Combined effect</h3>
-<p>ZeRO++ paper reports <strong>2.16× throughput improvement at 384 GPU scale</strong>, with 4× lower traffic (fp16→int8 saves 2× × 2 collective primitives). Cost: complex implementation, precision requires careful ablation.</p>
+<p>ZeRO++ paper reports <strong>2.16× throughput improvement at 384 GPU scale</strong>, with 4× lower traffic — this is the combined effect of qwZ (INT8 on fwd/bwd all-gather, 2×) + hpZ (the cross-node backward all-gather is replaced by an intra-node one, eliminating that cross-node traffic entirely) + qgZ (INT4 on reduce-scatter, 4×), not simply "2×(int8) times 2 collective primitives". Cost: complex implementation, precision requires careful ablation.</p>
 <div class="callout callout-warn"><div class="callout-title">Quantized communication ≠ quantized training</div><p>Here we only quantize <strong>transient buffers in the collective communication path</strong>; weight storage and compute remain fp16 / bf16. So loss impact is usually negligible, and this is different from fp8 training (e.g. fp8 GEMM on Hopper).</p></div>
 <h2 id="7-tensor-parallel--megatron-lm">§7 Tensor Parallel — Megatron-LM</h2>
 <p>Shoeybi et al. <strong>"Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism"</strong> (arXiv 2019) + Narayanan et al. <strong>"Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM"</strong> (SC 2021).</p>
@@ -945,7 +945,7 @@ forward (qwZ):    weight_shard (fp16) ──quant──&gt; shard (int8)
   - Each rank holds W_Q^(i), W_K^(i), W_V^(i) for H/T heads
   - Each rank computes its head_h(Q W_Q^h, ...) independently
   - Output W_O uses row-parallel → tail all-reduce</code></pre>
-<div class="callout callout-info"><div class="callout-title">Why shard attention by head rather than by dim</div><p>the head dim is naturally independent (heads don't interact), so head-sharding requires no cross-rank communication of intermediates; sharding hidden dim requires extra communication around softmax. Code-wise it's also simpler — heads map directly to ranks.</p></div>
+<div class="callout callout-info"><div class="callout-title">Why attention must be sharded on head boundaries</div><p>hidden_dim itself can be sharded, but the shard boundary must align with heads (each rank gets a whole number of complete heads), so the QK^T/softmax computation within each head still happens entirely on one GPU, requiring no cross-rank communication of intermediates. What's actually wrong is sharding <strong>inside</strong> a head (splitting one head's $d_{head}$ across ranks), which breaks the complete dot product that softmax normalization needs and forces extra communication. Code-wise it's also simpler — whole heads map directly to ranks.</p></div>
 <h3 id="74-tp-code-skeleton">7.4 TP code skeleton</h3>
 <p>Below is a pedagogical col-parallel / row-parallel implementation, with explicit communication pairs in forward and backward (key: col-parallel forward has no comm, backward all-reduces the input grad; row-parallel forward all-reduces the output, backward has no comm):</p>
 <pre><code class="language-python">import math
@@ -1000,7 +1000,12 @@ class RowParallelLinear(nn.Module):
         self.tp_group = tp_group
         self.in_per_rank = in_features // tp_size
         self.weight = nn.Parameter(torch.empty(out_features, self.in_per_rank))
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        # Can&#x27;t call kaiming_uniform_(self.weight) directly: it would auto-derive fan_in
+        # from self.weight.size(1) = in_per_rank, inflating the variance by T×.
+        # Must compute bound from the global in_features by hand.
+        gain = nn.init.calculate_gain(&#x27;leaky_relu&#x27;, math.sqrt(5))
+        bound = gain * math.sqrt(3.0 / in_features)   # global in_features, not self.in_per_rank
+        nn.init.uniform_(self.weight, -bound, bound)
     def forward(self, x):
         # x: [B, in/T] (sharded along last dim)
         local_out = torch.nn.functional.linear(x, self.weight)  # [B, out] partial sum
@@ -1020,7 +1025,7 @@ class TPTransformerMLP(nn.Module):
 <div class="callout callout-info"><div class="callout-title">TP communication pairs (must memorize)</div><p>col-parallel: <code>forward = identity, backward = all-reduce(dX)</code>; row-parallel: <code>forward = all-reduce(Y), backward = identity</code>. A transformer block (col + row × 2 sets: MLP + attention) has 4 all-reduces total — 2 in forward, 2 in backward. This is the source of the 4× count in §7.2.</p></div>
 <h3 id="75-tp-must-fit-inside-a-node-nvlink">7.5 TP must fit inside a node (NVLink)</h3>
 <p>Each transformer block forward + backward = 4× all-reduce on activation tensors of size $\approx BLD$. For a 7B model with $D = 4096$ and $B \times L = 2048$ → each is $\approx 32$ MB; per-block × 4 × 32 layers = <strong>128 calls per step, $\approx 4$ GB per step</strong>.</p>
-<p>At NVLink 900 GB/s that's $\approx 4.4$ ms; on IB at 50 GB/s it's $\approx 80$ ms. So <strong>TP must fit inside a node</strong> (NVLink domain). This is why LLaMA / Llama 3 / GPT-3 all use TP=8 (one 8-GPU node) rather than TP=16.</p>
+<p>NVLink's 900 GB/s (bidirectional) gives $\approx 450$ GB/s unidirectional, so 4GB transfers in $\approx 4\text{GB}/450\text{GB/s} \approx 8.9$ ms; on IB at 50 GB/s it's $\approx 80$ ms. So <strong>TP must fit inside a node</strong> (NVLink domain). This is why LLaMA / Llama 3 / GPT-3 all use TP=8 (one 8-GPU node) rather than TP=16.</p>
 <h2 id="8-sequence-parallel--saving-activation-memory">§8 Sequence Parallel — saving activation memory</h2>
 <p>Korthikanti et al. <strong>"Reducing Activation Recomputation in Large Transformer Models"</strong> (MLSys 2023).</p>
 <h3 id="81-motivation-activation-memory-is-mostly-element-wise-ops-like-layernorm--dropout">8.1 Motivation: activation memory is mostly element-wise ops like LayerNorm / Dropout</h3>
@@ -1072,7 +1077,8 @@ Stage 3:             [F1][F2][F3][F4]            [B4][B3][B2][B1]
 <p><strong>Bubble</strong> (GPU-idle fraction):</p>
 <p>$$\boxed{\;\text{bubble ratio} = \frac{P - 1}{M + P - 1}\;}$$</p>
 <p>Derivation: each micro-batch traverses $P$ stages in $P$ steps; the warm-up phase (stage $i$ waits for $i$ previous micro-batches) has $P-1$ idle steps; the cool-down phase mirrors it, $P-1$ idle steps; total steps = $M + P - 1$ (forward) + $M + P - 1$ (backward) = $2(M+P-1)$, of which idle = $2(P-1)$. Idle fraction = $(P-1)/(M+P-1)$.</p>
-<div class="callout callout-warn"><div class="callout-title">GPipe&#x27;s flaw</div><p>backward can only start after all $M$ micro-batches have completed forward; all micro-batches' activations must be held, so <strong>activation memory grows linearly with $M$</strong>. 1F1B solves this.</p></div>
+<div class="callout callout-warn"><div class="callout-title">GPipe&#x27;s flaw</div><p>backward can only start after all $M$ micro-batches have completed forward; all micro-batches' activations must be held, so <strong>activation memory grows linearly with $M$</strong>. 1F1B solves this.</p>
+<p>Note that this $O(M)$ / $O(P)$ counts microbatch units under a <strong>fixed micro-batch size</strong> (also the standard convention in the 1F1B paper); if instead you fix the total mini-batch $B$ and split it into $M$ pieces (each $B/M$), GPipe's total byte count is actually $O(B)$ (independent of $M$), and 1F1B's peak is $O(PB/M)$ (which <em>decreases</em> as $M$ grows) — both conventions are valid, they just differ in which quantity is held fixed as a training hyperparameter.</p></div>
 <h3 id="93-1f1b--pipedream-narayanan-sosp-2019-megatron-lm-2-sc-2021">9.3 1F1B / PipeDream (Narayanan SOSP 2019, Megatron-LM-2 SC 2021)</h3>
 <p><strong>1F1B = 1 Forward 1 Backward</strong>: each stage, after forwarding a micro-batch, <strong>immediately</strong> backwards the previously completed one:</p>
 <pre><code>Stage 0: [F1][F2][F3][F4][B1][F5][B2][F6][B3][F7][B4]...
@@ -1129,7 +1135,7 @@ Interleaved (P=4, V=2, L=8):
         grad_in = backward(model, grad_out)
         send_grad_to_prev_stage(grad_in)</code></pre>
 <h3 id="96-pp-communication-characteristics">9.6 PP communication characteristics</h3>
-<p>PP only transmits <strong>activations / gradients</strong> at stage boundaries, with each transmission about $B/M \cdot L \cdot D$ bytes per micro-batch. <strong>Traffic is very small</strong> (much less than TP / DP), so PP can cross nodes (IB is enough).</p>
+<p>PP only transmits <strong>activations / gradients</strong> at stage boundaries, with each transmission about $(B/M) \cdot L \cdot D \cdot q$ bytes per micro-batch ($q$ = bytes per element, $q=2$ for fp16/bf16). <strong>Traffic is very small</strong> (much less than TP / DP), so PP can cross nodes (IB is enough).</p>
 <h3 id="97-pps-flaws-load-imbalance">9.7 PP's flaws: load imbalance</h3>
 <ul><li>Layers / compute per stage need manual balancing (embedding + LM head are heavy and often need special handling)</li><li>One stage's OOM / slowdown blocks the entire pipeline (weakest-link effect)</li><li>Too few micro-batches $M$ → large bubble; too many $M$ → activation memory grows</li></ul>
 <h2 id="10-context-parallel--sharding-long-sequences">§10 Context Parallel — sharding long sequences</h2>
@@ -1250,7 +1256,7 @@ y = checkpoint(block_forward, x, use_reentrant=False)</code></pre>
 <h3 id="122-selective-recompute-korthikanti-2023">12.2 Selective recompute (Korthikanti 2023)</h3>
 <p>Only recompute <strong>quadratic-memory ops</strong> (attention's $QK^\top$ and softmax); store everything else. Reduces 30-40% compute overhead compared to full recompute while saving the same memory. Megatron-LM enables this by default.</p>
 <h3 id="123-offload-zero-infinity">12.3 Offload (ZeRO-Infinity)</h3>
-<p>Offload activations / optimizer state to CPU RAM or NVMe. CPU offload is suitable for 13B-30B single-machine training; NVMe offload has very low throughput and is mainly used for inference or trillion-scale model exploration.</p>
+<p>Offload activations / optimizer state to CPU RAM or NVMe. CPU offload is suitable for 13B-30B single-machine training; NVMe offload has very low throughput and is mainly used to explore the upper bound of trainable parameter scale on a single machine, not for production training or inference.</p>
 <h3 id="124-activation-memory-formula-must-memorize">12.4 Activation memory formula (must memorize)</h3>
 <p>A single transformer block's activations are roughly (fp16, full save):</p>
 <p>$$A_\text{block} \approx \underbrace{34 \cdot B \cdot L \cdot D}_{\text{LayerNorm/QKV/output/MLP residual}} + \underbrace{5 \cdot B \cdot L^2 \cdot H}_{\text{attention intermediates}}$$</p>
@@ -1290,7 +1296,7 @@ Stage 0: simultaneously processes forward&#x27;s F + reverse&#x27;s F&#x27; + co
 <h2 id="15-torchtitan--pytorch-native-4d-platform">§15 TorchTitan — PyTorch-native 4D platform</h2>
 <p>Liang et al. (ICLR 2025, arXiv 2410.06511) <strong>"TorchTitan: One-stop PyTorch Native Solution for Production-Ready LLM Pre-training"</strong>.</p>
 <h3 id="151-design-goals">15.1 Design goals</h3>
-<ul><li><strong>No more monkey-patching</strong>: integrate FSDP2 / TP / PP / SP / CP / Float8 / <code>torch.compile</code> into PyTorch mainline</li><li><strong>DTensor as the unified language</strong>: all sharding described by DTensor placement (<code>Shard(d)</code>, <code>Replicate</code>, <code>Partial</code>)</li><li><strong>Composable</strong>: FSDP2 composes naturally with TP (FSDP1 was nearly impossible to compose with TP)</li></ul>
+<ul><li><strong>No more monkey-patching</strong>: integrate FSDP2 / TP / PP / SP / CP / Float8 / <code>torch.compile</code> into PyTorch mainline</li><li><strong>DTensor as the unified language</strong>: all sharding described by DTensor placement (<code>Shard(d)</code>, <code>Replicate</code>, <code>Partial</code>)</li><li><strong>Composable</strong>: FSDP2 composes naturally with TP on native DTensor; composing FSDP1 with TP is engineering-hard (flat-buffer layout conflicts with TP's different shard axis, requiring special adaptation, e.g. splitting TP submodules into separately-wrapped, fine-grained FSDP units and hand-managing the interaction), at a cost far higher than FSDP2 — but not mathematically impossible</li></ul>
 <h3 id="152-code-style-vs-deepspeed-monkey-patch">15.2 Code style (vs DeepSpeed monkey patch)</h3>
 <pre><code class="language-python"># TorchTitan style: declarative DTensor placement
 import torch
@@ -1394,7 +1400,7 @@ future.result()                 # wait if needed</code></pre>
 
 <summary>Q6. Which dim does Tensor Parallel shard attention along?</summary>
 <ul><li>Shard the <strong>head dim</strong> (each GPU holds $H/T$ heads)</li><li>$W_Q, W_K, W_V$ are column-parallel (shard output dim)</li><li>$W_O$ is row-parallel (shard input dim)</li><li>Each attention block forward 1× all-reduce, backward 1× all-reduce</li></ul>
-<p>Footgun: saying it shards hidden_dim; or forgetting that col + row pairing makes the middle communication-free.</p>
+<p>Footgun: saying it shards inside hidden_dim (splitting one head's $d_{head}$ across ranks); or forgetting that col + row pairing makes the middle communication-free.</p>
 </details>
 <details>
 
@@ -1472,7 +1478,7 @@ future.result()                 # wait if needed</code></pre>
 <details>
 
 <summary>Q19. What are ZeRO++'s three tricks?</summary>
-<ul><li><strong>qwZ</strong>: forward all-gather uses int8 quantization (block-wise quant)</li><li><strong>hpZ</strong>: weight replicated within a node (NVLink domain), sharded across nodes — backward all-gather runs over NVLink</li><li><strong>qgZ</strong>: backward gradient reduce-scatter also uses int8</li><li>Total traffic drops 4×, throughput on 384 GPUs +116% (Wang 2023)</li></ul>
+<ul><li><strong>qwZ</strong>: forward all-gather uses int8 quantization (block-wise quant)</li><li><strong>hpZ</strong>: maintains a secondary ZeRO-3 partition within a node (each GPU stores an extra Φ/H, not a full replica), backward all-gather runs over intra-node NVLink, not across nodes</li><li><strong>qgZ</strong>: backward gradient reduce-scatter uses INT4 (4-bit) block quantization</li><li>Total traffic drops 4×, throughput on 384 GPUs +116% (Wang 2023)</li></ul>
 <p>Footgun: thinking ZeRO++ changes training precision — it only quantizes buffers in the communication path; weights and compute remain fp16/bf16.</p>
 </details>
 <details>
@@ -1517,8 +1523,8 @@ future.result()                 # wait if needed</code></pre>
 <ul><li>Place communication primitives on the right topology (TP on NVLink, PP / DP on IB)</li><li>DualPipe / Interleaved 1F1B to compress PP bubble</li><li>FlashAttention v3 + SP / CP to compress activations</li><li>fp8 GEMM (H100 / B100) + FP32 accumulation (promoted on CUDA cores) to lift throughput</li></ul></li></ul>
 <p>Footgun: reversing the dimension order; forgetting TP must be intra-node; thinking DeepSeek uses TP (V3 actually has TP=1).</p>
 </details>
-<h2 id="a-appendix-complete-4d-wrap-code-skeleton">§A Appendix: complete 4D wrap code skeleton</h2>
-<p>Below is a minimal end-to-end 4D-parallelism wrap example (FSDP2 + TP + SP + PP), in TorchTitan style.</p>
+<h2 id="a-appendix-complete-4d-wrap-code-skeleton-with-a-placeholder-cp-dim">§A Appendix: complete 4D wrap code skeleton (with a placeholder CP dim)</h2>
+<p>Below is a minimal end-to-end <strong>3D-parallelism (PP × FSDP × TP+SP)</strong> wrap example, in TorchTitan style. The mesh reserves a CP dimension (set to 1 in the code below, i.e. not actually enabled — just a placeholder for extending to true 4D); to demonstrate full 4D, you'd need to set <code>cp</code> &gt; 1 and apply context-parallel sharding (e.g. Ring Attention) to attention.</p>
 <pre><code class="language-python">import torch
 import torch.nn as nn
 from torch.distributed.device_mesh import init_device_mesh
@@ -1531,7 +1537,7 @@ from torch.distributed.pipelining import pipeline, SplitPoint, ScheduleInterleav
 from torch.utils.checkpoint import checkpoint
 
 def build_4d_model(model, world_size):
-    &quot;&quot;&quot; 4D parallelism wrap (PP × FSDP × CP × TP) &quot;&quot;&quot;
+    &quot;&quot;&quot; 3D parallelism wrap (PP × FSDP × TP+SP); mesh reserves a CP dim (currently 1, not actually enabled) &quot;&quot;&quot;
     # Step 1. Build 4D device mesh
     # e.g. 64 GPUs = PP=2 × FSDP=4 × CP=1 × TP=8
     mesh = init_device_mesh(
@@ -1605,9 +1611,11 @@ def train_step_4d(pp_stage, schedule, optimizer, batch):
     optimizer.zero_grad(set_to_none=True)
     # PP schedule runs forward + backward across all stages
     losses = []
-    schedule.step(batch, losses=losses)  # triggers FSDP all-gather / TP all-reduce / etc.
+    schedule.step(batch, losses=losses)  # triggers FSDP all-gather / TP all-reduce / etc.; losses is only populated on the last pipeline stage, empty on the rest
     optimizer.step()
-    return torch.stack(losses).mean()</code></pre>
+    if len(losses) &gt; 0:
+        return torch.stack(losses).mean()
+    return None  # no local loss to return on non-last stages</code></pre>
 <p><strong>Note</strong>: the code above is a pedagogical skeleton; for production, use the TorchTitan repo directly (pytorch/torchtitan) — it includes a complete <code>Trainer</code>, checkpointing, profiling, loss / lr schedules. This section only sketches concepts.</p>
 <h2 id="b-references">§B References</h2>
 <ul><li><strong>DDP</strong>: PyTorch documentation, <code>nn.parallel.DistributedDataParallel</code></li><li><strong>ZeRO</strong>: Rajbhandari et al., "ZeRO: Memory Optimizations Toward Training Trillion Parameter Models", SC 2020 (<a href="https://arxiv.org/abs/1910.02054">arXiv:1910.02054</a>)</li><li><strong>ZeRO-Offload</strong>: Ren et al., USENIX ATC 2021</li><li><strong>ZeRO-Infinity</strong>: Rajbhandari et al., SC 2021</li><li><strong>ZeRO++</strong>: Wang et al., "ZeRO++: Extremely Efficient Collective Communication for Giant Model Training", arXiv:2306.10209, 2023</li><li><strong>FSDP</strong>: Zhao et al., "PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel", VLDB 2023</li><li><strong>FSDP2 / TorchTitan</strong>: Liang et al., "TorchTitan: One-stop PyTorch Native Solution", ICLR 2025 (<a href="https://arxiv.org/abs/2410.06511">arXiv:2410.06511</a>)</li><li><strong>Megatron-LM TP</strong>: Shoeybi et al., "Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism", arXiv:1909.08053, 2019</li><li><strong>Megatron-LM-2 (Interleaved 1F1B)</strong>: Narayanan et al., "Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM", SC 2021</li><li><strong>GPipe</strong>: Huang et al., "GPipe: Efficient Training of Giant Neural Networks using Pipeline Parallelism", NeurIPS 2019</li><li><strong>PipeDream / 1F1B</strong>: Narayanan et al., "PipeDream: Generalized Pipeline Parallelism for DNN Training", SOSP 2019</li><li><strong>Sequence Parallel + Selective Recompute</strong>: Korthikanti et al., "Reducing Activation Recomputation in Large Transformer Models", MLSys 2023</li><li><strong>Ring Attention</strong>: Liu et al., "Ring Attention with Blockwise Transformers for Near-Infinite Context", ICLR 2024 (<a href="https://arxiv.org/abs/2310.01889">arXiv:2310.01889</a>)</li><li><strong>Gradient Checkpointing</strong>: Chen et al., "Training Deep Nets with Sublinear Memory Cost", arXiv:1604.06174, 2016</li><li><strong>DualPipe</strong>: DeepSeek-V3 Technical Report, <a href="https://arxiv.org/abs/2412.19437">arXiv:2412.19437</a>, December 2024</li><li><strong>Llama 3</strong>: Meta AI, "The Llama 3 Herd of Models", <a href="https://arxiv.org/abs/2407.21783">arXiv:2407.21783</a>, 2024</li><li><strong>GShard / Switch Transformer (MoE EP)</strong>: Lepikhin et al. 2020 / Fedus et al. JMLR 2022</li></ul>
@@ -1615,8 +1623,8 @@ def train_step_4d(pp_stage, schedule, optimizer, batch):
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/distributed_training_tutorial_en.md</code> ·
-  SHA256 <code>d77696a976be</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>3958310199cf</code> ·
+  generated at 2026-07-12 04:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

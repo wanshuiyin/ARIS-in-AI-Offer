@@ -6,7 +6,7 @@
 
 2. **Three multi-agent archetypes**:
    - **role-play dialogue** (CAMEL, Li et al. NeurIPS 2023, arXiv 2303.17760): assistant-user inception prompting;
-   - **SOP / pipeline** (MetaGPT, Hong et al. ICLR 2024, arXiv 2308.00352): decompose software development into seven fixed roles — PM / Architect / Engineer / QA, etc.;
+   - **SOP / pipeline** (MetaGPT, Hong et al. ICLR 2024, arXiv 2308.00352): decompose software development into five fixed roles — ProductManager / Architect / ProjectManager / Engineer / QAEngineer;
    - **debate / aggregation** (Du et al. ICML 2024 arXiv 2305.14325 + Liang et al. EMNLP 2024 arXiv 2305.19118): N agents answer independently → cross-read → iterate over several rounds to consensus.
 
 3. **MoA (Mixture-of-Agents, Wang et al. ICLR 2025 Spotlight, arXiv 2406.04692)**: N proposers each produce an answer; an aggregator concatenates the N answers into its prompt and synthesizes. An open-source 6.5B-70B mix **beats GPT-4 Omni** on AlpacaEval 2.0.
@@ -21,7 +21,7 @@
    - **ToT (Yao et al., NeurIPS 2023, arXiv 2305.10601)** = BFS/DFS + LLM evaluator;
    - **RAP (Hao et al., EMNLP 2023, arXiv 2305.14992)** = MCTS + world-model rollout;
    - **LATS (Zhou et al., ICML 2024, arXiv 2310.04406)** = MCTS + self-reflection (Reflexion) + value estimation;
-   - **Agent-Q (Putta et al., 2024, arXiv 2408.07199)** = MCTS + DPO offline policy training. Common ground: all use the **PUCT** formula $a^* = \arg\max_a Q(s,a) + c_\text{puct} P(s,a) \sqrt{N(s)} / (1+N(s,a))$ to balance exploit / explore.
+   - **Agent-Q (Putta et al., 2024, arXiv 2408.07199)** = MCTS + DPO offline policy training. **ToT** (BFS/DFS + LLM evaluator) has no tree-search confidence-bound formula; **RAP and LATS' original papers use plain UCT** (UCB1 for Trees: $Q(s,a) + w\sqrt{\ln N(s)/N(s,a)}$, with no AlphaZero-style learned prior $P(s,a)$); this tutorial's §6.7 implementation additionally introduces $\text{softmax}(\text{LLM\_logp})$ as a prior and writes selection as the **PUCT** formula $a^* = \arg\max_a Q(s,a) + c_\text{puct} P(s,a) \sqrt{N(s)} / (1+N(s,a))$ to balance exploit / explore — that's this tutorial's own engineering choice, not what the RAP/LATS papers uniformly use.
 
 8. **Three long-horizon benchmarks**: **TAU-bench** (Yao et al. 2024 arXiv 2406.12045, customer service multi-turn), **OSWorld** (Xie et al. NeurIPS 2024 arXiv 2404.07972, real OS GUI), **SWE-bench** (Jimenez et al., ICLR 2024, arXiv 2310.06770, fixing real GitHub issues). 2026-05 SOTA on SWE-bench Verified ≈ 75% (Claude 4.6 Sonnet / o3, etc.), but OSWorld still < 60%.
 
@@ -109,8 +109,10 @@ class GroupChat:
         self.max_round = max_round
 
     def select_speaker(self, last_speaker):
-        # Three policies: round_robin / random / llm_selector (the LLM picks the next).
-        # Production usually uses llm_selector: feed the manager LLM the history +
+        # AutoGen GroupChat's built-in speaker_selection_method supports four values:
+        # auto (default, the GroupChatManager's LLM picks the next speaker) / manual
+        # (human picks) / random / round_robin, or a custom Callable.
+        # Production usually uses auto: feed the manager LLM the history +
         # role descriptions, and let it choose the next speaker.
         ...
 
@@ -126,7 +128,7 @@ class GroupChat:
         return self.messages
 ```
 
-> 💡 **Selector design is the make-or-break of AutoGen** — round-robin is simple but lets weak agents drag the chat down; random lacks control; **llm_selector** has the manager LLM look at the history and pick the next speaker, which is the production default (and also the root of high cost — one extra manager call per turn).
+> 💡 **Selector design is the make-or-break of AutoGen** — round-robin is simple but lets weak agents drag the chat down; random lacks control; **auto** (`speaker_selection_method="auto"`) has the manager LLM look at the history and pick the next speaker, which is the production default (and also the root of high cost — one extra manager call per turn).
 
 ### 2.3 MetaGPT: SOP-driven software-company simulation
 
@@ -140,7 +142,7 @@ Engineer        → Code (multiple .py files)
 QAEngineer      → Test Cases
 ```
 
-Each role **only receives the structured output of the previous node (no free-form chat)**, and its own output is also structured (a doc / code / test).
+Roles publish/subscribe structured messages through a shared **message pool** — not a strict single-predecessor chain (e.g. Engineer can subscribe to both the PRD and the tech design at once), and each role's own output is also structured (a doc / code / test) rather than free-form chat.
 
 > 💡 **Structured vs unstructured is the biggest dividing line in multi-agent engineering** — CAMEL / early AutoGen are unstructured (free chat); MetaGPT / ChatDev / modern production agents are structured (pipeline of artifacts). Why: unstructured easily hallucinates "we're already done", whereas structured forces every step to produce an inspectable artifact.
 
@@ -152,13 +154,13 @@ Each role **only receives the structured output of the previous node (no free-fo
 
 > ⚠️ **Generative Agents' emergence ≠ real intelligence** — Park 2023 emphasizes this is "believable behavior" (something that feels human-like), not consciousness or agency. On Reddit / Twitter it is often hyped as an "AI village"; in interviews stay restrained: **this is a prompt-engineering case study taken to its limit, not an embryonic AGI**.
 
-### 2.5 Mixture-of-Agents (MoA) — the catchiest work at NeurIPS 2024
+### 2.5 Mixture-of-Agents (MoA) — the catchiest work at ICLR 2025 Spotlight
 
 The core idea of MoA (Wang et al., ICLR 2025 Spotlight, arXiv 2406.04692, Together AI) is **so simple no one would believe it**:
 
 ```
         ┌─ proposer_1 (Qwen2-72B)
-prompt ─┼─ proposer_2 (LLaMA3-70B)  ──→ aggregator (Qwen2-72B):
+prompt ─┼─ proposer_2 (LLaMA3-70B)  ──→ aggregator (Qwen1.5-110B-Chat):
         ├─ proposer_3 (WizardLM)         "synthesize these N responses
         └─ proposer_N (Mixtral)            into a final answer"
 ```
@@ -269,7 +271,7 @@ def multi_agent_debate(query, agents, num_rounds=3):
 
 > ✅ **Correct framing (consensus dynamics)** — say convergence to a **fixed-point set** (consensus cluster), not a unique fixed point:
 
-1. **Linear averaging case**: if $T$ is a linear doubly-stochastic operator $A$ (i.e. $A \mathbf{1} = \mathbf{1}, A^\top \mathbf{1} = \mathbf{1}$), then by Perron-Frobenius the iterates $x_k = A^k x_0 \to \pi^\top x_0 \cdot \mathbf{1}$, i.e. they converge to a **consensus value** (all agents agree), but **different starting points yield different consensus values** — the fixed-point set is $\{c \cdot \mathbf{1} : c \in \mathbb{R}\}$
+1. **Linear averaging case**: if $T$ is a linear doubly-stochastic operator $A$ (i.e. $A \mathbf{1} = \mathbf{1}, A^\top \mathbf{1} = \mathbf{1}$) that additionally is **irreducible and aperiodic** (i.e. a primitive matrix), then by Perron-Frobenius the iterates $x_k = A^k x_0 \to \pi^\top x_0 \cdot \mathbf{1}$, i.e. they converge to a **consensus value** (all agents agree), but **different starting points yield different consensus values** — the fixed-point set is $\{c \cdot \mathbf{1} : c \in \mathbb{R}\}$; if $A$ is reducible or periodic (e.g. a cyclic permutation matrix), $A^k$ does not converge to a rank-1 limit and may oscillate forever, in which case not even "converging to some consensus" holds
 2. **Nonlinear case (softmax / majority vote)**: the fixed-point set is typically several discrete consensus clusters (each corresponding to unanimous agreement on a candidate answer); which cluster the iteration falls into depends on the initial majority
 3. **For a true Banach fixed point**: you need to inject an external contraction (e.g. an anchor agent fixed to a reference answer), but this degenerates to a non-debate algorithm
 
@@ -446,11 +448,11 @@ MemGPT (Packer et al., arXiv 2310.08560, 2023-10; engineered as **Letta** 2024+)
 
 ### 5.3 MemoryBank: hippocampus-inspired
 
-MemoryBank (Zhong et al., AAAI 2024, arXiv 2305.10250) is inspired by the **Ebbinghaus forgetting curve**: each memory carries a **strength** and a **last_access_time**, with exponential decay:
+MemoryBank (Zhong et al., AAAI 2024, arXiv 2305.10250) is inspired by the **Ebbinghaus forgetting curve**: each memory carries **two distinct quantities** — a decaying **retention/retrievability** ($R$) and a strengthening **memory strength** ($S$, which sets the decay rate: the larger $S$, the slower the decay):
 
-$$S_t = S_0 \exp\left(-\frac{t - t_\text{last\_access}}{\tau}\right)$$
+$$R_t = \exp\left(-\frac{t - t_\text{last\_access}}{S}\right)$$
 
-Retrieval ranks by **similarity × current strength**, and **frequently accessed memories recover their strength** (mimicking hippocampal reactivation).
+Every time the memory is accessed, $S$ increases (e.g. $S \leftarrow S + 1$), slowing future decay (mimicking hippocampal reactivation); retrieval ranks by **similarity × $R_t$**. Note that $R$ (which decays) and $S$ (which strengthens) are two different variables — they shouldn't share the same decay symbol.
 
 > 💡 **MemoryBank vs MemGPT** — MemGPT treats memory as disk (no priority, retrieved by query); MemoryBank adds dynamic priority to memory (decay/strengthening by access frequency). Production agents often **combine the two**: MemGPT's disk abstraction + MemoryBank's forgetting curve for cache eviction.
 
@@ -479,10 +481,14 @@ Stage 2 (online, cheap):
 
 **Wins**:
 
-| Benchmark | Vector RAG | GraphRAG | Δ |
-|---|---|---|---|
-| Multi-hop QA (HotpotQA-class) | ~50% | ~70% | +20pp |
-| Global summarization | poor | strong | qualitative |
+GraphRAG's original paper (Edge et al. 2024) actually evaluates **global sensemaking** on **podcast transcripts + news-article datasets**, using an LLM judge to run **pairwise win-rate** comparisons against baselines on comprehensiveness / diversity / empowerment — not multi-hop QA accuracy:
+
+| Benchmark | Compared against | GraphRAG result |
+|---|---|---|
+| Global sensemaking (podcast/news datasets, LLM-judge pairwise win-rate) | vector RAG baseline | significantly higher win-rate on comprehensiveness/diversity |
+| Single-hop factoid QA | vector RAG baseline | no clear advantage, vector RAG already sufficient |
+
+> Note: GraphRAG's original paper does not report an accuracy figure on HotpotQA-style multi-hop QA datasets; an earlier version of this tutorial's "Multi-hop QA ~50%→~70%" figure was fabricated and has been removed.
 
 **Losses**:
 
@@ -610,21 +616,21 @@ RAP (Hao et al., EMNLP 2023, arXiv 2305.14992) upgrades ToT: replace the LLM-as-
 
 ```
 MCTS step:
-  1. select: pick a leaf via the PUCT formula
+  1. select: pick a leaf via a tree-search confidence-bound formula
   2. expand: LLM proposes the next action
   3. simulate: LLM rolls out to terminal, estimating reward
   4. backup: propagate reward up the path to update Q(s, a)
 
-PUCT formula (AlphaGo's improved UCT):
-  a* = argmax_a [ Q(s, a) + c_puct * P(s, a) * sqrt(N(s)) / (1 + N(s, a)) ]
+Plain UCT used in the original RAP / LATS papers (UCB1 for Trees):
+  a* = argmax_a [ Q(s, a) + w * sqrt(ln N(s) / N(s, a)) ]
 ```
 
-The formula's terms:
+> ⚠️ **The original RAP / LATS papers use plain UCT, not PUCT** — UCT only has the visit-count confidence-bound term, with no AlphaZero-style learned prior $P(s,a)$. This tutorial's §6.7 implementation, to illustrate a common engineering pattern, additionally introduces $\text{softmax}(\text{LLM\_logp})$ as a prior and writes the selection formula as the **PUCT** form below — that's this tutorial's own engineering choice, not the unified formula from the RAP/LATS papers:
 
 $$\boxed{\;a^* = \arg\max_a \left[ Q(s, a) + c_\text{puct} \cdot P(s, a) \cdot \frac{\sqrt{N(s)}}{1 + N(s, a)} \right]\;}$$
 
 - $Q(s, a)$: mean rollout reward from $(s, a)$
-- $P(s, a)$: prior probability (action probability given by the LLM)
+- $P(s, a)$: prior probability (in this tutorial's implementation, the action probability given by the LLM; the original UCT has no such term)
 - $N(s)$: visit count of state $s$
 - $N(s, a)$: visit count of edge $(s, a)$
 - $c_\text{puct}$: exploration constant (typically 1.0-3.0)
@@ -663,7 +669,7 @@ Offline:
 Inference: directly use the fine-tuned LLM (no MCTS), with much higher speed
 ```
 
-**Result**: WebShop success rate goes from 28% → 51%, while inference speed is 10× faster than in-loop MCTS.
+**Result**: in the paper, 28% → 51% success rate is the **policy-only** result after offline DPO fine-tuning, with no MCTS used at inference — inference speed is 10× faster than in-loop MCTS. If online MCTS/search is layered back on at inference time, the paper reports a final success rate of about **95.4%**, near/above the human average — that's Agent-Q's real flagship number; 51% is only the intermediate policy-only result without inference-time search.
 
 ### 6.7 LATS-style tree search implementation (~60 lines core)
 
@@ -754,15 +760,15 @@ def lats_search(initial_state, llm_propose, llm_propose_one, llm_value, env_step
 
 | Benchmark | Paper | Task type | Steps | 2026-05 SOTA |
 |---|---|---|---|---|
-| **AgentBench** | Liu et al., ICLR 2024, arXiv 2308.03688 | 8 envs (OS, DB, WebShop, HouseHold...) | 10-50 | GPT-4 ≈ 4.0/10 overall |
+| **AgentBench** | Liu et al., ICLR 2024, arXiv 2308.03688 | 8 envs (OS, DB, WebShop, HouseHold...) | 10-50 | GPT-4 overall score ≈ 4.01 (weighted aggregate across 8 environments, not a direct percentage on a 10-point scale) |
 | **τ-bench (TAU-bench)** | Yao et al., 2024, arXiv 2406.12045 | customer service multi-turn (retail, airline) | 20-50 | Claude 3.5 Sonnet ≈ 45-55% (retail) |
 | **OSWorld** | Xie et al., NeurIPS 2024, arXiv 2404.07972 | real OS GUI (Linux/macOS/Win, ≈ 369 tasks) | 5-100 | Anthropic Claude (2026-05) ≈ 60% (subset) |
-| **WebArena** | Zhou et al., ICLR 2024, arXiv 2307.13854 | self-hosted web (Reddit-clone, Gitea, etc.) | 5-30 | GPT-4 ≈ 14.4% (2024); top in 2026 ~ 50% |
+| **WebArena** | Zhou et al., ICLR 2024, arXiv 2307.13854 | self-hosted web (Reddit-clone, self-hosted GitLab, etc.) | 5-30 | GPT-4 ≈ 14.4% (2024); top in 2026 ~ 50% |
 | **VisualWebArena** | Koh et al., ACL 2024, arXiv 2401.13649 | WebArena + visual understanding | 10-30 | GPT-4V ≈ 16.4% |
-| **SWE-bench / Verified** | Jimenez et al., ICLR 2024, arXiv 2310.06770 | 2294 real GitHub issues (Python repos) | multi-file multi-commit | Claude 4.6 Sonnet (2026-05) ~ 75% (Verified) |
+| **SWE-bench / Verified** | Jimenez et al., ICLR 2024, arXiv 2310.06770 | 2294 real GitHub issues, full set (Python repos); Verified is a human-reviewed 500-issue subset of it | multi-file multi-commit | Claude 4.6 Sonnet (2026-05) ~ 75% (on the 500-issue Verified subset) |
 | **MLE-bench** | Chan et al., 2024 (OpenAI), arXiv 2410.07095 | 75 Kaggle ML competition tasks | 24h compute budget | o1-preview + AIDE ≈ 16.9% medals |
 | **SWE-Lancer** | OpenAI, 2025, arXiv 2502.12115 | 1488 real Upwork freelance tasks ($1M+ payout) | hours-days | GPT-4o ≈ 8% (managerial), 26% (IC) |
-| **Adventure / TextWorld** | Yuan et al., AAAI 2019, arXiv 1806.11532 | text adventure game | 50-500 | RL-trained baseline + LLM > 80% on Coin Collector |
+| **Adventure / TextWorld** | Côté et al., 2018 (workshop paper), arXiv 1806.11532 | text adventure game | 50-500 | RL-trained baseline + LLM > 80% on Coin Collector |
 
 ### 7.2 Benchmark selection decision table
 
@@ -1155,13 +1161,14 @@ The inception prompt = a **strongly constrained system prompt** ("you can only i
 
 <summary>Q3. How many selector strategies does AutoGen's GroupChat have? Which does production use?</summary>
 
-Three:
+AutoGen GroupChat's built-in `speaker_selection_method` supports four values, or a custom Callable:
 
 1. **round_robin**: take turns in order — simple but weak agents drag the chat
 2. **random**: pick at random — lacks control
-3. **llm_selector**: a manager LLM looks at the history and picks the next speaker — production default, but adds one LLM call per round
+3. **manual**: a human picks the next speaker
+4. **auto** (default): a manager LLM looks at the history and picks the next speaker — production default, but adds one LLM call per round
 
-In real products (e.g. Microsoft's own offerings) it is almost always llm_selector, **because round_robin tends toward chaos for N > 3**.
+In real products (e.g. Microsoft's own offerings) it is almost always auto, **because round_robin tends toward chaos for N > 3**. (Note: the official value name for LLM-based selection is `auto`, not `llm_selector`.)
 
 </details>
 
@@ -1181,7 +1188,7 @@ Engineer → code (.py files)
 QA → test cases
 ```
 
-Each role **only receives the structured output of the previous node** (no free-form chat), forcing inspectability.
+Roles publish/subscribe structured output through a shared message pool (no free-form chat, and not a strict single-predecessor chain — e.g. Engineer can subscribe to both the PRD and the tech design at once), forcing inspectability.
 
 → **Structured vs unstructured is the biggest dividing line in multi-agent engineering**.
 
@@ -1278,7 +1285,7 @@ Final: majority vote
 - **LATS** (Zhou 2024, ICML) = RAP + Reflexion (natural-language reflection) + value estimation
 - **Agent-Q** (Putta 2024, arXiv 2408.07199) = MCTS at training-time + DPO-trained policy → no MCTS at inference (10× speed)
 
-**Common ground**: all use the **PUCT formula** $a^* = \arg\max_a [Q + c P \sqrt{N} / (1 + N_a)]$ to balance exploit / explore.
+**Common ground and differences**: ToT has no tree-search confidence-bound formula, just LLM scoring + BFS/DFS; RAP and LATS' original papers use plain **UCT** (UCB1 for Trees: $Q + w\sqrt{\ln N / N_a}$, with no learned prior $P$); this tutorial's §6.7 implementation additionally introduces an LLM prior $P$, writing it as the **PUCT formula** $a^* = \arg\max_a [Q + c P \sqrt{N} / (1 + N_a)]$ to balance exploit / explore — that's this tutorial's own engineering choice, not a formula unified across all four papers.
 
 **Evolution logic**: ToT starts → MCTS makes search explicit → add reflection → train and skip search.
 
@@ -1331,7 +1338,7 @@ If there exists a metric $d$ such that $d(T(x), T(y)) \le \beta \cdot d(x, y)$ (
 1. **Source of diversity**: SC relies on sampling temperature; MoA relies on **model heterogeneity** — the latter is stronger (different model biases ⇒ independent errors)
 2. **Aggregation**: SC is hard voting (discards reasoning traces); MoA is LLM-as-aggregator (keeps trace information for latent synthesis)
 
-But MoA's strength may partly come from **a big aggregator** (Qwen2-72B) — if the aggregator is small, the gap shrinks.
+But MoA's strength may partly come from **a big aggregator** (the aggregator in the 65.1%-scoring configuration is Qwen1.5-110B-Chat) — if the aggregator is small, the gap shrinks.
 
 **Interview bonus**: MoA is essentially "self-consistency upgraded by replacing majority vote with LLM-as-aggregator + model heterogeneity" — the product of two upgrades.
 
@@ -1411,7 +1418,7 @@ Stage 2 (online):
   global query: map-reduce over community summaries
 ```
 
-**Cost-effectiveness**: ~ +20pp on multi-hop QA; no gain on single-hop factoids but cost is high.
+**Cost-effectiveness**: GraphRAG's original paper measures global sensemaking (podcast/news datasets, LLM-judge pairwise win-rate) and does not report an accuracy gain figure on multi-hop QA; no gain on single-hop factoids but cost is high.
 
 </details>
 
@@ -1433,7 +1440,7 @@ $$a^* = \arg\max_a \left[ Q(s, a) + c_\text{puct} \cdot P(s, a) \cdot \frac{\sqr
 - Clean reward + high branching factor → moderate $c_\text{puct}$
 - High-quality prior (LLM proposals are accurate) → smaller $c_\text{puct}$ (trust the prior)
 
-AlphaZero uses 1.25-3.0; LATS/RAP implementations often use 1.0-2.0.
+AlphaZero uses 1.25-3.0; this tutorial's style of (LLM-prior-augmented) implementation often uses 1.0-2.0. Note that the original RAP/LATS papers themselves use plain UCT (no prior term $P$) — this discussion is about tuning the PUCT variant that this tutorial's §6.7 introduces by adding an LLM prior.
 
 </details>
 
@@ -1538,7 +1545,7 @@ Joint operator $T : \mathcal{A}^N \to \mathcal{A}^N, \; (T(x))_i = T_i(x)$.
 
 $$x_i^{(k+1)} = \sum_{j} A_{ij}\, x_j^{(k)},\quad A \in \mathbb{R}^{N \times N}\text{ doubly-stochastic}$$
 
-By Perron-Frobenius, $\lim_{k \to \infty} A^k = \mathbf{1} \pi^\top$ ($\pi$ is the stationary distribution), so $x_i^{(k)} \to \pi^\top x^{(0)}$, i.e. **all agents agree on the stationary mean**. The fixed-point set is $\{c \mathbf{1} : c \in \mathbb{R}\}$ (a consensus line parameterized by $c$); different starts give different $c$ — so it is not a Banach unique fixed point.
+If $A$ is additionally irreducible and aperiodic, then by Perron-Frobenius, $\lim_{k \to \infty} A^k = \mathbf{1} \pi^\top$ ($\pi$ is the stationary distribution), so $x_i^{(k)} \to \pi^\top x^{(0)}$, i.e. **all agents agree on the stationary mean**. The fixed-point set is $\{c \mathbf{1} : c \in \mathbb{R}\}$ (a consensus line parameterized by $c$); different starts give different $c$ — so it is not a Banach unique fixed point. (If $A$ is reducible or periodic, e.g. a cyclic permutation matrix, $A^k$ does not converge and may oscillate forever.)
 
 **Nonlinear case (softmax-over-peers)**:
 
@@ -1554,11 +1561,11 @@ Adding a **judge**:
 
 $$x^{(k+1)} = J(x_\text{aff}^{(k)}, x_\text{neg}^{(k)})$$
 
-$J$ is an **external contractive operator** (not based on internal affirmative/negative updates, but on an independent judge LLM), mapping the whole iteration into a new contractive system. **The judge introduces artificial contraction** — this is the essence of Liang 2024 adding the judge: design-injected external signal that yields $\beta < 1$.
+$J$ (the judge LLM) intuitively acts as **external correction** — it is not based on internal affirmative/negative updates but on an independent judge decision, breaking the deadlock between the two groups. But $J$ has no closed form and no proof of a Lipschitz constant < 1, so it **cannot be rigorously claimed to be a contractive operator**; "the judge introduces artificial contraction" is only an intuitive analogy, not a proven property.
 
 **Empirical calibration**:
 
-Du 2023 experiments on GSM8K-class reasoning tasks observed: N=1 baseline → N=3 R=2-3 already yields large gains (+5-10pp), while N=5 gives only a marginal lift over N=3. This is consistent with $\beta \approx 0.5$, yielding a geometric rate $\beta^3 \approx 0.125$ (i.e. saturation at ~ 12.5% residual disagreement). Liang 2024's affirmative/negative + judge design gives a comparable +5-8pp on translation / counter-intuitive reasoning.
+Du 2023 experiments on GSM8K-class reasoning tasks observed: N=1 baseline → N=3 R=2-3 already yields large gains (+5-10pp), while N=5 gives only a marginal lift over N=3. This saturation pattern is intuitively similar to geometric decay, but $\beta$ is not a contraction coefficient derived from theory — it is only a heuristic analogy and does not constitute a proof that backs out $\beta$: retrofitting the sharp N=3→N=5 marginal-gain drop to "match" some $\beta \approx 0.5$ is post-hoc numerology, not a real derivation. Liang 2024's affirmative/negative + judge design gives a comparable +5-8pp on translation / counter-intuitive reasoning.
 
 </details>
 
@@ -1687,11 +1694,12 @@ Fine-tunes the base LLM directly.
 | Base LLM | 28% | 1× |
 | ReAct | 38% | 1× |
 | In-loop MCTS | 48% | ~100× |
-| Agent-Q (DPO from MCTS) | **51%** | 1× |
+| Agent-Q (DPO from MCTS, policy-only, no MCTS at inference) | **51%** | 1× |
+| Agent-Q + online MCTS/search layered back on at inference | **~95.4%** | close to in-loop MCTS |
 
-→ **MCTS at training, fast policy at inference** is a key design pattern in 2024-2026 — analogous to AlphaGo Zero's self-play + DPO-style distillation.
+→ 51% is the policy-only result without inference-time search; the paper's real flagship number is ~95.4% once inference-time search is layered back on (near/above the human average). **MCTS at training, fast policy at inference (optionally layering search back on for the top score)** is a key design pattern in 2024-2026 — analogous to AlphaGo Zero's self-play + DPO-style distillation.
 
-**Interview bonus**: this pattern also appears in **DeepSeek-R1 distill** (R1-Zero MCTS-like search produces data → distill to small models) and **rStar-Math** (Microsoft 2025 MCTS + PPM self-evolution); the shared theme is **inference-time search is a data-production tool, not a deployment target**.
+**Interview bonus**: this pattern (MCTS produces data, fast policy is deployed) also appears in **rStar-Math** (Microsoft 2025 MCTS + PPM self-evolution) — the shared theme is **inference-time search is a data-production tool, not a deployment target**. But note the distinction: **DeepSeek-R1-Zero** takes a different route — it trains with pure RL via **GRPO** (Group Relative Policy Optimization) directly on the base model to produce long chain-of-thought, and the paper explicitly does **not** use MCTS, so it does not belong to this MCTS-distill pattern — a common point of confusion.
 
 </details>
 
@@ -1757,14 +1765,14 @@ In reverse chronological order (as of 2026-05):
 | 2025-03 | OpenAI Agents SDK | (no arXiv) | handoff / guardrails / tracing abstractions |
 | 2025-01 | OpenAI Operator | (no arXiv) | CUA-trained vision-language agent for the web |
 | 2024-10 | Claude Computer Use | (no arXiv) | desktop GUI agent, OSWorld ~ 14.9% (2024) |
-| 2024-08 | Agent-Q | 2408.07199 | MCTS + DPO, WebShop 28% → 51% |
+| 2024-08 | Agent-Q | 2408.07199 | MCTS + DPO, policy-only 28% → 51%; reaches ~95.4% with inference-time search |
 | 2024-06 | MoA (Mixture of Agents) | 2406.04692 | N proposers + aggregator beats GPT-4 Omni |
 | 2024-06 | TAU-bench | 2406.12045 | customer service multi-turn agent benchmark |
 | 2024-05 | SWE-Agent | 2405.15793 | ACI for SWE-bench Lite 18.0% |
 | 2024-04 | OSWorld | 2404.07972 | real OS GUI, 369 tasks |
 | 2024-04 | GraphRAG | 2404.16130 | LLM-extracted KG + community for global QA |
 | 2024-01 | VisualWebArena | 2401.13649 | vision + web tasks |
-| 2023-12 | Math-Shepherd | 2312.08935 | MCTS rollout automatically labels PRM |
+| 2023-12 | Math-Shepherd | 2312.08935 | auto-labels PRM via multiple Monte Carlo completion samples per step (not tree search) |
 | 2023-10 | LATS | 2310.04406 | MCTS + Reflexion + value |
 | 2023-10 | SWE-bench | 2310.06770 | 2294 real GitHub Python bugs |
 | 2023-10 | MemGPT | 2310.08560 | OS-style virtual memory for LLMs |

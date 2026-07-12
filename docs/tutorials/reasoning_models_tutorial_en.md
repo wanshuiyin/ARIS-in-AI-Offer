@@ -2,7 +2,7 @@
 
 > 💡 **Reasoning models in 8 sentences** — The biggest paradigm shift in LLMs from 2024-2026; one page covering interview essentials.
 
-1. **Paradigm shift**: previously we scaled **training compute** (parameters + data); now we scale **inference compute** (reasoning tokens / search / verification). Snell et al. 2024 (arXiv 2408.03314) gave the **compute-optimal test-time scaling** recipe: under the same inference FLOPs, a hybrid strategy of best-of-N + PRM beam search + sequential revision is **>4×** more efficient than pure best-of-N; under FLOPs-matched settings, small model + optimized test-time compute can match or exceed a **14×** larger model on certain tasks.
+1. **Paradigm shift**: previously we scaled **training compute** (parameters + data); now we scale **inference compute** (reasoning tokens / search / verification). Snell et al. 2024 (arXiv 2408.03314) gave the **compute-optimal test-time scaling** recipe: under the same inference FLOPs, a hybrid strategy of best-of-N + PRM beam search + sequential revision is **>4×** more efficient than pure best-of-N; under FLOPs-matched settings, small model + optimized test-time compute can match or exceed a **14×** larger model on certain tasks (PaLM-2's per-tier parameter counts were never officially disclosed; "14×" is a comparison under the paper's FLOPs-matched inference-compute accounting, see §1.1).
 
 2. **o1 (OpenAI Sep 2024)**: uses RL to train hidden chain-of-thought; the API only returns a `reasoning_tokens` count, not content. **o3 (Dec 2024)** scored 75.7% (low compute) / 87.5% (high compute, 172× budget) on ARC-AGI—the first time abstract reasoning benchmarks approached human-level performance.
 
@@ -22,11 +22,11 @@
 
 ### 1.1　From train-time scaling to test-time scaling
 
-The 2020-2023 scaling laws (Kaplan, Hoffmann/Chinchilla): **performance ∝ log(params × data × FLOPs)**—but this is **training-time compute**. Once a model is trained, inference compute is fixed (one forward pass).
+The 2020-2023 scaling laws: Kaplan et al. 2020 gave three independent power laws — $L(N) \propto N^{-\alpha_N}$, $L(D) \propto D^{-\alpha_D}$, $L(C) \propto C^{-\alpha_C}$ (loss falling with parameter count, data size, and compute respectively), not a single joint log formula; Hoffmann et al. 2022 (Chinchilla) further gave the compute-optimal ratio between parameter count $N$ and training tokens $D$ under a fixed compute budget (about 20 tokens/parameter). But these are all scaling laws for **training-time compute**—once a model is trained, inference compute is fixed (one forward pass).
 
 Two anomalies appeared in 2024:
 - **OpenAI o1**: spending more inference tokens to think → performance keeps improving, **showing log-linear scaling** (OpenAI's public figure: accuracy vs reasoning compute is a straight line)
-- **Snell et al. 2024**: under fixed inference/test-time compute budget, using compute-optimal scaling (best-of-N + PRM beam search + sequential revision hybrid) lets small models in FLOPs-matched settings **match or even exceed 14× larger models**—provided the base model already has non-trivial success rate on the task
+- **Snell et al. 2024**: under fixed inference/test-time compute budget, using compute-optimal scaling (best-of-N + PRM beam search + sequential revision hybrid) lets small models in FLOPs-matched settings **match or even exceed 14× larger models**—provided the base model already has non-trivial success rate on the task. Note: PaLM-2's per-tier parameter counts were never officially disclosed by Google (the PaLM-2 technical report explicitly states it withholds model scale), so "14×" is a model-scale comparison under the paper's FLOPs-matched inference-compute accounting, not a precise ratio of officially confirmed parameter counts
 
 > 💡 **Paradigm mental model** — treat reasoning as **search over reasoning paths**:
 
@@ -146,9 +146,11 @@ These backtracking / reflection tokens are rare in base models; only via **repea
 | --- | --- | --- |
 | Supervision granularity | one reward per whole trace | one reward per step |
 | Label source | answer correct → +1, wrong → 0 | human-labeled (PRM800K) or MC completion rollout estimated (Math-Shepherd) |
-| Training objective | $\max \mathbb{E}[r(\text{trace})]$ | $\max \sum_t \mathbb{E}[r_t(\text{step}_t)]$ |
+| Training objective | binary cross-entropy $\mathcal{L}_\text{ORM} = -\log p_\phi(y{=}\text{correct}\mid\text{trace})$ | per-step classification/regression loss $\mathcal{L}_\text{PRM} = -\sum_t \log p_\phi(\ell_t \mid s_{\leq t})$ (see §3.2) |
 | Advantages | cheap to label (only ground-truth answer needed) | dense signal; can localize wrong steps |
 | Disadvantages | sparse reward, hard credit assignment | expensive labeling; step boundary hard to define |
+
+> ⚠️ **Don't confuse the reward model's training objective with the RL policy's objective** — the "training objective" row above describes how the reward model itself is trained (supervised learning: classification/regression loss); an expected-reward maximization such as $\max \mathbb{E}[r(\text{trace})]$ is the **downstream RL policy's** optimization target, not the ORM/PRM's own training loss.
 
 ### 3.2　PRM800K (Lightman et al. 2023, arXiv 2305.20050)
 
@@ -166,7 +168,7 @@ $$\text{score}(\text{trace}) = \prod_{t} p_\phi(\ell_t = +\mid s_{\leq t}) \quad
 
 (The product form is more standard; the min form is more pessimistic but catches the weakest step.)
 
-> ✅ **Key finding** — Lightman 2023 reported: using PRM800K as verifier in best-of-1024, achieves 78% on MATH test (vs 72% ORM, 70% majority vote). **PRM > ORM > self-consistency**, but at the cost of 800K human annotations.
+> ✅ **Key finding** — Lightman 2023 reported: using PRM800K to re-rank N=1860 sampled solutions, PRM reaches 78.2% on MATH test (vs 72.4% ORM, 69.6% majority vote). **PRM > ORM > self-consistency**, but at the cost of 800K human annotations.
 
 ### 3.3　Math-Shepherd (Wang et al. 2023, arXiv 2312.08935) — auto-labeling step labels
 
@@ -183,7 +185,7 @@ Intuition: if a step is good, walking down from it should easily yield a correct
 
 Train PRM with Math-Shepherd labels: MSE regression or BCE classification. Mistral-7B on GSM8K: 77.9% → 84.1%, no human labels needed.
 
-> 💡 **Implicit assumption of MCTS-labels** — the base model must have non-trivial success rate on the task (otherwise all rollouts fail and all labels are 0). So PRM training requires the base model to solve at least some problems—this is a bootstrap problem.
+> 💡 **Implicit assumption of MC rollout labels** — the base model must have non-trivial success rate on the task (otherwise all rollouts fail and all labels are 0). So PRM training requires the base model to solve at least some problems—this is a bootstrap problem.
 
 ### 3.4　Generative PRM and Critic LM
 
@@ -334,7 +336,7 @@ $$\boxed{\;A_i = \frac{r_i - \text{mean}(\mathbf{r})}{\text{std}(\mathbf{r}) + \
 
 - **Same prompt, same source**: $G$ completions share prompt difficulty; differences come entirely from policy output; mean automatically subtracts prompt-specific baseline, equivalent to a control variate
 - **No value network needed**: directly saves half memory + saves a model's worth of compute; the critic on long-CoT is hard to learn anyway (sparse reward + long episodes)
-- **Stability comes from group size $G$**: larger $G$ → lower advantage estimation variance; DeepSeek-R1 uses $G \approx 16$
+- **Stability comes from group size $G$**: larger $G$ → lower advantage estimation variance; community reproductions/estimates put DeepSeek-R1 at $G \approx 16$ (the R1 paper's main text does not enumerate a complete RL training hyperparameter table, unlike the DeepSeekMath paper's detailed hyperparameter appendix)
 
 ### 5.3　GRPO advantage computation code
 
@@ -391,8 +393,16 @@ def grpo_loss(
     kl = torch.exp(log_diff) - log_diff - 1.0              # [G, T], ≥ 0
     loss = pg_loss + kl_beta * kl                          # [G, T]
 
-    # Masked mean over valid tokens
-    return (loss * mask).sum() / mask.sum().clamp_min(1.0)
+    # Normalize by each completion's own length first, then average across the
+    # G completions with equal weight (DeepSeekMath's original form:
+    # (1/G) Σ_i (1/|o_i|) Σ_t [...]).
+    # A raw (loss*mask).sum()/mask.sum() is equivalent to a length-weighted
+    # average across completions — longer completions get more total weight
+    # because they contribute more valid tokens. This is exactly the length
+    # bias that the DAPO / Dr.GRPO papers later criticized in GRPO.
+    per_completion_len = mask.sum(dim=-1).clamp_min(1.0)             # [G]
+    per_completion_loss = (loss * mask).sum(dim=-1) / per_completion_len  # [G]
+    return per_completion_loss.mean()                                 # equal weight per completion
 ```
 
 > ⚠️ **Common bugs** — Several pitfalls in GRPO implementation:
@@ -404,7 +414,7 @@ def grpo_loss(
 
 ### 5.4　Why GRPO is sample efficient (L3 frequently-asked)
 
-Observation: R1 paper's publicly disclosed ~800K samples (≈ 600k reasoning + 200k non-reasoning) is the **Stage 3 rejection sampling + SFT data**, not RL prompt count; R1 Stage 2 reasoning RL prompt count is not strictly disclosed, but overall training compute (~147K H800-hours) is still significantly less than contemporary RLHF (InstructGPT used millions of human preference pairs); GRPO is the core algorithmic contribution.
+Observation: R1 paper's publicly disclosed ~800K samples (≈ 600k reasoning + 200k non-reasoning) is the **Stage 3 rejection sampling + SFT data**, not RL prompt count; neither R1 Stage 2 reasoning RL's prompt count nor the RL stage's compute cost (see below) is strictly disclosed by the paper — GRPO's critic-free design + data refinement + rule reward is the more reliable core algorithmic contribution here.
 
 **Root causes** (beyond just "saving the critic"):
 1. **Trace-level reward naturally aligns with trace-level credit**: GRPO directly broadcasts trace reward as advantage to all tokens; no critic needed for per-token credit assignment. Under settings where reward only sees the final answer, this is the standard policy-gradient estimate of sequence-level Monte-Carlo return (not "optimal", but trace-level is more stable than the critic's noisy per-token V on long-CoT)
@@ -412,7 +422,7 @@ Observation: R1 paper's publicly disclosed ~800K samples (≈ 600k reasoning + 2
 3. **PPO clipping limits single-step update magnitude**: together with $G$, ensures the policy doesn't blow up due to a single prompt's outlier reward
 4. **Rule-based reward is hard to be RM-hacked**: r1 uses rule reward (answer regex matching + format `<think></think>`), no learned RM to over-optimize; advantage primarily reflects "did you answer correctly". Note rule rewards are not completely unhackable—policy can still exploit regex loopholes, format tricks, or test-set leakage—but they avoid the main failure mode of learned-RM drifting off the training distribution
 
-R1 training GPU hours ≈ 147K H800-hours (DeepSeek public number)—two orders of magnitude smaller than GPT-4 training; the result of GRPO + data refinement + rule reward acting together.
+DeepSeek's officially disclosed compute number is the **DeepSeek-V3 pretraining cost** (about 2.788M H800-hours, from the DeepSeek-V3 technical report); the GPU-hours for R1's additional RL stage have not been officially disclosed by DeepSeek ("~147K H800-hours" should be flagged as an unofficial estimate, not confirmed), so "two orders of magnitude smaller than GPT-4 training" lacks a pair of officially comparable numbers and should not be stated as a firm conclusion. R1's efficiency advantage is more reliably attributed to GRPO's critic-free design + data refinement + rule reward.
 
 ## §6 Complete DeepSeek-R1-Zero / R1 Pipeline
 
@@ -424,7 +434,7 @@ R1 training GPU hours ≈ 147K H800-hours (DeepSeek public number)—two orders 
 - Reward = `accuracy_reward + format_reward` (rule-based, no RM)
   - `accuracy_reward`: whether the answer can be auto-extracted + matches ground truth
   - `format_reward`: whether reasoning is wrapped in `<think>...</think>`
-- Algorithm: GRPO, $G = 16$, KL $\beta = 0.001$
+- Algorithm: GRPO, $G = 16$, KL $\beta = 0.001$ (community reproduction/estimate — the R1 paper's main text does not enumerate a complete RL training hyperparameter table, unlike the DeepSeekMath paper's detailed hyperparameter appendix)
 - Data: math (MATH, AIME, etc.) + code (LeetCode-like executable evaluation)
 
 **Emergent behaviors** ("aha moment", DeepSeek-R1 paper Fig 3):
@@ -442,7 +452,7 @@ R1 training GPU hours ≈ 147K H800-hours (DeepSeek public number)—two orders 
 | --- | --- | --- | --- |
 | **Stage 1: Cold-start SFT** | DeepSeek-V3-Base | Thousands of curated long-CoT (partly from R1-Zero output + human readability corrections) | Have the model learn "human-readable reasoning format" |
 | **Stage 2: Reasoning-oriented RL** | Stage 1 model | GRPO + rule-based reward + language consistency reward (penalize Chinese-English mixing) | Improve reasoning ability |
-| **Stage 3: Rejection sampling + SFT** | Stage 2 model | Use Stage 2 model to mass-sample → filter by PRM/rules → 600K reasoning + 200K general data, re-do SFT | Extend to non-math/code domains; preserve general ability |
+| **Stage 3: Rejection sampling + SFT** | Stage 2 model | Use Stage 2 model to mass-sample → filter with rule/answer verification (math, code, and other verifiable tasks) + DeepSeek-V3 generative judging (no PRM involved) → 600K reasoning + 200K general data, re-do SFT | Extend to non-math/code domains; preserve general ability |
 | **Stage 4: All-scenario RL** | Stage 3 model | GRPO + (rule reward for math/code) + (RM for helpfulness/harmlessness) | All-scenario alignment |
 
 **Core insights**:
@@ -452,7 +462,7 @@ R1 training GPU hours ≈ 147K H800-hours (DeepSeek public number)—two orders 
 
 ### 6.3　R1-Distill: distilling R1 into smaller models
 
-DeepSeek used Stage 3 data (600K reasoning samples) to do **pure SFT** (no RL) on Qwen2.5-{1.5B, 7B, 14B, 32B} and Llama3-{8B, 70B}, producing the R1-Distill series.
+DeepSeek used the full ~800K Stage 3 dataset (600K reasoning + 200K general) to do **pure SFT** (no RL) on Qwen2.5-{1.5B, 7B, 14B, 32B} and Llama3-{8B, 70B}, producing the R1-Distill series.
 
 **Key findings** (paper Table 5):
 - DeepSeek-R1-Distill-Qwen-32B on AIME 2024: 72.6 vs o1-mini's 63.6—**SFT-distilled small model surpasses o1-mini**
@@ -477,9 +487,9 @@ Experimental setup:
 - **Compute-optimal**: dynamically select strategy per prompt based on difficulty (easy → greedy; hard → beam search + PRM)
 
 Core finding:
-- **Under fixed budget, optimal test-time scaling > 14× model scaling** (on certain MATH subsets)
+- **Under fixed budget, optimal test-time scaling > 14× model scaling** (on certain MATH subsets; PaLM-2's parameter counts were never officially disclosed, so "14×" is a model-scale comparison under FLOPs-matched accounting, see §1.1)
 - **Easy problems**: majority vote / BoN 4-8 is enough
-- **Hard problems**: PRM-guided sequential revision + beam search gives the biggest gains
+- **Hard problems**: parallel sampling (diverse independent sampling of multiple distinct approaches) + PRM/verifier selection gives the biggest gains
 
 > ✅ **Compute-optimal scaling formula** —
 
@@ -495,7 +505,7 @@ The simplest reasoning model: **1000-sample SFT + budget forcing inference contr
 - Filtered by three criteria: difficulty, diversity, quality
 - Each sample: question + reasoning trace (generated by Gemini Thinking) + answer
 
-**Training**: 26 minutes of SFT on Qwen2.5-32B-Instruct (16×H100, 1 epoch)—possibly the cheapest reasoning model in history.
+**Training**: 26 minutes of SFT on Qwen2.5-32B-Instruct (16×H100, 5 epochs)—possibly the cheapest reasoning model in history.
 
 **Inference trick: budget forcing**
 
@@ -531,7 +541,7 @@ Result: on AIME 2024, s1-32B (with budget forcing) = 56.7%, **exceeds o1-preview
 | Plateau | Early saturation (N=8-16) | Continued scaling (10K-100K tokens) |
 | Best for | Shallow reasoning (GSM8K, commonsense) | Deep reasoning (AIME, Codeforces) |
 
-Snell 2024 reports: **parallel is more cost-effective for easy problems; sequential significantly better for hard problems**.
+Snell 2024 reports: **sequential revision is more cost-effective for easy problems (no need to explore multiple approaches); parallel sampling + verifier is significantly better for hard problems** (revision easily gets stuck in a bad initial approach and can't escape). The compute-optimal strategy should adaptively adjust the sequential:parallel ratio by difficulty—the harder the problem, the higher the parallel share should be.
 
 ## §8 MCTS for Reasoning: rStar Series
 
@@ -693,7 +703,7 @@ def prm_beam_search(
     return max(beams, key=lambda x: x[0])[1] if beams else prompt
 ```
 
-> 💡 **Beam search vs MCTS** — Beam search is **deterministic + breadth-bounded** (fixed b per level), no backtracking; MCTS is **stochastic + adaptive** (visit count determines depth), with backtracking. The former is 5-10× faster; the latter has higher quality on deeper search trees. Snell 2024 recommends: medium difficulty → PRM beam search; very hard → MCTS.
+> 💡 **Beam search vs MCTS** — Beam search is **deterministic + breadth-bounded** (fixed b per level), no backtracking; MCTS is **stochastic + adaptive** (visit count determines depth), with backtracking. The former is 5-10× faster; the latter has higher quality on deeper search trees. Within Snell 2024's own scope, the recommendation only goes as far as PRM beam search (medium-to-hard difficulty); MCTS is not a strategy Snell 2024 evaluated or recommended—its application to reasoning should be credited to later work such as rStar / rStar-Math (see §8 of this document).
 
 ## §9 Full Landscape of Reasoning Models
 
@@ -811,7 +821,7 @@ Only say ToT is "multiple CoTs"—its core is the explicit evaluator + backtrack
 
 - Math-Shepherd (Wang et al. 2023, arXiv 2312.08935) samples **Monte Carlo completion rollouts** from intermediate steps (not MCTS tree search), uses soft/hard estimation from "how many rollouts ended correct" to auto-label PRM step labels
 
-- Lightman 2023: on best-of-1024, PRM 78% > ORM 72% > majority vote 70%
+- Lightman 2023: on N=1860 re-ranking, PRM 78.2% > ORM 72.4% > majority vote 69.6%
 
 Treat PRM as "training reward"—it's mainly for inference-time verify, not necessarily for RL
 
@@ -897,7 +907,7 @@ Treat "aha moment" as mystical—it's a predictable emergence from reward shapin
 
 - Direct RL on small model hardly causes emergence (base too weak, rollouts almost all wrong, reward signal too sparse)
 
-- Use 600K reasoning traces generated by R1 for SFT, equivalent to demonstration learning
+- Use the full ~800K dataset (600K reasoning + 200K general) generated by R1 for SFT, equivalent to demonstration learning
 
 - Paper reports: 32B SFT-distill 72.6 on AIME vs direct Qwen-32B RL's 47.0
 
@@ -913,7 +923,7 @@ Assume RL is always better than SFT—prerequisite is that base is strong enough
 
 - Under fixed inference compute budget, let 1B model sample more + verify
 
-- On certain MATH subsets, can exceed greedy performance of a 14× larger model
+- On certain MATH subsets, can exceed greedy performance of a 14× larger model (PaLM-2's parameter counts were never officially disclosed; "14×" is a FLOPs-matched inference-compute comparison, not a precise parameter-count ratio)
 
 - Prerequisite: base model has non-trivial pass@1 (>30%) on the task
 
@@ -1054,11 +1064,11 @@ Misremember $\sqrt{N}$ as child visits (wrong)
 
 - **Key assumption**: base model has non-trivial success rate on the task (otherwise all rollouts wrong, $\hat{q}_t$ all 0)
 
-- Bootstrap problem: weak base → can't use MCTS-label; strong base → no need for PRM
+- Bootstrap problem: weak base → can't use MC rollout labels; strong base → no need for PRM
 
 - In practice: use medium-strength base (Mistral-7B post-SFT) as rollout source
 
-Assume MCTS-label is free—it requires base to already have partial capability
+Assume MC rollout labels are free—they require base to already have partial capability
 
 </details>
 
@@ -1110,9 +1120,9 @@ Recommend o1 without looking at task—mismatch is expensive and underperforms
 
 - Small $\beta$: policy freely explores, but may collapse (generating garbage)
 
-- DeepSeek-R1 uses $\beta = 0.001$ (very small, encourages exploration); standard RLHF uses 0.01-0.1
+- DeepSeek-R1 uses $\beta = 0.001$ (very small, encourages exploration; community reproduction/estimate — the R1 paper's main text does not enumerate a complete RL hyperparameter table); standard RLHF uses 0.01-0.1
 
-- For long-CoT, KL accumulates token-level; total is large, so $\beta$ must be much smaller than for short CoT
+- For long-CoT, KL (k3 estimate) is a per-token quantity; with the correct "normalize per completion, then average across G" reduction, the total loss does not scale up mechanically with CoT length — but the per-token KL estimate's noise/variance does accumulate over longer trajectories, so $\beta$ is still often set smaller on long-CoT than on short CoT (this depends on whether the reduction is a sum or a mean, not on "total magnitude scaling linearly")
 
 Copy-paste RLHF's $\beta$ to long-CoT—will over-suppress exploration
 
@@ -1195,9 +1205,12 @@ Only say "s1 is simple and impressive"—miss the reasoning = activation observa
   - Advantages: single KV cache (memory friendly); information passes continuously within trace (later steps see all earlier reasoning)
   - Disadvantages: early errors propagate to the end (no backtrack); hard tasks need very long traces (10K-100K tokens)
 
-- **Parallel (BoN, ToT, MCTS)**: multiple independent traces, external aggregator/verifier selects
-  - Advantages: parallelizable → low latency; each trace independent, errors don't propagate
-  - Disadvantages: no information exchange between traces; verifier must be accurate or aggregation fails
+- **Parallel (BoN, ToT, MCTS)**: multiple traces selected by an external aggregator/verifier, but "whether traces are independent" differs by method
+  - Advantages: parallelizable → low latency
+  - **BoN**: fully independent sampling, no information exchange between traces, errors don't propagate
+  - **ToT**: shares the search tree's prefix; the LLM evaluator scores/prunes across branches, so branches do exchange information
+  - **MCTS**: explicitly shares cross-trace information via visit-count backup (see the PUCT formula in §8.1)
+  - Disadvantages: the verifier/evaluator must be accurate, or aggregation (or the backup) gets misled
 
 - **Selection**:
   - Strong sequential dependency in task (math competition, theorem proving) → long CoT (error info can be corrected by later reflection)
@@ -1263,10 +1276,10 @@ Reverse chronological:
 | 2024-12 | o3 (OpenAI) | (no arXiv) | ARC-AGI 75.7%-87.5%, first abstract reasoning approaching human |
 | 2024-12 | Gemini 2.0 Flash Thinking | (no arXiv) | Google's first reasoning model, thinking explicitly visible |
 | 2024-09 | o1 (OpenAI) | (no arXiv) | first commercial reasoning model, hidden CoT + RL |
-| 2024-08 | Snell et al. Test-Time Compute | 2408.03314 | optimized test-time compute > 14× model scaling |
+| 2024-08 | Snell et al. Test-Time Compute | 2408.03314 | optimized test-time compute rivals 14× model scaling (FLOPs-matched accounting) |
 | 2024-08 | rStar | 2408.06195 | MCTS + mutual reasoning, large improvement for small LMs |
 | 2024-02 | DeepSeekMath / GRPO | 2402.03300 | GRPO algorithm first proposed, removes critic |
-| 2023-12 | Math-Shepherd | 2312.08935 | MC completion rollouts auto-label PRM |
+| 2023-12 | Math-Shepherd | 2312.08935 | MC completion rollouts auto-label PRM (not MCTS tree search) |
 | 2023-05 | Tree of Thoughts | 2305.10601 | explicit tree search + LLM evaluator |
 | 2023-05 | Let's Verify Step by Step | 2305.20050 | PRM > ORM > majority vote; PRM800K dataset |
 | 2022-03 | Self-Consistency | 2203.11171 | sample N + majority vote, GSM8K +17.9% |

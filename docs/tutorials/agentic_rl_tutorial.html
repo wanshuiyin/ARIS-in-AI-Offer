@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/agentic_rl_tutorial.md">
-<meta name="aris:source-sha256" content="d3d476658bea0760566d2cc9d6eaf72ceaab67d8c81d3eeaa4442473092e8e6e">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="b1327e360f4efce1dafb46409307bc6288fb7113af185fbacc4893e2456cb9f9">
+<meta name="aris:generated-at" content="2026-07-12 04:23 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -569,7 +569,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#61-vpt-baker-et-al-2022-neurips-openai-arxiv-220611795">6.1　VPT (Baker et al. 2022 NeurIPS OpenAI, arXiv 2206.11795)</a></li>
 <li><a href="#62-agenttuning-zeng-et-al-2023-thu-arxiv-231012823">6.2　AgentTuning (Zeng et al. 2023 THU arXiv 2310.12823)</a></li>
 <li><a href="#63-agent-flan-chen-et-al-2024-acl-findings-arxiv-240312881">6.3　Agent-FLAN (Chen et al. 2024 ACL Findings, arXiv 2403.12881)</a></li>
-<li><a href="#64-reft-trung-et-al-2024-acl-arxiv-240108967">6.4　ReFT (Trung et al. 2024 ACL arXiv 2401.08967)</a></li>
+<li><a href="#64-reft-luong-et-al-2024-acl-arxiv-240108967">6.4　ReFT (Luong et al. 2024 ACL arXiv 2401.08967)</a></li>
 <li><a href="#65-deepseek-r1-deepseek-ai-2025-arxiv-250112948-在-agent-上的扩展">6.5　DeepSeek-R1 (DeepSeek-AI 2025 arXiv 2501.12948) 在 agent 上的扩展</a></li>
 <li><a href="#66-toolrl-qian-et-al-2025-arxiv-250413958">6.6　ToolRL (Qian et al. 2025 arXiv 2504.13958)</a></li>
 <li><a href="#67-research-chen-et-al-2025-arxiv-250319470">6.7　ReSearch (Chen et al. 2025 arXiv 2503.19470)</a></li>
@@ -632,22 +632,23 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/agentic_rl_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>d3d476658bea</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>b1327e360f4e</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:23 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
 <div class="callout callout-info"><div class="callout-title">9 句话搞定 Agentic RL</div><p>RL for LLM agents 是 2024-2026 把 reasoning RL 推向真实工具使用、Web、代码与 GUI 的核心范式（详见 §1-§9 推导 + §10 25 高频题）。</p></div>
-<ol><li><strong>Agentic RL 与 RLHF 的本质区别</strong>：RLHF 是 single-turn 偏好对齐，reward 来自 RM 对整段 response 的打分；<strong>Agentic RL 是 multi-turn 决策，state 是 (obs, history)，action 是 (thought, tool_call)，reward 来自外部环境（test-pass、task success、verifier）而非 RM</strong>。整条轨迹长度从 RLHF 的几百 token 涨到 agent 的数千乃至数万 token，credit assignment 难度上一个台阶。</li><li><strong>PPO/GRPO 在 agent 上的关键改造</strong>（必背）：<strong>token mask</strong> 必须只对 agent 自己 generate 的 token 算 loss——observation token（tool 返回的 stdout / search snippet）属于环境，policy gradient 不能流到那里；否则 model 会试图"教 tool 怎么回答"，行为崩坏。GRPO 优势更明显：在 long-horizon trajectory 上，value model 几乎学不动 per-token V（中间几乎全 0 reward），组内归一化是更稳的 baseline。</li><li><strong>Reward 设计三层金字塔</strong>：(a) <strong>Outcome reward</strong> 最便宜也最稀疏——final answer/task success 0/1；(b) <strong>Process reward</strong> 给每步打分，需要 PRM 或 step verifier；(c) <strong>Hybrid / shaping</strong>——tool-call shaping（鼓励调对工具）、length penalty（防 agent 拖太长）、format reward（强约束输出 schema）。R1 路线用 rule-based outcome reward（数学正确 + 格式），SWE-RL 用 test-pass，WebRL 用 task success——<strong>rule-based outcome reward + dense format shaping</strong> 是 2025 工业实测最稳的组合。</li><li><strong>代表性早期 work</strong>：<strong>AgentTuning</strong> (Zeng et al. 2023 arXiv 2310.12823 THU)——agent SFT 数据集 + 多任务训练；<strong>Agent-FLAN</strong> (Chen et al. 2024 ACL Findings arXiv 2403.12881)——把 agent corpus 拆成 multi-turn / formatted / negative example 三类；<strong>ReFT</strong> (Trung et al. 2024 ACL arXiv 2401.08967)——SFT warm-start + online RL on math reasoning，PPO 在 GSM8K 上 +9pp。这三篇是 Agentic RL 的"先 SFT 后 RL"标准三段式。</li><li><strong>Tool-augmented reasoning RL</strong>：<strong>ToolRL</strong> (Qian et al. 2025 arXiv 2504.13958)——把 tool 调用嵌入 GRPO，reward 含 correctness + format + tool-use efficiency；<strong>ReSearch</strong> (Chen et al. 2025 arXiv 2503.19470)——把 search call 当 first-class action，rule-based reward 学 multi-hop search；<strong>RAGEN / StarPO</strong> (Wang et al. 2025 arXiv 2504.20073)——多回合 RL 训练 framework，state-action token level loss + critic-free GRPO 变种。共同点：<strong>outcome-only reward + format shaping + token-mask loss + GRPO</strong>。</li><li><strong>Web / GUI agent RL</strong>：<strong>WebRL</strong> (Qi et al. 2024 ICLR-25 arXiv 2411.02337)——self-evolving curriculum + ORM + retrospective rollout，把 8B Llama 推到 WebArena 43%；<strong>AgentQ</strong> (Putta et al. 2024 arXiv 2408.07199)——MCTS 搜索 + AI critique + DPO offline 训练；<strong>Computer-Use</strong> (Anthropic Claude 3.5/3.7/4 Sonnet, 2024-10-22 起)——RLHF + RL 在屏幕截图 + 鼠标键盘 action space 上训练 GUI 控制（公开知识：训练细节未披露，但 system card 说明用了大量人工 + AI 反馈）。</li><li><strong>Code agent RL</strong>：<strong>CodeRL</strong> (Le et al. 2022 NeurIPS arXiv 2207.01780) 首次把 unit test 当 reward 信号 + actor-critic；<strong>PPOCoder</strong> (Shojaee et al. 2023 arXiv 2301.13816) 加入 compilable + functional correctness 的 composite reward；<strong>SWE-RL</strong> (Wei et al. 2025 Meta FAIR arXiv 2502.18449) 用 rule-based reward（patch similarity + test-pass）在 GitHub PR 数据上做 RL，Llama-3.3-70B 把 SWE-bench Verified 推到 41%。</li><li><strong>Self-rewarding &amp; exploration</strong>：<strong>Self-Rewarding LM</strong> (Yuan et al. 2024 Meta arXiv 2401.10020) 让 policy 同时当 judge，iterative DPO with LLM-as-judge；但 self-rewarding 在 agent 上比单 turn alignment 更危险——judge 也是 agent 自己，<strong>容易 reward drift / model collapse</strong>。生产里多用 LLM-as-judge ensemble + rule-based grounding（test-pass、math checker）+ human spot check 三件套。</li><li><strong>长 horizon credit assignment 的"三种武器"</strong>：(a) <strong>GAE + γ &lt; 1</strong> 把信用沿轨迹回传，但在 sparse outcome reward 下退化为 MC return；(b) <strong>Hindsight relabeling</strong>（HER 思路在 agent 上的对应物）——失败轨迹按"中间状态当 goal"重新标 reward；(c) <strong>subgoal decomposition + process reward</strong>——把 50 步轨迹切成 5 个 subgoal × 10 步，PRM 给每个 subgoal 打分。L3 面试常问的"为什么 GRPO 在 long-horizon agent 上比 PPO sample efficient"——答案是 <strong>trace-level reward 直接匹配 trace-level credit</strong>，绕开 value model 在 long-CoT 上几乎学不动的痛点。</li></ol>
+<ol><li><strong>Agentic RL 与 RLHF 的本质区别</strong>：RLHF 是 single-turn 偏好对齐，reward 来自 RM 对整段 response 的打分；<strong>Agentic RL 是 multi-turn 决策，state 是 (obs, history)，action 是 (thought, tool_call)，更强调用可编程验证的客观结果（test-pass、task success、verifier）做主干，而非 RM 式的主观偏好打分</strong>（但也允许用学出来的 reward model，如 WebRL 的 ORM，二者不是严格二分）。整条轨迹长度从 RLHF 的几百 token 涨到 agent 的数千乃至数万 token，credit assignment 难度上一个台阶。</li><li><strong>PPO/GRPO 在 agent 上的关键改造</strong>（必背）：<strong>token mask</strong> 必须只对 agent 自己 generate 的 token 算 loss——observation token（tool 返回的 stdout / search snippet）属于环境，policy gradient 不能流到那里；否则 model 会试图"教 tool 怎么回答"，行为崩坏。GRPO 优势更明显：在 long-horizon trajectory 上，value model 几乎学不动 per-token V（中间几乎全 0 reward），组内归一化是更稳的 baseline。</li><li><strong>Reward 设计三层金字塔</strong>：(a) <strong>Outcome reward</strong> 最便宜也最稀疏——final answer/task success 0/1；(b) <strong>Process reward</strong> 给每步打分，需要 PRM 或 step verifier；(c) <strong>Hybrid / shaping</strong>——tool-call shaping（鼓励调对工具）、length penalty（防 agent 拖太长）、format reward（强约束输出 schema）。R1 路线用 rule-based outcome reward（数学正确 + 格式），SWE-RL 用 test-pass（rule-based），WebRL 则训练一个 ORM 给 task success 打分（learned-RM 路线，见 §6.9）——<strong>outcome-level 验证信号（rule-based 或 learned ORM）+ dense format shaping</strong> 是 2025 工业实测最稳的组合。</li><li><strong>代表性早期 work</strong>：<strong>AgentTuning</strong> (Zeng et al. 2023 arXiv 2310.12823 THU)——agent SFT 数据集 + 多任务训练；<strong>Agent-FLAN</strong> (Chen et al. 2024 ACL Findings arXiv 2403.12881)——把 agent corpus 拆成 multi-turn / formatted / negative example 三类；<strong>ReFT</strong> (Luong et al. 2024 ACL arXiv 2401.08967)——SFT warm-start + online RL on math reasoning，PPO 在 GSM8K 上 +9pp。这三篇是 Agentic RL 的"先 SFT 后 RL"标准三段式。</li><li><strong>Tool-augmented reasoning RL</strong>：<strong>ToolRL</strong> (Qian et al. 2025 arXiv 2504.13958)——把 tool 调用嵌入 GRPO，reward 含 correctness + format + tool-use efficiency；<strong>ReSearch</strong> (Chen et al. 2025 arXiv 2503.19470)——把 search call 当 first-class action，rule-based reward 学 multi-hop search；<strong>RAGEN / StarPO</strong> (Wang et al. 2025 arXiv 2504.20073)——多回合 RL 训练 framework，state-action token level loss + critic-free GRPO 变种。共同点：<strong>outcome-only reward + format shaping + token-mask loss + GRPO</strong>。</li><li><strong>Web / GUI agent RL</strong>：<strong>WebRL</strong> (Qi et al. 2024 ICLR-25 arXiv 2411.02337)——self-evolving curriculum + ORM + retrospective rollout，把 8B Llama 推到 WebArena 43%；<strong>AgentQ</strong> (Putta et al. 2024 arXiv 2408.07199)——MCTS 搜索 + AI critique + DPO offline 训练；<strong>Computer-Use</strong> (Anthropic Claude 3.5/3.7/4 Sonnet, 2024-10-22 起)——RLHF + RL 在屏幕截图 + 鼠标键盘 action space 上训练 GUI 控制（公开知识：训练细节未披露，但 system card 说明用了大量人工 + AI 反馈）。</li><li><strong>Code agent RL</strong>：<strong>CodeRL</strong> (Le et al. 2022 NeurIPS arXiv 2207.01780) 首次把 unit test 当 reward 信号 + actor-critic；<strong>PPOCoder</strong> (Shojaee et al. 2023 arXiv 2301.13816) 加入 compilable + functional correctness 的 composite reward；<strong>SWE-RL</strong> (Wei et al. 2025 Meta FAIR arXiv 2502.18449) 用 rule-based reward（patch similarity + test-pass）在 GitHub PR 数据上做 RL，Llama-3.3-70B 把 SWE-bench Verified 推到 41%。</li><li><strong>Self-rewarding &amp; exploration</strong>：<strong>Self-Rewarding LM</strong> (Yuan et al. 2024 Meta arXiv 2401.10020) 让 policy 同时当 judge，iterative DPO with LLM-as-judge；但 self-rewarding 在 agent 上比单 turn alignment 更危险——judge 也是 agent 自己，<strong>容易 reward drift / model collapse</strong>。生产里多用 LLM-as-judge ensemble + rule-based grounding（test-pass、math checker）+ human spot check 三件套。</li><li><strong>长 horizon credit assignment 的"三种武器"</strong>：(a) <strong>GAE + γ &lt; 1</strong> 把信用沿轨迹回传，但在 sparse outcome reward 下退化为 MC return；(b) <strong>Hindsight relabeling</strong>（HER 思路在 agent 上的对应物）——失败轨迹按"中间状态当 goal"重新标 reward；(c) <strong>subgoal decomposition + process reward</strong>——把 50 步轨迹切成 5 个 subgoal × 10 步，PRM 给每个 subgoal 打分。L3 面试常问的"为什么 GRPO 在 long-horizon agent 上比 PPO sample efficient"——答案是 <strong>trace-level reward 直接匹配 trace-level credit</strong>，绕开 value model 在 long-CoT 上几乎学不动的痛点。</li></ol>
 <h2 id="1-直觉从-rlhf-到-agentic-rl">§1 直觉：从 RLHF 到 Agentic RL</h2>
 <h3 id="11-把-llm-从会写字的策略升级成会动手的-agent">1.1　把 LLM 从"会写字的策略"升级成"会动手的 agent"</h3>
 <p>RLHF 把 LLM 训成"会按人类偏好写字"的 policy；但 RLHF policy 在调用 tool / 多轮交互 / 长 horizon 任务上仍然脆弱：</p>
 <ul><li><strong>single-turn 偏好</strong> 不 directly transfer 到 multi-turn task success</li><li><strong>RM 学的是"哪种文风讨人喜欢"</strong>，不是"哪种调用顺序能解决问题"</li><li><strong>整段 response reward</strong>，无法区分"前 100 token 推理对、第 101 token 选错了 tool"</li></ul>
-<p>Agentic RL 的本质是把 RL 信号挂在 <strong>trajectory 终点的客观结果</strong> 上（test pass、math 答对、网页 task 完成），而不是 RM 的主观偏好。这一步让 alignment-style RL 升级为 <strong>decision-making RL</strong>。</p>
+<p>Agentic RL 与 RLHF 的核心区别不在"reward 一定来自 RM 还是一定来自环境"这种严格二分，而在 <strong>credit assignment 的时间尺度</strong>（RLHF 是单条 response 的 immediate reward；Agentic RL 要在数十步的长 trajectory 上做信用分配）与<strong>验证方式</strong>（RLHF 依赖 RM 对文风/偏好的主观打分；Agentic RL 更强调可编程验证的客观结果，如 test pass、math 答对、网页 task 完成——但也允许用学习到的 reward model，如 §6.9 WebRL 的 ORM，只是相比传统 RLHF-RM 更强调可编程验证信号做主干）。这一步让 alignment-style RL 升级为 <strong>decision-making RL</strong>。</p>
 <h3 id="12-mental-modelmdp--pomdp-表述">1.2　Mental model：MDP / POMDP 表述</h3>
 <table><thead><tr><th>元素</th><th>RLHF (single-turn)</th><th>Agentic RL</th></tr></thead><tbody><tr><td>State $s_t$</td><td>prompt</td><td>$(o_0, a_0, o_1, \dots, o_{t-1}, a_{t-1})$（history）</td></tr><tr><td>Action $a_t$</td><td>整段 response</td><td>一步 <code>(thought, tool_call)</code> 或 token-level subaction</td></tr><tr><td>Reward $r_t$</td><td>terminal RM 分</td><td>terminal task success（多数时刻为 0）</td></tr><tr><td>Horizon $T$</td><td>1（一段 response）</td><td>10-200 步（agent loop）</td></tr><tr><td>Trajectory 长度 (token)</td><td>$10^2$-$10^3$</td><td>$10^3$-$10^5$</td></tr><tr><td>Environment</td><td>RM (神经网络)</td><td>真实环境（shell / browser / search / Python）</td></tr></tbody></table>
+<div class="callout callout-info"><div class="callout-title">Note</div><p>上表是两者的<strong>典型</strong>配置对比，不是严格二分——Agentic RL 同样可以用学习到的 reward model 打分（如 §6.9 WebRL 的 ORM），只是相比传统 RLHF-RM 更强调用可编程验证信号（test-pass、task success）做主干；真正的分野在 credit assignment 的时间尺度与验证方式，而非"reward 是否来自 RM"本身。</p></div>
 <pre class="diagram"><code>
       ┌──────────────────────────────┐
       │   Policy π_θ (LLM)           │  agent
@@ -781,7 +782,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$r_\text{adjusted} = r_\text{outcome} - \lambda \cdot \max(0, T - T_\text{target})$$</p>
 <p>或更柔和的 sigmoid 形式：</p>
 <p>$$r_\text{adjusted} = r_\text{outcome} \cdot \sigma\!\big(-(T - T_\text{target}) / \tau\big)$$</p>
-<p>DAPO 报告 "overlong shaping"——超出 length budget 后 reward 指数衰减，避免 agent 拖到 context 上限。</p>
+<p>DAPO 报告 "overlong reward shaping"——生成长度进入 $(L_\text{max}-L_\text{cache}, L_\text{max}]$ 缓冲区后，reward 按分段线性 ramp 从 0 降到 -1（超过 $L_\text{max}$ 则固定 -1），而非指数衰减，用平滑惩罚替代硬截断带来的训练不稳定。</p>
 <h3 id="35-tool-call-shaping-reward">3.5　Tool-call shaping reward</h3>
 <p>给"调对工具"奖励、给"调错工具 / 重复调用"惩罚：</p>
 <pre><code class="language-python">def tool_shaping(trajectory) -&gt; float:
@@ -825,9 +826,9 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="42-discount--gae-在-agent-上的退化">4.2　Discount + GAE 在 agent 上的退化</h3>
 <p>回顾 GAE：</p>
 <p>$$A_t = \sum_l (\gamma\lambda)^l \delta_{t+l}, \quad \delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$$</p>
-<p>在 sparse terminal reward 下 ($r_t = 0$ for $t \lt T$, $r_T = R$)：</p>
-<p>$$A_t = \gamma^{T-t} R - V(s_t) + \text{value correction terms}$$</p>
-<p>即 <strong>advantage ≈ 折扣回报 - baseline</strong>。如果 $V_\phi$ 学不准（在 agent 上经常），这就退化为 raw MC return；GAE 的 bias-variance trade-off 失效。</p>
+<p>在 sparse terminal reward 下 ($r_t = 0$ for $t \lt T$, $r_T = R$)，把 $\delta_{t+l}$ 展开代入并按 $l$ 求和后：</p>
+<p>$$A_t = (\gamma\lambda)^{T-t} R - V(s_t) + \gamma(1-\lambda)\sum_{l\ge0}(\gamma\lambda)^l V(s_{t+l+1})$$</p>
+<p>只有当 $\lambda=1$ 时，末项才严格望远镜化抵消，退化为 $A_t = \gamma^{T-t} R - V(s_t)$（纯折扣 MC return 减 baseline，即 <strong>advantage ≈ 折扣回报 - baseline</strong>）；一般 $\lambda&lt;1$ 时中间会残留一串与 $\lambda$ 相关的 value 修正项。如果 $V_\phi$ 学不准（在 agent 上经常），$\lambda=1$ 这个极限情形就退化为 raw MC return；GAE 的 bias-variance trade-off 失效。</p>
 <p><strong>实践 take</strong>：agent RL 上 GAE 不如 group-relative advantage（GRPO）稳，这是 GRPO 比 PPO 在 agent 上 sample efficient 的根本原因之一。</p>
 <h3 id="43-hindsight-relabeling-for-agents">4.3　Hindsight relabeling for agents</h3>
 <p>Hindsight Experience Replay (Andrychowicz et al. 2017 NeurIPS) 起源于 robot manipulation：失败 trajectory 不丢，而是<strong>把"实际达成的状态"当成 goal</strong>重新标 reward。</p>
@@ -893,7 +894,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="63-agent-flan-chen-et-al-2024-acl-findings-arxiv-240312881">6.3　Agent-FLAN (Chen et al. 2024 ACL Findings, arXiv 2403.12881)</h3>
 <p><strong>Setting</strong>: Agent SFT 数据分三类——multi-turn dialogue / formatted tool call / negative examples（拒绝/失败案例）。</p>
 <p><strong>Key</strong>: <strong>negative example 显著缓解 hallucinated tool call</strong>——SFT 不只看"怎么用对"，还看"为什么这样不对"。是 Agent SFT 工程化的重要 milestone。</p>
-<h3 id="64-reft-trung-et-al-2024-acl-arxiv-240108967">6.4　ReFT (Trung et al. 2024 ACL arXiv 2401.08967)</h3>
+<h3 id="64-reft-luong-et-al-2024-acl-arxiv-240108967">6.4　ReFT (Luong et al. 2024 ACL arXiv 2401.08967)</h3>
 <p><strong>Setting</strong>: math reasoning agent，先 SFT warm-start，再 PPO with rule-based outcome reward (answer correctness)。</p>
 <p><strong>Key formula</strong>（标准 PPO + verifier）：</p>
 <p>$$r(\tau) = \mathbb{1}[\text{answer}(\tau) = y^*] - \beta \cdot \text{KL}(\pi_\theta \| \pi_\text{SFT})$$</p>
@@ -936,7 +937,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="614-swe-rl-wei-et-al-2025-meta-fair-arxiv-250218449">6.14　SWE-RL (Wei et al. 2025 Meta FAIR arXiv 2502.18449)</h3>
 <p><strong>Setting</strong>: SWE-bench / GitHub PR 数据，rule-based reward = patch similarity + test-pass，GRPO。</p>
 <p><strong>Key features</strong>:</p>
-<ul><li>数据规模：Meta 用 GitHub PR commit history 构造 76M+ context-issue-patch 三元组</li><li>reward：edit similarity (oracle patch ↔ predicted patch) + test pass binary</li><li>算法：纯 GRPO + format reward</li></ul>
+<ul><li>数据规模：Meta 用 GitHub PR commit history 构造 76M+ context-issue-patch 三元组（具体规模请核对原论文 Table/Section，本教程未能离线核实 76M+ 是否为最终三元组数，还是原始 PR/commit 事件数）</li><li>reward：edit similarity (oracle patch ↔ predicted patch) + test pass binary</li><li>算法：纯 GRPO + format reward</li></ul>
 <p><strong>Result</strong>: Llama-3.3-70B + SWE-RL 在 SWE-bench Verified 上 41%（无 scaffold），证明 <strong>rule-based RL on real PR data 可以让 model 学到 emergent reasoning behavior</strong>——例如 file-level retrieval planning、root cause analysis、test self-validation。</p>
 <h3 id="615-openvla-kim-et-al-2024-arxiv-240609246">6.15　OpenVLA (Kim et al. 2024 arXiv 2406.09246)</h3>
 <p><strong>Setting</strong>: vision-language-action 7B 模型 for robot manipulation，970K 真实机器人 demonstrations 上 fine-tune (开源 base + LoRA fine-tuning recipe)；论文重点是 imitation learning + parameter-efficient adaptation，<strong>不是 task-specific RL fine-tune</strong>。</p>
@@ -1061,7 +1062,7 @@ def ppo_agent_step(policy, value, batch, eps_clip=0.2, c_v=0.5, c_e=0.01):
     # mask 后求均值（避免 observation token 拉低 loss scale）
     policy_loss = -((torch.min(surr1, surr2) * mask).sum() / mask.sum().clamp_min(1.0))
 
-    # value loss: 也只在 agent token 上算（observation 的 V 没意义）
+    # value loss: 只在 agent token 上算——这是工程简化，不代表 observation 处的 V 本身没意义（见下方说明）
     V = value(batch[&quot;input_ids&quot;]).squeeze(-1)            # [B, L]
     value_loss = (((V - batch[&quot;returns&quot;]) ** 2) * mask).sum() / mask.sum().clamp_min(1.0)
 
@@ -1083,6 +1084,7 @@ def ppo_agent_step(policy, value, batch, eps_clip=0.2, c_v=0.5, c_e=0.01):
         &quot;entropy&quot;: entropy_bonus.item(),
         &quot;approx_kl&quot;: approx_kl.item(),
     }</code></pre>
+<div class="callout callout-info"><div class="callout-title">critic mask 可以独立于 policy mask 定义</div><p>policy loss 必须排除 observation token（防止 policy gradient 流向环境生成的文本）；但 value 函数在概念上是 $V(s_t)$，其自然锚点落在状态边界（即最后一个 observation token / 下一个 action 开始前），因此该边界位置的 $V$ 是有意义的、正是 §7.2 GAE 里 $V(s_0)\dots V(s_T)$ bootstrap 值的来源。上面代码只在 agent token 上算 value loss 是一种工程简化，读者应理解这一简化与 boundary-based $V$ 定义之间的关系，而不要把它读成"observation 处的 V 没有意义"。</p></div>
 <div class="callout callout-warn"><div class="callout-title">agent_mask 的 5 个易错点</div></div>
 <ul><li>必须 cover <strong>prompt tokens</strong>：prompt 不是 agent generate 的，mask = 0</li><li>必须 cover <strong>all observation tokens</strong>：tool 返回的每一个 token（甚至包括 <code>&lt;obs&gt;</code> 标签本身）mask = 0</li><li>必须 cover <strong>all padding</strong>：右 pad 的位置 mask = 0</li><li><strong>separator token</strong>（如 <code>&lt;action&gt;</code>, <code>&lt;/thought&gt;</code>）算 agent token，mask = 1</li><li>multi-turn batch 里<strong>不同 trajectory 的 mask pattern 不同</strong>，必须 per-sample 算</li></ul>
 <h3 id="74-grpo-group-relative-reward-on-agent-trajectories">7.4　GRPO group-relative reward on agent trajectories</h3>
@@ -1218,7 +1220,7 @@ def verifier_reward(trajectory, task_type, ground_truth):
 <ul><li>value model 在长 horizon agent 上几乎学不动</li><li>一份模型显存省下来可以加大 batch / group size</li><li>调参简单（不用调 $c_v$, value lr）</li></ul>
 <p>verl (ByteDance 2024+)、OpenRLHF、TRL 都已把 GRPO / RLOO / ReMax 当 first-class trainer。</p>
 <h3 id="82-rule-based-reward-在-agent-上的胜利">8.2　Rule-based reward 在 agent 上的胜利</h3>
-<p>WebRL / ReSearch / SWE-RL / RAGEN 共同点：<strong>outcome reward + format reward，rule-based</strong>，避开 learned RM 的 reward hacking 主 failure mode。</p>
+<p>ReSearch / SWE-RL / RAGEN 是 <strong>outcome reward + format reward，rule-based</strong>；WebRL 则是训练一个 ORM（learned outcome reward model）来打分（见 §6.9），属于 learned-RM 路线，与前三者的纯规则验证不同——四者共同点是都用 <strong>outcome-level（而非逐 token 主观偏好）信号</strong>，而非都是 rule-based，rule-based 分支避开的是 learned RM 的 reward hacking 主 failure mode。</p>
 <p><strong>为什么 rule-based 突然变可行</strong>：</p>
 <ul><li>Agent task 比 alignment task 更"可程序化验证"——test pass / answer match / task complete</li><li>DeepSeek-R1 证明 rule-based 在 LLM RL 上 stable 且 scalable</li><li>learned RM 在 multi-turn 上更容易 hack（轨迹空间大）</li></ul>
 <h3 id="83-long-horizon-training-的-infra-challenge">8.3　Long-horizon training 的 infra challenge</h3>
@@ -1297,20 +1299,20 @@ def verifier_reward(trajectory, task_type, ground_truth):
 <details>
 
 <summary>Q8. Length penalty 在 agent RL 中起什么作用？</summary>
-<ul><li>agent 容易学到"拖长 trajectory 拿对答案"的捷径（reward hacking）</li><li>length penalty 给超出 budget 的 trajectory 减分：$r = r_\text{outcome} - \lambda \max(0, T - T_\text{target})$</li><li>DAPO 的 "overlong shaping" 是工业级实现（指数衰减）</li><li>限制：penalty 过大会让 agent 不敢探索；要 cap</li></ul>
+<ul><li>agent 容易学到"拖长 trajectory 拿对答案"的捷径（reward hacking）</li><li>length penalty 给超出 budget 的 trajectory 减分：$r = r_\text{outcome} - \lambda \max(0, T - T_\text{target})$</li><li>DAPO 的 "overlong reward shaping" 是工业级实现（进入 buffer 区间后分段线性 ramp 到 -1，而非指数衰减）</li><li>限制：penalty 过大会让 agent 不敢探索；要 cap</li></ul>
 <p>不知道 length-explosion 是 agent RL 常见 failure mode；或不会写 length penalty 公式。</p>
 </details>
 <details>
 
 <summary>Q9. Group std = 0 的情况怎么处理？</summary>
 <ul><li>当 group 内 G 个 rollout reward 全相同（全 success / 全 fail）→ $\sigma = 0$</li><li>加 $\epsilon$ 时 advantage = 0，policy gradient 项归零，<strong>但 KL 项仍存在</strong>（policy 仍被拉回 reference）</li><li>不加 $\epsilon$ 时是 NaN</li><li><p>实践：</p>
-<ul><li><strong>Skip 该 prompt</strong>（data filter）：常见做法，避免无信号更新</li><li><strong>Clamp σ 下限</strong>（如 0.1）：保留少量信号</li><li><strong>DAPO dynamic sampling</strong>：丢全对全错 group</li></ul></li></ul>
+<ul><li><strong>Skip 该 prompt</strong>（data filter）：常见做法，避免无信号更新</li><li><strong>Clamp σ 下限</strong>（如 0.1）：只是防止 $0/0$ 产生 NaN 的数值稳定手段——全同组里分子 $r_i - \mu$ 已精确为 0，无论分母 clamp 到多少，advantage 恒为 0，<strong>并不能恢复训练信号</strong></li><li><strong>DAPO dynamic sampling</strong>：丢全对全错 group，是真正解决"无信号"的做法</li></ul></li></ul>
 <p>说一定会 NaN（不对，看实现）；或不知道这种 prompt 暗示 task 过易/过难。</p>
 </details>
 <details>
 
 <summary>Q10. SWE-RL 是怎么训的？</summary>
-<ul><li>数据：GitHub PR commit 历史，构造 ~76M context-issue-patch 三元组（Meta 公开）</li><li>Reward: rule-based = patch similarity (oracle ↔ pred) + test pass binary</li><li>算法: 纯 GRPO + format reward</li><li>Model: Llama-3.3-70B</li><li>Result: SWE-bench Verified 上 41%（无 scaffold），证明 rule-based RL 让 model 学到 emergent reasoning：file retrieval / root cause / test self-validation</li></ul>
+<ul><li>数据：GitHub PR commit 历史，构造 ~76M context-issue-patch 三元组（Meta 公开数字，具体是否为最终三元组数还是原始 PR/commit 事件数，请核对原论文）</li><li>Reward: rule-based = patch similarity (oracle ↔ pred) + test pass binary</li><li>算法: 纯 GRPO + format reward</li><li>Model: Llama-3.3-70B</li><li>Result: SWE-bench Verified 上 41%（无 scaffold），证明 rule-based RL 让 model 学到 emergent reasoning：file retrieval / root cause / test self-validation</li></ul>
 <p>不知道 SWE-RL 的 reward 设计；或以为是 SFT 而非 RL。</p>
 </details>
 <h3 id="l2-进阶题10-题">L2 进阶题（10 题）</h3>
@@ -1323,7 +1325,7 @@ def verifier_reward(trajectory, task_type, ground_truth):
 <details>
 
 <summary>Q12. RAGEN / StarPO 的关键贡献？</summary>
-<ul><li><strong>StAble multi-tuRn Policy Optimization</strong>: critic-free GRPO 变种，整段 trajectory 共享 advantage</li><li><strong>严格 token mask</strong>：observation 位置 mask = 0，loss 只在 agent token</li><li><strong>rollout 多样性 = collapse 防火墙</strong>：group_size $G = 16$ 比 $G = 4$ 显著更稳</li><li><strong>trajectory length 信号</strong>：失败 trajectory length 大时加 length penalty</li><li>适用：multi-turn agent task（与 single-turn alignment 区分）</li></ul>
+<ul><li><strong>StarPO</strong>（<strong>S</strong>tate-<strong>T</strong>hinking-<strong>A</strong>ctions-<strong>R</strong>eward Policy Optimization）: critic-free GRPO 变种，整段 trajectory 共享 advantage</li><li><strong>严格 token mask</strong>：observation 位置 mask = 0，loss 只在 agent token</li><li><strong>rollout 多样性 = collapse 防火墙</strong>：group_size $G = 16$ 比 $G = 4$ 显著更稳</li><li><strong>trajectory length 信号</strong>：失败 trajectory length 大时加 length penalty</li><li>适用：multi-turn agent task（与 single-turn alignment 区分）</li></ul>
 <p>只说"GRPO 变种"——不够；要说出 multi-turn 上的 stability 贡献。</p>
 </details>
 <details>
@@ -1341,8 +1343,8 @@ def verifier_reward(trajectory, task_type, ground_truth):
 <details>
 
 <summary>Q15. 推 outcome-reward sparsity 对 critic learning 的影响。</summary>
-<ul><li>value $V_\phi(s_t) = \mathbb{E}_\pi[\sum_{l \ge 0} \gamma^l r_{t+l} \mid s_t]$</li><li>sparse terminal reward → $V(s_t) \approx \gamma^{T-t} \cdot P(\text{success} \mid s_t)$</li><li>中间状态 $s_t$ 的 value 几乎只取决于"未来是否成功"——这是隐含 long-horizon 预测</li><li>value MSE loss $(V_\phi - V_\text{target})^2$ 在多数 step 上 target 接近 0，gradient 极小</li><li>等价于"几乎没有 supervision"——value 学不动是 sparse reward 的必然结果</li><li>这也是 GRPO 省 critic 的理论基础：critic 本来就学不动，省了反而省去 noise</li></ul>
-<p>只说"critic 学不动"；不会推 $V \approx \gamma^{T-t} P(\text{success})$；或不知道这是 GRPO 设计动机。</p>
+<ul><li>value $V_\phi(s_t) = \mathbb{E}_\pi[\sum_{l \ge 0} \gamma^l r_{t+l} \mid s_t]$</li><li>sparse terminal reward → $V(s_t) \approx \gamma^{T-t} \cdot P(\text{success} \mid s_t)$</li><li>中间状态 $s_t$ 的 value 几乎只取决于"未来是否成功"——这是隐含 long-horizon 预测</li><li><strong>逐步 reward 稀疏（多数 step reward = 0）不等于训练 target 接近 0</strong>：value MSE loss 的 target 是 bootstrapped return，在 $\gamma$ 接近 1（教程默认 $\gamma=0.99$）时中间状态的 target 近似等于终点结果 $P(\text{success} \mid s_t)$，可能长期维持在较高水平；若 $\gamma=1$，对一条已实现的成功轨迹，终点前每一步的 MC target 恒等于终点 reward，完全不趋于 0</li><li>真正导致 critic 难学的是<strong>这个 target 本身方差大</strong>、且需要长程预测最终成功与否，而不是 target 数值小、gradient 小</li><li>这也是 GRPO 省 critic 的理论基础：critic 要学的是高方差、长程依赖的量，省了反而省去 noise</li></ul>
+<p>只说"critic 学不动"；不会推 $V \approx \gamma^{T-t} P(\text{success})$；或把"逐步 reward 稀疏"和"value target 接近 0"混为一谈——二者是不同的量。</p>
 </details>
 <details>
 
@@ -1359,8 +1361,8 @@ def verifier_reward(trajectory, task_type, ground_truth):
 <details>
 
 <summary>Q18. Per-step KL penalty 和 trajectory KL penalty 的区别？</summary>
-<ul><li><strong>per-step KL</strong>: 每个 agent token 算 KL($\pi_\theta(\cdot \mid s_t) \| \pi_\text{ref}(\cdot \mid s_t)$)；加进 reward 或 loss</li><li><strong>trajectory KL</strong>: 整段 trajectory 一个 KL；加进 loss</li><li>per-step 更精细，能控制每步漂移；trajectory 简单但缺乏 token-level resolution</li><li>GRPO 用 per-step + K3 estimator（数值稳定）</li><li>agent RL 上 per-step 更主流（trajectory 太长，单 KL 数值不稳）</li></ul>
-<p>混淆两者；或不知道 K3 estimator 解决数值问题（K3: $\text{KL} \approx \exp(\Delta) - \Delta - 1$ 非负）。</p>
+<ul><li><strong>per-step KL</strong>: 每个 agent token 算 KL($\pi_\theta(\cdot \mid s_t) \| \pi_\text{ref}(\cdot \mid s_t)$)；加进 reward 或 loss</li><li><strong>trajectory KL</strong>: 整段 trajectory 一个 KL；加进 loss</li><li>二者不是两种本质不同的散度——由链式法则，$\log\pi(\tau) = \sum_t \log\pi(a_t \mid s_t)$，"trajectory KL"在期望意义下就等于逐步 KL 之和；真正的实现差异在于：(a) 是把 KL 逐步加进 reward 做 shaping，还是只在整体 loss 里加一个标量项；(b) 用 sum 还是 mean 聚合；(c) 用什么数值稳定的估计器</li><li>GRPO 用逐 token 的 K3 estimator 再求和（数值稳定）</li><li>agent RL 上 per-step 更主流（trajectory 太长，直接对序列级 log-ratio 求 KL 数值不稳）</li></ul>
+<p>混淆两者本质不同（其实链式法则下是同一个量，差异在实现方式）；或不知道 K3 estimator 解决数值问题（K3: $\text{KL} \approx \exp(\Delta) - \Delta - 1$ 非负）。</p>
 </details>
 <details>
 
@@ -1389,7 +1391,7 @@ def verifier_reward(trajectory, task_type, ground_truth):
 
 <summary>Q22. GRPO 在 long-horizon agent 上比 PPO sample efficient 的根本原因？</summary>
 <p><strong>Trace-level reward 与 trace-level credit 的自然对齐</strong>（不止是"省 critic"）：</p>
-<ol><li><strong>Sparse terminal reward 下 critic 学不动</strong>：$V(s_t) \approx \gamma^{T-t} P(\text{success})$，gradient 极小；PPO 的 GAE-advantage 受 noisy critic 拖累</li><li><strong>GRPO 直接用 trace-level reward 当 advantage</strong>：等价 sequence-level MC return，在 sparse reward 下是 unbiased estimator</li><li><strong>Group baseline 比 critic baseline 更稳</strong>：同 prompt G rollouts → group mean 自动反映该 prompt 的难度，variance reduction 更精准</li><li><strong>PPO clipping + group size 联合限制更新幅度</strong>：避免单 outlier reward 推飞 policy</li><li><strong>省 value model 显存</strong> 是 secondary benefit，不是 primary reason</li><li><strong>Rule-based outcome reward 难被 RM hacked</strong>：在 agent 上比 learned RM 稳</li></ol>
+<ol><li><strong>Sparse terminal reward 下 critic 学不动</strong>：$V(s_t) \approx \gamma^{T-t} P(\text{success})$，gradient 极小；PPO 的 GAE-advantage 受 noisy critic 拖累</li><li><strong>GRPO 用组内样本（含自身）的均值/标准差归一化后的 reward 当 advantage</strong>：这是对 sequence-level advantage 的一个有偏但方差更低、且随 $G$ 增大渐近无偏（consistent）的估计——偏差来源包括：(a) 自身计入均值产生的 $(1-1/G)$ 缩放（相比留一法 baseline）；(b) std 归一化引入的与题目难度相关的非线性偏差；(c) PPO clip 本身引入的额外偏差</li><li><strong>Group baseline 比 critic baseline 更稳</strong>：同 prompt G rollouts → group mean 自动反映该 prompt 的难度，variance reduction 更精准</li><li><strong>PPO clipping + group size 联合限制更新幅度</strong>：避免单 outlier reward 推飞 policy</li><li><strong>省 value model 显存</strong> 是 secondary benefit，不是 primary reason</li><li><strong>Rule-based outcome reward 难被 RM hacked</strong>：在 agent 上比 learned RM 稳</li></ol>
 <p>只说"省 critic"——不够；要说出 sparse reward 下 critic learn 不动是根因。</p>
 </details>
 <details>
@@ -1426,7 +1428,7 @@ def verifier_reward(trajectory, task_type, ground_truth):
 <h2 id="a-附录参考文献清单">§A 附录：参考文献清单</h2>
 <p>按方向分组，论文经 web 检索 + arXiv 验证作者 / 年份 / 会议。少数 2025-2026 会议归属未定的论文以 arXiv 记。</p>
 <p><strong>Agent SFT / 基础</strong></p>
-<ul><li>Zeng et al. 2023 arXiv 2310.12823 <em>AgentTuning: Enabling Generalized Agent Abilities for LLMs</em> (THU)</li><li>Chen et al. 2024 ACL Findings arXiv 2403.12881 <em>Agent-FLAN: Designing Data and Methods of Effective Agent Tuning for LLMs</em></li><li>Trung et al. 2024 ACL arXiv 2401.08967 <em>ReFT: Reasoning with Reinforced Fine-Tuning</em></li></ul>
+<ul><li>Zeng et al. 2023 arXiv 2310.12823 <em>AgentTuning: Enabling Generalized Agent Abilities for LLMs</em> (THU)</li><li>Chen et al. 2024 ACL Findings arXiv 2403.12881 <em>Agent-FLAN: Designing Data and Methods of Effective Agent Tuning for LLMs</em></li><li>Luong et al. 2024 ACL arXiv 2401.08967 <em>ReFT: Reasoning with Reinforced Fine-Tuning</em></li></ul>
 <p><strong>RL on agent / reasoning（基础算法）</strong></p>
 <ul><li>Schulman et al. 2017 arXiv 1707.06347 <em>Proximal Policy Optimization Algorithms</em></li><li>Schulman et al. 2016 ICLR <em>High-Dimensional Continuous Control Using GAE</em></li><li>Shao et al. 2024 arXiv 2402.03300 <em>DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models</em>（GRPO 提出）</li><li>DeepSeek-AI 2025 arXiv 2501.12948 <em>DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning</em></li><li>Yu et al. 2025 ByteDance arXiv 2503.14476 <em>DAPO: An Open-Source LLM Reinforcement Learning System at Scale</em></li></ul>
 <p><strong>Tool-augmented RL</strong></p>
@@ -1455,8 +1457,8 @@ def verifier_reward(trajectory, task_type, ground_truth):
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/agentic_rl_tutorial.md</code> ·
-  SHA256 <code>d3d476658bea</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>b1327e360f4e</code> ·
+  generated at 2026-07-12 04:23 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

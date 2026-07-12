@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md",
-  "source_sha256": "66c23bf73856367d2df2ccf093e4771189fc67cc59ccaa1ff767fb2ff09f7159",
+  "source_sha256": "749b90c9c29c2b4e723c00b8d51134399952a8e103b8129123b1700fdfa71e94",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.html",
   "topic": "RLHF / DPO / GRPO / PPO (post-training alignment)",
@@ -75,6 +75,12 @@
       "date": "2026-06-29",
       "fix": "Section 9.2 RLHF memory table corrected: included the omitted gradient term and fixed Adam m,v (28 GB each, not 14), so each trainable 7B model = 16 B/param = 112 GB and total ~252 GB (was an inconsistent ~170 GB that contradicted the repo distributed-training tutorial).",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection resweep + adversarial cross-model verification",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "2026-07-12 全集重扫复审：Codex GPT-5.6-sol 找候选错误 → 独立 Claude 对抗验证（尝试推翻每条）→ 10 CONFIRMED + 3 NEEDS_NUANCE 已修复。摘要：(1) PPO-Clip 直觉段落 clip 语义澄清（越界后梯度归零，非硬性数值约束）；(2) §2.3 GAE 退化公式修正为含逐 token KL 的 tilde-r_t；(3) GRPO 共享 advantage 加 outcome-supervision 限定 + 补 process-supervision 变体公式；(4) DPO 变体表 beta 记号由 'inverse temperature' 改为 'temperature 参数/KL 正则系数'；(5) SimPO margin 措辞由硬性 hinge 截断改为 softplus 型梯度渐近衰减（§6.3 与 Q14 两处）；(6) Q13 IPO 'reward 有界' 改为准确的边际防发散表述；(7) §8.1 composite reward 'rule 不能被 hack' 改为 '通常更难被 hack（非绝对）'；(8) §9.2 显存表下方 DPO/GRPO 文字口径统一为表内 112GB（DPO 126GB、GRPO 神经RM 140GB），并把 Q14 'SimPO 省一倍显存' 改为准确的约 11%；(9) Q18 KL 加 loss '失去 token-level resolution' 改为准确的 GRPO K3 逐 token 反例；(10) R1 本体澄清为 671B MoE，32B/70B 为 R1-Distill；(11) Q25 DAPO 'adaptive group size' 改为准确的 dynamic sampling 过滤机制；(12) SimPO 优势段落 DPO 长度偏好机制由 raw log-prob 改为 log-ratio 求和；(13) GRPO vs RLOO vs ReMax 结论 '区别只在 baseline 形式' 改为列出 std 归一化与 PPO-clip vs REINFORCE 两条额外差异。source re-rendered, sidecar hash refreshed."
     }
   ]
 }

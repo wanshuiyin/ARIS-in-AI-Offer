@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/normalization_init_tutorial.md",
-  "source_sha256": "3363e09aa3ff1b0cac788ad03ea5c81a756ae3ef034db5bc8b6dcf6e43c90379",
+  "source_sha256": "0e158f6f31513f901613914c449fb6e7639a80b63adccf8a695ea7ca9b8b3d0c",
   "output": "docs/tutorials/normalization_init_tutorial.html",
   "runnable_code": "docs/tutorials/code/normalization.py",
   "topic": "归一化 / 残差 / 初始化 — BatchNorm / LayerNorm / RMSNorm / GroupNorm / Pre-vs-Post-LN(Xiong 梯度论证) / DeepNorm / Sandwich / QK-Norm / 残差连接+缩放(LayerScale/ReZero/SkipInit) / Xavier·Kaiming(因子2) / GPT-2 残差 1/√(2N) / Fixup / μP / NFNets / DyT / covariate-shift debunk(Santurkar)",
@@ -82,6 +82,26 @@
       "date": "2026-06-29",
       "fix": "Added a clarifying Note in the §5.2 Pre-vs-Post-LN callout that \"Pre-LN warmup-free\" removes only the Post-LN gradient-imbalance reason for warmup; modern Pre-LN LLMs (GPT-3/LLaMA) STILL use warmup for Adam early-step v̂ variance / large-batch reasons (consistent with the optimizer tutorial §7.1).",
       "note": "Cross-tutorial consistency fix (2026-06-29), surfaced by a holistic collection audit (structural + a cross-tutorial consistency pass). Orchestrator-verified (arithmetic 32768/576≈57; the warmup reasoning re-checked). Tiny factual/clarity correction — the original gating verdicts (math/code/render or translation-fidelity) remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection resweep (2026-07-12): Codex GPT-5.6-sol one-pass candidate-error sweep + independent Claude Sonnet 5 adversarial re-verification (attempted to refute every candidate before landing any fix)",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "12 candidate findings adjudicated: 10 CONFIRMED + 1 NEEDS_NUANCE landed as fixes in both zh and en editions; 1 REFUTED left untouched (original text was already correct).",
+      "findings_fixed": [
+        "#1 §8.1/Q14: Var(z)=n_in·Var(W)·Var(x) generalized to E[x^2] (zero-mean caveat added; now consistent with §8.3's E[y^2] usage)",
+        "#2 §2.2: running_var update now uses the unbiased Bessel-corrected estimate m/(m-1)·σ_B², distinct from the biased forward-pass variance (new callout added)",
+        "#4 (NEEDS_NUANCE) §11.1/§11.2: 'LayerNorm needs two reductions' softened to 'one extra statistic (mean); naive impl = 2 passes, fused/Welford = 1 pass'",
+        "#5 §6.1/Q19: DeepNorm β down-scaling clarified to apply only to FFN + attention V/O projections, not Q/K (which keep standard Xavier init)",
+        "#6 §6.3/Q18: QK-Norm model list corrected Gemma2→Gemma3 (Gemma2 used soft-capping at the time, not QK-Norm)",
+        "#7 §7.1/Q15: residual identity-term 'guarantees no vanishing gradient' softened to 'substantially improves gradient flow in the typical case' (F(x)=-x exact-cancellation counterexample noted)",
+        "#8 §8.3/Q10: 'Xavier vs Kaiming factor-of-2 is the only substantive difference' scoped to the n_in=n_out special case; general ratio is 1+n_out/n_in",
+        "#9 §8.5/§10.1: Fixup reframed from 'purely init-based' to 'mostly init-based + a few learnable scalar multipliers/biases' (matches its own §8.5 point 3, which the header/§10.1 recap had been contradicting)",
+        "#10 §A [d]: Pre-LN gradient top/bottom ratio 0.40 relabeled from 'balanced' to 'bottom-heavy' (bottom layer ≈2.5x the top, comparable skew magnitude to Post-LN's 2.35 but opposite direction) — surrounding prose, illustrative code comments, code/normalization.py's print string, and the captured real-output block all updated together for consistency",
+        "#11 §A [d] docstring (illustrative code block only): 'robust to loss choice, established by Xiong 2020' softened to 'designed to reduce loss-choice sensitivity; this script only verified it with a single seed + single quadratic loss'",
+        "#12 §8.4/§A [f]: code/normalization.py's residual-scaling loop fixed from N=50 writes at 1/sqrt(2N) scale (semantically mismatched with the '2N = N layers × 2 writes/layer' story) to 2N=100 writes at the same 1/sqrt(2N) scale; re-ran on SJTUServer5 (dllm env, torch 2.10) and captured fresh real output (unscaled ×101.1 vs 1/sqrt(2N)-scaled ×2.00, replacing the stale ×51.1 vs ×1.50) — the only finding requiring a runnable-code change"
+      ],
+      "note": "1 candidate (original finding_id 3, about eval-mode BN 'batch-size independent' phrasing / an alleged m=1-vs-N=1 mix-up) was REFUTED by the adversarial verification pass and left untouched — the source text already consistently uses lowercase m and the flagged sentence has a defensible reading. Both zh and en editions received the same substantive fixes (en in natural English, not machine-translated); the code fix is language-independent (comments differ, logic identical) and was verified once and mirrored. Both HTML renders regenerated; sidecar hashes refreshed; verify_reviews.py --mode strict --reproduce re-run clean."
     }
   ]
 }

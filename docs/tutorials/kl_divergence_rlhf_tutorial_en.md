@@ -138,7 +138,7 @@ $$\boxed{\;\widehat{\text{KL}}_2 = \tfrac{1}{2}\!\left(\log\frac{\pi_\theta(y)}{
 - **Always non-negative** ✓
 - **Biased**: $\mathbb{E}[\tfrac{1}{2}(\log r)^2] \ne \text{KL}$.
 - **Small-KL limit**: Taylor expansion $\log r = (r - 1) - \tfrac{1}{2}(r-1)^2 + O((r-1)^3)$; when $\pi_\theta \approx \pi_\text{ref}$, $\log r$ is small, and $\tfrac{1}{2}(\log r)^2$ equals KL to second order (near $p = q$, KL = Fisher-information quadratic form).
-- **Variance smaller than k1**: because squaring eliminates sign cancellation, but it is still not optimal.
+- **Variance smaller than k1** (holds only when the two distributions are close and the log-ratio is small): because squaring eliminates sign cancellation, but it is still not optimal.
 
 In practice k2 is mostly used for **monitoring** (providing a "non-negative but biased" visualization metric); it is rarely used for reward shaping.
 
@@ -176,7 +176,7 @@ Therefore:
 
 $$\mathbb{E}_{\pi_\theta}[\widehat{\text{KL}}_3] = 1 + \text{KL}(\pi_\theta\|\pi_\text{ref}) - 1 = \text{KL}(\pi_\theta\|\pi_\text{ref}) \quad \checkmark$$
 
-**Property 3 (variance typically lower than k1)**:
+**Property 3 (variance typically lower than k1, but only when the two distributions are close and the log-ratio is small)**:
 
 Intuition: $\widehat{\text{KL}}_3$ is $\log r$'s linear term (the $-\log r/\pi_\theta$ part, i.e. the equivalent form of k1, $\mathbb{E}_{\pi_\theta}[-\log(\pi_\text{ref}/\pi_\theta)]$) plus a **mean-1 control variate** $\pi_\text{ref}/\pi_\theta - 1$. The control variate reduces variance: when $r$ is large, $\log r$ is large but $1/r$ is small, and vice versa, so **the two are negatively correlated** and summing them gives lower variance than k1 alone.
 
@@ -222,8 +222,12 @@ def k3_estimator(logp_theta, logp_ref):
 
     Value-estimator properties: unbiased, non-negative, low variance.
     ⚠️ Recommended for KL value MONITORING, NOT as a loss term — k3-as-loss
-       gives gradient (1 - e^{-Δ})∇logπ_θ = (Δ - ½Δ² + O(Δ³))∇logπ_θ, a
-       first-order Taylor approximation of reverse-KL gradient with O(Δ²) bias.
+       gives gradient (1 - e^{Δ})∇logπ_θ = (-Δ - ½Δ² + O(Δ³))∇logπ_θ, a
+       first-order Taylor approximation of reverse-KL gradient with O(Δ²) bias
+       (under this section's Δ = log π_ref - log π_θ convention).
+       ⚠️ §3.6 uses the OPPOSITE sign convention Δ_t = log π_θ - log π_ref,
+       where (1 - e^{-Δ_t}) is the correct form — don't copy the formula
+       across sections without flipping the sign.
        For principled reverse-KL gradient, use k2-as-loss (gradient-equivalent
        to k1-in-reward on-policy) or k1-in-reward via score function. See §3.6.
     """
@@ -262,7 +266,7 @@ def compare_kl_estimators(n_samples=10_000, seed=0):
 > ✅ **Running the simulation you will see** —
 
 - k1 mean ≈ 0.125, min around −1.5 (negative possible), variance large.
-- k2 mean ≈ 0.18 (biased high), min ≥ 0, mid variance.
+- k2 mean ≈ 0.133 (biased high), min ≥ 0, mid variance.
 - k3 mean ≈ 0.125 (unbiased), min ≥ 0, var **distinctly smaller than** k1.
 
 This matches the takeaway from Schulman's blog: **k3 simultaneously delivers unbiased + non-negative + lower variance**.
@@ -348,7 +352,7 @@ For brevity, let $\Delta_t = \log\!\frac{\pi_\theta(y_t|s_t)}{\pi_\text{ref}(y_t
 | Placement | Where KL appears | Per-token form | Gradient contribution to θ |
 |---|---|---|---|
 | **(P1) k1 in reward** | Enter reward / advantage | $\hat r_t \leftarrow r_t - \beta\,\hat\Delta_t$, then PPO surrogate | $-\beta\cdot \mathbb{E}[\nabla_\theta\log\pi_\theta\cdot \hat\Delta_t]$, **the strict reverse-KL score-function gradient** (on-policy) |
-| **(P2) k2 as loss** | Direct loss term | $\mathcal{L}_\text{KL} = \tfrac12 \Delta_t^2$ | $\nabla\mathcal{L}_\text{KL} = \Delta_t\,\nabla_\theta\log\pi_\theta$ (using $\nabla_\theta\Delta_t = \nabla_\theta\log\pi_\theta$). On-policy, $\mathbb{E}_{y\sim\pi_\theta}[\Delta\,\nabla\log\pi_\theta] = \nabla\text{KL}$ — **gradient-equivalent** to (P1), strictly principled |
+| **(P2) k2 as loss** | Direct loss term | $\mathcal{L}_\text{KL} = \tfrac12 \Delta_t^2$ | $\nabla\mathcal{L}_\text{KL} = \Delta_t\,\nabla_\theta\log\pi_\theta$ (using $\nabla_\theta\Delta_t = \nabla_\theta\log\pi_\theta$). Under the **single-step conditional KL** (per-token KL with $y_{<t}$ fixed), this equals (P1)'s diagonal term exactly; but the true gradient of the full sequence-level KL is the reward-to-go form $\sum_t \nabla_\theta\log\pi_\theta(y_t)\cdot(\sum_{t'\ge t}\Delta_{t'})$ — (P1) automatically realizes this cross-time sum via GAE/return, whereas if (P2) is just a per-token backprop of $\sum_t \tfrac12\Delta_t^2$ (without flowing through advantage/return), it is missing the $s<t$ cross terms and is **not strictly gradient-equivalent on the full sequence** |
 | **(P3) k3 as loss** | Direct loss term | $\mathcal{L}_\text{KL} = e^{-\Delta_t} + \Delta_t - 1$ | $\nabla\mathcal{L}_\text{KL} = (1 - e^{-\Delta_t})\nabla_\theta\log\pi_\theta$; this is a **first-order Taylor approximation** of the reverse-KL gradient, since $1-e^{-\Delta} = \Delta - \tfrac12\Delta^2 + O(\Delta^3)$, with $O(\Delta^2)$ bias |
 
 #### Why k3 as loss yields a biased gradient (key intuition)
@@ -520,7 +524,7 @@ $$\mathcal{L}_\text{SimPO} = -\mathbb{E}\log\sigma\!\left(\frac{\beta}{|y_w|}\lo
 
 **Consequences**:
 
-- ✅ Saves one reference policy at training time (memory halved).
+- ✅ No need to keep a backprop-able policy plus a forward-only frozen reference at the same time — this saves the reference weights' memory and its forward compute, but that's not the same as halving total training memory: the trainable policy's weights + gradients + optimizer state (Adam alone adds roughly 2× the parameter count in momentum/variance buffers) + backward-pass activations are typically far larger than one read-only, forward-only reference copy, so the actual savings depend on the optimizer/precision setup and are generally well under 50%.
 - ❌ No KL anchor, so the distance from SFT is **completely uncontrolled**.
 - Empirically, SimPO outperforms DPO on certain benchmarks (AlpacaEval-2 / Arena-Hard); but generation quality on OOD prompts is **less stable than DPO**. SimPO's design is "length-norm + margin replaces KL anchor" — it assumes "for short prompt-response tasks, length-norm + margin is enough to constrain the policy", which **doesn't hold universally**.
 
@@ -670,7 +674,7 @@ i.e. **sequence-level KL = expectation of the sum of token-level KLs** (autoregr
 But two **implementation tricks** relate to token-level:
 
 1. **Per-token clipping**: occasionally a single token's KL can be very large (rare tokens, long tails); per-token KL clipping prevents one token from dragging the batch total KL away.
-2. **Mask on assistant tokens only**: in chat / agent settings, prompt tokens should not enter KL computation (the prompt is identical, policy and ref agree on it exactly, KL = 0; but floating-point noise pollutes it). So the KL mask coincides with the PPO action_mask — **compute KL only on assistant generation tokens**.
+2. **Mask on assistant tokens only**: in chat / agent settings, prompt tokens are excluded from KL computation not because policy and ref happen to give identical distributions on the prompt (two differently-weighted models generally give different next-token distributions over the same context), but because of mask semantics: prompt tokens are exogenous given input, not actions the current policy chose, so they should not incur a KL penalty. So the KL mask coincides with the PPO action_mask — **compute KL only on assistant generation tokens**.
 
 ```python
 # Per-token KL with action mask (chat / agentic RL setting)
@@ -798,6 +802,8 @@ def grpo_loss_with_k3_kl(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
     return loss, {"kl_k3": kl_mean.item(), "advantage_std": A.std().item()}
 ```
 
+> ⚠️ **Rollout staleness caveat** — If this batch of rollouts (the $\pi_\text{old}$ behind `old_log_probs`) gets reused for gradient updates across multiple PPO/GRPO epochs, the `kl_k3` computed above from `new_log_probs` is only $\mathbb{E}_{y\sim\pi_\text{old}}[\text{k3}(\pi_\theta^\text{new},\pi_\text{ref})]$, which is not the actual current $\text{KL}(\pi_\theta^\text{new}\|\pi_\text{ref})$ (k3's unbiasedness requires $y\sim\pi_\theta^\text{new}$, see §2.4.2). To get an unbiased estimate, either re-roll out every epoch, or apply an importance-sampling correction with $\pi_\theta^\text{new}/\pi_\text{old}$.
+
 ### 7.3　DPO closed-form loss + implicit-reward monitoring
 
 ```python
@@ -889,13 +895,13 @@ def overoptimization_monitor(policy, ref_policy, gold_reward_fn, prompts,
 
 > ⚠️ **Top-8 KL-related bugs** —
 
-1. **Wrong mask for KL**: KL on prompt tokens should be 0 (same prompt input), but floating-point noise pollutes it — so **mask only assistant tokens**.
+1. **Wrong mask for KL**: prompt tokens aren't actions the policy took at this step (a mask-semantics argument, not "policy and ref happen to have the same distribution on the prompt") — floating-point noise also pollutes them — so **mask only assistant tokens**.
 2. **k1 shows negative**: a single-sample log-ratio can be negative, but **the expectation is non-negative**. Not a bug — it's an estimator property. Switch to k3 / k2 for more intuitive monitoring.
 3. **Wrong β unit**: when reward scale = O(1), β = 0.02; when reward scale = O(100), β must be scaled accordingly. Otherwise the KL anchor fails.
 4. **Adaptive β oscillates**: target_kl too strict / mult too large. Clip mult to [0.8, 1.2], reduce update frequency to every 100 steps.
 5. **Reference policy not frozen**: forgetting `ref_policy.eval()` + `torch.no_grad()`, ref trains along with policy, KL turns into self-distillation.
 6. **Per-token vs sequence-level KL confused**: monitoring sometimes reports per-token, sometimes sequence-level — misreading leads to mis-tuning β. Unify units.
-7. **KL term shrinks reward in GRPO**: when reward is binary {0, 1} (math problems) and β = 0.04 with KL ≈ 0.5, the KL penalty already exceeds the mean reward — loss is dominated by KL. **Drop β to 1e-3 or smaller**.
+7. **KL term shrinks reward in GRPO**: what actually gets added to KL in the GRPO loss is the z-score-normalized advantage (mean 0, std 1, O(1) scale), not the raw reward mean. With binary {0, 1} reward, β = 0.04, KL ≈ 0.5, β·KL = 0.02, which is still far smaller than the advantage's O(1) scale. To judge whether KL dominates the loss, compare β·KL against the advantage magnitude actually entering the loss (see §9 Q18), not against the un-normalized raw reward mean; only when β is substantially larger (e.g. β = 1, KL ≈ 0.3) should KL domination become a concern — **lower β**.
 8. **Float overflow in $\pi_\text{ref}/\pi_\theta$**: when the policy diverges from ref by a lot, $\pi_\text{ref}/\pi_\theta$ can be very large and $e^\Delta$ overflows. **Compute k3 in log-space**: `exp(delta) - delta - 1` may still overflow for large $\Delta$, so add `torch.clamp(delta, max=10)` or use a numerically stable form.
 
 ## §8 Failure modes: KL Collapse / Runaway / Reward Hacking
@@ -965,7 +971,7 @@ def overoptimization_monitor(policy, ref_policy, gold_reward_fn, prompts,
 - DPO-trained outputs visibly longer.
 - AlpacaEval score high but users find them verbose.
 
-**Cause**: DPO loss is sequence-level log-ratio difference. $y_w$ is typically longer (humans prefer more detailed answers); longer $y_w$ → more negative $\log\pi(y_w)$ → larger log-ratio difference → smaller loss. But this is RM scale, not reasoning quality.
+**Cause**: DPO's implicit reward is a sum of sequence-level log-ratios, $\hat r(x,y) = \beta \sum_t [\log\pi_\theta(y_t|y_{<t}) - \log\pi_\text{ref}(y_t|y_{<t})]$ — a sum of $T$ per-token log-ratio terms, not a raw log-prob. Training tends to induce a small systematic positive per-token log-ratio bias on preferred tokens; since $y_w$ is typically longer (humans prefer more detailed answers), it accumulates more terms, so even with a constant per-token bias the un-length-normalized total margin scales linearly with length. This is not because the raw log-prob is more negative (that effect is roughly symmetric between $\pi_\theta$ and $\pi_\text{ref}$ and largely cancels in the log-ratio) — it's that length mechanically amplifies the un-normalized log-ratio sum.
 
 **Fixes**:
 
@@ -1370,7 +1376,7 @@ Corresponding KL distance: $\text{KL}_\text{peak} = d_\text{peak}^2 = \alpha_g^2
 
 **PPO slightly more complex than BoN**: $R_g(d) = d(\alpha_g - \beta_g \log d)$; the log term gives a distinct (RL-specific) shape vs BoN.
 
-Application: in practice, cap measured KL at $\text{KL}_\text{peak} \cdot 0.5$ for early stop, i.e. "$\sqrt{\text{KL}}$ < $d_\text{peak}/2$".
+Application: in practice, cap measured KL at $\text{KL}_\text{peak} \cdot 0.5$ for early stop, i.e. $\sqrt{\text{KL}} < d_\text{peak}/\sqrt{2}$ (≈$0.707 \cdot d_\text{peak}$).
 
 Missing the derivative; or not knowing the RM-size-vs-peak scaling.
 
@@ -1412,7 +1418,7 @@ Just saying "add both" — too naive, must give engineering scheme; not knowing 
 
 **Direction 1: Adaptive KL estimator per token**
 
-- Pick k1 vs k3 per token: small-KL tokens use k1 (unbiased + simple), large-KL tokens use k3 (prevent variance explosion).
+- There is no global variance ordering among the three: k3's $e^\Delta$ term grows exponentially as the two distributions diverge further (KL grows), and it often blows up faster than k1 (e.g. as $\mu: 0.5 \to 2.5$, $\text{Var}(k3)$ jumps from ≈0.03 to ≈270, far outpacing the roughly linearly-growing $\text{Var}(k1) \approx 6$ over the same range). In practice, run an empirical variance check on the current $\pi_\theta, \pi_\text{ref}$ before picking an estimator, rather than applying a fixed rule like "use k3 for large KL" — large-KL regimes are exactly where k3 should be used more cautiously (or fall back to k1/k2).
 - Tradeoff: implementation complexity + hard-to-determine per-token threshold.
 
 **Direction 2: Per-task β controller**

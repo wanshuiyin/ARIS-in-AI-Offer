@@ -87,8 +87,9 @@
     ]
   },
   "summary": "3-round math/code review (gpt-5.5 xhigh, fresh threads) + 1-round render review settled at WARN/PASS. Math/code substantive issues all fixed across rounds 1-3; remaining items are cosmetic (length 1258 vs target 1000±20%) and a minor MLA reduction wording note documented in body.",
-  "rendered_at": "2026-05-19",
-  "source_sha256": "af12f2249e88a9d5ca1b991a54bad44efa4bb36668119398dcef8288b28bfd62",
+  "rendered_at": "2026-07-12",
+  "source_sha256": "dfc991aee17b26645d77c91bf8ad19c419174ce29711562bde7e93fc14081381",
+  "source_sha256_prefix": "dfc991aee17b2664",
   "post_ship_review": [
     {
       "scope": "cross-tutorial consistency fix",
@@ -96,6 +97,13 @@
       "date": "2026-06-29",
       "fix": "Corrected the DeepSeek-V2 MLA compression ratio: the bare latent is ~64× but the FULL cache (d_c+d_r=576, incl. the decoupled-RoPE component) compresses ~57× — now aligned with the long-context tutorial §9 (57×), reconciling the 64×/57×/50× figures across the two MLA treatments.",
       "note": "Cross-tutorial consistency fix (2026-06-29), surfaced by a holistic collection audit (structural + a cross-tutorial consistency pass). Orchestrator-verified (arithmetic 32768/576≈57; the warmup reasoning re-checked). Tiny factual/clarity correction — the original gating verdicts (math/code/render or translation-fidelity) remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection re-sweep audit (2-stage: Codex candidate scan + independent Claude adversarial verification)",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "15 findings adjudicated (14 CONFIRMED, 1 NEEDS_NUANCE) and applied verbatim at their located spots: (1) TL;DR #8 — Medusa/EAGLE/Lookahead are NOT one shared rejection-sampling framework (Medusa defaults to typical acceptance, EAGLE/2/3 to standard rejection sampling, Lookahead to Jacobi+n-gram verify); (2) §1.1 mental model — prefill is compute-bound and decode is bandwidth-bound (was stated reversed); (3) §4.2 GQA uptraining callout — LLaMA-2-70B was natively pretrained with GQA, never went through the 5%-compute MHA→GQA uptraining conversion (was miscalled '0-shot' uptraining); (4) §4.3.3/Q22 absorb trick — decouples 'save HBM traffic' from 'save FLOPs' (FLOPs can rise slightly since d_c=512>d_head=128), not 'no compute increase'; (5) §4.4.2 decoupled-RoPE projections — fixed W^{KR}/W^{QR,(i)} shapes to (d_r×D)/(d_r×d_c') matching the doc's (output×input) column-vector convention; (6) §4.4.3/Q23 — RoPE cache increment is ~12.5% (d_r/d_c=64/512), not ~5%; (7) §5.2 PagedAttention callout — CUDA Graph recapture reasoning corrected (block-table *content* updates replay without recapture; only address/shape/control-flow changes force one); (8) §6.3 MLAAttention code — DeepSeek-V2 d_c_q=1536=12×d_head, not 4×d_head; (9) §7.4 numeric example — E[τ] is 2.31-2.77 across α∈[0.6,0.7] at K=4 (was a flat 2.7), and the α→0 limit now notes the net speedup regresses below 1 once draft forward cost is counted; (10) §8.2 Medusa — tree pruning to a sparse candidate set happens at offline tree-design time, not via typical acceptance (which is the post-forward verification step); (11) §8.3/§9.3 EAGLE draft-head size scales with target hidden dim (~0.24B params/0.5GB for 7B target, ~1B/2GB for 70B target), not a fixed ~200MB; (12) §8.5/Q24 (NEEDS_NUANCE) — long-context vanilla-SD degradation is driven by the draft side's serial O(L_ctx) KV re-reads (cost ∝ K·L_ctx), not by the verify pass failing to amortize cache reads (a single K+1-position verify forward still reads the cache once); added the GQA 128K cache (~40GiB) vs. weights (140GB) crossover point (~450K+ tokens); (13) §8.6/Q16 self-speculative decoding — skips a curated Bayesian-optimization-selected layer subset (later layers + LM head still run), not a fixed-depth early exit; (14) Q22 appendix pitfall — absorb is fully differentiable; it's inference-only for economic reasons (recomputing the fused matrix every training step isn't worth it), not because 'backprop doesn't work'; (15) Q25 Step-3 interactions — KV quantization + SD does NOT require matching draft/target quant schemes (exactness only needs each model's own true p/q; mismatch just lowers α). One additional non-flagged consistency touch-up: Q16's 'self-spec ... early exit' phrase aligned with the corrected §8.6 description.",
+      "note": "Round 1 = Codex GPT-5.6-sol candidate scan across the full tutorial collection; Round 2 = independent fresh Claude thread attempting to overturn each candidate (adversarial verification), producing the 14 CONFIRMED / 1 NEEDS_NUANCE split landed here. Numeric example (α∈[0.6,0.7], K=4 → E[τ]) and the W^{KR}/W^{QR} matrix-dimension convention were re-derived and checked for internal consistency with the rest of the document before landing. Source re-rendered (HTML regenerated with matching TOC entry count), sidecar hash refreshed, EN edition synced with the same substantive fixes."
     }
   ]
 }

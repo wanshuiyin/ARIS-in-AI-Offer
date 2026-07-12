@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/multi_agent_long_horizon_tutorial.md",
-  "source_sha256": "bcaa78e30f03cd4c2041e9685b7b93234323c3709dcae7b49c91e39a5184c34b",
+  "source_sha256": "bde1da91b63b6cee1484826ba2c7af749c78f2b513980dd770dcbefb7bec964d",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/multi_agent_long_horizon_tutorial.html",
   "topic": "Multi-Agent & Long-Horizon Agents (CAMEL / AutoGen / MetaGPT / MoA / Debate / MemGPT / LATS / SWE-Agent)",
@@ -68,6 +68,12 @@
       "date": "2026-06-29",
       "fix": "MoA venue corrected NeurIPS 2024 to ICLR 2025 (Spotlight) at section 2.5 and Q6 (section 0 was already right); FrugalGPT re-attributed Yue to Chen, Zaharia & Zou; MLE-bench 16.9% AIDE model corrected GPT-4o to o1-preview (matches the agent-foundations tutorial); Devin Mar-2024 13.9% noted to be on the ORIGINAL SWE-bench (Verified launched 2024-08).",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection rescan + cross-model adjudication (Codex GPT-5.6-sol candidate findings → independent Claude adversarial verification)",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "8 CONFIRMED + 3 NEEDS_NUANCE applied (11 findings total): (1) MetaGPT role count 7→5 (ProductManager/Architect/ProjectManager/Engineer/QAEngineer), single-predecessor chain reframed as shared message-pool pub/sub (also fixed duplicate Q3/Q4 restatements); (2) AutoGen GroupChat 'llm_selector' does not exist — corrected to real speaker_selection_method values (auto/manual/random/round_robin + custom Callable); (3) MoA section heading NeurIPS 2024 → ICLR 2025 Spotlight (matches its own citation two lines down) + diagram aggregator Qwen2-72B → Qwen1.5-110B-Chat (the model actually behind the 65.1% AlpacaEval LC win rate, also fixed duplicate Q12 mention); (4) NEEDS_NUANCE: added irreducible+aperiodic precondition to the Perron-Frobenius/doubly-stochastic consensus claim (also fixed duplicate restatement in Q21); (5) NEEDS_NUANCE: Q21 judge-as-'external contractive operator' and the beta≈0.5 'match' to the N=3→N=5 saturation reframed as unproven intuition / post-hoc numerology, not a derivation; (6) MemoryBank formula rewritten as decaying retention R_t vs strengthening memory-strength S (previously conflated into one decaying S_t); (7) GraphRAG's fabricated 'HotpotQA ~50%→~70%' table row removed and replaced with the paper's actual global-sensemaking/pairwise-win-rate evaluation (also fixed duplicate +20pp mention in Q15); (8) PUCT overclaim: ToT/RAP/LATS/Agent-Q don't uniformly use PUCT — RAP/LATS' original papers use plain UCT (no learned prior), the tutorial's own §6.7 implementation is what introduces the PUCT-with-LLM-prior variant (fixed in TL;DR, §6.4, and duplicate Q10/Q16 restatements); (9) Agent-Q WebShop 51% is the policy-only figure — added the paper's true flagship ~95.4% result with inference-time search layered back on; (10) NEEDS_NUANCE: benchmark table — WebArena Gitea→GitLab, SWE-bench 2294 full-set vs Verified 500-subset disambiguated (matches Q19), TextWorld citation Yuan AAAI 2019→Côté 2018 workshop paper, AgentBench '4.0/10' reworded as a weighted composite score (MLE-bench 26.2%/GPT-4o sub-claim not found in text, left unchanged per reviewer note); (11) DeepSeek-R1-Zero uses GRPO not MCTS — removed from the MCTS-distill pattern list, Math-Shepherd relabeled as Monte Carlo completion sampling (not tree search). Re-rendered; sidecar hash refreshed."
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/rag_embedding_retrieval_tutorial_en.md",
-  "source_sha256": "cbee547b2c6defcf50dc8603e2e734fb8ad2b31504bc099cd2b6eb379cfed631",
+  "source_sha256": "0a2f735bd41483393909e65a77e36f9bf9e6e2c68b1bde854507950b0ca598ba",
   "output": "docs/tutorials/rag_embedding_retrieval_tutorial_en.html",
   "zh_source": "docs/tutorials/rag_embedding_retrieval_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread per round",
@@ -38,6 +38,13 @@
       "scope": "post-ship mirror of CN final-review fixes",
       "verdict": "FIXED",
       "notes": "Mirrored the HyDE (hypothetical document), CRAG (retrieved-doc relevance/confidence) fixes and the 4 enrichments (SPLADE, ColBERTv2/PLAID, Contextual Retrieval/late chunking, BEIR/MTEB) into the EN edition."
+    },
+    {
+      "scope": "2026-07-12 full-collection resweep audit (P0 resweep): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "notes": "Mirrors the ZH fix: 1 CONFIRMED finding, none REFUTED on adversarial re-check. §A sanity-check bullet 'Hybrid recall ⊇ exact hits' was listed under 'key invariants' but RRF's rank-fusion formula only guarantees the candidate pool is the union of both retrievers' rankings — it does not guarantee an exact-entity BM25 hit survives truncation to the final top-k (depends on competing documents' ranks and the constant k). Reframed L634 from an absolute invariant to an engineering goal, with the lexical-quota/pinning caveat for production systems. No math/code/citation changes; prose precision only."
     }
-  ]
+  ],
+  "last_updated": "2026-07-12"
 }

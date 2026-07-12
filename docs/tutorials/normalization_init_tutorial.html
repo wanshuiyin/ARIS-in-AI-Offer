@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/normalization_init_tutorial.md">
-<meta name="aris:source-sha256" content="3363e09aa3ff1b0cac788ad03ea5c81a756ae3ef034db5bc8b6dcf6e43c90379">
-<meta name="aris:generated-at" content="2026-06-29 07:28 UTC">
+<meta name="aris:source-sha256" content="0e158f6f31513f901613914c449fb6e7639a80b63adccf8a695ea7ca9b8b3d0c">
+<meta name="aris:generated-at" content="2026-07-12 04:17 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -575,7 +575,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#82-xavier--glorot给-tanh--线性的折中">8.2　Xavier / Glorot：给 tanh / 线性的折中</a></li>
 <li><a href="#83-kaiming--he给-relu-补回那个因子-2">8.3　Kaiming / He：给 ReLU 补回那个因子 2</a></li>
 <li><a href="#84-残差网的深度感知下调--gpt-2-的-1sqrt2n">8.4　残差网的深度感知下调 + GPT-2 的 $1/\sqrt{2N}$</a></li>
-<li><a href="#85-fixup仅靠-init-免归一化训深残差网">8.5　Fixup：仅靠 init 免归一化训深残差网</a></li>
+<li><a href="#85-fixup以-init-为主-少量可学-scalar免归一化训深残差网">8.5　Fixup：以 init 为主（+ 少量可学 scalar）免归一化训深残差网</a></li>
 </ul>
 </li>
 <li><a href="#9-pmaximal-update-parametrization">§9 μP（maximal update parametrization）</a>
@@ -619,15 +619,15 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/normalization_init_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>3363e09aa3ff</code></span>
-    <span><strong>Rendered:</strong> 2026-06-29 07:28 UTC</span>
+    <span><strong>SHA256:</strong> <code>0e158f6f3151</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:17 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
 <div class="callout callout-info"><div class="callout-title">9 句话搞定 Normalization / Residual / Init</div><p>一页拿下面试核心要点（详见后文 §1–§11 推导）。</p></div>
-<ol><li><strong>为什么要归一化</strong>：深网络逐层放大 / 缩小激活，方差以 $g^L$ 指数发散或塌缩；归一化把每层激活拉回受控尺度，关键收益是<strong>平滑了 loss landscape</strong>（更小的梯度 Lipschitz / β-smoothness，Santurkar 2018），从而能用更大学习率、堆更深——<strong>不是</strong>"减少 internal covariate shift"那套旧说法。</li><li><strong>BatchNorm</strong>：沿 <strong>batch（+空间）维</strong>对每个 channel 归一化，$\hat x=\frac{x-\mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2+\epsilon}}$；<strong>训练用 batch 统计 + 维护 running mean/var，推理用 running stats</strong> → train$\ne$eval，且强依赖 batch 大小（小 batch / 变长序列 / RL / online 全踩雷）。</li><li><strong>LayerNorm</strong>：沿<strong>特征维 per-token</strong> 归一化（与 batch 完全解耦），$y=\gamma\odot\frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}+\beta$；batch=1 也能用、变长序列也能用、train$=$eval——所以 Transformer / RNN 用它而不用 BN。</li><li><strong>RMSNorm</strong>：丢掉 re-centering，只按 RMS 缩放 $\bar x=\frac{x}{\sqrt{\frac1d\sum_i x_i^2+\epsilon}}\odot\gamma$（无均值、无 $\beta$）；论点是 <strong>re-scaling 不变性比 re-centering 更重要</strong>，省一次 reduction，LLaMA 之后的事实默认。</li><li><strong>Pre-LN vs Post-LN</strong>：Post-LN（原始 Transformer，LN 在残差相加<strong>之后</strong>）质量上限略高但<strong>需 LR warmup、深了不稳</strong>；Pre-LN（LN 在残差分支<strong>内部</strong>）有干净恒等梯度路径 → 稳、免 warmup，但<strong>残差流幅度随深度按 $\sqrt L$ 增长</strong>、深层贡献被稀释，必须补一个 final LN。</li><li><strong>放置变体</strong>：DeepNorm（放大残差 $\alpha x_l$ + 缩小 init → 训 1000 层）、Sandwich / double LN（Gemma2 分支前后各一个）、<strong>QK-Norm</strong>（点积前归一化 Q、K，压住 attention logits 防爆）。</li><li><strong>残差 + 缩放</strong>：$y=x+F(x)$ 的雅可比 $I+\partial F/\partial x$ 给出<strong>梯度高速路</strong>（恒等项保证梯度不消失）；缩放技巧把分支起点压向恒等——$1/\sqrt N$ 深度缩放、LayerScale（learnable per-channel $\lambda$）、ReZero（learnable 标量 init 0）、SkipInit。</li><li><strong>初始化</strong>：核心目标是<strong>方差保持</strong>——Xavier（tanh，$\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$）、Kaiming（ReLU，$\text{Var}(W)=\frac{2}{n_\text{in}}$，那个 2 补偿 ReLU 砍掉的一半方差）；残差网再按深度下调，<strong>GPT-2 把残差投影权重 $\times\frac{1}{\sqrt{2N}}$</strong>；Fixup 仅靠 init 就免归一化训深残差网。</li><li><strong>μP / 归一化-free / 工程</strong>：μP 让<strong>最优超参（尤其 LR）宽度不变</strong> → 小宽度调好 zero-shot 迁移到大模型；Fixup / NFNets / DyT 探索去归一化（前沿方向，非定论）；工程上盯紧 final LN、$\epsilon$ 位置、fp32 reduction、fused kernel。</li></ol>
+<ol><li><strong>为什么要归一化</strong>：深网络逐层放大 / 缩小激活，方差以 $g^L$ 指数发散或塌缩；归一化把每层激活拉回受控尺度，关键收益是<strong>平滑了 loss landscape</strong>（更小的梯度 Lipschitz / β-smoothness，Santurkar 2018），从而能用更大学习率、堆更深——<strong>不是</strong>"减少 internal covariate shift"那套旧说法。</li><li><strong>BatchNorm</strong>：沿 <strong>batch（+空间）维</strong>对每个 channel 归一化，$\hat x=\frac{x-\mu_\mathcal{B}}{\sqrt{\sigma_\mathcal{B}^2+\epsilon}}$；<strong>训练用 batch 统计 + 维护 running mean/var，推理用 running stats</strong> → train$\ne$eval，且强依赖 batch 大小（小 batch / 变长序列 / RL / online 全踩雷）。</li><li><strong>LayerNorm</strong>：沿<strong>特征维 per-token</strong> 归一化（与 batch 完全解耦），$y=\gamma\odot\frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}+\beta$；batch=1 也能用、变长序列也能用、train$=$eval——所以 Transformer / RNN 用它而不用 BN。</li><li><strong>RMSNorm</strong>：丢掉 re-centering，只按 RMS 缩放 $\bar x=\frac{x}{\sqrt{\frac1d\sum_i x_i^2+\epsilon}}\odot\gamma$（无均值、无 $\beta$）；论点是 <strong>re-scaling 不变性比 re-centering 更重要</strong>，省一次 reduction，LLaMA 之后的事实默认。</li><li><strong>Pre-LN vs Post-LN</strong>：Post-LN（原始 Transformer，LN 在残差相加<strong>之后</strong>）质量上限略高但<strong>需 LR warmup、深了不稳</strong>；Pre-LN（LN 在残差分支<strong>内部</strong>）有干净恒等梯度路径 → 稳、免 warmup，但<strong>残差流幅度随深度按 $\sqrt L$ 增长</strong>、深层贡献被稀释，必须补一个 final LN。</li><li><strong>放置变体</strong>：DeepNorm（放大残差 $\alpha x_l$ + 缩小 init → 训 1000 层）、Sandwich / double LN（Gemma2 分支前后各一个）、<strong>QK-Norm</strong>（点积前归一化 Q、K，压住 attention logits 防爆）。</li><li><strong>残差 + 缩放</strong>：$y=x+F(x)$ 的雅可比 $I+\partial F/\partial x$ 给出<strong>梯度高速路</strong>（恒等项保证梯度不消失）；缩放技巧把分支起点压向恒等——$1/\sqrt N$ 深度缩放、LayerScale（learnable per-channel $\lambda$）、ReZero（learnable 标量 init 0）、SkipInit。</li><li><strong>初始化</strong>：核心目标是<strong>方差保持</strong>——Xavier（tanh，$\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$）、Kaiming（ReLU，$\text{Var}(W)=\frac{2}{n_\text{in}}$，那个 2 补偿 ReLU 砍掉的一半方差）；残差网再按深度下调，<strong>GPT-2 把残差投影权重 $\times\frac{1}{\sqrt{2N}}$</strong>；Fixup 以 init 为主（+ 少量可学 scalar）就免归一化训深残差网。</li><li><strong>μP / 归一化-free / 工程</strong>：μP 让<strong>最优超参（尤其 LR）宽度不变</strong> → 小宽度调好 zero-shot 迁移到大模型；Fixup / NFNets / DyT 探索去归一化（前沿方向，非定论）；工程上盯紧 final LN、$\epsilon$ 位置、fp32 reduction、fused kernel。</li></ol>
 <h2 id="1-为什么要归一化--残差">§1 为什么要归一化 + 残差</h2>
 <p><strong>深网络的根本病灶是"尺度在深度上失控"。</strong> 把一个信号过 $L$ 个线性层，如果每层把激活方差乘以一个增益 $g$，那么 $L$ 层后方差变成 $g^L\cdot\text{Var}(\text{input})$。$g\gt 1$ 就指数爆炸、$g\lt 1$ 就指数消失——只有 $g=1$ 这个<strong>临界点</strong>才稳定，而随机初始化几乎不可能恰好命中。反向传播同理：梯度也按某个增益逐层连乘，于是要么梯度爆炸（loss 变 NaN），要么梯度消失（深层学不动）。这就是 2015 年前"很难训超过一二十层网络"的核心障碍。</p>
 <div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>$g^L$ 是简化模型，别当全部</strong> $g^L$ 是个<strong>标量 / 平均场近似</strong>——真实每层增益数据相关、含非线性 / attention / normalization，完整的信号传播稳定性还涉及 Jacobian 谱 / dynamical isometry、均值漂移、跨层相关、训练中参数漂移。但 $g^L$ 抓住了最本质的"指数尺度失控"，是理解归一化 / 残差 / init 的最小入口模型。顶级面试若深问，要点明它是简化，稳定性 $\ne$ 只看方差连乘。</p></div>
@@ -648,9 +648,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>关键是<strong>沿哪个维度求统计</strong>：对 $[N, C]$ 的全连接特征，沿 $N$（batch）维、每个 $C$ 一组 $(\mu,\sigma)$；对 $[N, C, H, W]$ 的卷积特征，沿 $(N, H, W)$ 求、每个 channel $C$ 一组。所以 BN 的统计量是 <strong>"跨样本"</strong> 的——一个样本的归一化结果<strong>依赖同 batch 里的其他样本</strong>，这是它一切麻烦的根源。$\gamma_c,\beta_c$ 是逐 channel 的可学缩放 / 偏移，让网络能恢复"非零均值 / 非单位方差"的表达（否则强行标准化会限制表达力）。</p>
 <h3 id="22-train-vs-evalrunning-stats-与-momentum">2.2　train vs eval：running stats 与 momentum</h3>
 <p>推理时往往<strong>一次只来一个样本</strong>，没有 batch 可统计；而且我们要<strong>确定性</strong>输出（同一输入每次结果一致），不能让结果随同 batch 的其他样本变。于是 BN 在训练时<strong>额外维护一份 running（滑动平均）统计</strong>，推理时改用它：</p>
-<p>$$\hat\mu \leftarrow (1-\rho)\,\hat\mu + \rho\,\mu_\mathcal{B}, \qquad \hat\sigma^2 \leftarrow (1-\rho)\,\hat\sigma^2 + \rho\,\sigma_\mathcal{B}^2,$$</p>
-<p>其中 $\rho$ 是 momentum（PyTorch 里默认 0.1）。于是：</p>
+<p>$$\hat\mu \leftarrow (1-\rho)\,\hat\mu + \rho\,\mu_\mathcal{B}, \qquad \hat\sigma^2 \leftarrow (1-\rho)\,\hat\sigma^2 + \rho\cdot\frac{m}{m-1}\sigma_\mathcal{B}^2,$$</p>
+<p>其中 $\rho$ 是 momentum（PyTorch 里默认 0.1），$m$ 是 batch size。于是：</p>
 <ul><li><strong>训练（train mode）</strong>：用<strong>当前 batch</strong> 的 $\mu_\mathcal{B},\sigma_\mathcal{B}^2$ 归一化，并顺手更新 running stats。</li><li><strong>推理（eval mode）</strong>：用冻结的 running $\hat\mu,\hat\sigma^2$ 归一化，<strong>不再看 batch</strong>。</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>前向归一化用有偏方差，running_var 用无偏估计（高频考点）</strong> 这两处的 $\sigma_\mathcal{B}^2$ 不是同一个量：前向归一化用<strong>有偏</strong>方差（除以 $m$，对应 PyTorch <code>unbiased=False</code>），但更新 running_var 时用的是<strong>无偏</strong>估计 $\frac{m}{m-1}\sigma_\mathcal{B}^2$（Bessel 修正）——这是 PyTorch BatchNorm 的实际行为，容易被忽略。</p></div>
 <div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>train$\ne$eval 是 BN 的硬约束（高频考点）</strong> BN 是少数几个"训练和推理走不同计算路径"的层。忘记切 <code>model.eval()</code> 会让推理用 batch 统计 → 结果随 batch 内容抖动、复现不了；BN 层在小 eval batch 上还会数值异常。这点和 LayerNorm / RMSNorm 形成鲜明对比——后者 train 和 eval 完全同构。</p></div>
 <h3 id="23-为什么-bn-不适合序列--小-batch--rl">2.3　为什么 BN 不适合序列 / 小 batch / RL</h3>
 <p>BN 的"跨样本统计"在很多场景下直接失效：</p>
@@ -702,8 +703,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>围绕"LN 放哪 / 归一化什么"，社区演化出一批变体，面试常被点名：</p>
 <h3 id="61-deepnorm把-post-ln-修到能训-1000-层">6.1　DeepNorm：把 Post-LN 修到能训 1000 层</h3>
 <p>DeepNorm（Wang et al., <em>DeepNet</em>, 2022, arXiv 2203.00555）是一个<strong>改良版 Post-LN</strong>，目标是同时拿到 Post-LN 的质量和 Pre-LN 的稳定。两个动作：</p>
-<p>$$x_{l+1} = \text{LN}\big(\alpha\,x_l + \text{Sublayer}(x_l)\big), \qquad \text{且把子层权重初始化按 } \beta \text{ 缩小}.$$</p>
-<p>对一个 $N$ 层单栈，取 $\alpha=(2N)^{1/4}\gt 1$（<strong>放大残差主干</strong>），同时用增益 $\beta=(8N)^{-1/4}\lt 1$ <strong>缩小子层初始化</strong>（编码器-解码器另有公式）。直觉：放大 $x_l$ 让残差主干在相加时占主导（接近 Pre-LN 的恒等稳定性），缩小子层 init 让每步"模型更新量"被<strong>理论上界</strong>住、不随深度爆炸。结果是 Post-LN 的放置 + 受控的更新幅度 → 稳定训练到 <strong>1000 层</strong>。记忆点：<strong>DeepNorm = up-scale 残差 + down-scale init 的 Post-LN</strong>。</p>
+<p>$$x_{l+1} = \text{LN}\big(\alpha\,x_l + \text{Sublayer}(x_l)\big), \qquad \text{且把子层权重的一部分初始化按 } \beta \text{ 缩小}.$$</p>
+<p>对一个 $N$ 层单栈，取 $\alpha=(2N)^{1/4}\gt 1$（<strong>放大残差主干</strong>），同时把<strong>子层权重的一部分</strong>——FFN 的两层权重、attention 的 value 投影 $W^V$ 与输出投影 $W^O$——按增益 $\beta=(8N)^{-1/4}\lt 1$ <strong>缩小初始化</strong>（Query/Key 投影 $W^Q,W^K$ <strong>保持标准 Xavier 初始化，不被 $\beta$ 缩小</strong>；编码器-解码器另有公式）。直觉：放大 $x_l$ 让残差主干在相加时占主导（接近 Pre-LN 的恒等稳定性），缩小子层 init 让每步"模型更新量"被<strong>理论上界</strong>住、不随深度爆炸。结果是 Post-LN 的放置 + 受控的更新幅度 → 稳定训练到 <strong>1000 层</strong>。记忆点：<strong>DeepNorm = up-scale 残差 + down-scale init 的 Post-LN</strong>。</p>
 <h3 id="62-sandwich--double-ln分支前后各一个">6.2　Sandwich / double LN：分支前后各一个</h3>
 <p>Gemma2 等用 <strong>sandwich norm（双 LN）</strong>：在每个子层的残差分支<strong>前后各放一个归一化</strong>：</p>
 <p>$$x_{l+1} = x_l + \text{PostNorm}\Big(\text{Sublayer}\big(\text{PreNorm}(x_l)\big)\Big).$$</p>
@@ -711,14 +712,14 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="63-qk-norm归一化-qk-稳住-attention-logits">6.3　QK-Norm：归一化 Q、K 稳住 attention logits</h3>
 <p>QK-Norm（Henry et al., <em>Query-Key Normalization</em>, 2020, arXiv 2010.04245）针对的是<strong>注意力 logits 爆炸</strong>：训练中 $q^\top k$ 可能随尺度漂移到极大，softmax 进入饱和区（near one-hot），梯度消失 / 训练发散（大模型、长训练尤甚，也叫 attention entropy collapse）。修法极简——<strong>在点积之前对每个 head 的 $q,k$ 各做一次归一化</strong>（L2 或 RMS/LayerNorm），再算 logits：</p>
 <p>$$\tilde q = \text{Norm}(q),\quad \tilde k = \text{Norm}(k), \qquad \text{logits} = \frac{\tilde q^\top \tilde k}{\tau}\ (\tau\ \text{可学温度}).$$</p>
-<p>归一化后 $q,k$ 的模长被钳住，logits 不再随尺度爆炸 → attention 稳定。Gemma2、Chameleon、ViT-22B 等都用了 QK-Norm，已成为大规模训练的标配稳定器之一。</p>
+<p>归一化后 $q,k$ 的模长被钳住，logits 不再随尺度爆炸 → attention 稳定。Gemma3、Chameleon、ViT-22B 等都用了 QK-Norm（Gemma2 当时用的是 attention/logit soft-capping，Gemma3 才改用 QK-Norm 并去掉 soft-capping），已成为大规模训练的标配稳定器之一。</p>
 <h3 id="64-groupnorm-与-weightnorm">6.4　GroupNorm 与 WeightNorm</h3>
 <ul><li><strong>GroupNorm</strong>（Wu &amp; He, 2018, arXiv 1803.08494）：把 channel 分成 $G$ 组，<strong>在每个样本的每组 channel（+空间）内</strong>归一化——<strong>不依赖 batch</strong>。它统一了一族归一化：$G=1$ 退化为 LayerNorm（全 channel 一组），$G=C$ 退化为 InstanceNorm（每 channel 一组）。主战场是<strong>小 batch 的视觉任务</strong>（检测 / 分割，batch=2~4 时 BN 崩、GN 稳）。</li><li><strong>WeightNorm</strong>（Salimans &amp; Kingma, 2016, arXiv 1602.07868）：不归一化激活，而是<strong>重参数化权重</strong>——把权重向量拆成方向和模长 $w = g\,\frac{v}{\lVert v\rVert}$，单独学一个标量模长 $g$ 和方向 $v$。它解耦了权重的尺度与方向、加速优化，且<strong>无 batch 依赖、推理无开销</strong>（可折回普通权重），但稳定性不如 BN，热度后来被 BN/LN 盖过。</li></ul>
 <div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>一句话归位四种 norm</strong> BN 沿 batch、LN 沿 feature、GN 沿 group（batch 无关、桥接 LN 与 IN）、WN 归一化的是<strong>权重</strong>而非激活。面试问"小 batch 检测用什么归一化"答 GroupNorm；问"现代 LLM"答 RMSNorm；问"稳 attention logits"答 QK-Norm。</p></div>
 <h2 id="7-残差连接--残差缩放">§7 残差连接 + 残差缩放</h2>
 <h3 id="71-残差为什么-work三种视角">7.1　残差为什么 work：三种视角</h3>
 <p>残差块 $y = x + F(x)$（He et al., <em>ResNet</em>, 2015, arXiv 1512.03385）能训很深，有三个互补解释：</p>
-<ol><li><strong>恒等映射 / 梯度高速路</strong>：雅可比 $\frac{\partial y}{\partial x} = I + \frac{\partial F}{\partial x}$。那个 $I$ 保证——哪怕 $\frac{\partial F}{\partial x}$ 因深度而消失，梯度仍能经恒等项无损传回。$L$ 个残差块串起来，$\frac{\partial x_L}{\partial x_0}=\prod_{l}\big(I+\frac{\partial F_l}{\partial x}\big)$ 展开后含一个<strong>纯恒等项</strong>（外加各阶交叉项），所以梯度<strong>至少</strong>有一条不衰减的通路。这直接破了 $g^L$ 消失。</li><li><strong>优化更易 / 学残差比学映射容易</strong>：若理想映射接近恒等，让 $F$ 去拟合"残差"（差量）比让一整层拟合恒等容易得多——初始化在 0 附近就已经接近恒等，优化从一个好起点出发。</li><li><strong>浅路径集成（ensemble of shallow paths，Veit et al., 2016, arXiv 1605.06431）</strong>：一个 $L$ 块残差网在前向上等价于 $2^L$ 条不同深度路径的集合（每块选"走 $F$"或"走恒等"），其中<strong>短路径占主导</strong>，有效梯度主要来自这些浅路径——所以深残差网"像很多浅网的集成"，优化自然更容易。</li></ol>
+<ol><li><strong>恒等映射 / 梯度高速路</strong>：雅可比 $\frac{\partial y}{\partial x} = I + \frac{\partial F}{\partial x}$。那个 $I$ 在典型情况下<strong>显著改善</strong>梯度传播——哪怕 $\frac{\partial F}{\partial x}$ 因深度而变小，梯度仍能主要经恒等项传回（但这不是严格的数学保证：若某分支恰好学到 $F(x)=-x$，使 $I+\frac{\partial F}{\partial x}=0$，该层梯度会被精确抵消为 0；这种精确抵消在随机初始化 + 梯度下降下几乎不会发生）。$L$ 个残差块串起来，$\frac{\partial x_L}{\partial x_0}=\prod_{l}\big(I+\frac{\partial F_l}{\partial x}\big)$ 展开后含一个<strong>纯恒等项</strong>（外加各阶交叉项），典型情况下梯度主要经恒等项无损传回。这大幅缓解了 $g^L$ 消失，但对任意 $F$ 并非严格保证。</li><li><strong>优化更易 / 学残差比学映射容易</strong>：若理想映射接近恒等，让 $F$ 去拟合"残差"（差量）比让一整层拟合恒等容易得多——初始化在 0 附近就已经接近恒等，优化从一个好起点出发。</li><li><strong>浅路径集成（ensemble of shallow paths，Veit et al., 2016, arXiv 1605.06431）</strong>：一个 $L$ 块残差网在前向上等价于 $2^L$ 条不同深度路径的集合（每块选"走 $F$"或"走恒等"），其中<strong>短路径占主导</strong>，有效梯度主要来自这些浅路径——所以深残差网"像很多浅网的集成"，优化自然更容易。</li></ol>
 <h3 id="72-残差流residual-stream视角">7.2　残差流（residual stream）视角</h3>
 <p>机理可解释性里有个统一图景：残差主干是一条贯穿全网的<strong>共享通信总线（residual stream）</strong>。每个子层<strong>从总线读</strong>（经 LN 取出当前状态）、算一个更新、<strong>把更新加回总线</strong>。信息<strong>默认沿总线恒等保留</strong>，每层只决定"往上加什么"。这个视角解释了很多现象：为什么 Pre-LN 残差流会随深度累加膨胀（§5.3，大家都往同一条总线写）、为什么残差缩放（下面）有用（控制每层往总线写的强度）、为什么能在中间层"读出"语义。</p>
 <h3 id="73-残差缩放把分支起点压向恒等">7.3　残差缩放：把分支起点压向恒等</h3>
@@ -729,8 +730,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>归一化和残差治标，<strong>初始化治本</strong>——它决定网络在第 0 步的方差 / 梯度尺度是否良态。（注：init 只保证<strong>良态起点</strong>；训练全程的稳定还要靠参数化 / LR / optimizer / 残差缩放 / norm 放置一起兜——见 §1 的"三轴联合设计"。）</p>
 <h3 id="81-目标方差保持variance-preservation">8.1　目标：方差保持（variance preservation）</h3>
 <p>希望前向激活方差与反向梯度方差<strong>逐层大致守恒</strong>，别让 $g^L$ 把它们带跑。对一个权重 $W\in\mathbb{R}^{n_\text{out}\times n_\text{in}}$、输入各分量独立同方差的线性层 $z=Wx$：</p>
-<p>$$\text{Var}(z_j) = n_\text{in}\,\text{Var}(W)\,\text{Var}(x).$$</p>
-<p>要 $\text{Var}(z)=\text{Var}(x)$（前向守恒）需 $n_\text{in}\text{Var}(W)=1$；要反向梯度方差守恒需 $n_\text{out}\text{Var}(W)=1$。两者一般不能同时满足，于是有了不同折中。</p>
+<p>$$\text{Var}(z_j) = n_\text{in}\,\text{Var}(W)\,\mathbb{E}[x^2].$$</p>
+<p>（对零均值的 $x$，$\mathbb{E}[x^2]=\text{Var}(x)$ 二者一致；但深层 ReLU 网络中作为下一层输入的 $x$ 是上一层 ReLU 输出、并非零均值，此时须用 $\mathbb{E}[x^2]$——这与 §8.3 后续正确使用 $\mathbb{E}[y^2]$ 而非 $\text{Var}(y)$ 一致。）要 $\text{Var}(z)=\mathbb{E}[x^2]$（前向守恒）需 $n_\text{in}\text{Var}(W)=1$；要反向梯度方差守恒需 $n_\text{out}\text{Var}(W)=1$。两者一般不能同时满足，于是有了不同折中。</p>
 <h3 id="82-xavier--glorot给-tanh--线性的折中">8.2　Xavier / Glorot：给 tanh / 线性的折中</h3>
 <p>Xavier/Glorot（Glorot &amp; Bengio, AISTATS 2010）面向<strong>对称、近线性</strong>激活（tanh、线性），取前向与反向两个条件的折中：</p>
 <p>$$\text{Var}(W) = \frac{2}{n_\text{in}+n_\text{out}} \quad\Longrightarrow\quad W\sim U\!\Big[-\sqrt{\tfrac{6}{n_\text{in}+n_\text{out}}},\ \sqrt{\tfrac{6}{n_\text{in}+n_\text{out}}}\Big]\ \text{或对应高斯}.$$</p>
@@ -738,13 +739,13 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="83-kaiming--he给-relu-补回那个因子-2">8.3　Kaiming / He：给 ReLU 补回那个因子 2</h3>
 <p>Kaiming/He（He et al., 2015, arXiv 1502.01852）指出：<strong>ReLU 把负半轴清零，砍掉约一半方差</strong>——$\mathbb{E}[\text{ReLU}(z)^2]=\tfrac12\text{Var}(z)$（对零均值对称 $z$）。要在 ReLU 后仍守恒，需补一个因子 2：</p>
 <p>$$\tfrac12\,n_\text{in}\,\text{Var}(W)=1 \quad\Longrightarrow\quad \boxed{\;\text{Var}(W)=\frac{2}{n_\text{in}}\;}\ (\text{fan\_in 模式},\ \text{std}=\sqrt{2/n_\text{in}}).$$</p>
-<p>这个 2 是 Xavier 与 Kaiming 的唯一实质区别，却决定了深 ReLU 网（VGG / ResNet 级）能不能训：用 Xavier 的 $1/n_\text{in}$ 喂 ReLU，每层信号能量被 ReLU 砍半又没补回，$L$ 层后二阶矩 $\mathbb{E}[y^2]\approx (1/2)^L$ <strong>指数消失</strong>；用 Kaiming 才守恒（§A 的 [e] 验证：Kaiming 后 post-ReLU 二阶矩 $\mathbb{E}[y^2]\approx1$，Xavier-for-ReLU $\approx 0.5$ 并逐层砍半）。这里守恒的量是<strong>二阶矩 $\mathbb{E}[y^2]$</strong>（喂给下一层的信号能量），而非 $\text{Var}(y)$——ReLU 让输出均值非零，$\text{Var}(y)=1-1/\pi\approx0.68$。</p>
+<p>这个 2 是 Xavier 与 Kaiming <strong>在 $n_\text{in}=n_\text{out}$（如常见方阵 / 等宽层）特例下</strong>的实质区别——一般情形下两者方差之比是 $\frac{n_\text{in}+n_\text{out}}{n_\text{in}}=1+\frac{n_\text{out}}{n_\text{in}}$，只有 $n_\text{in}=n_\text{out}$ 时才恰好等于 2（共同本质：Kaiming 是在纯前向条件 $n_\text{in}\text{Var}(W)=1$ 上补一个 ReLU 砍半的因子 2，Xavier 是前向 / 反向两条件的折中平均）。这个因子却决定了深 ReLU 网（VGG / ResNet 级）能不能训：用 Xavier 的 $1/n_\text{in}$ 喂 ReLU，每层信号能量被 ReLU 砍半又没补回，$L$ 层后二阶矩 $\mathbb{E}[y^2]\approx (1/2)^L$ <strong>指数消失</strong>；用 Kaiming 才守恒（§A 的 [e] 验证：Kaiming 后 post-ReLU 二阶矩 $\mathbb{E}[y^2]\approx1$，Xavier-for-ReLU $\approx 0.5$ 并逐层砍半）。这里守恒的量是<strong>二阶矩 $\mathbb{E}[y^2]$</strong>（喂给下一层的信号能量），而非 $\text{Var}(y)$——ReLU 让输出均值非零，$\text{Var}(y)=1-1/\pi\approx0.68$。</p>
 <div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Xavier vs Kaiming 不是"换个公式"，是"是否补 ReLU 的因子 2"</strong> tanh / 线性用 Xavier（$\frac{2}{n_\text{in}+n_\text{out}}$）；ReLU / LeakyReLU 用 Kaiming（$\frac{2}{n_\text{in}}$，LeakyReLU 还要按负斜率改增益）。给 ReLU 网用 Xavier 会系统性偏小 → 深了激活 / 梯度消失。</p></div>
 <h3 id="84-残差网的深度感知下调--gpt-2-的-1sqrt2n">8.4　残差网的深度感知下调 + GPT-2 的 $1/\sqrt{2N}$</h3>
 <p>即便每层都 Xavier/Kaiming，残差流仍会累加膨胀（§5.3）。所以深残差网在 per-layer init 之外还要<strong>按深度下调残差分支</strong>：</p>
 <ul><li>把分支<strong>最后一层初始化为 0</strong>（分支起点输出 0 → 块起点为恒等，同 ReZero / Fixup 思想）；</li><li>或把分支整体乘 $1/\sqrt L$。</li></ul>
 <p><strong>GPT-2 的经典技巧</strong>：把<strong>残差投影层</strong>（attention 的输出投影 + FFN 的 down 投影，即"往残差流写"的那两个矩阵）的权重在 init 时<strong>乘 $\frac{1}{\sqrt{2N}}$</strong>，$N$=层数。为什么是 $2N$ 而非 $N$？因为每个 transformer 层往残差流写<strong>两次</strong>（attn 一次、FFN 一次），$N$ 层共 $2N$ 次累加；按 $1/\sqrt{2N}$ 缩放每次写入，使 $2N$ 次累加后残差流方差仍 $O(1)$。nanoGPT 等实现都对 <code>c_proj</code> 类权重套这个缩放（§A 的 [f] 验证：不缩放方差随深度线性涨，$1/\sqrt{2N}$ 缩放后有界）。</p>
-<h3 id="85-fixup仅靠-init-免归一化训深残差网">8.5　Fixup：仅靠 init 免归一化训深残差网</h3>
+<h3 id="85-fixup以-init-为主-少量可学-scalar免归一化训深残差网">8.5　Fixup：以 init 为主（+ 少量可学 scalar）免归一化训深残差网</h3>
 <p>Fixup（Zhang et al., 2019, arXiv 1901.09321）把"用 init 控方差"推到极致——<strong>完全不用任何归一化层</strong>，仅靠精心设计的初始化就训出能打 BN-ResNet 的深残差网。三招：</p>
 <ol><li>每个残差分支的<strong>最后一层初始化为 0</strong>（分支起点输出 0 → 块为恒等，残差流初始方差不爆）；</li><li>分支内其他层的权重<strong>额外乘 $L^{-1/(2m-2)}$</strong> 下调（$m$=每分支层数、$L$=块数），抵消深度累加；</li><li>加入少量<strong>可学标量偏置 / 乘子</strong>补偿被砍掉的仿射自由度。</li></ol>
 <p>意义：<strong>归一化不是训深网络的充要条件</strong>——把方差 / 梯度的尺度问题在初始化处一次性解决，就能去掉 BN/LN。这条直接通向 §10 的 normalizer-free 路线。（Transformer 上的对应工作是 T-Fixup，主张配好 init 后可免 warmup / 免 LN——见参考文献，arXiv id 待核。）</p>
@@ -760,7 +761,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h2 id="10-归一化-free-与前沿">§10 归一化-free 与前沿</h2>
 <p>归一化层带来 train/eval 差异（BN）、跨设备同步（多卡 BN）、额外 reduction 等麻烦，于是一直有人问：<strong>能不能不要归一化？</strong> 这是研究方向，<strong>非定论</strong>，但思路很有启发。</p>
 <h3 id="101-fixup--nfnets用-init--显式方差控制替代归一化">10.1　Fixup / NFNets：用 init + 显式方差控制替代归一化</h3>
-<ul><li><strong>Fixup</strong>（§8.5）：纯靠初始化（分支末层置 0 + 深度下调）训深残差网，无任何归一化层，ImageNet 上逼近 BN-ResNet。证明 norm 非必需。</li><li><strong>NFNets</strong>（Brock et al., 2021, arXiv 2102.06171）：Normalizer-Free Networks，系统性地去掉 BN。三件套——<strong>Scaled Weight Standardization</strong>（标准化权重而非激活）+ <strong>解析设计的缩放残差块</strong> $x_{l+1}=x_l+\alpha\,F(x_l/\beta_l)$（用解析的 $\alpha,\beta_l$ 精确追踪 / 控制每层方差）+ <strong>Adaptive Gradient Clipping（AGC）</strong>（按参数范数自适应裁剪梯度，找回 BN 在大 batch 下的稳定性）。结果在 ImageNet 上<strong>超过 EfficientNet 且无任何归一化层</strong>，说明 BN 的好处（控尺度 + 正则 + 大 batch 稳定）可以被显式手段分别补回。</li></ul>
+<ul><li><strong>Fixup</strong>（§8.5）：纯靠初始化为主（分支末层置 0 + 深度下调）+ 少量可学标量乘子 / 偏置，训深残差网、无任何归一化层，ImageNet 上逼近 BN-ResNet。证明 norm 非必需（但仍需极少量可学 scalar 补偿被砍掉的仿射自由度，非严格"零额外可学参数"）。</li><li><strong>NFNets</strong>（Brock et al., 2021, arXiv 2102.06171）：Normalizer-Free Networks，系统性地去掉 BN。三件套——<strong>Scaled Weight Standardization</strong>（标准化权重而非激活）+ <strong>解析设计的缩放残差块</strong> $x_{l+1}=x_l+\alpha\,F(x_l/\beta_l)$（用解析的 $\alpha,\beta_l$ 精确追踪 / 控制每层方差）+ <strong>Adaptive Gradient Clipping（AGC）</strong>（按参数范数自适应裁剪梯度，找回 BN 在大 batch 下的稳定性）。结果在 ImageNet 上<strong>超过 EfficientNet 且无任何归一化层</strong>，说明 BN 的好处（控尺度 + 正则 + 大 batch 稳定）可以被显式手段分别补回。</li></ul>
 <h3 id="102-dytdynamic-tanh用可学-tanh-替掉-ln">10.2　DyT（Dynamic Tanh）：用可学 tanh 替掉 LN</h3>
 <p>DyT（<em>Transformers without Normalization</em>, 2025, arXiv 2503.10622，arXiv id 以引用核查为准）来自一个观察：<strong>训练好的 LayerNorm 的输入-输出曲线，长得像一条被压扁的 $\tanh$</strong>（对中间值近线性、对离群值 S 形饱和）。既然 LN 的效果近似一个逐元素 squashing，那干脆<strong>省掉求均值 / 方差的 reduction，直接学一个 tanh</strong>：</p>
 <p>$$\text{DyT}(x) = \gamma\odot\tanh(\alpha\,x) + \beta,$$</p>
@@ -768,9 +769,9 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <blockquote><p>🎯 <strong>前沿，诚实定位</strong> Fixup / NFNets / DyT 共同传递一个信息：<strong>归一化在理论上不是训练深网络的必要条件</strong>——它的核心作用（控方差、平滑地形、压离群值）可被"好 init / 显式方差控制 / 可学 squashing"等手段替代。但 <strong>LN/RMSNorm 仍是当前生产系统的稳妥默认</strong>（鲁棒、即插即用、生态成熟）。面试谈这些要点明"研究方向 / 有前景"，别说成"已取代归一化"。</p></blockquote>
 <h2 id="11-工程实践--复杂度对比--常见误区">§11 工程实践 + 复杂度对比 + 常见误区</h2>
 <h3 id="111-四种归一化对比">11.1　四种归一化对比</h3>
-<table><thead><tr><th>归一化</th><th>归一化维度</th><th>依赖 batch</th><th>train$\ne$eval</th><th>可学参数</th><th>相对成本</th></tr></thead><tbody><tr><td><strong>BatchNorm</strong></td><td>沿 batch（+空间），逐 channel</td><td>是</td><td><strong>是</strong>（推理用 running stats）</td><td>$\gamma,\beta$</td><td>中（两次 reduction + 维护 running stats + 多卡需同步）</td></tr><tr><td><strong>LayerNorm</strong></td><td>沿特征维，per-token</td><td>否</td><td>否</td><td>$\gamma,\beta$</td><td>中（均值 + 方差两次 reduction）</td></tr><tr><td><strong>RMSNorm</strong></td><td>沿特征维 RMS，per-token</td><td>否</td><td>否</td><td>$\gamma$（无 $\beta$）</td><td>低（一次平方和 reduction，无均值、无偏移）</td></tr><tr><td><strong>GroupNorm</strong></td><td>沿组内 channel（+空间），逐 sample</td><td>否</td><td>否</td><td>$\gamma,\beta$</td><td>中（组内 reduction，batch 无关）</td></tr></tbody></table>
+<table><thead><tr><th>归一化</th><th>归一化维度</th><th>依赖 batch</th><th>train$\ne$eval</th><th>可学参数</th><th>相对成本</th></tr></thead><tbody><tr><td><strong>BatchNorm</strong></td><td>沿 batch（+空间），逐 channel</td><td>是</td><td><strong>是</strong>（推理用 running stats）</td><td>$\gamma,\beta$</td><td>中（两次 reduction + 维护 running stats + 多卡需同步）</td></tr><tr><td><strong>LayerNorm</strong></td><td>沿特征维，per-token</td><td>否</td><td>否</td><td>$\gamma,\beta$</td><td>中（多算一个统计量——均值；朴素实现两次 reduction，fused/Welford 单遍可算完）</td></tr><tr><td><strong>RMSNorm</strong></td><td>沿特征维 RMS，per-token</td><td>否</td><td>否</td><td>$\gamma$（无 $\beta$）</td><td>低（一次平方和 reduction，无均值、无偏移）</td></tr><tr><td><strong>GroupNorm</strong></td><td>沿组内 channel（+空间），逐 sample</td><td>否</td><td>否</td><td>$\gamma,\beta$</td><td>中（组内 reduction，batch 无关）</td></tr></tbody></table>
 <h3 id="112-工程细节">11.2　工程细节</h3>
-<ul><li><strong>Pre-LN 别漏 final LN</strong>（§5.3）：transformer 栈之后、LM head 之前必须有一个收口 LN，否则膨胀的残差流直接进输出头，质量掉。</li><li><strong>$\epsilon$ 的位置</strong>：约定是 $\sqrt{\sigma^2+\epsilon}$（$\epsilon$ 在根号<strong>里</strong>，PyTorch 如此），不是 $\sqrt{\sigma^2}+\epsilon$。$\epsilon$ 太小在 fp16 下会因 $\sigma^2\approx0$ 触发除零 / 溢出；RMSNorm 的 $\epsilon$ 同理在 $\sqrt{\text{mean}(x^2)+\epsilon}$ 里。</li><li><strong>fp16/bf16 数值</strong>：归一化的 reduction（求和 / 平方和）<strong>务必在 fp32 累加</strong>，即使激活是 bf16——平方和在低精度下极易溢出 / 损失有效位。标准实现都把 norm 内部 upcast 到 fp32 再 downcast。</li><li><strong>fused kernel</strong>：LN/RMSNorm 是 <strong>memory-bound</strong>（读激活 → reduction → 写回），FLOPs 很小但访存重；用 fused kernel（Apex <code>FusedLayerNorm</code>、Triton、FlashNorm 等）把读-算-写并进一个 kernel，省 HBM 往返。RMSNorm 因只有一次 reduction、无均值，天然更便宜。</li><li><strong>推理成本</strong>：单看 FLOPs 归一化微不足道，但它<strong>打断算子融合 + 带一个 reduction</strong>，在大模型逐 token decode 时累积成可观延迟；这也是 RMSNorm（省一次 reduction）在推理侧受欢迎的原因之一。</li><li><strong>BN 的多卡坑</strong>：数据并行下每卡只看到 batch 的一部分，BN 统计是"局部 batch"的；要全局统计得用 SyncBatchNorm（跨卡通信，慢）。LN/RMSNorm 无此问题（per-token，天然无需同步）。</li></ul>
+<ul><li><strong>Pre-LN 别漏 final LN</strong>（§5.3）：transformer 栈之后、LM head 之前必须有一个收口 LN，否则膨胀的残差流直接进输出头，质量掉。</li><li><strong>$\epsilon$ 的位置</strong>：约定是 $\sqrt{\sigma^2+\epsilon}$（$\epsilon$ 在根号<strong>里</strong>，PyTorch 如此），不是 $\sqrt{\sigma^2}+\epsilon$。$\epsilon$ 太小在 fp16 下会因 $\sigma^2\approx0$ 触发除零 / 溢出；RMSNorm 的 $\epsilon$ 同理在 $\sqrt{\text{mean}(x^2)+\epsilon}$ 里。</li><li><strong>fp16/bf16 数值</strong>：归一化的 reduction（求和 / 平方和）<strong>务必在 fp32 累加</strong>，即使激活是 bf16——平方和在低精度下极易溢出 / 损失有效位。标准实现都把 norm 内部 upcast 到 fp32 再 downcast。</li><li><strong>fused kernel</strong>：LN/RMSNorm 是 <strong>memory-bound</strong>（读激活 → reduction → 写回），FLOPs 很小但访存重；用 fused kernel（Apex <code>FusedLayerNorm</code>、Triton、FlashNorm 等）把读-算-写并进一个 kernel，省 HBM 往返。RMSNorm 少算一个统计量（均值）、无 $\beta$，即使在 fused 单遍 kernel 下也比 fused LayerNorm 省一点算术与访存。</li><li><strong>推理成本</strong>：单看 FLOPs 归一化微不足道，但它<strong>打断算子融合 + 带一个 reduction</strong>，在大模型逐 token decode 时累积成可观延迟；这也是 RMSNorm（省一次 reduction）在推理侧受欢迎的原因之一。</li><li><strong>BN 的多卡坑</strong>：数据并行下每卡只看到 batch 的一部分，BN 统计是"局部 batch"的；要全局统计得用 SyncBatchNorm（跨卡通信，慢）。LN/RMSNorm 无此问题（per-token，天然无需同步）。</li></ul>
 <h3 id="113-常见误区footguns">11.3　常见误区（footguns）</h3>
 <div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 1：把 covariate shift 当成归一化有效的唯一/已证原因</strong> 已被 Santurkar 2018 实证推翻（§1.1）。正确归因是"平滑 loss 地形 / 梯度更良态"。这是最经典的面试陷阱。</p></div>
 <div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 2：Pre-LN 忘了 final LN</strong> Pre-LN 残差流随深度按 $\sqrt L$ 膨胀且末端无 LN 收口，漏掉 final LN 直接喂输出头会掉点（§5.3）。</p></div>
@@ -837,8 +838,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <details>
 
 <summary>Q10. Xavier 和 Kaiming 初始化的区别？各用于什么激活？</summary>
-<ul><li>Xavier：$\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$，给 <strong>tanh / 线性</strong>（对称近线性激活）</li><li>Kaiming：$\text{Var}(W)=\frac{2}{n_\text{in}}$，给 <strong>ReLU</strong>，那个 2 补偿 ReLU 砍掉的一半方差</li><li>给 ReLU 网用 Xavier 会偏小 → 深了激活 / 梯度消失</li></ul>
-<p>只背两个公式，说不清"差别就是补不补 ReLU 的因子 2"。</p>
+<ul><li>Xavier：$\text{Var}(W)=\frac{2}{n_\text{in}+n_\text{out}}$，给 <strong>tanh / 线性</strong>（对称近线性激活）</li><li>Kaiming：$\text{Var}(W)=\frac{2}{n_\text{in}}$，给 <strong>ReLU</strong>，那个 2 补偿 ReLU 砍掉的一半方差</li><li>两者方差之比是 $1+n_\text{out}/n_\text{in}$，只有 $n_\text{in}=n_\text{out}$ 时才恰好等于 2（这是常被过度泛化的特例，不是普遍规律）</li><li>给 ReLU 网用 Xavier 会偏小 → 深了激活 / 梯度消失</li></ul>
+<p>只背两个公式，说不清"差别就是补不补 ReLU 的因子 2"；或以为"因子恰好是 2"对任意 $n_\text{in},n_\text{out}$ 都成立。</p>
 </details>
 <h3 id="l2进阶题">L2进阶题</h3>
 <details>
@@ -862,13 +863,13 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <details>
 
 <summary>Q14. 推导 Kaiming 初始化的方差，为什么是 $2/n_\text{in}$？</summary>
-<ul><li>线性层 $\text{Var}(z)=n_\text{in}\text{Var}(W)\text{Var}(x)$，要前向守恒需 $n_\text{in}\text{Var}(W)=1$</li><li>ReLU 把负半轴清零：$\mathbb{E}[\text{ReLU}(z)^2]=\frac12\text{Var}(z)$，砍掉一半方差</li><li>补因子 2：$\frac12 n_\text{in}\text{Var}(W)=1\Rightarrow\text{Var}(W)=\frac{2}{n_\text{in}}$</li></ul>
-<p>写不出 $\text{Var}(z)=n_\text{in}\text{Var}(W)\text{Var}(x)$，或不知道那个 2 来自 ReLU 砍半。</p>
+<ul><li>线性层 $\text{Var}(z)=n_\text{in}\text{Var}(W)\mathbb{E}[x^2]$（对零均值 $x$ 即 $\text{Var}(x)$），要前向守恒需 $n_\text{in}\text{Var}(W)=1$</li><li>ReLU 把负半轴清零：$\mathbb{E}[\text{ReLU}(z)^2]=\frac12\text{Var}(z)$，砍掉一半方差</li><li>补因子 2：$\frac12 n_\text{in}\text{Var}(W)=1\Rightarrow\text{Var}(W)=\frac{2}{n_\text{in}}$</li></ul>
+<p>写不出 $\text{Var}(z)=n_\text{in}\text{Var}(W)\mathbb{E}[x^2]$，或不知道那个 2 来自 ReLU 砍半。</p>
 </details>
 <details>
 
 <summary>Q15. 残差为什么能破梯度消失？给出反向传播的式子。</summary>
-<ul><li>$L$ 块串联：$\frac{\partial x_L}{\partial x_0}=\prod_l(I+\frac{\partial F_l}{\partial x})$</li><li>展开含一个<strong>纯恒等项</strong>（再加各阶交叉项）→ 梯度至少有一条不衰减通路</li><li>即使 $\partial F/\partial x\to0$，恒等项仍把梯度无损传回浅层</li></ul>
+<ul><li>$L$ 块串联：$\frac{\partial x_L}{\partial x_0}=\prod_l(I+\frac{\partial F_l}{\partial x})$</li><li>展开含一个<strong>纯恒等项</strong>（再加各阶交叉项）→（典型情况下）梯度主要经恒等项无损传回，但不是对任意 $F$ 的严格保证（如 $F(x)=-x$ 会使该层贡献恰好抵消为 0，只是随机初始化+梯度下降下几乎不会发生）</li><li>即使 $\partial F/\partial x\to0$，恒等项在典型情况下仍把梯度大部分无损传回浅层</li></ul>
 <p>只说"加了 skip"，写不出雅可比连乘里那个恒等项为什么救梯度。</p>
 </details>
 <details>
@@ -886,13 +887,13 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <details>
 
 <summary>Q18. QK-Norm 是什么？解决什么问题？</summary>
-<ul><li>点积前对每个 head 的 $q,k$ 各做一次归一化（L2/RMS），再算 logits</li><li>解决 attention logits 随尺度爆炸 → softmax 饱和 / entropy collapse / 训练发散（大模型尤甚）</li><li>归一化后 $q,k$ 模长被钳住，logits 不爆；Gemma2 / Chameleon / ViT-22B 在用</li></ul>
+<ul><li>点积前对每个 head 的 $q,k$ 各做一次归一化（L2/RMS），再算 logits</li><li>解决 attention logits 随尺度爆炸 → softmax 饱和 / entropy collapse / 训练发散（大模型尤甚）</li><li>归一化后 $q,k$ 模长被钳住，logits 不爆；Gemma3 / Chameleon / ViT-22B 在用（Gemma2 当时用的是 soft-capping，Gemma3 才改用 QK-Norm）</li></ul>
 <p>只说"归一化 QK"，讲不出它防的是 logits 爆炸 / softmax 饱和。</p>
 </details>
 <details>
 
 <summary>Q19. DeepNorm 怎么训到 1000 层？它和 Pre/Post-LN 什么关系？</summary>
-<ul><li>是<strong>改良 Post-LN</strong>：$x_{l+1}=\text{LN}(\alpha x_l+\text{Sublayer}(x_l))$，$\alpha=(2N)^{1/4}\gt1$ 放大残差</li><li>同时用增益 $\beta=(8N)^{-1/4}\lt1$ <strong>缩小子层 init</strong>，把每步模型更新量界住</li><li>up-scale 残差（接近 Pre-LN 稳定）+ down-scale init（更新有界）→ Post-LN 质量 + 稳定到 1000 层</li></ul>
+<ul><li>是<strong>改良 Post-LN</strong>：$x_{l+1}=\text{LN}(\alpha x_l+\text{Sublayer}(x_l))$，$\alpha=(2N)^{1/4}\gt1$ 放大残差</li><li>同时用增益 $\beta=(8N)^{-1/4}\lt1$ <strong>缩小 FFN + attention 的 $W^V,W^O$</strong> 这部分子层 init（$W^Q,W^K$ 仍用标准 Xavier init），把每步模型更新量界住</li><li>up-scale 残差（接近 Pre-LN 稳定）+ down-scale init（更新有界）→ Post-LN 质量 + 稳定到 1000 层</li></ul>
 <p>把 DeepNorm 当成 Pre-LN；或只记 $\alpha$ 不记"还要缩小 init"。</p>
 </details>
 <details>
@@ -934,7 +935,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 </details>
 <h2 id="a-附录sanity-check">§A 附录：sanity check</h2>
 <p>本 tutorial 的代码在 <a href="code/normalization.py"><code>docs/tutorials/code/normalization.py</code></a> 有最小可跑版本（纯 PyTorch、CPU 几秒、6 个 <code>assert</code>，覆盖 [a]–[f]）。它应满足以下关键不变量：</p>
-<ol><li><strong>[a] LayerNorm 自实现 == <code>nn.LayerNorm</code></strong>：用总体方差（<code>unbiased=False</code>，除以 $d$）、$\epsilon$ 放根号内，仿射后应与 PyTorch 在浮点误差内逐元素相等（<code>atol≈1e-5</code>）。</li><li><strong>[b] RMSNorm 自实现 == <code>nn.RMSNorm</code>，且 RMSNorm 对平移不变性与 LN 不同</strong>：给输入整体加常数 $c$，<strong>LayerNorm 输出几乎不变</strong>（它减均值 → re-centering 不变），而 <strong>RMSNorm 输出会变</strong>（它只 re-scale、不减均值）——这正是 §4 "RMSNorm 没有 re-centering" 的可执行验证。</li><li><strong>[c] BatchNorm train$\ne$eval</strong>：train 模式用 batch 统计（输出每特征近似零均值）并把 running mean 从 0 推离；切到 eval 用 running stats，对同一输入输出明显不同——验证 §2.2 的双路径。</li><li><strong>[d] Post-LN 把参数梯度堆在顶层（top-heavy），Pre-LN 跨深度均衡</strong>：搭一摞 48 层同构残差块（末尾接一个 linear head——避免 loss 直接作用在 Post-LN 的归一化输出上产生"梯度被压成 0"的假象），一次 forward+backward，量每个块 Linear 权重梯度的<strong>顶/底比值</strong>（last/first）。Pre-LN $\approx0.40$（均衡、略偏底），Post-LN $\approx2.35$（$\gt1$，梯度堆在靠近输出的顶层）——正是 §5.2 Xiong "Post-LN 顶层梯度偏大 → 需 warmup" 的可执行印证。<strong>用顶/底比值而非绝对梯度，因为它不受 loss 选择 / 输出归一化混淆</strong>（这是个隐蔽的实验设计坑）。</li><li><strong>[e] Kaiming 保二阶矩、Xavier-for-ReLU 衰减</strong>：单位二阶矩输入（$\mathbb{E}[x^2]=1$）过 <code>Linear+ReLU</code>，量 <strong>post-ReLU 的二阶矩 $\mathbb{E}[y^2]$</strong>（喂给下一层的信号能量，也是 He 推导真正传播的量）：Kaiming（$\sqrt{2/n_\text{in}}$）后 $\mathbb{E}[y^2]\approx1$（守恒），Xavier-for-ReLU（$\sqrt{1/n_\text{in}}$）后 $\approx0.5$（每层砍半 → 深了消失）——验证 §8.3 的因子 2。注意测的是 $\mathbb{E}[y^2]$ 而非 $\text{Var}(y)$：ReLU 使输出均值非零，故 $\text{Var}(y)=1-1/\pi\approx0.68$，而逐层守恒 / 传播的量是二阶矩 $\mathbb{E}[y^2]$。</li><li><strong>[f] GPT-2 残差缩放 $1/\sqrt{2N}$ 把残差流方差界住</strong>：往残差流累加 $N$ 次 $O(1)$ 更新，不缩放则方差随深度<strong>线性增长</strong>，乘 $1/\sqrt{2N}$ 后方差<strong>有界</strong>——验证 §8.4。</li></ol>
+<ol><li><strong>[a] LayerNorm 自实现 == <code>nn.LayerNorm</code></strong>：用总体方差（<code>unbiased=False</code>，除以 $d$）、$\epsilon$ 放根号内，仿射后应与 PyTorch 在浮点误差内逐元素相等（<code>atol≈1e-5</code>）。</li><li><strong>[b] RMSNorm 自实现 == <code>nn.RMSNorm</code>，且 RMSNorm 对平移不变性与 LN 不同</strong>：给输入整体加常数 $c$，<strong>LayerNorm 输出几乎不变</strong>（它减均值 → re-centering 不变），而 <strong>RMSNorm 输出会变</strong>（它只 re-scale、不减均值）——这正是 §4 "RMSNorm 没有 re-centering" 的可执行验证。</li><li><strong>[c] BatchNorm train$\ne$eval</strong>：train 模式用 batch 统计（输出每特征近似零均值）并把 running mean 从 0 推离；切到 eval 用 running stats，对同一输入输出明显不同——验证 §2.2 的双路径。</li><li><strong>[d] Post-LN 把参数梯度堆在顶层（top-heavy），Pre-LN 则堆在底层（bottom-heavy）</strong>：搭一摞 48 层同构残差块（末尾接一个 linear head——避免 loss 直接作用在 Post-LN 的归一化输出上产生"梯度被压成 0"的假象），一次 forward+backward，量每个块 Linear 权重梯度的<strong>顶/底比值</strong>（last/first）。Pre-LN $\approx0.40$——即底层梯度约为顶层的 $1/0.40=2.5\times$；用对称失衡度量 $\max(r,1/r)$ 看，这个偏斜幅度（2.5）其实和 Post-LN 的 2.35 相当、甚至略大，<strong>关键差异是偏斜方向相反</strong>（Pre-LN 偏底、Post-LN 堆顶）。这印证的是 §5.2 Xiong et al. 的渐进论断——随深度 $L$ 增长，Post-LN 顶层梯度保持 $\Theta(d\sqrt{\ln d})$ 不随 $L$ 衰减，Pre-LN 各层尺度则整体按 $1/\sqrt L$ 收缩，是渐进意义上更良态，而不是"这一次固定深度实验里比值接近 1"。<strong>用顶/底比值而非绝对梯度，因为它能部分消除 loss 选择 / 输出归一化的混淆</strong>（这是个隐蔽的实验设计坑）。</li><li><strong>[e] Kaiming 保二阶矩、Xavier-for-ReLU 衰减</strong>：单位二阶矩输入（$\mathbb{E}[x^2]=1$）过 <code>Linear+ReLU</code>，量 <strong>post-ReLU 的二阶矩 $\mathbb{E}[y^2]$</strong>（喂给下一层的信号能量，也是 He 推导真正传播的量）：Kaiming（$\sqrt{2/n_\text{in}}$）后 $\mathbb{E}[y^2]\approx1$（守恒），Xavier-for-ReLU（$\sqrt{1/n_\text{in}}$）后 $\approx0.5$（每层砍半 → 深了消失）——验证 §8.3 的因子 2。注意测的是 $\mathbb{E}[y^2]$ 而非 $\text{Var}(y)$：ReLU 使输出均值非零，故 $\text{Var}(y)=1-1/\pi\approx0.68$，而逐层守恒 / 传播的量是二阶矩 $\mathbb{E}[y^2]$。</li><li><strong>[f] GPT-2 残差缩放 $1/\sqrt{2N}$ 把残差流方差界住</strong>：模拟 $N$ 层 transformer、每层往残差流写两次（共 $2N$ 次）$O(1)$ 更新，不缩放则方差随写入次数<strong>线性增长</strong>，乘 $1/\sqrt{2N}$ 后方差<strong>有界</strong>——验证 §8.4。</li></ol>
 <p>下面是几段示意代码（CPU 可跑、Chinese 注释、与上面脚本逻辑一致）。</p>
 <p><strong>(a) LayerNorm + RMSNorm 从零实现，并与 PyTorch 对齐：</strong></p>
 <pre><code class="language-python">import torch
@@ -984,16 +985,20 @@ class ResidualStack(nn.Module):
 
 def block_grad_topheavy(depth, d, pre_ln):
     &quot;&quot;&quot;一次 forward+backward，返回 last/first 块权重梯度范数之比（&gt;1 = 梯度堆在顶层）。
-       该比值对 loss 选择稳健，正是 Xiong 2020 的论断。&quot;&quot;&quot;
+       用相对比值而非绝对梯度范数，是为了降低对 loss 选择 / 输出归一化的敏感度；
+       本脚本仅用单一 seed + 单一 quadratic loss 做了单次验证，&quot;对 loss 选择稳健&quot;
+       本身未做多 loss / 多 seed 的穷举实证，如需严格支持该论断应补充统计
+       （多 seed 均值±方差、至少一种非二次 loss）。&quot;&quot;&quot;
     torch.manual_seed(0)                                      # 两种放置用同一 init，公平对比
     stack = ResidualStack(depth, d, pre_ln=pre_ln)
     stack(torch.randn(16, d)).pow(2).mean().backward()       # 标量 loss
     gn = [lin.weight.grad.norm().item() for lin in stack.lins]
     return gn[-1] / gn[0]
 
-r_pre  = block_grad_topheavy(48, 64, pre_ln=True)            # 期望 ≈0.40（均衡）
+r_pre  = block_grad_topheavy(48, 64, pre_ln=True)            # 期望 ≈0.40（bottom-heavy，底层梯度约2.5倍于顶层）
 r_post = block_grad_topheavy(48, 64, pre_ln=False)          # 期望 ≈2.35（top-heavy，&gt;1）
-# Post-LN 顶/底比 &gt;1：梯度堆在靠近输出的顶层 -&gt; 必须 warmup。Pre-LN 跨深度均衡。</code></pre>
+# Post-LN 顶/底比 &gt;1：梯度堆在靠近输出的顶层 -&gt; 必须 warmup。Pre-LN 则偏底层（bottom-heavy），
+# 偏斜幅度与 Post-LN 相近、方向相反 -&gt; 不是&quot;均衡&quot;，而是渐进意义上更良态（随 L 增长按 1/sqrt(L) 收缩）。</code></pre>
 <p><strong>(c) Kaiming 方差保持（vs 给 ReLU 误用 Xavier）：</strong></p>
 <pre><code class="language-python">import torch
 import torch.nn.functional as F
@@ -1011,21 +1016,21 @@ ms_xavier  = F.relu(x @ W_xavier.t()).pow(2).mean()         # 没补因子 2 -&g
 <pre><code class="language-text">[a] LayerNorm from scratch vs nn.LayerNorm: max|Δ| = 2.38e-07  OK
 [b] RMSNorm vs nn.RMSNorm: max|Δ| = 2.38e-07; mean-shift LN |Δ|=9.54e-07 (~0, re-centers) vs RMS |Δ|=3.05e+00 (&gt;0, only re-scales)  OK
 [c] BatchNorm train!=eval: max|Δ| = 8.37e+00; running_mean moved 0.701 from 0; train per-feature mean = 8.15e-08 (~0)  OK
-[d] per-block weight-grad top/bottom ratio (last/first over 48 blocks): Pre-LN=0.40 (balanced)  Post-LN=2.35 (top-heavy, &gt;1)  -&gt; Post-LN piles gradient near the output, needs warmup  OK
+[d] per-block weight-grad top/bottom ratio (last/first over 48 blocks): Pre-LN=0.40 (bottom-heavy)  Post-LN=2.35 (top-heavy, &gt;1)  -&gt; opposite skew, comparable magnitude; Post-LN piles gradient near the output, needs warmup  OK
 [e] post-ReLU second moment E[y^2] (input E[x^2]=1): Kaiming = 1.000 (~1, preserved)  Xavier = 0.499 (~0.5, halves per layer)  OK
-[f] residual-stream var growth over 50 blocks: unscaled ×51.1  vs  1/sqrt(2N)-scaled ×1.50  OK
+[f] residual-stream var growth over 50 layers (100 writes): unscaled ×101.1  vs  1/sqrt(2N)-scaled ×2.00  OK
 
 all normalization / residual / init sanity checks passed ✓</code></pre>
 <div class="callout callout-good"><div class="callout-title">OK</div><p><strong>读数解释</strong></p>
-<ul><li><strong>[a]/[b]</strong> 自实现 LN/RMSNorm 与 PyTorch 一致（max$|\Delta|$=2.4e-7）；平移测试里 LN 几乎不变（9.5e-7）、RMSNorm 明显变化（3.05），印证 §4 "RMSNorm 只 re-scale 不 re-center"。</li><li><strong>[c]</strong> BatchNorm running_mean 从 0 被推到 0.70、train 模式每特征均值≈0，且 train≠eval，印证 §2.2 双路径。</li><li><strong>[d]</strong> 块权重梯度的顶/底比（last/first）：Pre-LN $0.40$（均衡），Post-LN $2.35$（$\gt1$，梯度堆在顶层），印证 §5.2 "Post-LN 顶层梯度偏大 → 需 warmup"（加 head 去掉了输出归一化的混淆）。</li><li><strong>[e]</strong> post-ReLU 二阶矩 Kaiming $\mathbb{E}[y^2]=1.00$（守恒）、Xavier-for-ReLU $=0.50$（每层砍半），印证 §8.3 的因子 2。</li><li><strong>[f]</strong> 残差流方差不缩放 50 层后 ×51（线性涨）、$1/\sqrt{2N}$ 缩放后 ×1.5（有界），印证 §8.4 GPT-2 技巧。</li></ul></div>
+<ul><li><strong>[a]/[b]</strong> 自实现 LN/RMSNorm 与 PyTorch 一致（max$|\Delta|$=2.4e-7）；平移测试里 LN 几乎不变（9.5e-7）、RMSNorm 明显变化（3.05），印证 §4 "RMSNorm 只 re-scale 不 re-center"。</li><li><strong>[c]</strong> BatchNorm running_mean 从 0 被推到 0.70、train 模式每特征均值≈0，且 train≠eval，印证 §2.2 双路径。</li><li><strong>[d]</strong> 块权重梯度的顶/底比（last/first）：Pre-LN $0.40$（bottom-heavy，底层梯度约 2.5 倍于顶层），Post-LN $2.35$（$\gt1$，梯度堆在顶层）——两者偏斜幅度相当、方向相反，印证 §5.2 Xiong et al. 的渐进论断（Post-LN 顶层梯度 $\Theta(d\sqrt{\ln d})$ 不随深度 $L$ 衰减 → 需 warmup；Pre-LN 各层尺度按 $1/\sqrt L$ 收缩，是渐进意义上更良态，而非"这一次固定深度比值接近 1"）（加 head 去掉了输出归一化的混淆）。</li><li><strong>[e]</strong> post-ReLU 二阶矩 Kaiming $\mathbb{E}[y^2]=1.00$（守恒）、Xavier-for-ReLU $=0.50$（每层砍半），印证 §8.3 的因子 2。</li><li><strong>[f]</strong> 残差流方差不缩放 50 层（100 次写入）后 ×101（线性涨）、$1/\sqrt{2N}$ 缩放后 ×2.0（有界），印证 §8.4 GPT-2 "N 层、每层写两次残差流、共 2N 次" 的技巧。</li></ul></div>
 <h2 id="参考文献">📚 参考文献</h2>
 <ul><li><strong>BatchNorm</strong> — Ioffe &amp; Szegedy, <em>Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift</em>, arXiv 1502.03167 (2015), ICML 2015.</li><li><strong>LayerNorm</strong> — Ba, Kiros &amp; Hinton, <em>Layer Normalization</em>, arXiv 1607.06450 (2016).</li><li><strong>RMSNorm</strong> — Zhang &amp; Sennrich, <em>Root Mean Square Layer Normalization</em>, arXiv 1910.07467 (2019), NeurIPS 2019.</li><li><strong>How Does BN Help Optimization (covariate-shift debunk)</strong> — Santurkar et al., <em>How Does Batch Normalization Help Optimization?</em>, arXiv 1805.11604 (2018), NeurIPS 2018.</li><li><strong>Pre-LN vs Post-LN (gradient argument)</strong> — Xiong et al., <em>On Layer Normalization in the Transformer Architecture</em>, arXiv 2002.04745 (2020), ICML 2020.</li><li><strong>DeepNorm / DeepNet</strong> — Wang et al., <em>DeepNet: Scaling Transformers to 1,000 Layers</em>, arXiv 2203.00555 (2022).</li><li><strong>Kaiming init</strong> — He et al., <em>Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification</em>, arXiv 1502.01852 (2015), ICCV 2015.</li><li><strong>Xavier / Glorot init</strong> — Glorot &amp; Bengio, <em>Understanding the difficulty of training deep feedforward neural networks</em>, AISTATS 2010（PMLR proceedings，<strong>无 arXiv id</strong>，待引用核查）.</li><li><strong>ResNet (residual learning)</strong> — He et al., <em>Deep Residual Learning for Image Recognition</em>, arXiv 1512.03385 (2015), CVPR 2016.</li><li><strong>Residuals as ensembles</strong> — Veit et al., <em>Residual Networks Behave Like Ensembles of Relatively Shallow Networks</em>, arXiv 1605.06431 (2016), NeurIPS 2016.</li><li><strong>Fixup</strong> — Zhang et al., <em>Fixup Initialization: Residual Learning Without Normalization</em>, arXiv 1901.09321 (2019), ICLR 2019.</li><li><strong>ReZero</strong> — Bachlechner et al., <em>ReZero is All You Need: Fast Convergence at Large Depth</em>, arXiv 2003.04887 (2020), UAI 2021.</li><li><strong>LayerScale / CaiT</strong> — Touvron et al., <em>Going deeper with Image Transformers</em>, arXiv 2103.17239 (2021), ICCV 2021.</li><li><strong>SkipInit</strong> — De &amp; Smith, <em>Batch Normalization Biases Residual Blocks Towards the Identity Function in Deep Networks</em>, arXiv 2002.10444 (2020), NeurIPS 2020.</li><li><strong>μP / μTransfer</strong> — Yang et al., <em>Tensor Programs V: Tuning Large Neural Networks via Zero-Shot Hyperparameter Transfer</em>, arXiv 2203.03466 (2022), NeurIPS 2021.</li><li><strong>NFNets (normalizer-free)</strong> — Brock et al., <em>High-Performance Large-Scale Image Recognition Without Normalization</em>, arXiv 2102.06171 (2021), ICML 2021.</li><li><strong>GroupNorm</strong> — Wu &amp; He, <em>Group Normalization</em>, arXiv 1803.08494 (2018), ECCV 2018.</li><li><strong>WeightNorm</strong> — Salimans &amp; Kingma, <em>Weight Normalization: A Simple Reparameterization to Accelerate Training of Deep Neural Networks</em>, arXiv 1602.07868 (2016), NeurIPS 2016.</li><li><strong>QK-Norm</strong> — Henry et al., <em>Query-Key Normalization for Transformers</em>, arXiv 2010.04245 (2020), EMNLP 2020 Findings.</li><li><strong>DyT (Dynamic Tanh)</strong> — Zhu et al., <em>Transformers without Normalization</em>, 2025（CVPR 2025；arXiv 2503.10622，<strong>arXiv id 以引用核查为准</strong>）.</li><li><strong>T-Fixup</strong> — Huang et al., <em>Improving Transformer Optimization Through Better Initialization</em>, ICML 2020（PMLR proceedings；无广泛使用的独立 arXiv id，按会议出处引用）.</li><li><strong>GPT-2 (residual-projection $1/\sqrt{2N}$ init)</strong> — Radford et al., <em>Language Models are Unsupervised Multitask Learners</em>, OpenAI 技术报告 (2019)（<strong>无 arXiv id</strong>）.</li></ul>
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/normalization_init_tutorial.md</code> ·
-  SHA256 <code>3363e09aa3ff</code> ·
-  generated at 2026-06-29 07:28 UTC.
+  SHA256 <code>0e158f6f3151</code> ·
+  generated at 2026-07-12 04:17 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

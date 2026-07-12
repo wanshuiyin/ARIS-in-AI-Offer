@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/optimizer_lr_schedule_tutorial_en.md",
-  "source_sha256": "be44cb57449825eb5da66745c9b39b460df8e45ea4fd9dc65552c60cf7866ca0",
+  "source_sha256": "beb3d4efdbddea7867535d114ed40dbb173c1e39aea9ac1129293bfa23a1b07c",
   "output": "docs/tutorials/optimizer_lr_schedule_tutorial_en.html",
   "zh_source": "docs/tutorials/optimizer_lr_schedule_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -9,7 +9,7 @@
   "thread_id": "019f1208-bc8a-7cf2-91a1-d5069b0b4899",
   "translated_by": "orchestrator (hand-translated; the #27 EN subagent had stalled, so the orchestrator hand-translates the EN editions directly for reliability)",
   "translation_fidelity_review": {
-    "verdict": "PASS (1 round, zero fidelity divergences)",
+    "verdict": "PASS (2 rounds, zero fidelity divergences)",
     "date": "2026-06-29",
     "rounds": [
       {
@@ -17,6 +17,13 @@
         "verdict": "PASS",
         "thread_id": "019f1208-bc8a-7cf2-91a1-d5069b0b4899",
         "summary": "Cross-model ZH↔EN fidelity check (Codex GPT-5.5 xhigh, from-disk compare, no web). Zero fidelity divergences. All high-risk hedges carry the same strength as ZH: §4.2/§0(4)/Q12 Adam bias-correction DIRECTION (uncorrected first step too LARGE ~3.16×, with the explicit 'don't say too small' trap); §5 AdamW L2-scaling + decoupling + §5.2 'usually better/more controllable, not absolutized'; §1 κ→√κ strongly-convex-quadratic qualifier (intuition not guarantee) + diagonal-preconditioner-not-Newton caveat; §9 β2=0.95 for LLMs; §6.1 Muon hidden-2D-only + original-blog-no-arXiv vs scaling 2502.16982; §A [d] ratio √(1-β2)/(1-β1)≈0.316 + [f] small-lr requirement. 23 references match. Executable code lines verified byte-identical to ZH (81=81); the ```text real-output block byte-identical. Told Codex up-front to ignore the intentional \\text{}-label and code-comment translations (the correct EN convention), so no spurious 'byte-identical math' flag this round."
+      },
+      {
+        "run": 2,
+        "date": "2026-07-12",
+        "scope": "P0 全集重扫复审 EN 同步：ZH 侧经 Codex GPT-5.6-sol 候选 + Claude Sonnet 5 对抗验证确认的 7 条 finding（5 CONFIRMED + 2 NEEDS_NUANCE，见 zh sidecar math_code_review.rounds[6]）逐条译入 EN 版对应位置",
+        "verdict": "PASS (hand-synced by the same agent that applied the ZH fixes, natural-English rewording not literal MT)",
+        "notes": "Same 7 locations patched in the EN edition, matching the ZH fixes 1:1 in substance: §0(5)/§5.2/Q7 'plain SGD (no momentum)' scoping for the L2≡weight-decay equivalence; §0(3)/§3.1/Q4/Q18 AdaGrad Σg²→∞ condition for LR→0; §7.1 point-1 warmup rationale (v̂'s genuine early variance vs the already-cancelled 3.16× bias, RAdam motivation); §7.1 point-2 + Q3 large-batch/Post-LN instability mechanism (linear-scaling-rule LR, not gradient-scale inflation); §8.1 LayerNorm/RMSNorm scale-invariance scoped to norm-adjacent weights with the residual/γ-β/bias/head exception; references — AMSGrad restored to arXiv 1904.09237 (2019), ICLR 2018; §4.2 + §A [d] bias-correction first step stated as the strict η|g|/(|g|+ε)<η form, approximately (not exactly) η. code/optimizer_lr_schedule.py untouched (all 7 are prose/formula/citation fixes). ZH source verified in /private/tmp/claude-501/-Users-yangruofeng-Desktop-ARIS-in---/302812b7-bed4-4d9f-af66-c9b0bee04bb7/scratchpad/resweep56/p0_batch_results.json (finding_id 13-19)."
       }
     ]
   },
@@ -27,6 +34,7 @@
       "Natural-language labels inside \\text{}/\\textbf{} in math translated to English (e.g. 一阶矩→first moment, ε 在根号外→outside the sqrt, typical 0.9) so the EN page has 0 CJK in math, matching shipped EN editions. Bilingual-gloss doublings avoided at write time: final scan shows 0 `X (X)` doublings, 0 CJK in prose, 0 CJK in code comments, 0 raw </> in math."
     ]
   },
-  "summary": "EN edition of the Optimizer / LR Schedule cheat sheet (~825 lines). The background EN subagent path was skipped (it had stalled for #27); the orchestrator hand-translated directly. 14 §-sections + 25 Q&A preserved; math symbols byte-identical (embedded \\text{} labels correctly translated); executable code byte-identical to ZH (81=81) with English comments; §A real-run output verbatim. 1-round cross-model Codex GPT-5.5 xhigh translation-fidelity review: zero semantic divergence, all 23 references match, all hard-won ZH hedges (bias-correction direction, AdamW decoupling + non-absolutized softening, κ→√κ qualifier, β2=0.95, Muon) preserved.",
-  "rendered_at": "2026-06-29"
+  "summary": "EN edition of the Optimizer / LR Schedule cheat sheet (~825 lines). The background EN subagent path was skipped (it had stalled for #27); the orchestrator hand-translated directly. 14 §-sections + 25 Q&A preserved; math symbols byte-identical (embedded \\text{} labels correctly translated); executable code byte-identical to ZH (81=81) with English comments; §A real-run output verbatim. 1-round cross-model Codex GPT-5.5 xhigh translation-fidelity review: zero semantic divergence, all 23 references match, all hard-won ZH hedges (bias-correction direction, AdamW decoupling + non-absolutized softening, κ→√κ qualifier, β2=0.95, Muon) preserved. UPDATE 2026-07-12: synced the 7 P0-resweep precision fixes from the ZH edition (5 CONFIRMED + 2 NEEDS_NUANCE — SGD≡L2/wd scoped to plain SGD, AdaGrad's Σg²→∞ condition, warmup's variance-not-bias rationale, large-batch instability mechanism, LayerNorm/RMSNorm scale-invariance scoping, AMSGrad arXiv 1904.09237 restored, bias-correction first step stated as an approximation not an exact equality); see translation_fidelity_review.rounds[1] for the per-location mapping. Natural-English rewording, not literal machine translation; code/optimizer_lr_schedule.py untouched.",
+  "rendered_at": "2026-06-29",
+  "last_updated": "2026-07-12"
 }

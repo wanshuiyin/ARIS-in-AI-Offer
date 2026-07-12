@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/self_evolving_agents_tutorial.md">
-<meta name="aris:source-sha256" content="54d12af77efd62930756e829385fbdfa344a7cf23a4160d6c01767afde24ebcd">
-<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
+<meta name="aris:source-sha256" content="360387887f1378c62182607b31e492a4bb3c23f8160f22e30a3b6a0f23ee518f">
+<meta name="aris:generated-at" content="2026-07-12 04:22 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -639,8 +639,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/self_evolving_agents_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>54d12af77efd</code></span>
-    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
+    <span><strong>SHA256:</strong> <code>360387887f13</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:22 UTC</span>
     
   </div>
 </header>
@@ -657,14 +657,14 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <table><thead><tr><th>层</th><th>更新对象</th><th>更新方式</th><th>代表作</th></tr></thead><tbody><tr><td>L1 参数层</td><td>$\pi$ (model weights)</td><td>SFT / RFT / RL</td><td>AgentTuning、Native Evolution</td></tr><tr><td>L2 能力层</td><td>$\mathcal{S}$ (skills markdown)</td><td>self-play + replay</td><td>Voyager、Ctx2Skill、CoEvoSkills</td></tr><tr><td>L3 记忆层</td><td>$\mathcal{K}$ (world knowledge markdown)</td><td>exploration + summarize</td><td>MemGPT、MVMem、Native Evolution</td></tr><tr><td>L4 系统层</td><td>workflow orchestration</td><td>inference-time only</td><td>Anthropic Skills、ARIS-style harness</td></tr></tbody></table>
 <div class="callout callout-info"><div class="callout-title">重要直觉</div><p>L1 是"训出本能"；L2/L3 是"长出工具箱 + 笔记本"；L4 是"工作流编排"。<strong>2025-2026 主流是 L2 + L3，L1 主要做训练—测试解耦的预备工作</strong>。</p></div>
 <p>面试常错的两个直觉：</p>
-<ul><li>❌ "self-evolving = 自动训出新模型权重"——错，<strong>绝大多数 work 不更新参数</strong>（Voyager、Ctx2Skill、Generative Agents、A²RD 全是 training-free / inference-time）。</li><li>❌ "self-evolving = agent 想干什么就干什么"——错，2026 主流是<strong>严格 grounding</strong> 的 self-improvement：要么 code executor（Absolute Zero），要么 math checker（STaR），要么 rubric judge（Ctx2Skill），要么 outcome utility（Native Evolution）。</li></ul>
+<ul><li>❌ "self-evolving = 自动训出新模型权重"——错，<strong>绝大多数 work 不更新参数</strong>（Voyager、Ctx2Skill、Generative Agents、A²RD 全是 training-free / inference-time）。</li><li>❌ "self-evolving = agent 想干什么就干什么"——错，2026 主流是<strong>严格 grounding</strong> 的 self-improvement：要么 code executor（Absolute Zero），要么真答案比对 + rationalization（STaR），要么 rubric judge（Ctx2Skill），要么 outcome utility（Native Evolution）。</li></ul>
 <h2 id="2-三种-self-evolution-范式的形式化">§2 三种 Self-Evolution 范式的形式化</h2>
 <p>Native Evolution 论文 [arXiv:2604.18131] 给出了一个非常清晰的分类——我们补充上 mathematical formulation。</p>
 <h3 id="21-experience-driven-evolution">2.1　Experience-Driven Evolution</h3>
 <p><strong>Setting</strong>：人提供任务集 $\mathcal{T}$、reward 函数 $R: \mathcal{O} \times \mathcal{A} \to \mathbb{R}$ 和 workflow。Agent 跑 trajectory $\tau$、按 $R(\tau)$ 加权更新。</p>
 <p><strong>Update operator</strong>：</p>
 <p>$$\theta_{t+1} = \theta_t + \eta \,\mathbb{E}_{\tau \sim \pi_{\theta_t}}\!\left[\nabla_\theta \log \pi_\theta(\tau)\, R(\tau)\right]$$</p>
-<p>这就是标准 policy gradient——AgentTuning、ToolLLM、Voyager 早期变种属于此类。</p>
+<p>这是一个理想化的 policy-gradient 形式；AgentTuning、ToolLLM 实践中主要通过用规则/裁判筛选成功 trajectory 后做 SFT 来近似它（reward 退化为 0/1 过滤器，而非连续加权梯度）。Voyager 不属于此类——它全程冻结 GPT-4 权重、不用 reward（见 §4.1）。</p>
 <p><strong>优点</strong>：监督密度高，收敛快。<strong>缺点</strong>：人力成本巨大（每个新环境都要重新设计 reward）。</p>
 <h3 id="22-adversarial-self-play-evolution">2.2　Adversarial Self-Play Evolution</h3>
 <p><strong>Setting</strong>：两 agent（Challenger + Solver）共同 evolve，无外部任务来源——任务由 Challenger 产生、Solver 解、verifier 给反馈。</p>
@@ -704,7 +704,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 ## Failure modes
 - 已知陷阱 + 修复方式</code></pre>
 <p>Native Evolution 的 K 还会显式存：</p>
-<ul><li><strong>Visual arcs</strong>（实体/环境的视觉演化）</li><li><strong>Spatial relations</strong>（subject-relation-object triplets）</li><li><strong>Camera states / Site map</strong>（环境拓扑）</li><li><strong>Token budget allocation</strong>（每个子页面分多少 token）</li></ul>
+<ul><li><strong>Site/environment map</strong>（网站结构、导航路径、代码仓库拓扑）</li><li><strong>Entity/page relations</strong>（跨页面/跨模块的关联信息）</li><li><strong>Failure notes</strong>（探索中遇到的死链接/无效路径）</li><li><strong>Token budget allocation</strong>（每个子页面分多少 token）</li></ul>
 <h3 id="33-为什么-markdown-而不是-vector-embedding">3.3　为什么 markdown 而不是 vector embedding？</h3>
 <ul><li><strong>可解释</strong>：人类可以审计、修订、merge</li><li><strong>可组合</strong>：skill A + skill B 直接 prepend</li><li><strong>可路由</strong>：可以 LLM 自己读 trigger 段决定 load 哪个</li><li><strong>可演化</strong>：自然语言 diff 比 vector diff 更稳定</li></ul>
 <p>代价：检索精度不如 vector RAG；解决方式是 hybrid（vector 做 candidate selection → markdown 做精读）。</p>
@@ -752,8 +752,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>iteration 越多，Challenger 越极端，Reasoner 越 over-specialize 到极端任务。直接返回 $\mathcal{S}^R_N$ 会糟。</p>
 <p><strong>Replay 流程</strong>：</p>
 <ol><li><p>训练过程中维护两个 probe set：</p>
-<ul><li><strong>Hard set $\mathcal{Q}^h$</strong>：每 iteration 选 rubric pass rate 最低的失败 task</li><li><strong>Easy set $\mathcal{Q}^e$</strong>：每 iteration 选 rubric pass 最少的 solved task（"刚好解出来"的）</li></ul></li><li>训练结束后，对每个候选 $\mathcal{S}^R_i$（$i=1\ldots N$）跑 Reasoner $\pi^R$ 在两个 probe set 上：</li></ol>
-<p>$$\rho^h(i) = \frac{\sum_{q\in \mathcal{Q}^h} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^h| + 1}, \quad \rho^e(i) = \frac{\sum_{q\in \mathcal{Q}^e} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^e| + 1}$$</p>
+<ul><li><strong>Hard set $\mathcal{Q}^h$</strong>：每 iteration 选 rubric pass rate 最低的失败 task</li><li><strong>Easy set $\mathcal{Q}^e$</strong>：每 iteration 从 solved 中取一个代表"刚好解出"的 task（例如 reasoner 用了最多 retry 的那个，而非按 rubric pass 数排序——因为 solved 定义下所有任务 pass_rate 恒为 1.0）</li></ul></li><li>训练结束后，对每个候选 $\mathcal{S}^R_i$（$i=1\ldots N$）跑 Reasoner $\pi^R$ 在两个 probe set 上：</li></ol>
+<p>$$\rho^h(i) = \frac{\sum_{q\in \mathcal{Q}^h} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^h| + 2}, \quad \rho^e(i) = \frac{\sum_{q\in \mathcal{Q}^e} y_q(\pi^R; C, \mathcal{S}^R_i) + 1}{|\mathcal{Q}^e| + 2}$$</p>
 <p>（Laplace smoothing 防 probe set 为空）</p>
 <ol><li>选：</li></ol>
 <p>$$\boxed{\;\mathcal{S}^R_\star = \mathcal{S}^R_{i^\star}, \quad i^\star = \arg\max_i \big(\rho^h(i) \cdot \rho^e(i)\big)\;}$$</p>
@@ -827,7 +827,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 
 def laplace_smoothed_rate(probe, skill_set, llm, context):
-    &quot;&quot;&quot; Laplace-smoothed pass rate: (sum_q y_q + 1) / (|probe| + 1).
+    &quot;&quot;&quot; Laplace-smoothed pass rate: (sum_q y_q + 1) / (|probe| + 2).
     
     Args:
         probe:     list[(task, rubrics)]
@@ -843,7 +843,7 @@ def laplace_smoothed_rate(probe, skill_set, llm, context):
         if all(llm(role=&quot;judge&quot;, prompt=judge_prompt(a, r))
                for r in rubrics_q):
             num_pass += 1
-    return (num_pass + 1) / (len(probe) + 1)</code></pre>
+    return (num_pass + 1) / (len(probe) + 2)</code></pre>
 <h3 id="55-ctx2skill-实验结果必记">5.5　Ctx2Skill 实验结果（必记）</h3>
 <p>CL-bench 上，<strong>没有任何参数更新</strong>：</p>
 <table><thead><tr><th>backbone</th><th>w/o skills</th><th>Ctx2Skill</th><th>Δ</th></tr></thead><tbody><tr><td>GPT-4.1</td><td>11.1%</td><td><strong>16.5%</strong></td><td><strong>+5.4</strong></td></tr><tr><td>GPT-5.1</td><td>21.2%</td><td><strong>25.8%</strong></td><td><strong>+4.6</strong></td></tr><tr><td>GPT-5.2</td><td>18.2%</td><td><strong>21.4%</strong></td><td><strong>+3.2</strong></td></tr></tbody></table>
@@ -935,7 +935,7 @@ def native_evolution_inference(pi_star, new_env, task):
     answer = pi_star(task, system_prompt=K)          # K-augmented
     return answer</code></pre>
 <h3 id="65-native-evolution-实验结果">6.5　Native Evolution 实验结果</h3>
-<p>WebVoyager + WebWalker，14B Qwen3 / 36B Seed-OSS：</p>
+<p>WebVoyager + WebWalker，Qwen3-30B / Seed-OSS-36B（主表）；14B Qwen3 迁移结果见下方单独说明：</p>
 <table><thead><tr><th>backbone</th><th>w/o K</th><th>Native Evolution (RFT)</th><th>Δ</th></tr></thead><tbody><tr><td>Qwen3-30B (WebWalker)</td><td>22.04</td><td><strong>40.91</strong></td><td><strong>+18.9</strong></td></tr><tr><td>Qwen3-30B (WebVoyager)</td><td>41.08</td><td><strong>57.44</strong></td><td><strong>+16.4</strong></td></tr><tr><td>Seed-OSS-36B (WebWalker)</td><td>19.50</td><td>36.72</td><td>+17.2</td></tr></tbody></table>
 <p><strong>最 striking</strong>：14B Qwen3 + transferred K from 36B → 35.6% conference accuracy；<strong>unassisted Gemini-2.5-Flash 只有 31.3%</strong>——证明 high-quality K 可超过纯参数缩放。</p>
 <h3 id="66-native-evolution-vs-ctx2skill-对比">6.6　Native Evolution vs Ctx2Skill 对比</h3>
@@ -1123,7 +1123,7 @@ def long_horizon_agent_with_hits(memory, segments_to_generate, llm, verifier):
 <p><strong>症状</strong>：Challenger 越来越极端，Reasoner 学会的 skill 只对极端 case 有效，对正常 case 退化。</p>
 <p><strong>Ctx2Skill 解法</strong>：Cross-Time Replay 选 $\arg\max \rho^h \cdot \rho^e$，乘积形式强制保留 easy task 性能。</p>
 <p><strong>通用解法</strong>：</p>
-<ul><li>维护历史 probe set（不只看 current iteration）</li><li>选最 balanced 而非 last-iteration skill</li><li>用 KL penalty 防 skill set 单步剧变：$\mathcal{L}_\text{KL} = \beta \,D_\text{KL}(\mathcal{S}_i \| \mathcal{S}_{i-1})$（textual KL 可近似为 BLEU/edit distance）</li></ul>
+<ul><li>维护历史 probe set（不只看 current iteration）</li><li>选最 balanced 而非 last-iteration skill</li><li>用一个 divergence-like penalty 防 skill set 单步剧变：$\mathcal{L}_\text{div} = \beta \, d(\mathcal{S}_i, \mathcal{S}_{i-1})$，其中 $d$ 可用 1-BLEU、编辑距离等文本相似度的对偶量近似（<strong>注意</strong>：这不是真正的 KL divergence——KL 定义在概率分布上，$\mathcal{S}_i$ 是确定性文本，除非把 skill set 视为某个 token 分布的样本，否则 KL 本身未定义）</li></ul>
 <h3 id="122-memory-drift">12.2　Memory Drift</h3>
 <p><strong>症状</strong>：long-horizon agent 把矛盾 / 过时信息累积进 K 或 memory，越用越糟。</p>
 <p><strong>A²RD 解法</strong>：</p>
@@ -1260,9 +1260,7 @@ def long_horizon_agent_with_hits(memory, segments_to_generate, llm, verifier):
 <p>若 $\pi_\text{train}$ 是 maximum likelihood 类训练，且无 external label 修正：</p>
 <p>$$D_\text{KL}(p^\star \| p_{t+1}) \;\ge\; D_\text{KL}(p^\star \| p_t)$$</p>
 <p><strong>直觉</strong>：$p_t$ 已经 biased，按它采样训出来的 $p_{t+1}$ 只能保留或放大 bias。</p>
-<p>若引入 grounding（外源 label $y$ 对应 $x$），训练目标变成 conditional $p(x | y)$ 修正：</p>
-<p>$$D_\text{KL}(p^\star \| p_{t+1}) \;\le\; D_\text{KL}(p^\star \| p_t) - \Delta_\text{grounding}$$</p>
-<p>其中 $\Delta_\text{grounding} &gt; 0$ 量化外源信号带来的 KL 修正。</p>
+<p>若引入 grounding（外源 label $y$ 对应 $x$），训练目标变成 conditional $p(x \mid y)$ 修正。<strong>注意</strong>：不能把上面的退化下界直接反转成一个对称的上界保证——若引入 grounding，直觉上不再受该下界约束，但这并不构成一个对称的上界保证：是否单调改进取决于 grounding 信号具体如何塑造 $p_{t+1}$（如是否用于 rejection sampling / direct supervision），原论文并未给出这一方向的一般性单调改进定理，此处只是启发式对照，非严格反推。</p>
 <p>参考 [arXiv:2601.05280] §3。</p>
 <blockquote><p><strong>注意</strong>：这是简化版叙述（formal version 需对 $\pi_\text{train}$、$\pi_t$ 关系做技术性假设，参原文）。<strong>面试可以引用 [arXiv:2601.05280]，但不要声称自己独立推出</strong>。</p></blockquote>
 </details>
@@ -1299,7 +1297,7 @@ def long_horizon_agent_with_hits(memory, segments_to_generate, llm, verifier):
 <p>$$\text{score}(m) = \alpha_\text{recency}\, r(m) + \alpha_\text{importance}\, i(m) + \alpha_\text{relevance}\, s(m, q)$$</p>
 <p>其中：</p>
 <ul><li>$r(m) = \gamma^{\Delta t}$ exponential decay</li><li>$i(m) \in [1, 10]$，由 LLM 自评 importance</li><li>$s(m, q)$ cosine similarity</li></ul>
-<p>Park 2023 UIST 设 $\gamma=0.995$/hour，$\alpha$ 均匀分配。</p>
+<p>Park 2023 UIST 设 $\gamma=0.99$/hour，$\alpha$ 均匀分配。</p>
 <p><strong>面试加分</strong>：importance 评分用 LLM 自评本身可能 hallucinate；现代 system 改用 cross-model 评分或 task-conditioned importance。</p>
 </details>
 <details>
@@ -1309,7 +1307,7 @@ def long_horizon_agent_with_hits(memory, segments_to_generate, llm, verifier):
 <ul><li>Main context（fast, expensive）= "RAM"</li><li>External archival（slow, cheap）= "HDD"</li><li>LLM 函数调用 <code>pagein / pageout / summarize</code> 自主管理</li></ul>
 <p>启发：</p>
 <ul><li>让 LLM 看见自己的 context 状态（token usage、可见 vs 不可见）</li><li>让 LLM 自主决定 "now save this to disk" / "now load that"</li><li>这是 LLM agent 第一次实现<strong>真正意义上的长期记忆主动管理</strong>——不依赖 RAG 框架</li></ul>
-<p>后续 work：MemoryBank, MemChat, MVMem 都受其启发；ARIS-style research-wiki 也是同款思路（agent 自己决定写入 / 读取 wiki）。</p>
+<p>后续 work：MemChat、MVMem 等受其（MemGPT）启发；MemoryBank（Zhong et al., 2023-05，早于 MemGPT 的 2023-10）则是同期独立发展、共享带衰减长期记忆的思路，而非受 MemGPT 启发。ARIS-style research-wiki 也是同款思路（agent 自己决定写入 / 读取 wiki）。</p>
 </details>
 <details>
 
@@ -1328,8 +1326,8 @@ def long_horizon_agent_with_hits(memory, segments_to_generate, llm, verifier):
 <p>直接证明 5-role loop 收敛较难，但可以给出充分条件的叙述性论证：</p>
 <p>设 $\mathcal{S}^R_i, \mathcal{S}^C_i$ 是 iteration $i$ 的两路 skill set。定义 capability：$C^R_i = \mathbb{E}_t[\rho^h(\mathcal{S}^R_i) \cdot \rho^e(\mathcal{S}^R_i)]$（with Cross-Time Replay metric）。</p>
 <p><strong>充分条件</strong>（直觉版）：</p>
-<ol><li><strong>Judge 可校准</strong> (calibrated)：$\mathbb{E}[Judge(a, r)] = \mathbb{E}[\text{ground-truth}(a, r)]$。即 Judge 不漂移。</li><li><strong>Proposer 是 monotone improver</strong>：每次 proposer 给出的 diagnosis 让 generator 写出的新 skill 在该 batch 上 strictly improving expected pass rate (with prob $\ge 1 - \delta$)。</li><li><strong>Probe set 平稳分布</strong>：$\mathcal{Q}^h, \mathcal{Q}^e$ 经过 K 次更新后分布稳定（不再剧变）。</li><li><strong>Skill set 容量有上限</strong>：$|\mathcal{S}^R| \le L$（防 unbounded growth）。</li></ol>
-<p>在 (1)-(4) 下，$\{C^R_i\}$ 是 <strong>bounded + 几乎处处 monotone non-decreasing</strong> 序列（在 prob $\ge 1-\delta$ 下 strict improving；上界由 Probe set 的 pass rate $\le 1$ 给出）。这种过程不严格是 supermartingale（supermartingale 是 $\mathbb{E}[C_{i+1}|\mathcal{F}_i] \le C_i$，方向相反），更准确的叙述是 <strong>bounded monotone improvement 序列 / submartingale-like</strong>——按经典 monotone convergence theorem 收敛到 $C^R_\infty \le 1$。</p>
+<ol><li><strong>Judge 可校准</strong> (calibrated)：$\mathbb{E}[Judge(a, r)] = \mathbb{E}[\text{ground-truth}(a, r)]$。即 Judge 不漂移。</li><li><strong>Proposer 是 monotone improver</strong>：每次 proposer 给出的 diagnosis 让 generator 写出的新 skill 在该 batch 上 strictly improving expected pass rate（with prob $\ge 1-\delta_i$，且 $\delta_i \to 0$ summably，即 $\sum_i \delta_i &lt; \infty$）。</li><li><strong>Probe set 平稳分布</strong>：$\mathcal{Q}^h, \mathcal{Q}^e$ 经过 K 次更新后分布稳定（不再剧变）。</li><li><strong>Skill set 容量有上限</strong>：$|\mathcal{S}^R| \le L$（防 unbounded growth）。</li></ol>
+<p>在 (1)-(4) 下（要求 $\delta_i$ 可和），$\{C^R_i\}$ 是 <strong>bounded + 依概率单调改进</strong> 的序列；上界由 Probe set 的 pass rate $\le 1$ 给出，可用经典 monotone convergence theorem 论证期望意义下的收敛 $\mathbb{E}[C^R_i] \to C^R_\infty \le 1$。<strong>若 $\delta$ 固定不随 $i$ 衰减</strong>，则由 Borel–Cantelli 第二定理（独立 trial 假设下），失败事件几乎必然无穷次发生，此时 $\{C^R_i\}$ 至多是期望意义下单调或依概率收敛，而非几乎处处单调；此外，score 收敛也不能排除底层 skill set $\mathcal{S}^R_i$ 本身在多个同分数解之间振荡——收敛的是标量 $C^R_i$，不代表 $\mathcal{S}^R_i$ 本身稳定下来。</p>
 <p><strong>注意</strong>：这是叙述性 sketch；formal proof 需要构造合适概率空间、定义 $\sigma$-algebra、并细致处理 Judge 的 stochastic noise + monotone improvement 是高概率非确定性的 —— 属于 PhD-level theory 题，<strong>不应在面试现场推满</strong>，能讲清"为什么 bounded + monotone improvement 蕴含收敛"已足够。</p>
 </details>
 <details>
@@ -1346,6 +1344,7 @@ def long_horizon_agent_with_hits(memory, segments_to_generate, llm, verifier):
 <p>且 $\text{Success}(\mathcal{T}_E \mid \mathcal{K})$ 单调依赖于 $I(\mathcal{K}; \mathcal{T}_E)$（K 提供越多 task-relevant info → success rate 越高）。</p>
 <p>所以训练时 maximize $R_\text{evolve}$ → 隐式 maximize $I(\mathcal{K}; \mathcal{T}_E) \le I(\mathcal{K}; E)$ → 推 policy 远离 trivial K。</p>
 <p>→ 推理时 policy 已经 internalize 了"如何产生 high-info K"的 instinct，所以无 reward 也能保持非 trivial 行为——但 <strong>only on environments similar to training distribution</strong>。</p>
+<blockquote><p><strong>注意</strong> — 这不是 Native Evolution 论文的实际训练目标（真正训练用的是 §6.2 的 $R_\text{evolve}$，一个 outcome-based utility，不是互信息）；这里的 $I(\mathcal{K}; E)$ 只是一个启发式的事后信息论解释，用来说明为什么最大化 $R_\text{evolve}$ 倾向于避开 trivial K，并非等价推导；Success 与互信息之间也没有严格单调的定理保证，只有类似 Fano 不等式给出的界。</p></blockquote>
 <div class="callout callout-warn"><div class="callout-title">caveat</div><p>在 train distribution 之外（OOD environment），无 grounding 信号防退化，policy 可能仍然 fail。这是 Native Evolution 的 open problem 之一。</p></div>
 </details>
 <details>
@@ -1540,8 +1539,8 @@ class ReflexionMemory:
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/self_evolving_agents_tutorial.md</code> ·
-  SHA256 <code>54d12af77efd</code> ·
-  generated at 2026-06-29 10:11 UTC.
+  SHA256 <code>360387887f13</code> ·
+  generated at 2026-07-12 04:22 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

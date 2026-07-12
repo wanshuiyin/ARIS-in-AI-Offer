@@ -16,7 +16,7 @@
 
 7. **Acceptance probability formula**: per-token acceptance rate $\alpha = \mathbb{E}_{x \sim q}[\min(1, p(x)/q(x))]$; expected generated tokens $E[\tau] = \dfrac{1-\alpha^{K+1}}{1-\alpha}$ ($K$ is the draft length, plus the final bonus token).
 
-8. **Medusa / EAGLE / Lookahead**: Medusa (Cai et al., ICML 2024) multi-head + static tree attention; EAGLE/2/3 (Li et al., 2024-2025) feature-level draft + dynamic tree; Lookahead Decoding (Fu et al., ICML 2024) Jacobi iteration — **all different drafters under the same acceptance-rate framework**.
+8. **Medusa / EAGLE / Lookahead**: Medusa (Cai et al., ICML 2024) multi-head + static tree attention, defaults to typical acceptance (does not strictly guarantee exact sampling; swap in standard rejection sampling for exactness); EAGLE/2/3 (Li et al., 2024-2025) feature-level draft + dynamic tree, uses standard rejection sampling (exact); Lookahead Decoding (Fu et al., ICML 2024) verifies via Jacobi iteration + n-gram pool, mechanically not the same rejection-sampling $\alpha$ framework — **the three differ in both draft generation and verification mechanism**.
 
 ## §1 Intuition
 
@@ -26,7 +26,7 @@ In training we worry about FLOPs: model size, batch size, when OOM happens. But 
 
 A core mental model:
 
-> Modern LLM inference is **bandwidth-bound during decode and memory-bound during long-context prefill**, not compute-bound.
+> Modern LLM inference is **compute-bound during prefill (increasingly so as context grows, since attention FLOPs scale $O(L^2)$ vs. $O(L)$ KV reads) and bandwidth-bound during decode** — not the reverse.
 
 KV cache is the classic "swap recomputation for storage + bandwidth" trade. Once you cache all the K/V of the entire conversation history, generating each new token only requires:
 
@@ -155,7 +155,7 @@ MQA (Shazeer 2019): $H$ Q-heads share **1** set of K/V. $W_k, W_v \in \mathbb{R}
 
 GQA (Ainslie 2023): $H$ Q-heads divided into $G$ groups, each group shares one K/V set. K+V parameters $= 2 G D d_\text{head}$. LLaMA-2-70B uses $H=64, G=8 \Rightarrow$ KV cache shrunk 8×.
 
-> ⚠️ **MQA training instability phenomenon** — training MQA from scratch often gives slight quality drops or training instability vs MHA. The GQA paper's practice: **train MHA fully, then "uptrain" to GQA** — mean-pool the $H$ K/V groups along the head axis to initialize $G$ groups, then briefly fine-tune (5% of original training compute). This is why LLaMA-2 70B can switch to GQA zero-shot.
+> ⚠️ **MQA training instability phenomenon** — training MQA from scratch often gives slight quality drops or training instability vs MHA. The GQA paper's practice: **train MHA fully, then "uptrain" to GQA** — mean-pool the $H$ K/V groups along the head axis to initialize $G$ groups, then briefly fine-tune (5% of original training compute) — this is how you convert an existing MHA checkpoint (e.g. T5) into GQA. **LLaMA-2-70B, by contrast, was pretrained natively with a GQA architecture from scratch and never went through this uptraining conversion**.
 
 ### 4.3　MLA: low-rank latent K/V (DeepSeek-V2's core innovation)
 
@@ -202,7 +202,7 @@ $$q_t^{(i)\top} k_s^{(i)} = (W^{UQ, (i)} c_t^Q)^\top (W^{UK, (i)} c_s^{KV}) = c_
 - attention score computation is just $c_t^{Q\top} \tilde W^{QK, (i)} c_s^{KV}$, **no K/V reconstruction at all**
 - Similarly $W^{UV, (i)}$ can be absorbed into the output projection $W^O$
 
-This is why MLA has tiny cache but inference FLOPs don't blow up: **matrix absorption decouples "save cache" from "save compute"**.
+This is why MLA has tiny cache but inference remains viable: **matrix absorption decouples "save HBM traffic" from "save FLOPs"** — absorb mainly saves the bandwidth of reading/materializing each head's $d_\text{head}$-dim K/V from HBM, but the latent dim $d_c$ is often larger than $d_\text{head}$ (512 vs. 128 in DeepSeek-V2), so per-head attention-score FLOPs can actually increase. This trade is worthwhile because decode is already bandwidth-bound with spare compute — you're spending idle FLOPs to buy less HBM traffic, not keeping compute flat.
 
 ### 4.4　MLA's RoPE problem — why decoupling is necessary
 
@@ -231,7 +231,7 @@ DeepSeek-V2's solution: **give RoPE an independent small-dim channel**.
 - Latent channel (no RoPE): carries content information, cached as $c_t^{KV} \in \mathbb{R}^{d_c}$, with attention scoring via absorb
 - RoPE channel (with RoPE): carries positional information, cached as $k_t^R \in \mathbb{R}^{d_r}$, with attention scoring via standard rotation-aware dot product
 
-Specifically, introduce two new projections $W^{KR} \in \mathbb{R}^{D \times d_r}$ and $W^{QR, (i)} \in \mathbb{R}^{d_c' \times d_r}$ (per-head). **$k_t^R$ is shared across all heads**:
+Specifically, introduce two new projections $W^{KR} \in \mathbb{R}^{d_r \times D}$ and $W^{QR, (i)} \in \mathbb{R}^{d_r \times d_c'}$ (per-head), consistent with the (output dim × input dim) column-vector convention used elsewhere for $W^{DKV}, W^{UK,(i)}$. **$k_t^R$ is shared across all heads**:
 
 $$k_t^R = \text{RoPE}_t(W^{KR} h_t), \quad q_t^{R, (i)} = \text{RoPE}_t(W^{QR, (i)} c_t^Q)$$
 
@@ -290,7 +290,7 @@ Effects:
 - Active batch size doubled or quadrupled on the same GPU, throughput rises accordingly
 - Supports **copy-on-write sharing**: beam search, parallel sampling, prefix caching naturally fall out
 
-> ⚠️ **PagedAttention's cost** — indirect lookup introduces ~1-5% kernel overhead (block lookup + scattered HBM access). But the throughput gain from larger batches completely dominates. CUDA Graphs are hard to compose (every block-table change requires re-capture), so vLLM uses piecewise CUDA Graphs.
+> ⚠️ **PagedAttention's cost** — indirect lookup introduces ~1-5% kernel overhead (block lookup + scattered HBM access). But the throughput gain from larger batches completely dominates. CUDA Graph compatibility is often stated backwards: re-capture is only needed when a tensor's memory address, shape (e.g. batch size crossing a pre-allocated bucket), or control flow changes; the block table's **contents** (block-id values) can be updated in place inside a fixed input buffer and replayed directly, no re-capture needed — this is exactly how vLLM accelerates decode with CUDA Graphs (capture once per batch-size bucket, then replay repeatedly), not "every block-table change requires re-capture."
 
 ### 5.3　Block-table data structure (sketch)
 
@@ -483,7 +483,7 @@ class MLAAttention(nn.Module):
         # RoPE channel: K is shared (across heads)
         self.W_KR = nn.Linear(d_model, d_r, bias=False)
         # Q side: compress to latent (saves training memory), then up-project to Q_C and Q_R
-        d_c_q = 4 * d_head            # in the paper d_c_q ≠ d_c
+        d_c_q = 12 * d_head           # DeepSeek-V2 paper value: d_c_q=1536 when d_head=128, a hyperparameter independent of d_c=512, not 4*d_head
         self.W_DQ = nn.Linear(d_model, d_c_q, bias=False)
         self.W_UQ = nn.Linear(d_c_q, num_heads * (d_head + d_r), bias=False)
         self.W_o = nn.Linear(num_heads * d_head, d_model, bias=False)
@@ -623,8 +623,8 @@ $$\boxed{\;E[\tau] = \frac{1 - \alpha^{K+1}}{1 - \alpha}\;}$$
 **Limit analysis**:
 
 - $\alpha \to 1$ (perfect draft): $E[\tau] \to K+1$, speedup $K+1$×
-- $\alpha \to 0$ (draft always wrong): $E[\tau] \to 1$, no speedup but no regression either
-- In practice, LLaMA-7B drafting LLaMA-70B: $\alpha \approx 0.6-0.7$, $K=4$ gives $E[\tau] \approx 2.7$
+- $\alpha \to 0$ (draft always wrong): $E[\tau] \to 1$, i.e. each spec step yields on average only 1 token; but this ignores the draft's own forward cost — once you factor that in (see the speedup formula below), the full speedup $\text{speedup} = E[\tau]/(1+Kc) \to 1/(1+Kc) < 1$, a real regression (slower than plain decoding), not "no regression"
+- In practice, LLaMA-7B drafting LLaMA-70B: $\alpha \approx 0.6\text{-}0.7$, $K=4$ gives $E[\tau]$ between **2.31** ($\alpha=0.6$) and **2.77** ($\alpha=0.7$), not a uniform 2.7
 
 > 💡 **Real speedup formula** — subtract the draft model's own forward overhead. Let $c = T_q / T_p$ (draft step time / target step time, typical 0.05-0.15):
 
@@ -736,7 +736,7 @@ def speculative_decode(target, draft, prompt_ids, max_new_tokens, K=4, temperatu
 Medusa's core (Cai et al., ICML 2024): **add $N$ parallel prediction heads on top of the target's final hidden state**; the $k$-th head directly predicts the "$(k+1)$-th future token".
 
 - No need for a separate draft model; only fine-tune these heads (small parameter count)
-- The top-$K$ candidates from each of $N$ heads compose a **static tree** (e.g., top-5 per head, $5^N$ paths total, pruned by typical acceptance)
+- The top-$K$ candidates from each of $N$ heads compose a **static tree** (e.g., top-5 per head, $5^N$ paths in theory; in practice deployments use an **offline-designed fixed sparse tree structure**, keeping only the tens-to-hundreds of statistically common candidate paths — this pruning happens at tree-design time, unrelated to typical acceptance)
 - Tree attention: flatten all tree nodes into one input for the target's forward; each node's attention mask sees only its ancestors (causal on the tree)
 
 > 💡 **Tree attention mask** — arrange tree nodes by BFS into a linear sequence $[t_0, t_1, \dots, t_M]$. Let $\mathcal A(i)$ denote node $i$'s ancestors (inclusive). Mask $M[i, j] = 1$ iff $j \in \mathcal A(i)$. Each node thus only sees the root-to-self path; logits are correct.
@@ -784,7 +784,7 @@ Effect: MT-bench 1.8×, code completion multi-card 4× speedup. But for open-end
 
 ### 8.5　Long-context specialists: TriForce / MagicDec
 
-> ⚠️ **Vanilla SD breaks down in long context** — when context is long (e.g., 128K), every target forward must scan the entire KV cache, and **HBM bandwidth** is the bottleneck, not weight loading. Vanilla SD's savings come from reducing weight-load frequency; in this regime the benefit shrinks.
+> ⚠️ **Vanilla SD's gain shrinks in long context** — a single target verify forward (scoring $K+1$ candidate positions at once) already amortizes both weight and KV-cache HBM reads: the $K+1$ query positions share one batched matmul against the KV cache (much like flash-attention's KV-tile reuse), so the cache is read from HBM once, not $K+1$ times. What actually drags down long-context speedup is **serial reads on the draft side**: if the draft model maintains a full-length KV cache matching the target's, generating $K$ draft tokens is a **serial autoregressive** process, and each step re-reads its own $O(L_\text{ctx})$ cache independently, for a total cost proportional to $K \cdot L_\text{ctx}$ (see Q24 in §10).
 
 **TriForce** (Sun et al., 2024, arxiv 2404.11912): three-tier hierarchy.
 
@@ -800,7 +800,7 @@ Speedup core: second-tier draft is fast under sparse cache, then the full-cache 
 
 > 💡 **An extreme version without an external draft model** — Zhang et al. 2024 propose "self-speculative": use the **target model itself with some layers skipped** as the draft.
 
-- Take logits from layer $L_d < L$ in target as draft (early exit)
+- Skip a curated subset of layers in the target as the draft (found via Bayesian optimization to select which intermediate layers/sublayers can be skipped), **not** a fixed-depth early exit truncated at some $L_d$ — later layers (including the final layernorm and LM head) still run as normal, keeping the output in the same representation space as the target
 - Use the full target for verify
 - Fully backwards-compatible: no new model to train, no fine-tuning
 - Typical speedup 1.5-2× (not as fast as EAGLE, but zero extra training)
@@ -841,7 +841,7 @@ Long context (128K+) regime: vanilla SD drops to 1.1-1.3×; TriForce / MagicDec 
 | activation peak (decode, batch 8) | ~2 GB |
 | total | ~152 GB → tight on 2×80GB A100; typically 4×80GB |
 
-For vanilla SD, the draft model (7B fp16) adds +14 GB; EAGLE's draft head is only ~200 MB.
+For vanilla SD, the draft model (7B fp16) adds +14 GB; EAGLE's draft head scales with the target's hidden dim rather than being fixed: the paper reports ~0.24B params (fp16 ≈0.5 GB) for a 7B target (e.g. Vicuna-7B), and ~0.99-1B params (fp16 ≈2 GB) for a 70B target (e.g. LLaMA-2-70B-Chat) — both far smaller than a full 7B vanilla-SD draft, but not a fixed ~200 MB.
 
 ## §10 25 Frequently-Asked Interview Questions
 
@@ -1057,7 +1057,7 @@ Pitfall: writing only $E[\tau]$ without draft overhead; missing the bonus token 
 
 <summary>Q16. Difference between self-speculative and standard speculative decoding?</summary>
 
-- Self-spec: draft = target with layers skipped / early exit
+- Self-spec: draft = target with a curated subset of layers skipped (see §8.6; not a fixed-depth early exit)
 - No separate draft model needed; zero extra training
 - But draft and target are highly correlated, $\alpha$ is usually high
 - Typical speedup 1.5-2× (less than EAGLE but more convenient)
@@ -1152,9 +1152,9 @@ Pitfall: only writing single-token equivalence; misstating "draft must use the s
 - At inference, just $(c_t^Q)^\top \tilde W^{QK,(i)} c_s^{KV}$, **no $k_s$ computed**
 - Similarly attention output: $\text{out}^{(i)} = \sum_s w_s v_s^{(i)} = (\sum_s w_s c_s^{KV})^\top W^{UV,(i)\top}$
 - Absorb $W^{UV,(i)}$ into $W^O$: $W^O_\text{absorbed} = W^O (\text{blockdiag}(W^{UV,(i)}))$
-- Conclusion: cache only latent, compute in latent space, **cache savings don't increase compute**
+- Conclusion: cache only latent, compute in latent space; absorb saves the bandwidth of reading/materializing K/V, while FLOPs may actually rise slightly since $d_c$ (512) is often larger than $d_\text{head}$ (128) — but the bandwidth savings are worthwhile for a bandwidth-bound stage like decode (**not** "cache savings without increased compute")
 
-Pitfall: naively saying "just reconstruct K/V" — reconstruction reverts to MHA compute; unaware that absorb is inference-only (cannot absorb at training since backprop is needed).
+Pitfall: naively saying "just reconstruct K/V" — reconstruction reverts to MHA compute; thinking absorb is inference-only because "you can't backprop through it" — wrong, the absorbed form is fully differentiable and works fine at training time too; the real reason is that weights update every step during training, so recomputing the fused matrix $\tilde W^{QK}$ each step isn't economical versus just running the two unabsorbed projections directly in forward/backward — absorb pays off at inference because the weights are frozen and the fused matrix can be computed once and reused.
 
 </details>
 
@@ -1166,7 +1166,7 @@ Pitfall: naively saying "just reconstruct K/V" — reconstruction reverts to MHA
 - Alternative 1: apply RoPE directly on latent $c^{KV}$ — but latent dim is small and rotation semantics mismatch (RoPE pairs sin/cos along the head dim)
 - Alternative 2: use ALiBi (additive bias, no rotation) — but breaks LLaMA-3-compatible pretraining
 - Alternative 3: give up absorb, reconstruct K/V at every step — compute reverts to MHA
-- DeepSeek-V2's choice: **decoupled RoPE channel $d_r=64$ shared across all heads**, very small cache increment (~5%), content channel keeps absorb
+- DeepSeek-V2's choice: **decoupled RoPE channel $d_r=64$ shared across all heads**, cache increment of about **12.5%** ($d_r/d_c = 64/512$; ~11.1% as a share of the total, $d_r/(d_c+d_r) = 64/576$), not ~5%, content channel keeps absorb
 - Elegance: this independent channel shares $k_t^R$ across all heads — the "last mile of cache saving"
 
 Pitfall: saying "RoPE doesn't affect MLA" — wrong; unaware that the decoupled channel is head-shared.
@@ -1177,11 +1177,10 @@ Pitfall: saying "RoPE doesn't affect MLA" — wrong; unaware that the decoupled 
 
 <summary>Q24. Why does vanilla speculative decoding's gain collapse in long context (128K+)? How to fix?</summary>
 
-- Vanilla SD's gain assumption: weight loading is the bottleneck; one verify amortizes $K$ tokens' weight load
-- In long context, **KV cache is far larger than weights**; bandwidth goes mostly to reading the cache
-- Each verify reads the full cache once; cache loading cannot be saved
-- Intuition: vanilla SD speedup $\propto E[\tau] / (1 + Kc)$ assumes $T_p$ is mainly weight loading, but in long context $T_p \approx T_\text{cache\_read} + T_\text{weight\_read}$ with the former dominating; every verify still reads the full cache, **$K$ tokens cannot amortize cache loading**, so $E[\tau]$'s advantage is eaten
-- Fix 1: **MagicDec** — draft uses sparse KV (StreamingLLM), target uses full cache for verify
+- Vanilla SD's gain assumption: a single target verify forward amortizes weight + KV-cache HBM reads ($K+1$ candidate positions share one batched matmul, cache read once) — this amortization assumption still holds in long context, and is **not** why the gain collapses
+- The real problem is on the **draft side**: if the draft model maintains a full-length KV cache matching the target's, generating $K$ draft tokens is a **serial autoregressive** process, and each step re-reads its own $O(L_\text{ctx})$ cache independently, for a total cost proportional to $K \cdot L_\text{ctx}$ — this is the real driver of degraded speedup in long context
+- Also, "HBM bandwidth (cache) replaces weight loading as the bottleneck" shouldn't kick in as early as 128K for GQA models: LLaMA-2/3-70B (GQA, $H_\text{kv}=8$) has a KV cache of only ~**40 GiB** at 128K context, still well below the **140 GB** of weights — the crossover only happens far beyond 128K (around **450K+ tokens**)
+- Fix 1: **MagicDec** — draft uses sparse KV (StreamingLLM), compressing the draft side's serial $O(L_\text{ctx})$ reads into a constant window
 - Fix 2: **TriForce** — three tiers: small LM → target+sparse cache → target+full cache
 - Fix 3: combine KV cache compression (H2O eviction) + SD: smaller cache makes vanilla SD viable again
 
@@ -1195,7 +1194,7 @@ Pitfall: just saying "long-context spec decoding doesn't work" without explainin
 
 - **Step 1 measure workload**: prompt length distribution, generation length distribution, QPS
 - **Step 2 pick optimizations by bottleneck**: (a) insufficient memory for a batch → PagedAttention + prefix caching + KV quantization; (b) long prefill blocks decode → Sarathi-Serve chunked prefill; (c) small-batch decode bandwidth-bound → spec decoding (gains highest at small batch); (d) long-context bandwidth-bound → MagicDec / TriForce; (e) cross-request prompt reuse → prefix caching + COW
-- **Step 3 mind interactions**: SD + large batch sees diminishing gain (large batch is already compute-bound); PagedAttention + SD use page-table pointer changes for cache rollback; KV quantization + SD requires consistent quant schemes between draft/target
+- **Step 3 mind interactions**: SD + large batch sees diminishing gain (large batch is already compute-bound); PagedAttention + SD use page-table pointer changes for cache rollback; KV quantization + SD **does not require** consistent quant schemes between draft/target (e.g. target FP8, draft INT4 is fine — exactness only depends on each model's own true $p, q$, just as with samplers in §7.5); mismatched quantization only widens the $p, q$ gap and lowers acceptance rate $\alpha$, without breaking exactness
 - **Step 4 monitor metrics**: tokens/sec, p95 TTFT, p95 TPOT, GPU utilization
 - Key trade-off: throughput vs latency; SD leans toward latency improvement, continuous batching leans toward throughput
 

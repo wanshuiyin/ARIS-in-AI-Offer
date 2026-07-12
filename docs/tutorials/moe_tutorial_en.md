@@ -2,13 +2,13 @@
 
 > 💡 **8 sentences to nail MoE** — get the core points of 2026 fall recruiting season in one page (see §1-§9 derivations).
 
-1. **Core idea**: replace a single FFN with $N$ experts + a router; each token goes through only $k \ll N$ experts, **total parameters go up, active parameters stay the same** (sparse activation). Compute is roughly $k/N$× of dense, but memory / GPU memory follows total parameters.
+1. **Core idea**: replace a single FFN with $N$ experts + a router; each token goes through only $k \ll N$ experts, **total parameters go up, active parameters stay the same** (sparse activation). Compute is roughly $k$× a single expert-FFN (equivalent to $k$ equal-width dense FFNs, independent of $N$ — see §7.1), but memory / GPU memory follows total parameters.
 
 2. **Routing formula** (Token-Choice top-k): $g_i(x) = \text{softmax}(W_g x)_i$, select $\mathcal{T}_k(x) = \text{TopK}_i\, g_i(x)$, output $y = \sum_{i \in \mathcal{T}_k(x)} g_i(x) \cdot E_i(x)$. The gate probabilities act as **soft weights** multiplied onto expert outputs, making the router differentiable during backprop.
 
 3. **Historical lineage (5 must-memorize papers)**: Shazeer 2017 (first MoE layer that worked in deep learning) → GShard 2020 (top-2 + capacity factor + all-to-all) → Switch Transformer 2021 (top-1 minimalist, aux loss + load balance) → Mixtral 8x7B/8x22B 2024 (first major open-source MoE, top-2) → DeepSeek-V3 2024 (671B/37B, **aux-loss-free**, fine-grained + 1 shared).
 
-4. **DeepSeek line (2026 interview hotspot)**: DeepSeekMoE 2024 proposed **fine-grained experts** (split into smaller experts; $mN$ small experts, select $mK$) + **shared experts** (a few experts seen by all tokens, absorbing common knowledge). V2 uses MLA + DeepSeekMoE; V3 pushes routed experts to 256 + 1 shared, **drops aux loss**, replacing it with online updates to expert biases.
+4. **DeepSeek line (2026 interview hotspot)**: DeepSeekMoE 2024 proposed **fine-grained experts** (split into smaller experts; $mN$ small experts, select $mK$) + **shared experts** (a few experts seen by all tokens, absorbing common knowledge). V2 uses MLA + DeepSeekMoE; V3 pushes routed experts to 256 + 1 shared, replacing aux loss with online updates to expert biases as the primary balancing mechanism (a tiny-weight sequence-wise aux loss remains as a backstop — it's not a complete removal of aux loss; see §6.2).
 
 5. **Aux-loss-free balance**: add a per-expert bias $b_i$ to the router score, **used only for top-k selection**, not in gradients (also not in the final gate weight); each step updates $b_i$ in the direction of "actual load - expected load" (over-loaded experts get their bias reduced). **Does not break sparse gradients, does not introduce interfering gradients.**
 
@@ -73,8 +73,10 @@ $$y = \sum_{i \in \mathcal{T}_k(x)} \tilde{g}_i(x) \cdot E_i(x), \quad \tilde{g}
 | Model | $k$ | Notes |
 | --- | :-: | --- |
 | Switch Transformer | 1 | Minimalist; shown to work |
-| GShard / Mixtral / Qwen3-MoE | 2 | Mainstream; 2 experts are enough to "ensemble" |
-| DeepSeek-V2 / V3 | 6 / 8 (routed) + 1 shared | Combined with fine-grained splitting |
+| GShard / Mixtral | 2 | Mainstream; 2 experts are enough to "ensemble" |
+| Qwen3-MoE | 8 | 8 of 128, no shared expert (see §5.1 table) |
+| DeepSeek-V2 | 6 (routed) + 2 shared | Combined with fine-grained splitting |
+| DeepSeek-V3 | 8 (routed) + 1 shared | Combined with fine-grained splitting |
 | Llama 4 Scout | 1 (only 1 routed) + 1 shared | 16 experts, 1 shared |
 | Llama 4 Maverick | 1 routed + 1 shared | 128 experts |
 
@@ -95,7 +97,7 @@ where
 
 **Key points / common confusions**:
 
-1. $f_i$ provides the "actual frequency"; $P_i$ provides the "gradient path". Multiplied, $\sum_i f_i P_i$ is largest when both concentrate on the same group of experts and smallest when uniformly distributed ($= 1/N$, multiplied by $N$ = 1).
+1. $f_i$ provides the "actual frequency"; $P_i$ provides the "gradient path". Multiplied, $\sum_i f_i P_i$ is largest when both concentrate on the same group of experts; but $\sum_i f_i P_i$ does **not** attain its unconditional global minimum at the uniform distribution — counterexample: with $N=2$, take $f=(2/3,1/3)$ and $P=(1/3,2/3)$, giving $f\cdot P = 4/9 < 1/2 = 1/N$. The uniform point $f=P=1/N$ (where the value is $1/N$, or $1$ after multiplying by $N$) is only a **self-consistent fixed point** of this quantity, not its mathematical minimum.
 2. This **encourages a uniform distribution**, not a hard constraint. Extreme collapse is penalized, but moderate day-to-day imbalance is not heavily penalized.
 3. The Switch top-1 formula is exactly this; for top-k, change $f_i$ to "top-k hit frequency" (see GShard paper for the more precise form).
 4. **Too large $\alpha$ interferes with the main task gradient** — this is the root motivation for DeepSeek to switch to aux-loss-free.
@@ -109,7 +111,7 @@ $$s(x) \in \mathbb{R}^{T \times N}, \quad \mathcal{T}_M^{(i)} = \text{TopM}_{t}\
 **Advantages**:
 
 - **Naturally balanced**: each expert strictly picks $M$ tokens, no aux loss needed
-- **No token dropping**: theoretically no "overflow" (capacity is hard-set)
+- **No expert overflow**: each expert strictly picks $M$ tokens, capacity is never exceeded; but a token can still get **0 hits** (not picked by any expert, effectively skipped) — "no token dropping" is not an accurate blanket statement (see the second point under limitations below)
 
 **Disadvantages / limitations**:
 
@@ -123,15 +125,17 @@ $$s(x) \in \mathbb{R}^{T \times N}, \quad \mathcal{T}_M^{(i)} = \text{TopM}_{t}\
 
 DeepSeek (Wang et al., arXiv 2408.15664, 2024)'s proposal, fully adopted by V3. Core in one sentence: **add a bias term $b_i$ to each expert, used only for top-k selection, not in the gradient**.
 
-Specifically, the original score is $s_i(x)$; in top-k selection we use the **biased score**:
+Specifically, DeepSeek-V3's affinity first passes through a sigmoid: $s_i(x) = \sigma(u_t^\top e_i)$ ($u_t$ is the token's hidden state, $e_i$ is expert $i$'s centroid vector). Top-k selection uses the **biased score** (the bias is added **after** the sigmoid, not to the raw pre-sigmoid logits):
 
 $$\tilde{s}_i(x) = s_i(x) + b_i$$
 
 $$\mathcal{T}_k(x) = \text{TopK}_i\, \tilde{s}_i(x)$$
 
-But the **final gating weight** still uses the softmax (or sigmoid then renormalize, DeepSeek-V3 uses sigmoid) of the original $s_i$:
+But the **final gating weight** renormalizes the original, bias-free affinity $s_i(x)$ ($s_i(x)$ is already the sigmoid output, so it is not passed through sigmoid again):
 
-$$g_i(x) = \frac{\sigma(s_i(x))}{\sum_{j \in \mathcal{T}_k(x)} \sigma(s_j(x))}, \quad i \in \mathcal{T}_k(x)$$
+$$g_i(x) = \frac{s_i(x)}{\sum_{j \in \mathcal{T}_k(x)} s_j(x)}, \quad i \in \mathcal{T}_k(x)$$
+
+V3 / R1 also multiply the combined routed-expert output by a **routed_scaling_factor** (about 2.5 in the official config), a step that neither this formula nor the §3.1 code below reflects — don't drop it in a real implementation.
 
 $b_i$ update rule (once per step, **out-of-graph**, non-gradient update):
 
@@ -151,7 +155,7 @@ Shazeer et al. 2017 paper adds learnable Gaussian noise to the score:
 
 $$s_i(x) = (W_g x)_i + \text{StandardNormal}() \cdot \text{Softplus}((W_\text{noise} x)_i)$$
 
-Noise "softens" the top-k selection to avoid collapse. Later replaced by GShard / Switch with the more explicit load-balance loss — but the concept ("top-k is non-differentiable → needs some stochastic softening") still has pedagogical value.
+The noise mainly serves two purposes: (1) exploration in early training, giving temporarily-lagging experts a chance to still be picked and receive gradient; (2) constructing a differentiable approximation of each expert's load (via a Gaussian-CDF estimate), which supports a differentiable load-balancing auxiliary loss — it does not make the discrete TopK operation itself differentiable (differentiability comes from the gate weights entering the weighted output sum, see §4.4). It was later replaced by GShard / Switch with the more explicit load-balance loss, but the exploration and differentiable-load-estimate motivations still have pedagogical value.
 
 ## §3 Implementation Details: Core 60-Line PyTorch
 
@@ -263,13 +267,14 @@ class MoEAuxFree(nn.Module):
         T = B * L
         x_flat = x.view(T, D)
 
-        # Router score (V3 uses sigmoid rather than softmax, but the top-k logic is the same)
+        # Router score (V3 uses a sigmoid affinity, not softmax)
         logits = self.router(x_flat)                       # [T, N]
-        # ★ Top-k uses biased score, but gating weight uses original score
-        biased_logits = logits + self.expert_bias.unsqueeze(0)
-        _, top_idx = biased_logits.topk(self.top_k, dim=-1)         # [T, k]
-        # Take the original score at the selected positions, sigmoid then renormalize
-        gate_raw = torch.sigmoid(logits).gather(-1, top_idx)        # [T, k]
+        affinity = torch.sigmoid(logits)                   # [T, N], s_i(x) = sigmoid affinity
+        # ★ Top-k uses the biased score (bias added after sigmoid); gating weight uses the un-biased affinity
+        biased_affinity = affinity + self.expert_bias.unsqueeze(0)
+        _, top_idx = biased_affinity.topk(self.top_k, dim=-1)        # [T, k]
+        # Take the un-biased affinity at the selected positions and renormalize (already sigmoid output, no second sigmoid)
+        gate_raw = affinity.gather(-1, top_idx)                      # [T, k]
         top_weights = gate_raw / (gate_raw.sum(dim=-1, keepdim=True) + 1e-9)
 
         # ----- Online expert_bias update (no grad, paper's sign update) -----
@@ -299,8 +304,8 @@ class MoEAuxFree(nn.Module):
 Notes:
 
 1. `expert_bias` is a buffer rather than a parameter; **it is not in the gradient graph and is not stepped by the optimizer** — it is only modified by the "sign update" at the end of `forward`.
-2. **biased_logits is used only for selecting top-k; the gating weight comes from the original logits** (this is the point the V3 paper repeatedly emphasizes). If even the gating weight used biased values, that would pollute the main gradient path with the control signal, defeating the benefit of aux-loss-free.
-3. V3 actually uses sigmoid + 256 experts + 9 selected (8 routed + 1 shared, see §6); here it is simplified to softmax + top-k to demonstrate the principle.
+2. **The biased affinity is used only for selecting top-k (bias added after sigmoid); the gating weight comes from the un-biased original affinity** (this is the point the V3 paper repeatedly emphasizes). If even the gating weight used the biased values, that would pollute the main gradient path with the control signal, defeating the benefit of aux-loss-free.
+3. V3 actually selects 8 routed + 1 shared out of 256 experts (see §6 for details); here `num_experts` / `top_k` are just adjustable small-scale knobs for demonstrating the principle — the formula (sigmoid affinity + bias added after sigmoid) already matches V3, minus the routed_scaling_factor.
 
 ### 3.2　Fine-Grained + Shared Expert Layer (DeepSeekMoE style)
 
@@ -374,18 +379,17 @@ $$\boxed{\;C = \left\lceil \alpha \cdot \frac{T \cdot k}{N} \right\rceil\;}$$
 
 **$\alpha = 1$**: just enough under uniform distribution, but any slight imbalance causes drops; **$\alpha = 1.25$** (Switch / GShard default): leaves 25% headroom buffer for imbalance; **$\alpha > 2$**: basically no drops but wastes memory.
 
-### 4.2　Token Dropping vs Residual Bypass
+### 4.2　Token Dropping = Residual Bypass (same mechanism), Dropless Is the Mainstream
 
-When some expert has filled its $C$ tokens, what happens to the next token? **Two routes**:
+When some expert has filled its $C$ tokens, what happens to the next token? In a standard transformer, the MoE sublayer already sits inside a residual connection ($y = x + \text{MoE}(x)$), so "dropping" in practice just means: **zeroing the MoE-branch output for that token** — the outer skip connection automatically passes the original $x$ through, so the token's representation degenerates to a pure residual pass-through rather than becoming an actual zero vector.
 
-| Scheme | Behavior | Who uses |
-| --- | --- | --- |
-| **Token Drop** | Drop directly, output 0 | GShard early; usually ↓ training stability |
-| **Residual Bypass** | Expert output is 0, but **residual $x$ naturally passes through via layer norm + skip connection** | Switch Transformer / Mixtral / DeepSeek default |
+In other words, "Token Drop" and "Residual Bypass" — often presented side by side as two options — are **actually the same mechanism**, not two mutually exclusive engineering routes: as long as the architecture has a residual connection (GShard / Switch / Mixtral / DeepSeek are all standard transformers, so they all do), dropping is automatically equivalent to bypassing at the implementation level.
 
 Benefit of residual bypass: dropped tokens **are not turned to 0** — on the residual path, they still carry their own representation, just that this layer "is not processed by any expert", equivalent to degenerating to an identity layer. The entire network can still learn.
 
 > ⚠️ **Must-test pitfall** — interviews often ask "why does MoE not catastrophically break". Answer: residual bypass + multi-layer stacking, **single-layer drop is not fatal** — the next layer's router can still pick a suitable expert for that token.
+
+**Dropless is already the mainstream**: Mixtral, and especially DeepSeek-V3 (whose paper explicitly claims no tokens are dropped during either training or inference), typically run **dropless** in practice — no hard capacity ceiling; modern EP scheduling with grouped-GEMM / block-sparse kernels naturally supports a variable number of tokens per expert, without requiring a fixed capacity for static truncation ahead of time. The capacity factor in §4.1 is more of an engineering trade-off for "capping the memory / communication buffer" than a hard requirement for every production system.
 
 ### 4.3　Routing Collapse (💣 classic bug)
 
@@ -400,26 +404,31 @@ Diagnostic signals:
 Fixes:
 
 1. **Aux loss** (Switch formula, §2.2)
-2. **Expert dropout** / **Z-loss** (entropy regularizer on router logits)
+2. **Expert dropout** / **Z-loss** (adds a log-partition stabilization term $\beta \cdot (\log \sum_i e^{s_i})^2$ to router logits, suppressing logit blow-up — not an entropy regularizer; formula given in §10 Q24)
 3. **Expert Choice** (§2.3, hard constraint of fixed tokens per expert)
 4. **Aux-loss-free bias** (§2.4, DeepSeek-V3)
-5. **Moderately enlarge capacity factor** (let collapse trigger drops, indirectly punishing concentration)
+
+Points 1-4 above are the actual active-balancing mechanisms that cure collapse. **The capacity factor is not a cure**: enlarging it only reduces overflow-triggered drops (§4.1: $\alpha > 2$ basically means no drops) — it does not punish routing concentration. It only controls the secondary damage caused by drops, not the underlying imbalance in routing.
 
 ### 4.4　How does Top-k's "hard" selection backprop gradients?
 
 Classic question: $\text{TopK}$ is a non-differentiable discrete operation.
 
-Answer: **top-k only decides which path is taken (discrete), and does not participate in the gradient**; the softmax weights $g_i(x)$ enter the final output $y = \sum_i g_i E_i(x)$, and differentiating with respect to $g_i$ is continuous (standard softmax chain rule). So the router's $W_g$ is differentiable (note the **full Jacobian** induced by the softmax / renorm coupling, not just the diagonal):
+Answer: **top-k only decides which path is taken (discrete), and does not participate in the gradient**; the softmax weights $g_i(x)$ enter the final output $y = \sum_i g_i E_i(x)$, and differentiating with respect to $g_i$ is continuous (standard softmax chain rule). So the router's $W_g$ is differentiable — but $g_i$ is really just a **local softmax computed only within the top-k set**, with no functional dependence at all on the excluded logits:
 
-Let $s = W_g x$ (logits), $p = \text{softmax}(s)$; after top-k selection $\mathcal{T}_k(x)$, do renormalize $g_i = p_i / Z$ ($Z = \sum_{j \in \mathcal{T}_k} p_j$):
+Let $s = W_g x$ (logits). Following §3's code, the forward pass first computes the full $p_i = e^{s_i}/D$ over all $N$ experts ($D = \sum_{j=1}^N e^{s_j}$ is the global partition function), then after top-k selects $\mathcal{T}_k(x)$, renormalizes $g_i = p_i / Z$ ($Z = \sum_{j \in \mathcal{T}_k} p_j$). Substituting and simplifying:
 
-$$\frac{\partial g_i}{\partial s_l} = \mathbf{1}[i \in \mathcal{T}_k]\cdot\left(\frac{\partial p_i / \partial s_l}{Z} - \frac{p_i}{Z^2}\cdot \mathbf{1}[l \in \mathcal{T}_k] \cdot \frac{\partial Z}{\partial s_l}\right)$$
+$$g_i = \frac{p_i}{Z} = \frac{e^{s_i}/D}{\sum_{j \in \mathcal{T}_k} e^{s_j}/D} = \frac{e^{s_i}}{\sum_{j \in \mathcal{T}_k} e^{s_j}}, \quad i \in \mathcal{T}_k(x)$$
 
-where $\partial p_i/\partial s_l = p_i(\delta_{il} - p_l)$ is the softmax Jacobian (including the cross term $-p_i p_l$, not just the diagonal $p_i(1-p_i)$). Aggregate:
+**The key point**: the global partition function $D$ cancels out exactly — $g_i$ is mathematically a local softmax restricted to the top-k subset, with no functional dependence on any $s_l$ outside $\mathcal{T}_k$. Therefore:
 
-$$\frac{\partial \mathcal{L}}{\partial W_g} = \sum_{i \in \mathcal{T}_k(x)}\sum_{l} \frac{\partial \mathcal{L}}{\partial g_i} \cdot \frac{\partial g_i}{\partial s_l} \cdot \frac{\partial s_l}{\partial W_g}$$
+$$\frac{\partial g_i}{\partial s_l} = g_i(\delta_{il} - g_l), \ l \in \mathcal{T}_k(x); \qquad \frac{\partial g_i}{\partial s_l} = 0, \ l \notin \mathcal{T}_k(x)\ (\textbf{exactly zero, not "indirectly nonzero"})$$
 
-For $l \notin \mathcal{T}_k$ (excluded by top-k), $\partial g_i/\partial s_l$ is still nonzero via $p_l$ (the global coupling of softmax), but this term does not affect the output in forward, and its contribution in backward only enters indirectly via $\partial p_i / \partial s_l = -p_i p_l$. **In practice**, only experts within top-k receive dominant gradient signal; experts outside top-k cannot get the training push "I should be selected" for a long time — this is a chicken-and-egg: not selected → not updated → never selected. Aux loss / bias is exactly to break this cycle.
+For $l \in \mathcal{T}_k(x)$ this is the local softmax Jacobian within the top-k subset (including the cross term $-g_i g_l$, not just the diagonal $g_i(1-g_i)$). Aggregate:
+
+$$\frac{\partial \mathcal{L}}{\partial W_g} = \sum_{i \in \mathcal{T}_k(x)}\sum_{l \in \mathcal{T}_k(x)} \frac{\partial \mathcal{L}}{\partial g_i} \cdot \frac{\partial g_i}{\partial s_l} \cdot \frac{\partial s_l}{\partial W_g}$$
+
+**In practice**, only experts within top-k receive gradient signal; experts outside top-k get **zero gradient** this step (consistent with §10 Q12 below) — this is a chicken-and-egg: not selected → not updated → never selected. Aux loss / bias is exactly to break this cycle.
 
 ## §5 Classic Model Lineage: From Shazeer to DeepSeek-V3
 
@@ -471,12 +480,12 @@ DeepSeek-V3 (DeepSeek-AI, arXiv 2412.19437, 2024.12) is the highest-frequency Mo
          │
          └──────► Router (D → 256)
                    │
-                   ├ score s_i(x) + b_i  (bias only used for top-k selection)
+                   ├ affinity s_i(x)=σ(u_t^T e_i), top-k uses s_i(x)+b_i  (bias added after sigmoid, top-k selection only)
                    │
                    ↓
                 Top-8 (select 8 of 256)
                    │
-                   │  actual gating weight: sigmoid(s_i) / Σ sigmoid(s_j)
+                   │  actual gating weight: s_i(x) / Σ s_j(x)  (bias-free, s_i already a sigmoid output)
                    ↓
         ┌────────┬────────┬────────┬────────┐
         ↓        ↓        ↓        ↓        ↓
@@ -485,7 +494,7 @@ DeepSeek-V3 (DeepSeek-AI, arXiv 2412.19437, 2024.12) is the highest-frequency Mo
         └─ × g ─┴─ × g ─┴─ × g ─┴─ × g ─┘
                           │
                           ↓
-                routed_out  +  shared_out  →  y
+      routed_out × routed_scaling_factor(≈2.5)  +  shared_out  →  y
 ```
 
 Key numbers:
@@ -507,7 +516,7 @@ The second point is often overlooked: V3 is not "completely without aux loss" bu
 
 ### 6.3　Node-Limited Routing
 
-V3 training runs 64-way EP across 8 nodes. Naive top-8 routing might scatter a token's 8 experts across all 8 nodes → severe all-to-all communication. V3 adds a hard constraint: **each token routes to at most 4 nodes** and at most 3 experts per node. This is algorithm × system joint optimization.
+V3 training runs 64-way EP across 8 nodes (256 routed experts split evenly across 8 nodes, 32 per node). Naive top-8 routing might scatter a token's 8 experts across all 8 nodes → severe all-to-all communication. V3 adds a hard constraint: group the 256 experts by node; for each token, first score the 8 nodes by "the sum of the top-$(K_r/M)$ expert affinities within that node's group", pick the **$M=4$ highest-scoring nodes**, then run a single **global top-8 selection** over all experts covered by those 4 nodes — there is no additional hard cap of "3 experts per node"; how the 8 selected experts actually distribute across the 4 chosen nodes is not fixed. This is algorithm × system joint optimization.
 
 ### 6.4　System: DualPipe + DeepEP
 
@@ -554,7 +563,7 @@ Specifically, single-GPU inference of a 671B model (FP8 / FP16):
 
 ### 7.3　KV Cache
 
-MoE does not directly affect KV cache size — KV is related to attention, not FFN sparsity. But V2/V3 also introduced **MLA** that compresses KV to a low-rank latent, so V3's KV cache is ~5% of LLaMA-3 70B. **In interviews, distinguish "MoE reduces FFN memory (FP8 OK), MLA reduces KV memory"** — these are two independent optimization lines.
+MoE does not directly affect KV cache size — KV is related to attention, not FFN sparsity. V2/V3 introduce **MLA**, which compresses KV to a low-rank latent; compared against **standard MHA** (DeepSeek-V2's own baseline in its paper, see the §5 table's "KV cache reduced 93.3%"), the reduction is indeed huge. But comparing V3 against **LLaMA-3-70B, which already compresses KV with GQA**, is not an apples-to-apples baseline: a rough estimate gives LLaMA-3-70B (GQA, 8 KV heads, head_dim=128, 80 layers, bf16) ≈327KB of KV cache per token, versus DeepSeek-V3 MLA (compressed dim 512+64, ~61 layers, bf16) ≈70KB per token — a ratio of about **~21%**, not ~5%. **In interviews, distinguish "MoE reduces FFN memory (FP8 OK), MLA reduces KV memory", and also distinguish "the 93.3% figure is relative to MHA, while relative to an already-GQA model it's only ~21%"** — these are two independent optimization lines, and the comparison baseline matters too.
 
 ## §8 EP / TP / PP / DP: MoE Parallelism's 4-Dimensional Mesh
 
@@ -609,8 +618,8 @@ For V3: $T \sim$ few-M tokens/step, $k=8$, $D=7168$, $G=64$ → per-layer commun
 
 | Perspective | Dense | MoE |
 | --- | --- | --- |
-| Same active params | More stable | Lower capacity ceiling |
-| Same total params | Higher compute cost | **MoE more compute-efficient, larger capacity** |
+| Same active params | Capacity ceiling = active (no spare capacity) | **Larger capacity** (total ≫ active) |
+| Same total params | Higher compute cost (all params always computed) | **MoE more compute-efficient** (only active part computed) |
 | Training stability | High | Medium (routing collapse / EP comm instability) |
 | Inference memory | Total ≈ active | **By total (all experts must reside)** |
 | Inference latency | memory-bound | **Memory bandwidth advantage** (active part small) |
@@ -705,10 +714,10 @@ Pitfall: just saying "encourage uniformity" without writing the formula; only wr
 
 - $C = \lceil \alpha \cdot Tk/N \rceil$, the capacity upper bound for each expert
 - $\alpha = 1.25$ is the Switch / GShard default (25% buffer)
-- Tokens beyond capacity → **residual bypass** (expert output 0, residual passes through)
-- Without a capacity limit, you cannot statically buffer; EP communication cannot be scheduled
+- Tokens beyond capacity → **residual bypass** (expert output 0, residual passes through; Token Drop and Residual Bypass are the same mechanism, see §4.2)
+- In traditional implementations, no capacity limit complicates static buffering / EP communication scheduling; but grouped-GEMM / block-sparse kernels (as in DeepSeek-V3's dropless practice) can support a variable token count per expert, so capacity is not an absolute requirement
 
-Pitfall: just saying "prevent OOM"; not knowing residual bypass and assuming drop means setting to 0.
+Pitfall: just saying "prevent OOM"; not knowing residual bypass and assuming drop means setting to 0; or assuming capacity factor is the only viable approach (ignoring that dropless is now mainstream practice).
 
 </details>
 
@@ -780,11 +789,12 @@ Pitfall: forgetting EP; thinking dense DP+TP+PP is enough.
 
 <summary>Q10. What are the benefits of MoE on the inference side?</summary>
 
-- At the same active parameters, **memory bandwidth advantage**: each token reads only ~active/total fraction of weights
-- Inference mostly token-by-token is memory-bound; reduced bandwidth → throughput ↑
-- 671B / 37B → each token reads ~5% of weights → comparable latency to ~30B dense
+- It's **not** "MoE has a bandwidth advantage over dense at the same active parameters" — at the same active parameter count, dense and MoE read a comparable amount of weight per token to begin with
+- The real advantage case is a comparison at the **same total parameters** (i.e., the same knowledge capacity): to reach MoE's total-parameter scale, a fully-active dense model would have to read its complete weights every token; MoE only reads the active fraction, so its bandwidth is far smaller
+- In other words: MoE can deliver a knowledge capacity far larger than a small dense model while spending close to that small model's bandwidth budget — that's the real leverage of sparse activation, not "an advantage at matched budgets"
+- V3 (671B / 37B) reads only ~5.5% of weights per token → bandwidth comparable to a ~37B dense model, but its knowledge capacity is matched against a fully-active 671B dense model (far more expensive to run)
 
-Pitfall: just saying "less compute" — but memory cannot accommodate (all experts loaded), so single-card deployment is still hard.
+Pitfall: just saying "less compute" — but memory cannot accommodate (all experts loaded), so single-card deployment is still hard; also don't claim "MoE inherently saves bandwidth at the same active parameter count".
 
 </details>
 
@@ -849,7 +859,7 @@ Pitfall: thinking the shared expert is an ensemble; or not knowing it bypasses t
 
 <summary>Q15. How does DeepSeek-V3 achieve aux-loss-free balance?</summary>
 
-- One bias $b_i$ per expert; top-k selection uses the **biased score** $s_i + b_i$
+- One bias $b_i$ per expert; top-k selection uses the **biased score** $s_i + b_i$ ($s_i$ is the sigmoid affinity, bias added after the sigmoid — see §2.4)
 - But the **gating weight uses the original $s_i$** (keeps the main gradient path clean)
 - Update each step by sign: $b_i \leftarrow b_i - u \cdot \text{sign}(c_i - \bar{c}_i)$
 - $b_i$ is a buffer, not in the gradient graph, not updated by the optimizer
@@ -892,7 +902,7 @@ Pitfall: not knowing ESFT; thinking "MoE = big model, LoRA solves everything".
 - The benefit transfers to **memory bandwidth** — each token only reads the active fraction of weights
 - LLM decode is memory-bound (not compute-bound), so bandwidth reduction translates directly to throughput
 - 671B/37B model: each token reads ~5% of weights → throughput ≈ 30B dense
-- But memory is still budgeted by total parameters: a single H100 80G **cannot run V3**, needs 8 cards minimum
+- But memory is still budgeted by total parameters: raw FP8 weights for 671B ≈671GB > 8×80GB(H100)=640GB, so a bare 8× H100-80G setup **does not fit** (it is not "8 cards is the minimum that works"); by raw weight size alone you need at least 9 80G cards, and with KV cache / activations on top, real deployments commonly use **16× H100 (2 nodes)** or **8× H200 141G** (consistent with the §7.2 table above)
 
 Pitfall: thinking sparse inference can "load 1 expert on demand" — hardware latency forbids this; or thinking the throughput gain comes from FLOPs savings (actually it comes more from bandwidth).
 
@@ -916,9 +926,9 @@ Pitfall: thinking MoD = MoE's alias; or not knowing one can sparsify along depth
 <summary>Q20. Why are Mixtral 8x7B's actual total parameters 46.7B and not 56B?</summary>
 
 - 8 experts are only in the **FFN layer** — attention / norm / embedding / unembedding **are all shared, counted once**
-- Set Mistral-7B's dense total params $\approx 7.24\text{B}$ (FFN about $4.8\text{B} \approx 2/3$, shared = attention+embed+norm $\approx 2.4\text{B} \approx 1/3$)
-- Mixtral 8x7B total params = **shared part + 8 × FFN** = $2.4 + 8 \times 4.8 \approx 2.4 + 38.4 \approx 40.8\text{B}$; plus Mistral-7B is slightly larger than LLaMA-2-7B and Mixtral adds router weights, official **46.7B**
-- Active parameters (per token, top-2) = **shared part + 2 × FFN** = $2.4 + 2 \times 4.8 \approx 12\text{B}$ (paper reports 12.9B / 13B active)
+- Mixtral uses hidden_size=4096, intermediate_size=14336, a 3-matrix SwiGLU FFN, 32 layers: each expert's total parameter count summed over the model $\approx 3 \times 4096 \times 14336 \times 32 \approx 5.637\text{B}$; the shared part (attention + embed + norm, summed over the model) $\approx 1.60\text{B}$
+- Mixtral 8x7B total params = **shared + 8 × one expert** = $1.60 + 8 \times 5.637 \approx 46.70\text{B}$ — an exact match to the official **46.7B**, with no need for a vague "router weight" fudge factor
+- Active parameters (per token, top-2, shared counted once) = $1.60 + 2 \times 5.637 \approx 12.87\text{B}$, matching the paper's **12.9B**
 
 Pitfall: computing $8 \times 7 = 56$ as total params (multiplying attention/embed by 8 too); or computing active as $2 \times 7 = 14$, forgetting shared is counted once.
 
@@ -1014,7 +1024,7 @@ Sorted by appearance. Note: **all arXiv IDs have been cross-validated**.
 
 1. **Shazeer, N., Mirhoseini, A., Maziarz, K., Davis, A., Le, Q., Hinton, G., Dean, J.** (2017). Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer. ICLR. arXiv:1701.06538.
 2. **Lepikhin, D., Lee, H., Xu, Y., Chen, D., Firat, O., Huang, Y., Krikun, M., Shazeer, N., Chen, Z.** (2020). GShard: Scaling Giant Models with Conditional Computation and Automatic Sharding. arXiv:2006.16668.
-3. **Fedus, W., Zoph, B., Shazeer, N.** (2021). Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity. JMLR. arXiv:2101.03961.
+3. **Fedus, W., Zoph, B., Shazeer, N.** (2022). Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity. JMLR 23(120):1-40. arXiv:2101.03961 (preprint posted 2021; formally published in JMLR in 2022).
 4. **Zhou, Y., Lei, T., Liu, H., Du, N., Huang, Y., Zhao, V., Dai, A., Chen, Z., Le, Q., Laudon, J.** (2022). Mixture-of-Experts with Expert Choice Routing. NeurIPS. arXiv:2202.09368.
 5. **Zoph, B., Bello, I., Kumar, S., Du, N., Huang, Y., Dean, J., Shazeer, N., Fedus, W.** (2022). ST-MoE: Designing Stable and Transferable Sparse Expert Models. arXiv:2202.08906. (Source of Z-loss)
 6. **Dai, D., Deng, C., Zhao, C., Xu, R., et al.** (2024). DeepSeekMoE: Towards Ultimate Expert Specialization in Mixture-of-Experts Language Models. ACL. arXiv:2401.06066.

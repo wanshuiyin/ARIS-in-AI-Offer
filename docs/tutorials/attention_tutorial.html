@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/attention_tutorial.md">
-<meta name="aris:source-sha256" content="970e8a0a0538e0022a8bf1ec44765f3d6a12987ed2d4c322b034e10eb1c3817e">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="ea13435c65f9bce9a064bd65d9e492652b6492beba86d95fdc7639221cd02a02">
+<meta name="aris:generated-at" content="2026-07-12 04:18 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -590,8 +590,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/attention_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>970e8a0a0538</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>ea13435c65f9</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:18 UTC</span>
     
   </div>
 </header>
@@ -603,7 +603,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Attention 的本质是 <strong>可学习的检索（learned retrieval）</strong>：</p>
 <ul><li>每个 <strong>query</strong>（"我现在需要什么信息？"）</li><li>对所有 <strong>key</strong>（"每个位置宣称自己能提供什么"）计算相似度</li><li>用 softmax 归一化得到 <strong>权重分布</strong></li><li>对所有 <strong>value</strong>（"每个位置实际提供的内容"）做加权求和</li></ul>
 <p>对比 RNN：RNN 把过去信息<strong>压缩进一个固定大小的 hidden state</strong>，长序列必丢信息；attention 在每一步都<strong>直接、全局、动态地</strong>检索过去所有位置，因此适合长程依赖。</p>
-<p>"Q/K/V 是同一个向量经过三个不同投影"——这点要主动说明，因为面试常考新手会以为 Q/K/V 是三份不同输入。</p>
+<p>"在 self-attention 中，Q/K/V 是同一个向量经过三个不同投影"——这点要主动说明，因为面试常考新手会以为 Q/K/V 是三份不同输入（注意 cross-attention 中 Q 与 K/V 并不同源，见 §4）。</p>
 <h2 id="2-scaled-dot-product-attention">§2 Scaled Dot-Product Attention</h2>
 <h3 id="21-公式">2.1　公式</h3>
 <p>$$\boxed{\;\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right) V\;}$$</p>
@@ -748,15 +748,15 @@ out, _ = mha(x, x, x, mask=pmask)</code></pre>
 <ul><li>Self-attention 的 $L^2$ 项<strong>计算</strong>可以接受（GPU 并行），但 <strong>$L^2$ 显存</strong>（score 矩阵）是真正瓶颈——这是 Flash Attention 攻击的痛点</li><li>LLM inference 时 prefill stage 是 $O(L^2)$；decode stage 用 KV cache 后每步是 $O(L)$（见 §6）</li><li>当 $L \approx D$ 时，attention 与 FFN 时间相当；当 $L \gg D$ 时，attention 占绝大部分时间</li></ul>
 <h2 id="6-kv-cache--mqa--gqa">§6 KV Cache + MQA / GQA</h2>
 <h3 id="61-kv-cacheautoregressive-inference-关键优化">6.1　KV Cache（autoregressive inference 关键优化）</h3>
-<p>问题：GPT 自回归生成时，每生成一个 token，把整个 prefix 重新过 forward——$t$ 步累计 $O(t^2)$ 重复计算。</p>
+<p>问题：GPT 自回归生成时，每生成一个 token，把整个 prefix 重新过 forward——单步代价是 $O(t^2)$，对 $T$ 步求和，累计冗余计算是 $O(T^3)$（而非 $O(T^2)$）。</p>
 <p>解：把每层 $K^{(\ell)}, V^{(\ell)}$ 缓存。生成第 $t+1$ 个 token 时：</p>
 <ul><li>只对新 token 算 $q_{t+1}, k_{t+1}, v_{t+1}$（1 × D 大小）</li><li>将 $k_{t+1}, v_{t+1}$ append 到 cache</li><li>新 $q$ 对整个 cache 做 attention（$O(t)$ 不是 $O(t^2)$）</li></ul>
-<div class="callout callout-warn"><div class="callout-title">易踩坑</div><p>KV cache 是 <strong>推理优化</strong>，<strong>训练</strong>时不能用——训练时所有位置同时做 attention，没有"逐个生成"的概念。</p></div>
+<div class="callout callout-warn"><div class="callout-title">易踩坑</div><p>KV cache 是 <strong>推理优化</strong>；标准 teacher-forcing 的并行训练（SFT / 预训练的前向-反向）用不到它，因为所有位置同时并行计算，没有"逐个生成"的概念。但 RLHF / GRPO 等含 on-policy rollout 采样的训练中，rollout 生成阶段本质上是自回归推理，同样会用 KV cache 加速。</p></div>
 <p><strong>KV cache 显存（per sample）</strong>：</p>
 <p>$$\text{KV cache} = L_\text{ctx} \cdot n_\text{layers} \cdot \underbrace{2}_{K, V} \cdot H_\text{kv} \cdot d_\text{head} \cdot \text{bytes\_per\_elem}$$</p>
-<p>注意：MQA/GQA 下 $H_\text{kv} \ll H$，cache 显著缩减。对 LLaMA-2-70B（GQA, $H_\text{kv}=8$）、$L_\text{ctx}=4096$、80 层、fp16：约 <strong>1.25 GB / sample</strong>——这就是 LLaMA-2 用 GQA 不用 MHA 的原因（vanilla MHA 会到 10 GB / sample）。</p>
+<p>注意：MQA/GQA 下 $H_\text{kv} \ll H$，cache 显著缩减。对 LLaMA-2-70B（GQA, $H_\text{kv}=8$）、$L_\text{ctx}=4096$、80 层、fp16：约 <strong>1.25 GiB</strong>（≈1.34 GB）/ sample——这就是 LLaMA-2 用 GQA 不用 MHA 的原因（vanilla MHA 会到约 <strong>10 GiB ≈ 10.74 GB</strong> / sample）。</p>
 <h3 id="62-mqa--gqaattack-kv-cache-显存">6.2　MQA / GQA（attack KV cache 显存）</h3>
-<table><thead><tr><th>变体</th><th>Q heads</th><th>K/V heads</th><th>KV cache 缩减</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>MHA</strong> (Vanilla)</td><td>$H$</td><td>$H$</td><td>1×</td><td>原始 Transformer</td></tr><tr><td><strong>MQA</strong> (Multi-Query)</td><td>$H$</td><td><strong>1</strong></td><td>$H \times$</td><td>PaLM, Falcon</td></tr><tr><td><strong>GQA</strong> (Grouped-Query)</td><td>$H$</td><td>$G$（$1 &lt; G &lt; H$）</td><td>$H/G \times$</td><td>LLaMA-2/3, Mistral</td></tr></tbody></table>
+<table><thead><tr><th>变体</th><th>Q heads</th><th>K/V heads</th><th>KV cache 缩减</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>MHA</strong> (Vanilla)</td><td>$H$</td><td>$H$</td><td>1×</td><td>原始 Transformer</td></tr><tr><td><strong>MQA</strong> (Multi-Query)</td><td>$H$</td><td><strong>1</strong></td><td>$H \times$</td><td>PaLM, Falcon</td></tr><tr><td><strong>GQA</strong> (Grouped-Query)</td><td>$H$</td><td>$G$（$1 &lt; G &lt; H$）</td><td>$H/G \times$</td><td>LLaMA-2-70B（7B/13B 仍是 MHA）、LLaMA-3 全系列、Mistral</td></tr></tbody></table>
 <p>核心：<strong>多个 Q head 共享一组 K/V</strong>。MQA 极端但质量略降；GQA 是折中（如 H=32, G=8），显存 / 带宽降 4 倍，质量基本不掉。</p>
 <div class="callout callout-bad"><div class="callout-title">易踩坑</div><p>MQA/GQA 减少的是 <strong>KV cache 显存 + 显存带宽</strong>，<strong>不是 Q projection 计算</strong>（Q 头数不变）。面试常被反问"减了什么"。</p></div>
 <h2 id="7-flashattention-核心-trick">§7 FlashAttention 核心 Trick</h2>
@@ -935,7 +935,7 @@ FFN → next layer</code></pre>
 <details>
 
 <summary>Q24.RoPE, ALiBi, absolute position 的区别？什么是 attention sink？</summary>
-<ul><li><strong>Absolute</strong>：位置向量加到 input embedding 上（Vaswani sinusoidal / GPT-2 learned）</li><li><strong>RoPE</strong>：对 $Q, K$ 做位置相关的旋转，保留<strong>相对位置</strong>信息（$q_m^\top k_n$ 只依赖 $m-n$）</li><li><strong>ALiBi</strong>：在 score 上加距离 bias $-m |i-j|$，自然外推</li><li><strong>Attention sink</strong>：训练好的 LLM 会让前 1-4 个 token（特别是 [BOS]）获得异常高的 attention，即使内容无关——softmax 强制和为 1，模型需要"垃圾位"。StreamingLLM 利用此现象做长序列推理。</li></ul>
+<ul><li><strong>Absolute</strong>：位置向量加到 input embedding 上（Vaswani sinusoidal / GPT-2 learned）</li><li><strong>RoPE</strong>：对 $Q, K$ 做位置相关的旋转，保留<strong>相对位置</strong>信息（位置项只经由 $m-n$ 进入 $q_m^\top k_n$，但内容向量仍决定具体数值——不是只依赖位置）</li><li><strong>ALiBi</strong>：在 score 上加距离 bias $-m |i-j|$，自然外推</li><li><strong>Attention sink</strong>：训练好的 LLM 会让前 1-4 个 token（特别是 [BOS]）获得异常高的 attention，即使内容无关——softmax 强制和为 1，模型需要"垃圾位"。StreamingLLM 利用此现象做长序列推理。</li></ul>
 <p>把 attention sink 当成 padding / CLS token 的正常 attention 行为。</p>
 </details>
 <details>
@@ -945,19 +945,18 @@ FFN → next layer</code></pre>
 <p>说 diffusion 只靠卷积；或者只在 DiT 里才有 attention（错，U-Net 里也有大量）。</p>
 </details>
 <h2 id="a-附录完整-from-scratch-代码骨架">§A 附录：完整 from-scratch 代码骨架</h2>
-<p>参考 from-scratch 实现包含：</p>
-<ul><li><code>scaled_dot_product_attention()</code>—— 含 NaN 防护</li><li><code>MultiHeadAttention</code>—— 标准 MHA，支持 4 种 mask 形状</li><li><code>SelfAttention</code> / <code>CrossAttention</code>—— thin wrapper，调用语义清晰</li><li><code>causal_mask()</code> / <code>padding_mask()</code> / <code>combine_masks()</code></li><li>9 个 sanity check（self / causal / padding / cross / wrappers / nn.MHA 对齐 / NaN防护 / d_model%H / return_weights=False）</li></ul>
-<p>实跑 sanity check 输出（PyTorch 2.x，单机 GPU）：</p>
-<pre><code>[a] self-attn  out=(2, 5, 16) weights=(2, 4, 5, 5)  weights row-sum=1 ✓
-[b] causal mask: upper triangle ~ 0  ✓
-[c] padding mask: pad-key columns ~ 0 in sample-1  ✓
-[d] cross-attn out=(2, 7, 16) weights=(2, 4, 7, 5)  ✓
-[e] SelfAttention(causal) ✓   CrossAttention(context-pad) ✓
-[f] vs nn.MultiheadAttention:  |Δout|=0.00e+00  |Δweights|=0.00e+00  ✓
-[g] all-masked row: no NaN, weights row = 0  ✓
-[h] d_model not divisible by num_heads -&gt; ValueError  ✓
-[i] return_weights=False -&gt; weights is None  ✓</code></pre>
-<p>代码经独立 reviewer 静态检查 + PyTorch 实跑 sanity check，与 <code>nn.MultiheadAttention</code> diff = 0。</p>
+<p>参考 from-scratch 实现（<code>code/mha.py</code>）包含：</p>
+<ul><li><code>MultiHeadAttention</code>——标准多头 self-attention（单个 fused <code>qkv</code> Linear 一次产出 Q/K/V，支持 <code>[N,N]</code> additive mask；无 NaN 全 mask 防护，无 cross-attention wrapper）；<code>__init__</code> 里 <code>assert embed_dim % num_heads == 0</code> 校验维度，不满足时抛 <code>AssertionError</code>（注意 <code>assert</code> 在 <code>python -O</code> / <code>PYTHONOPTIMIZE</code> 下会被整体移除，生产代码应改用显式 <code>raise ValueError(...)</code>）</li><li><code>make_causal_mask()</code>—— 生成上三角填 <code>-inf</code> 的因果 mask</li><li>3 个 sanity check：<code>sanity_check()</code>（对齐 <code>nn.MultiheadAttention</code>，diff &lt; 1e-5）、<code>shape_check()</code>、<code>causal_check()</code></li></ul>
+<p>实跑 sanity check 输出（PyTorch 2.x，CPU 几秒跑完）：</p>
+<pre><code>== Multi-Head Attention sanity ==
+[sanity] max diff vs nn.MultiheadAttention = 5.96e-08
+[sanity] PASS
+[shape] input  x: (2, 1024, 768)
+[shape] output y: (2, 1024, 768)
+[causal] applied causal mask, output shape (1, 8, 32)
+
+All checks passed.</code></pre>
+<p>代码经独立 reviewer 静态检查 + PyTorch 实跑 sanity check，与 <code>nn.MultiheadAttention</code> diff &lt; 1e-5。</p>
 <hr />
 <h2 id="runnable-code">📜 Runnable Code</h2>
 <p>本 tutorial 的核心概念在 <a href="code/"><code>docs/tutorials/code/</code></a> 里有最小可跑的 PyTorch 实现：</p>
@@ -967,8 +966,8 @@ FFN → next layer</code></pre>
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/attention_tutorial.md</code> ·
-  SHA256 <code>970e8a0a0538</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>ea13435c65f9</code> ·
+  generated at 2026-07-12 04:18 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

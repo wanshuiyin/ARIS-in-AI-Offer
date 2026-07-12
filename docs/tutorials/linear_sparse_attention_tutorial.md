@@ -8,7 +8,7 @@
 
 3. **SSM / Mamba**：连续状态空间 $h_t = A h_{t-1} + B x_t,\; y_t = C h_t$，经离散化（$\Delta$ + 零阶保持）得递推。**Selective SSM（S6）**让 $B, C, \Delta$ 随输入变化（数据相关门控），打破 LTI 换来内容选择能力；配硬件感知 selective scan。
 
-4. **Mamba-2 / SSD**：State Space Duality —— 一个 selective SSM **等价于一种结构化掩码线性注意力**（通过 1-半可分矩阵 / semiseparable matrix）。这让 SSM 能用 matmul 密集的 **chunkwise** 算法在 tensor core 上高效训练。
+4. **Mamba-2 / SSD**：State Space Duality —— 一个 selective SSM **等价于一种结构化掩码线性注意力**（通过 N-半可分矩阵 / N-semiseparable matrix，$N$ 为 SSM 状态维；秩 $\le 1$ 的"1-半可分"只是 $N=1$ 的退化特例）。这让 SSM 能用 matmul 密集的 **chunkwise** 算法在 tensor core 上高效训练。
 
 5. **Delta rule（DeltaNet）**：更新是**改写**而非纯累加——$S_t = S_{t-1}(I - \beta_t k_t k_t^\top) + \beta_t v_t k_t^\top$，那个 $(I-\beta k k^\top)$ 项先**擦掉旧关联**再写新值（在线最小二乘 / 误差修正）。Gated DeltaNet 再加一个标量/对角衰减门 $\alpha_t$ 做遗忘。
 
@@ -67,6 +67,8 @@ $$\underbrace{\big(\phi(Q)\phi(K)^\top\big)V}_{O(L^2 d_v)\ :\ \text{先算 }L\ti
 
 $$S_i = \sum_{j\le i}\phi(k_j)v_j^\top \in\mathbb{R}^{d_k\times d_v}, \qquad z_i=\sum_{j\le i}\phi(k_j)\in\mathbb{R}^{d_k}.$$
 
+（记号约定：这里外积顺序是 $\phi(k)v^\top$。§5 的 DeltaNet 用的是**转置约定** $S:k\mapsto Sk$，即 $S=\dots+vk^\top\in\mathbb{R}^{d_v\times d_k}$——两节内部各自自洽，但跨节的外积顺序相反，本文所有 demo 都设 $d_k=d_v$，形状上看不出这个差异，读的时候留意。）
+
 于是得到**递推**（recurrent form）：
 
 $$\boxed{\;S_t = S_{t-1} + \phi(k_t)\,v_t^\top, \qquad o_t = \frac{\phi(q_t)^\top S_t}{\phi(q_t)^\top z_t}\;}$$
@@ -89,7 +91,7 @@ $$\boxed{\;S_t = S_{t-1} + \phi(k_t)\,v_t^\top, \qquad o_t = \frac{\phi(q_t)^\to
 
 softmax 有两个隐性好处被线性注意力丢掉了：
 
-1. **归一化分母 $\phi(q)^\top z_t$ 不稳定**：softmax 的分母恒正且良定义（$\sum\exp\ge 1$），但 $\phi(q)^\top z_t$ 可能很小甚至接近 0（若 $\phi$ 没保证强正性），导致输出爆炸 / 数值不稳。很多实现干脆**去掉分母**（unnormalized linear attention），改用 §2.4 的衰减 / 门控 + 额外 normalization 来稳住量级。
+1. **归一化分母 $\phi(q)^\top z_t$ 不稳定**：softmax 的分母恒正（$\sum\exp> 0$）；在做了减 max 的数值稳定实现中还有 $\sum\exp(x_j-\max_jx_j)\ge 1$（因为此时最大项恰为 $\exp(0)=1$），但对未做 max-shift 的原始公式，$\sum\exp$ 本身没有 $\ge 1$ 这个下界。而 $\phi(q)^\top z_t$ 可能很小甚至接近 0（若 $\phi$ 没保证强正性），导致输出爆炸 / 数值不稳。很多实现干脆**去掉分母**（unnormalized linear attention），改用 §2.4 的衰减 / 门控 + 额外 normalization 来稳住量级。
 
 2. **缺乏"尖锐选择"能力 → recall 弱**：softmax 能把概率质量高度集中到一两个最相关的 key（near one-hot 检索）；而线性注意力的 $\phi(q)^\top\phi(k)$ 是有限维内积，**表达不出任意尖锐的 selection**。当任务需要"从上下文里精确复制某个 token"（associative recall / in-context copy）时，线性注意力的固定大小状态会发生**容量冲突**：所有 $\phi(k)v^\top$ 叠加在同一个 $S$ 里互相干扰，越长越糊。
 
@@ -100,7 +102,7 @@ softmax 有两个隐性好处被线性注意力丢掉了：
 
 纯累加 $S_t=S_{t-1}+\phi(k_t)v_t^\top$ 有个问题：**老信息永不衰减**，状态被无限叠加污染。加一个衰减就好很多：
 
-- **RetNet（Retentive Network）**：引入**标量指数衰减** $\gamma\in(0,1)$：$S_t = \gamma S_{t-1} + k_t v_t^\top$。它有三种等价形态——**parallel**（训练，类似带衰减 mask 的 attention）、**recurrent**（decode，$O(1)$ 状态）、**chunkwise**（长序列训练，块内并行块间递推）。$\gamma$ 通常**逐 head 固定**（非数据相关）。
+- **RetNet（Retentive Network）**：引入**标量指数衰减** $\gamma\in(0,1)$：$S_t = \gamma S_{t-1} + k_t v_t^\top$。它有三种等价形态——**parallel**（训练，类似带衰减 mask 的 attention）、**recurrent**（decode，$O(1)$ 状态）、**chunkwise**（长序列训练，块内并行块间递推）。$\gamma$ 通常**逐 head 固定**（非数据相关）。（这里为简化只保留标量幅度衰减；RetNet 原始公式里 $Q,K$ 在乘 $\gamma$ 前还各先乘一个复数旋转因子 $\Theta_n=e^{in\theta}$，详见 §10 的 RoPE 关系一节。）
 - **GLA（Gated Linear Attention）**：把标量衰减升级成**数据相关的对角门** $G_t=\text{diag}(\alpha_t)$，$\alpha_t\in(0,1)^{d_k}$ 由输入算出：$S_t = G_t\,S_{t-1} + k_t v_t^\top$（逐通道遗忘）。GLA 给出了硬件高效的 chunkwise 形式，是把"门控 RNN"和"线性注意力"统一起来的代表作。
 
 可以把这条线看成一个谱系：**纯线性注意力（无衰减）→ RetNet（标量衰减）→ GLA（数据相关对角门）→ Gated DeltaNet（门控 + 改写式更新，见 §5）**，复杂度都在 $O(L)$ 一档，区别在状态如何"遗忘"和"写入"。
@@ -157,7 +159,7 @@ $$y_t = \sum_{s\le t} C_t\Big(\prod_{r=s+1}^{t}\bar A_r\Big)\bar B_s\, x_s = \su
 把它写成矩阵形式 $y = M x$，其中 $M$ 是一个**下三角矩阵**，$M_{ts}=C_t\big(\prod_{r=s+1}^t \bar A_r\big)\bar B_s$（$t \lt s$ 时为 0）。这个 $M$ 长得就像一个**带衰减的 causal attention 矩阵**：$C_t$ 像 query、$\bar B_s$ 像 key、中间连乘 $\prod\bar A$ 是"位置衰减"。
 
 > ✅ **SSD 一句话**
-> **一个 selective SSM 等价于用一个 1-半可分矩阵（1-semiseparable matrix）$M$ 做的结构化掩码注意力（structured masked attention）。** "半可分"指 $M$ 的下三角任意子块的秩 $\le 1$（由 $C, \bar A, \bar B$ 的连乘结构决定），这正是 SSM 递推能 $O(L)$ 算的代数原因；而把 $M$ 当矩阵直接乘 $x$，又能用 matmul。两条计算路径（线性递推 vs 二次矩阵乘）算的是**同一个 $M$**——这就是 duality。
+> **一个 selective SSM 等价于用一个 N-半可分矩阵（N-semiseparable matrix）$M$ 做的结构化掩码注意力（structured masked attention）。** "N-半可分"指 $M$ 的下三角任意子块的秩 $\le N$（$N$ 为 SSM 状态维，由 $C, \bar A, \bar B$ 的连乘结构决定），这正是 SSM 递推能 $O(L)$ 算的代数原因；秩 $\le 1$ 的"1-半可分"只是 $N=1$ 的退化特例（对应纯标量衰减 mask，如 RetNet 的 $\gamma^{t-s}$），Mamba 常用的 $N=64/128$ 对应更高秩的半可分结构。把 $M$ 当矩阵直接乘 $x$，又能用 matmul。两条计算路径（线性递推 vs 二次矩阵乘）算的是**同一个 $M$**——这就是 duality。
 
 > ⚠️ **别过度宣称**
 > SSD 说的是"SSM ≡ **一种结构化的、带特定衰减掩码的**线性注意力"，**不是**"SSM = 普通 softmax attention"。$M$ 没有 softmax、是半可分结构化的。这个等价是在**线性注意力 / 掩码线性 attention** 的层面成立，措辞要精确。
@@ -171,13 +173,13 @@ $$y_t = \sum_{s\le t} C_t\Big(\prod_{r=s+1}^{t}\bar A_r\Big)\bar B_s\, x_s = \su
 
 效果：Mamba-2 比 Mamba-1 训练快好几倍（吃满 tensor core），且因为状态维 $N$ 可以开得更大（matmul 便宜），表达力也更强。Mamba-2 还顺手简化了结构（$A$ 退化为**标量乘单位阵** $\bar A_t = a_t I$，即每步一个标量衰减），让 SSD 推导和实现都更干净。
 
-> 💡 **面试金句**：Mamba-1 = 硬件感知 selective **scan**（自定义 kernel，不吃 tensor core）；Mamba-2 = 借 **SSD** 把同一个计算重写成 **matmul-heavy chunkwise** 形式（吃满 tensor core），训练更快、状态可更大。二者算法等价，差在"用 scan 还是用 matmul 实现"。
+> 💡 **面试金句**：Mamba-1 = 硬件感知 selective **scan**（自定义 kernel，不吃 tensor core）；Mamba-2 = 借 **SSD** 把同一个计算重写成 **matmul-heavy chunkwise** 形式（吃满 tensor core），训练更快、状态可更大。注意 Mamba-1（每通道独立对角衰减 $A$）与 Mamba-2/SSD（限定 $\bar A_t=a_tI$ 的标量衰减）**并非严格算法等价**——Mamba-2 对状态转移做了更强的结构限制（简化）；真正算法等价、只是求值方式不同的，是**同一个 SSD 层**（即 Mamba-2 的限定形式）自身的三种等价求值路径：递推 scan、chunkwise matmul、和展开成结构化掩码注意力的二次形式。
 
 ## §5 Delta rule：DeltaNet 与 Gated DeltaNet
 
 ### 5.1　从"累加"到"改写"
 
-线性注意力的状态更新是**纯累加**：$S_t = S_{t-1} + v_t k_t^\top$（这里把 $\phi(k)$ 简记 $k$）。问题前面说过——同一个 key 反复出现、或不同 key 互相干扰时，信息只会**叠加污染**，没有"更新 / 覆盖"机制。
+线性注意力的状态更新是**纯累加**：$S_t = S_{t-1} + v_t k_t^\top$（这里把 $\phi(k)$ 简记 $k$；注意这是 §2.2 中 $S=\sum\phi(k)v^\top$ 的**转置约定**——本节把 $S$ 看成 $k\mapsto Sk$ 的映射，外积顺序反过来写成 $vk^\top$，本质相同，本文 demo 全设 $d_k=d_v$ 所以形状上看不出区别）。问题前面说过——同一个 key 反复出现、或不同 key 互相干扰时，信息只会**叠加污染**，没有"更新 / 覆盖"机制。
 
 **Delta rule（来自 fast-weight / 在线学习）** 换一种写法：把状态 $S$ 看成一个线性映射 $k\mapsto S k$（用 key 检索 value），每来一个 $(k_t,v_t)$，我们希望 $S$ 在 $k_t$ 上的"预测" $S_{t-1}k_t$ 逼近目标 $v_t$。做一步在线梯度下降 / 最小二乘修正：
 
@@ -221,7 +223,7 @@ delta rule 有个 $(I-\beta kk^\top)$ 连乘，看起来强顺序、难并行。
 
 ### 6.2　两段式：intra-chunk（块内并行）+ inter-chunk（块间递推）
 
-以无门控线性注意力为例（$S_t=S_{t-1}+k_tv_t^\top$，状态 $S\in\mathbb{R}^{d_k\times d_v}$，这里用 $\phi=\text{id}$、$k$ 即 $\phi(k)$）。设第 $c$ 个 chunk 的 query/key/value 为 $Q_c,K_c,V_c\in\mathbb{R}^{C\times d}$，进入该 chunk 前的状态为 $S_c$（= 前面所有 chunk 的 $\sum k v^\top$）。chunk 内第 $i$ 个 query 的输出拆成两部分：
+以无门控线性注意力为例（$S_t=S_{t-1}+k_tv_t^\top$，状态 $S\in\mathbb{R}^{d_k\times d_v}$，这里用 $\phi=\text{id}$、$k$ 即 $\phi(k)$；这是 §2.3 提到的**去掉分母的 unnormalized 版本**——若要保留 §2.2 boxed 公式里的精确归一化 $z_t$，可以把 $z_t$ 当成 $V$ 矩阵多出的一列一起做 chunkwise（inter+intra），但下面推导、以及 §6.3 代码验证的递推 == chunkwise 等价性，都只针对这个 unnormalized 递推）。设第 $c$ 个 chunk 的 query/key/value 为 $Q_c,K_c,V_c\in\mathbb{R}^{C\times d}$，进入该 chunk 前的状态为 $S_c$（= 前面所有 chunk 的 $\sum k v^\top$）。chunk 内第 $i$ 个 query 的输出拆成两部分：
 
 $$o_i = \underbrace{q_i^\top S_c}_{\textbf{inter: 历史块的贡献}} + \underbrace{\sum_{j\le i,\, j\in c} (q_i^\top k_j)\, v_j}_{\textbf{intra: 本块内的 causal attention}}.$$
 
@@ -330,9 +332,12 @@ NSA 的"硬件对齐"指：块大小、选择粒度都按 GPU 的 memory access 
 | 维度 | 固定 pattern（Longformer/BigBird 时代） | 可训练稀疏（NSA / MoBA, 2025） |
 | --- | --- | --- |
 | 稀疏结构 | 人为设计（窗口+全局+随机） | 模型**学**出来（内容相关选块） |
-| 训练 | 通常 fine-tune 时套上 | **原生**从预训练就稀疏（NSA） |
+| 训练 | （继续）预训练阶段即应用，非仅微调套用¹ | **原生**从随机初始化端到端稀疏训练（NSA） |
 | 硬件 | 多数 IO 不友好 | **硬件对齐**（块连续、tensor-core 友好） |
 | 效果 | 长文档可用，质量有损 | 接近 full attention，且有真实加速 |
+
+> ⚠️ **¹ "fine-tune 时套上"是不准确的旧说法**
+> Longformer 从 RoBERTa 权重继续做 MLM 预训练时就已经用滑窗+全局 pattern（BigBird 类似，在（继续）预训练阶段就应用其稀疏结构），并非只在下游微调时才套用。与 NSA 的真正区别不是"预训练 vs 微调"，而是**稀疏结构是否从随机初始化端到端训练**——NSA 从零开始原生训练稀疏结构，Longformer/BigBird 是把稀疏 pattern 适配到已有稠密预训练检查点上（continued-pretraining，而非 from-scratch 稀疏预训练）。
 
 ## §8 KV cache 与推理：线性/SSM 的杀手锏
 
@@ -370,7 +375,7 @@ $$\text{state} = n_{\text{layers}} \cdot (\text{每层状态大小}) ,\quad \tex
 
 纯线性 / SSM 模型吞吐高、状态固定，但**联想回忆（associative recall）弱**：把某个事实塞进固定大小状态后，要在很久以后**精确取回**，会受状态容量限制（信息被覆盖 / 干扰）。多个研究（如 Based、Zoology 等系列工作）指出存在一条 **recall–memory（throughput）的 Pareto 前沿**：状态越小越快、但 recall 越差。softmax attention 在这条前沿的"高 recall、低吞吐"端，纯 SSM 在"高吞吐、低 recall"端。
 
-**修法出奇地简单粗暴：在大量线性 / SSM 层里，交错插入少数几层 full softmax attention。** 那几层 full attention 负责"精确检索 / in-context copy"，其余线性/SSM 层负责"廉价地处理长程上下文"。少量 full attention 层就能把 recall 补回到接近纯 Transformer，而整体复杂度和 KV cache 仍由线性/SSM 层主导（接近线性）。
+**修法出奇地简单粗暴：在大量线性 / SSM 层里，交错插入少数几层 full softmax attention。** 那几层 full attention 负责"精确检索 / in-context copy"，其余线性/SSM 层负责"廉价地处理长程上下文"。少量 full attention 层就能把 recall 补回到接近纯 Transformer；但只要保留哪怕一层 full attention，模型的渐进时间复杂度类别仍是 $O(L^2)$——该层贡献的二次项在 $L$ 足够大时依然是主导项。hybrid 真正带来的是**常数因子的大幅降低**（多数层是 $O(L)$、只有少数层 $O(L^2)$），而不是把复杂度类别本身变成线性；KV cache 侧同理（见 §8.2 的提醒）。
 
 > ✅ **为什么 hybrid 赢**
 > 在固定预算下，hybrid 同时拿到了两端的好处：**线性/SSM 层 → 长上下文的吞吐与显存（常数状态）**；**少数 full attention 层 → recall / 精确检索**。经验上一个很小的 full-attention 比例（常见 1:5 到 1:7，即每 6–8 层插 1 层 full）就能逼近纯注意力的质量，而 KV cache 砍掉一大截。这就是 2024–2025 大量工业级长上下文模型选混合的原因。
@@ -400,14 +405,14 @@ $$\text{state} = n_{\text{layers}} \cdot (\text{每层状态大小}) ,\quad \tex
 - **chunk size 要调**：$C$ 太小→并行度低、块间递推占主导；太大→块内 $C^2$ 项变贵 + 显存涨。典型 $C\in[64,256]$，按序列长度 / 硬件调。
 - **没有 softmax 归一化 → 数值稳定性要单独管**：纯累加状态会无界增长 / 量级漂移。实践靠**衰减门（$\gamma,\alpha_t$）**、**对状态或输出做 normalization**（RMSNorm / L2）、**$\beta,\Delta$ 的有界激活（sigmoid/softplus）**来稳住。直接搬 softmax attention 的实现习惯过来容易炸。
 - **稀疏的硬件对齐很关键**：理论稀疏 ≠ 实际加速。随机 gather、非连续访问会让稀疏 kernel 比 dense 还慢——这就是 NSA / MoBA 强调"块连续、tensor-core 友好"的原因。评估稀疏方法**一定看真实墙钟 / 端到端吞吐**，别只看 FLOPs。
-- **和 RoPE 的关系**：线性注意力 / SSM 不像 softmax attention 那样直接套 RoPE——它们的"位置信息"来自递推结构本身（衰减 $\gamma^{t-s}$、$\Delta$、门 $\alpha$ 提供了隐式的相对位置 / 时序衰减）。混合架构里**full attention 层用 RoPE，线性/SSM 层用各自的衰减机制**；硬把 RoPE 塞进线性注意力的 $\phi(q),\phi(k)$ 要小心（会和衰减项相互作用）。
+- **和 RoPE 的关系**：线性注意力 / SSM 不像 softmax attention 那样直接套 RoPE——它们的"位置信息"主要来自递推结构本身（衰减 $\gamma^{t-s}$、$\Delta$、门 $\alpha$ 提供了隐式的相对位置 / 时序衰减）。**例外**：RetNet 原始公式里 $Q,K$ 除了乘标量衰减 $\gamma$，还先各乘一个复数旋转因子 $\Theta_n=e^{in\theta}$（xPos/RoPE 式相对位置旋转），使 $Q_nK_m$ 的相位差为 $e^{i(n-m)\theta}$——完整的衰减/位置项其实是 $\gamma^{n-m}e^{i(n-m)\theta}$，并非只有标量幅度衰减（§2.4 为简化只写了幅度部分）；纯累加、不带任何衰减/旋转的线性注意力状态，其求和顺序本身才是（忽略因果截断意义下）不敏感于历史顺序的。混合架构里**full attention 层用 RoPE，线性/SSM 层用各自的衰减机制**；硬把 RoPE 塞进线性注意力的 $\phi(q),\phi(k)$ 要小心（会和衰减项相互作用）。
 - **区分"linear attention"和"sub-quadratic 但仍是 attention"**：FlashAttention 是**精确 softmax** 的 IO 优化（仍 $O(L^2)$ FLOPs，只省显存），**不是**线性注意力；Performer/Linformer 才是次二次近似。线性注意力 / SSM 是"**用固定状态递推替代 attention**"，根本上换了计算范式。这三类常被面试者混为一谈。
 
 > ⚠️ **最大 footgun #1：拿渐进复杂度当实际性能**
 > "我的方法 $O(L)$，所以一定比 $O(L^2)$ 的 Transformer 快/好"——错两次：实际速度看常数和访存（FlashAttention 很强），质量看 recall（线性有短板）。**任何高效注意力 claim 都要给真实墙钟 + 长上下文 recall benchmark**，否则站不住。
 
 > ❌ **最大 footgun #2：以为 SSD / SSM "就是" attention 或线性注意力"约等于" softmax**
-> SSD 是"SSM ≡ **结构化掩码（半可分）线性注意力**"的精确等价，**不是** softmax attention；线性注意力是 softmax 的**有限维近似**，在尖锐选择 / recall 上**本质受限**。把这些等价 / 近似过度宣称成"等同 / 无损替代 softmax"是经典错误，会被追问到底。
+> SSD 是"SSM ≡ **结构化掩码（半可分）线性注意力**"的精确等价，**不是** softmax attention；线性注意力是否"近似 softmax"要看 feature map——**只有 Performer 类（FAVOR+ 随机特征）显式构造为 $\exp(q^\top k)$ 的无偏有限维近似**，ELU+1（Katharopoulos）、RetNet/GLA 等则是换用另一个核函数 / 相似度度量，并未试图逼近 softmax 的 exp 核（见 §2.1）。二者共同的局限是：任何有限维内积（无论是否逼近 softmax）都**表达不出 softmax 的任意尖锐 one-hot 选择**，这是 recall 变弱的根源——但"近似 softmax"这个说法只适用于 Performer 类方法。把这些等价 / 近似过度宣称成"等同 / 无损替代 softmax"，或把"近似 softmax"当成所有线性注意力变体的共性，都是经典错误，会被追问到底。
 
 ## §11 复杂度与资源
 
@@ -585,7 +590,7 @@ $$\text{state} = n_{\text{layers}} \cdot (\text{每层状态大小}) ,\quad \tex
 <summary>Q13. 解释 State Space Duality (SSD)。它说 SSM 等于 softmax attention 吗？</summary>
 
 - 把 selective SSM 递推展开成 $y=Mx$，$M$ 是下三角矩阵，$M_{ts}=C_t(\prod_{r}\bar A_r)\bar B_s$
-- $M$ 是 **1-半可分矩阵**（下三角子块秩 $\le 1$），等价于一种**结构化掩码（线性）注意力**
+- $M$ 是 **N-半可分矩阵**（下三角任意子块秩 $\le N$，$N$ 为 SSM 状态维，如 Mamba 的 $N=64/128$；秩 $\le 1$ 的"1-半可分"只是 $N=1$ 的退化特例），等价于一种**结构化掩码（线性）注意力**
 - **不是** softmax attention——$M$ 没 softmax、是半可分结构化的；这是"线性/掩码注意力"层面的等价
 
 过度宣称"SSM = softmax attention"（错，是结构化掩码线性注意力，无 softmax）。
@@ -599,8 +604,9 @@ $$\text{state} = n_{\text{layers}} \cdot (\text{每层状态大小}) ,\quad \tex
 - Mamba-1：硬件感知 selective **scan**（自定义 kernel，**不吃 tensor core**）
 - Mamba-2：用 SSD 把同一计算重写成 **matmul-heavy chunkwise**（块内物化小 $M$、块间传低秩状态），**吃满 tensor core**
 - 好处：训练快数倍、状态维 $N$ 可开更大（matmul 便宜）→ 表达力更强
+- 注意："算法等价"准确说是指**同一个 SSD 层**自身的 scan / chunkwise matmul / 二次注意力三种求值路径等价，而非 Mamba-1 与 Mamba-2 整体等价——Mamba-2 同时把 $A$ 简化为标量衰减 $\bar A_t=a_tI$，比 Mamba-1 的逐通道对角 $A$ 更受限
 
-只说"Mamba-2 更快"，讲不出"SSD → chunkwise matmul → tensor core"这条因果链。
+只说"Mamba-2 更快"，讲不出"SSD → chunkwise matmul → tensor core"这条因果链；或误以为 Mamba-1 与 Mamba-2 是同一模型的两种实现（实际上 Mamba-2 也简化了 $A$ 的结构，二者不是严格算法等价）。
 
 </details>
 
@@ -810,7 +816,10 @@ if __name__ == "__main__":
     beta = torch.ones(L)
     S_delta = delta_rule_recurrent(K, V, beta, use_delta=True)[-1]
     S_lin   = delta_rule_recurrent(K, V, beta, use_delta=False)[-1]  # 加性版
-    # 注：二者严格相等的充要条件是每步擦除项 S_{t-1}k_t=0；"各 k 两两正交(且 beta=1)"是最干净的充分条件。
+    # 注：S_{t-1}k_t=0（对每一步）是二者逐步轨迹（因而最终状态也）严格相等的充分条件；
+    #     对"仅最终状态相等"而言它只是充分而非必要条件——Delta_L = sum_t S_{t-1}^delta k_t k_t^T，
+    #     只要这个和为零（不同步的非零项可相互抵消）即可，未必要求每一步都满足 S_{t-1}k_t=0。
+    #     "各 k 两两正交(且 beta=1)"是能干净保证充分条件成立的具体场景。
     #     一般情形改写项 S_{t-1}(beta k k^T) 非零 -> 产生差异（这正是 DeltaNet 覆写旧关联的作用）
     print("delta vs additive final-state diff:", (S_delta - S_lin).norm().item())
     # block-sparse: 每行恰好 topk 个 block 被保留
@@ -838,7 +847,7 @@ all linear / sparse attention sanity checks passed ✓
 > ✅ **读数解释**
 > - **[a]** chunkwise 与逐 token 递推在浮点误差内一致（max $|\Delta|\approx 3.8\mathrm{e}{-6}$）——chunkwise 正确性的黄金验证，且对 $C=1/4/7/L$ 全成立。
 > - **[d]** 抽掉改写项 $(I-\beta kk^\top)$ 且 $\beta=1$ 时**严格**退回加性线性注意力（$|\Delta|=0$，§A.4）。
-> - **[e]** 改写项确实在起作用：非正交 key 下 delta 与加性差 $8.3$（非零），正交 key + $\beta=1$ 下严格相等（$3.6\mathrm{e}{-7}\approx0$）——印证"每步 $S_{t-1}k_t=0$ 才相等，两两正交是充分条件"。
+> - **[e]** 改写项确实在起作用：非正交 key 下 delta 与加性差 $8.3$（非零），正交 key + $\beta=1$ 下严格相等（$3.6\mathrm{e}{-7}\approx0$）——两两正交（且 $\beta=1$）是使 $S_{t-1}k_t=0$ 逐步成立、从而**严格相等**的充分条件（对仅要求最终状态相等而言并非必要，见 §A 代码注释）。
 > - **[f]** block-sparse 在 $L$ 整除（12）与**不整除**（13）block 时，每个 query 都恰好保留 $\text{topk}=2$ 块、softmax 行和为 1（masked block-mean 让非整除长度也正确）。
 
 ## 📚 参考文献
@@ -859,7 +868,7 @@ all linear / sparse attention sanity checks passed ✓
 - **Kimi-Linear** — Kimi Team, *Kimi Linear: An Expressive, Efficient Attention Architecture*, arXiv 2510.26692 (2025).
 - **HiPPO** — Gu et al., *HiPPO: Recurrent Memory with Optimal Polynomial Projections*, arXiv 2008.07669 (2020), NeurIPS 2020.
 - **S4** — Gu et al., *Efficiently Modeling Long Sequences with Structured State Spaces*, arXiv 2111.00396 (2021), ICLR 2022.
-- **DeepSeek-V3.2 / DSA** — DeepSeek-AI, *DeepSeek-V3.2* 技术报告 / 模型卡 —— DeepSeek Sparse Attention（DSA，lightning indexer），2025（以官方技术报告 / model card 为准，无独立 arXiv 论文）。
+- **DeepSeek-V3.2 / DSA** — DeepSeek-AI, *DeepSeek-V3.2: Pushing the Frontier of Open Large Language Models*, arXiv 2512.02556 (2025) —— 该技术报告本身即涵盖 DeepSeek Sparse Attention（DSA，lightning indexer）机制的介绍，并非仅有 model card。
 - **Zamba** — Glorioso et al., *Zamba: A Compact 7B SSM Hybrid Model*, arXiv 2405.16712 (2024).
 - **Qwen3-Next** — Qwen Team, *Qwen3-Next*（Gated DeltaNet + gated full attention 混合），2025（技术博客 / 模型报告，无独立 arXiv 论文）。
 - **Longformer** — Beltagy et al., *Longformer: The Long-Document Transformer*, arXiv 2004.05150 (2020).

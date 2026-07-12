@@ -57,6 +57,33 @@
         "issues": [
           "§7.5 trade-off table '大（576–2880 token）' reads as upper bound; optional polish to '典型范围；AnyRes 高分辨率可达 4032+'"
         ]
+      },
+      {
+        "run": "2026-07-12-resweep",
+        "date": "2026-07-12",
+        "reviewer": "codex gpt-5.6-sol ultra (candidate errors, full-collection sweep) + independent Claude fresh-thread adversarial verification (tried to overturn every candidate)",
+        "verdict": "FIXED",
+        "scope": "full-collection re-scan; this file's slice = 17 candidate findings adjudicated as 11 CONFIRMED + 6 NEEDS_NUANCE, all applied to source",
+        "summary": "2026-07-12 全集重扫复审：Codex GPT-5.6-sol 找候选错误，独立 Claude 对抗验证逐条尝试推翻 → 11 CONFIRMED + 6 NEEDS_NUANCE，均已按对应力度修复（CONFIRMED 整段改写，NEEDS_NUANCE 只加限定/软化不改核心结论）。",
+        "issues": [
+          "CONFIRMED §1: BLIP-2's cross-attn wrongly grouped with Flamingo/Llama-3.2-V as an LLM-internal cross-attn layer — it lives only inside the Q-Former, LLM interface is prefix-token like LLaVA",
+          "CONFIRMED §2.3 table: ViT-L/14 misattributed to Dosovitskiy 2021 — original ViT never trained patch=14 at Large scale; CLIP (Radford 2021) first trained it",
+          "CONFIRMED §3.5/3.6: DDP note said gradient checkpointing handles cross-GPU gradient propagation — it doesn't; needs differentiable all-gather or OpenCLIP local_loss",
+          "CONFIRMED §3.7/Q9: attributed CLIP's weak spatial-relation understanding to POPE — POPE measures object hallucination, not spatial relations; corrected to Winoground/ARO",
+          "CONFIRMED §6.4/Q13: AnyRes described as inference-only tiling on a fixed-336² trained model, with exact (1+nm)·576 token count — LLaVA-NeXT trains on AnyRes from the start; real token count is approximate (unpad + image_newline)",
+          "CONFIRMED §7.3: Q-Former ITM interaction said to happen inside cross-attention — it happens in the shared self-attention layer via task-switched attention masks (bi-directional/uni-modal/causal)",
+          "CONFIRMED §10.1: Qwen2-VL patch count for 1024×768 computed via plain P=14 division (73×54≈3942) — smart_resize rounds to multiples of 28 first, giving 74×54=3996 patches / 999 tokens post-merge",
+          "CONFIRMED §11.3: LongVA said to pair long-context QA with Qwen2-VL's M-RoPE — LongVA uses standard 1D position-encoding extension on a long-context Qwen2 LLM + CLIP tower, not M-RoPE",
+          "CONFIRMED §13.2: VLM2Vec described as mean-pooling the last hidden state with only a trained contrastive head — it takes the last-token hidden state and LoRA fine-tunes the whole VLM",
+          "CONFIRMED Q18: GPT-4 said to see the raw image + caption to generate LLaVA-Instruct-158K — GPT-4 was text-only at the time, prompted only with caption + detection bounding boxes",
+          "CONFIRMED Q25: SigLIP's batch-independent loss claimed to stabilize stage-1 vision-tower fine-tuning — stage-1 alignment freezes the vision tower and uses next-token loss, no contrastive loss involved at that stage",
+          "NEEDS_NUANCE §1/§6/Q7: original Qwen-VL grouped with Qwen2-VL's MLP+pixel-shuffle patch merger — original Qwen-VL uses a cross-attention resampler, only Qwen2-VL switched to the MLP merger",
+          "NEEDS_NUANCE §3.1/§3.4: said τ itself is clipped to [0,100] — only exp(logit_scale)=1/τ has an upper clamp at 100 (τ lower-bounded at 0.01), aligned with the tutorial's own max-only clamp code",
+          "NEEDS_NUANCE §3.3/Q1: symmetric CLIP loss framed as preventing mathematical 'one-sided collapse' — a one-directional loss already backprops into both encoders since S_ij depends on both u_i and v_j; symmetry's real value is optimizing both retrieval directions",
+          "NEEDS_NUANCE §3.4: InfoNCE MI-bound callout implied larger batch size automatically tightens the bound — L_N generally rises with N too; bound only tightens if representation quality improves enough to offset the harder task",
+          "NEEDS_NUANCE Q22: rank inequalities (LLaVA projector rank≤r, Q-Former rank≤min(r,32)) stated as rigorous — LLaVA's MLP+GELU is a nonlinear map with no linear-algebra rank bound; reframed as an intuitive capacity analogy",
+          "NEEDS_NUANCE §10.2/Q14: mrope_section=[16,24,24]'s slow-time/fast-space rationale presented as confirmed Qwen2-VL design motivation — softened to a plausible but unconfirmed interpretation"
+        ]
       }
     ],
     "note": "After 3 review rounds all flagged issues received targeted fixes; per the 3-round-FAIL stop rule, no 4th review was run. Each round's issues were addressed by direct edits in source MD before stopping."
@@ -89,8 +116,9 @@
       }
     ]
   },
-  "summary": "3-round math/code review (FAIL → FAIL → FAIL, each round's blocking issues fixed in place; stopped per 3-round rule); 1-round render review PASS on all 13 checks. Length is 1446 lines vs target 1000 (+44.6%, warn-only).",
-  "rendered_at": "2026-05-19",
-  "source_sha256": "247c88185218c0dd9a9c3462177f7c310a5cd8c1972c9669575dd11f136c3914",
+  "summary": "3-round math/code review (FAIL → FAIL → FAIL, each round's blocking issues fixed in place; stopped per 3-round rule); 1-round render review PASS on all 13 checks. Length is 1446 lines vs target 1000 (+44.6%, warn-only). 2026-07-12 full-collection resweep: Codex GPT-5.6-sol + independent Claude adversarial verification found 17 candidate findings (11 CONFIRMED + 6 NEEDS_NUANCE), all fixed in place — see math_code_review.rounds[\"2026-07-12-resweep\"].",
+  "rendered_at": "2026-07-12",
+  "source_sha256": "1846758ab564aa3874d446fdf198d41d7333829beddcb8f10a4be7d0158b75b2",
+  "source_sha256_prefix": "1846758ab564aa38",
   "thread_id": "019e7cac-ff9d-7690-9614-64fb007070da"
 }

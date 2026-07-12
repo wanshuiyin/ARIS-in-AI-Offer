@@ -8,7 +8,7 @@
 
 3. **SSM / Mamba**: the continuous state space $h_t = A h_{t-1} + B x_t,\; y_t = C h_t$ becomes a recurrence after discretization ($\Delta$ + zero-order hold). **Selective SSM (S6)** makes $B, C, \Delta$ vary with the input (data-dependent gating), breaking LTI in exchange for content selection; paired with a hardware-aware selective scan.
 
-4. **Mamba-2 / SSD**: State Space Duality — a selective SSM is **equivalent to a kind of structured masked linear attention** (via a 1-semiseparable matrix). This lets SSMs train efficiently on tensor cores with a matmul-dense **chunkwise** algorithm.
+4. **Mamba-2 / SSD**: State Space Duality — a selective SSM is **equivalent to a kind of structured masked linear attention** (via an N-semiseparable matrix, where $N$ is the SSM state dimension; rank-$\le 1$ "1-semiseparable" is just the degenerate $N=1$ case). This lets SSMs train efficiently on tensor cores with a matmul-dense **chunkwise** algorithm.
 
 5. **Delta rule (DeltaNet)**: the update is a **rewrite** rather than a pure accumulation — $S_t = S_{t-1}(I - \beta_t k_t k_t^\top) + \beta_t v_t k_t^\top$, where the $(I-\beta k k^\top)$ term first **erases the old association** before writing the new value (online least squares / error correction). Gated DeltaNet then adds a scalar/diagonal decay gate $\alpha_t$ for forgetting.
 
@@ -67,6 +67,8 @@ Make the above **causal** ($o_i$ only sees $j\le i$) and define a cumulative sta
 
 $$S_i = \sum_{j\le i}\phi(k_j)v_j^\top \in\mathbb{R}^{d_k\times d_v}, \qquad z_i=\sum_{j\le i}\phi(k_j)\in\mathbb{R}^{d_k}.$$
 
+(Notation note: the outer-product order here is $\phi(k)v^\top$. §5's DeltaNet uses the **transposed convention** $S:k\mapsto Sk$, i.e. $S=\dots+vk^\top\in\mathbb{R}^{d_v\times d_k}$ — each section is internally consistent, but the outer-product order flips across sections; every demo in this tutorial sets $d_k=d_v$, so the shapes look identical and the difference is easy to miss.)
+
 This gives the **recurrent form**:
 
 $$\boxed{\;S_t = S_{t-1} + \phi(k_t)\,v_t^\top, \qquad o_t = \frac{\phi(q_t)^\top S_t}{\phi(q_t)^\top z_t}\;}$$
@@ -89,7 +91,7 @@ Note: the **naive parallel form** of causal linear attention still materializes 
 
 softmax has two implicit benefits that linear attention throws away:
 
-1. **The normalization denominator $\phi(q)^\top z_t$ is unstable**: softmax's denominator is always positive and well-defined ($\sum\exp\ge 1$), but $\phi(q)^\top z_t$ can be very small or even near 0 (if $\phi$ does not guarantee strong positivity), causing exploding outputs / numerical instability. Many implementations simply **drop the denominator** (unnormalized linear attention) and use §2.4's decay / gating + extra normalization to stabilize the magnitude.
+1. **The normalization denominator $\phi(q)^\top z_t$ is unstable**: softmax's denominator is always positive ($\sum\exp> 0$); in the numerically-stable implementation that subtracts the max, you additionally get $\sum\exp(x_j-\max_jx_j)\ge 1$ (because the max term is exactly $\exp(0)=1$), but for the raw formula without max-shifting, $\sum\exp$ itself has no such $\ge 1$ lower bound. Meanwhile $\phi(q)^\top z_t$ can be very small or even near 0 (if $\phi$ does not guarantee strong positivity), causing exploding outputs / numerical instability. Many implementations simply **drop the denominator** (unnormalized linear attention) and use §2.4's decay / gating + extra normalization to stabilize the magnitude.
 
 2. **Lack of "sharp selection" ability → weak recall**: softmax can concentrate probability mass highly onto one or two of the most relevant keys (near one-hot retrieval); but linear attention's $\phi(q)^\top\phi(k)$ is a finite-dimensional inner product, **unable to express arbitrarily sharp selection**. When a task needs to "precisely copy some token from the context" (associative recall / in-context copy), linear attention's fixed-size state suffers a **capacity conflict**: all the $\phi(k)v^\top$ pile up in the same $S$ and interfere with each other, getting blurrier the longer it gets.
 
@@ -100,7 +102,7 @@ softmax has two implicit benefits that linear attention throws away:
 
 Pure accumulation $S_t=S_{t-1}+\phi(k_t)v_t^\top$ has a problem: **old information never decays**, and the state gets polluted by unbounded stacking. Adding a decay helps a lot:
 
-- **RetNet (Retentive Network)**: introduces a **scalar exponential decay** $\gamma\in(0,1)$: $S_t = \gamma S_{t-1} + k_t v_t^\top$. It has three equivalent forms — **parallel** (training, like attention with a decay mask), **recurrent** (decode, $O(1)$ state), and **chunkwise** (long-sequence training, intra-chunk parallel + inter-chunk recurrence). $\gamma$ is usually **fixed per head** (not data-dependent).
+- **RetNet (Retentive Network)**: introduces a **scalar exponential decay** $\gamma\in(0,1)$: $S_t = \gamma S_{t-1} + k_t v_t^\top$. It has three equivalent forms — **parallel** (training, like attention with a decay mask), **recurrent** (decode, $O(1)$ state), and **chunkwise** (long-sequence training, intra-chunk parallel + inter-chunk recurrence). $\gamma$ is usually **fixed per head** (not data-dependent). (Simplified here to just the scalar magnitude decay; RetNet's original formula first multiplies $Q,K$ by a complex rotation factor $\Theta_n=e^{in\theta}$ before applying $\gamma$ — see the RoPE-relationship note in §10.)
 - **GLA (Gated Linear Attention)**: upgrades the scalar decay to a **data-dependent diagonal gate** $G_t=\text{diag}(\alpha_t)$, with $\alpha_t\in(0,1)^{d_k}$ computed from the input: $S_t = G_t\,S_{t-1} + k_t v_t^\top$ (per-channel forgetting). GLA gives a hardware-efficient chunkwise form, and is the representative work unifying "gated RNN" and "linear attention."
 
 You can view this line as a spectrum: **pure linear attention (no decay) → RetNet (scalar decay) → GLA (data-dependent diagonal gate) → Gated DeltaNet (gating + rewrite-style update, see §5)** — all in the $O(L)$ tier, differing in how the state "forgets" and "writes."
@@ -157,7 +159,7 @@ $$y_t = \sum_{s\le t} C_t\Big(\prod_{r=s+1}^{t}\bar A_r\Big)\bar B_s\, x_s = \su
 Write it in matrix form $y = M x$, where $M$ is a **lower-triangular matrix**, $M_{ts}=C_t\big(\prod_{r=s+1}^t \bar A_r\big)\bar B_s$ (0 when $t \lt s$). This $M$ looks exactly like a **causal attention matrix with decay**: $C_t$ is like a query, $\bar B_s$ is like a key, and the product $\prod\bar A$ in the middle is the "positional decay."
 
 > ✅ **SSD in one sentence**
-> **A selective SSM is equivalent to structured masked attention using a 1-semiseparable matrix $M$.** "Semiseparable" means that any sub-block of $M$'s lower triangle has rank $\le 1$ (determined by the product structure of $C, \bar A, \bar B$), which is exactly the algebraic reason the SSM recurrence can be computed in $O(L)$; and treating $M$ as a matrix and multiplying $x$ directly lets you use matmuls. The two computation paths (linear recurrence vs quadratic matmul) compute the **same $M$** — this is the duality.
+> **A selective SSM is equivalent to structured masked attention using an N-semiseparable matrix $M$.** "N-semiseparable" means that any sub-block of $M$'s lower triangle has rank $\le N$ ($N$ is the SSM state dimension, determined by the product structure of $C, \bar A, \bar B$), which is exactly the algebraic reason the SSM recurrence can be computed in $O(L)$; rank-$\le 1$ "1-semiseparable" is just the degenerate $N=1$ case (corresponding to a pure scalar decay mask, like RetNet's $\gamma^{t-s}$), while Mamba's typical $N=64/128$ corresponds to a higher-rank semiseparable structure. Treating $M$ as a matrix and multiplying $x$ directly lets you use matmuls. The two computation paths (linear recurrence vs quadratic matmul) compute the **same $M$** — this is the duality.
 
 > ⚠️ **Don't overclaim**
 > SSD says "SSM ≡ **a structured linear attention with a specific decay mask**," **not** "SSM = ordinary softmax attention." $M$ has no softmax and is semiseparable-structured. This equivalence holds at the level of **linear attention / masked linear attention**, and the wording must be precise.
@@ -171,13 +173,13 @@ With SSD, Mamba-2 can train with §6's **chunkwise / block-decomposition** algor
 
 The effect: Mamba-2 trains several times faster than Mamba-1 (saturating tensor cores), and because the state dimension $N$ can be made larger (matmuls are cheap), its expressiveness is also stronger. Mamba-2 also conveniently simplifies the structure ($A$ degenerates to a **scalar times the identity** $\bar A_t = a_t I$, i.e. one scalar decay per step), making the SSD derivation and implementation cleaner.
 
-> 💡 **Interview punchline**: Mamba-1 = hardware-aware selective **scan** (a custom kernel that doesn't use tensor cores); Mamba-2 = uses **SSD** to rewrite the same computation in a **matmul-heavy chunkwise** form (saturating tensor cores), training faster with a larger state. The two are algorithmically equivalent, differing in "whether you implement with a scan or with matmuls."
+> 💡 **Interview punchline**: Mamba-1 = hardware-aware selective **scan** (a custom kernel that doesn't use tensor cores); Mamba-2 = uses **SSD** to rewrite the same computation in a **matmul-heavy chunkwise** form (saturating tensor cores), training faster with a larger state. Note that Mamba-1 (per-channel diagonal decay $A$) and Mamba-2/SSD (restricted to scalar decay $\bar A_t=a_tI$) are **not strictly algorithmically equivalent** — Mamba-2 imposes a stronger structural restriction (simplification) on the state transition. What is genuinely algorithmically equivalent, differing only in evaluation strategy, is **the same SSD layer** (i.e. Mamba-2's restricted form) evaluated via its three equivalent paths: recurrent scan, chunkwise matmul, and the expanded structured-masked-attention quadratic form.
 
 ## §5 Delta rule: DeltaNet and Gated DeltaNet
 
 ### 5.1　From "accumulate" to "rewrite"
 
-Linear attention's state update is **pure accumulation**: $S_t = S_{t-1} + v_t k_t^\top$ (here $\phi(k)$ is abbreviated as $k$). The problem, as said before — when the same key recurs, or different keys interfere, information only **stacks up and pollutes**, with no "update / overwrite" mechanism.
+Linear attention's state update is **pure accumulation**: $S_t = S_{t-1} + v_t k_t^\top$ (here $\phi(k)$ is abbreviated as $k$; note this is the **transposed convention** of §2.2's $S=\sum\phi(k)v^\top$ — this section treats $S$ as the map $k\mapsto Sk$, writing the outer product the other way round as $vk^\top$; it's the same object, and since every demo in this tutorial sets $d_k=d_v$ the shapes don't reveal the difference). The problem, as said before — when the same key recurs, or different keys interfere, information only **stacks up and pollutes**, with no "update / overwrite" mechanism.
 
 **The delta rule (from fast-weight / online learning)** uses a different formulation: view the state $S$ as a linear map $k\mapsto S k$ (retrieve a value with a key), and for each incoming $(k_t,v_t)$ we want $S$'s "prediction" at $k_t$, $S_{t-1}k_t$, to approach the target $v_t$. Do one step of online gradient descent / least-squares correction:
 
@@ -221,7 +223,7 @@ Linear attention / SSM / DeltaNet have two faces:
 
 ### 6.2　Two stages: intra-chunk (parallel within a chunk) + inter-chunk (recurrence across chunks)
 
-Take ungated linear attention as the example ($S_t=S_{t-1}+k_tv_t^\top$, state $S\in\mathbb{R}^{d_k\times d_v}$, here with $\phi=\text{id}$, so $k$ is $\phi(k)$). Let the query/key/value of the $c$-th chunk be $Q_c,K_c,V_c\in\mathbb{R}^{C\times d}$, and the state entering this chunk be $S_c$ (= $\sum k v^\top$ over all preceding chunks). The output of the $i$-th query in the chunk splits into two parts:
+Take ungated linear attention as the example ($S_t=S_{t-1}+k_tv_t^\top$, state $S\in\mathbb{R}^{d_k\times d_v}$, here with $\phi=\text{id}$, so $k$ is $\phi(k)$; this is the **unnormalized version with the denominator dropped**, as flagged in §2.3 — to keep §2.2's boxed formula's exact normalization $z_t$, you could carry $z_t$ as an extra column of $V$ and chunk it the same way (inter+intra), but the recurrent == chunkwise equivalence derived below, and verified by the code in §6.3, is checked only for this unnormalized recurrence). Let the query/key/value of the $c$-th chunk be $Q_c,K_c,V_c\in\mathbb{R}^{C\times d}$, and the state entering this chunk be $S_c$ (= $\sum k v^\top$ over all preceding chunks). The output of the $i$-th query in the chunk splits into two parts:
 
 $$o_i = \underbrace{q_i^\top S_c}_{\textbf{inter: contribution of past chunks}} + \underbrace{\sum_{j\le i,\, j\in c} (q_i^\top k_j)\, v_j}_{\textbf{intra: causal attention within this chunk}}.$$
 
@@ -330,9 +332,12 @@ A one-sentence comparison: **NSA = the fixed fusion of three branches compress +
 | Dimension | Fixed pattern (the Longformer/BigBird era) | Trainable sparse (NSA / MoBA, 2025) |
 | --- | --- | --- |
 | Sparse structure | human-designed (window + global + random) | the model **learns** it (content-dependent block selection) |
-| Training | usually slapped on at fine-tuning time | **natively** sparse from pretraining (NSA) |
+| Training | applied at (continued) pretraining, not only slapped on at fine-tuning¹ | **natively** trained sparse end-to-end from random init (NSA) |
 | Hardware | mostly IO-unfriendly | **hardware-aligned** (contiguous blocks, tensor-core-friendly) |
 | Quality | usable on long documents, with quality loss | close to full attention, with real speedup |
+
+> ⚠️ **¹ "slapped on at fine-tuning" is an imprecise old framing**
+> Longformer already applies its sliding-window + global-token pattern while continuing MLM pretraining from RoBERTa weights (BigBird similarly applies its sparse pattern during a (continued) pretraining stage), not only at downstream fine-tuning time. The real distinguishing factor from NSA is not "pretrain vs. fine-tune" but **whether the sparse structure is trained end-to-end from random initialization** — NSA trains its sparse structure natively from scratch, while Longformer/BigBird adapt a sparse pattern onto an already-pretrained dense checkpoint (continued-pretraining, not from-scratch sparse pretraining).
 
 ## §8 KV cache and inference: the trump card of linear/SSM
 
@@ -370,7 +375,7 @@ $$\text{state} = n_{\text{layers}} \cdot (\text{per-layer state size}) ,\quad \t
 
 Pure linear / SSM models have high throughput and a fixed state, but **weak associative recall**: after stuffing a fact into a fixed-size state, retrieving it **precisely** much later is limited by state capacity (information overwritten / interfered). Several studies (e.g. the Based, Zoology series) point out a **recall–memory (throughput) Pareto frontier**: a smaller state is faster but recalls worse. softmax attention sits at the "high recall, low throughput" end of this frontier, pure SSM at the "high throughput, low recall" end.
 
-**The fix is surprisingly simple and crude: among many linear / SSM layers, interleave a few full softmax attention layers.** Those few full attention layers handle "exact retrieval / in-context copy," and the rest of the linear/SSM layers handle "cheaply processing long-range context." A small number of full attention layers can restore recall to near a pure Transformer, while the overall complexity and KV cache are still dominated by the linear/SSM layers (close to linear).
+**The fix is surprisingly simple and crude: among many linear / SSM layers, interleave a few full softmax attention layers.** Those few full attention layers handle "exact retrieval / in-context copy," and the rest of the linear/SSM layers handle "cheaply processing long-range context." A small number of full attention layers can restore recall to near a pure Transformer; but as long as even one full attention layer remains, the model's asymptotic time-complexity class is still $O(L^2)$ — the quadratic term that layer contributes still dominates once $L$ is large enough. What hybrids genuinely buy is a **large reduction in the constant factor** (most layers are $O(L)$, only a few are $O(L^2)$), not a change of complexity class itself; the same caveat applies on the KV-cache side (see the §8.2 reminder).
 
 > ✅ **Why hybrid wins**
 > Under a fixed budget, a hybrid gets the benefits of both ends at once: **linear/SSM layers → long-context throughput and memory (constant state)**; **a few full attention layers → recall / exact retrieval**. Empirically a very small full-attention ratio (commonly 1:5 to 1:7, i.e. 1 full layer every 6–8 layers) can approach the quality of pure attention while cutting a large chunk of KV cache. This is why a great many industrial long-context models of 2024–2025 chose hybrid.
@@ -400,14 +405,14 @@ A clear 2024→2025 trend: **the linear layer upgrades from "pure-additive linea
 - **The chunk size must be tuned**: too small $C$ → low parallelism, inter-chunk recurrence dominates; too large → the intra-chunk $C^2$ term gets expensive + memory grows. Typically $C\in[64,256]$, tuned by sequence length / hardware.
 - **No softmax normalization → numerical stability must be managed separately**: pure accumulation state grows unboundedly / drifts in magnitude. In practice you stabilize with **decay gates ($\gamma,\alpha_t$)**, **normalization on the state or output** (RMSNorm / L2), and **bounded activations for $\beta,\Delta$ (sigmoid/softplus)**. Directly carrying over softmax attention's implementation habits easily blows up.
 - **The sparse hardware alignment is crucial**: theoretically sparse ≠ actually faster. Random gather and non-contiguous access can make a sparse kernel slower than dense — which is why NSA / MoBA emphasize "contiguous blocks, tensor-core-friendly." When evaluating a sparse method **always look at real wall-clock / end-to-end throughput**, not just FLOPs.
-- **The relationship with RoPE**: linear attention / SSM don't apply RoPE directly the way softmax attention does — their "positional information" comes from the recurrent structure itself (the decay $\gamma^{t-s}$, $\Delta$, and the gate $\alpha$ provide an implicit relative position / temporal decay). In hybrid architectures, **full attention layers use RoPE, and linear/SSM layers use their own decay mechanisms**; forcing RoPE into linear attention's $\phi(q),\phi(k)$ takes care (it interacts with the decay term).
+- **The relationship with RoPE**: linear attention / SSM don't apply RoPE directly the way softmax attention does — their "positional information" mostly comes from the recurrent structure itself (the decay $\gamma^{t-s}$, $\Delta$, and the gate $\alpha$ provide an implicit relative position / temporal decay). **An exception**: RetNet's original formula multiplies $Q,K$ not only by the scalar decay $\gamma$ but also by a complex rotation factor $\Theta_n=e^{in\theta}$ (an xPos/RoPE-style relative-position rotation), so that $Q_nK_m$'s phase difference is $e^{i(n-m)\theta}$ — the full decay/position term is actually $\gamma^{n-m}e^{i(n-m)\theta}$, not just scalar magnitude decay (§2.4 keeps only the magnitude part for simplicity). A purely additive linear-attention state, with no decay or rotation at all, is (ignoring causal truncation) genuinely insensitive to the order of summation over history. In hybrid architectures, **full attention layers use RoPE, and linear/SSM layers use their own decay mechanisms**; forcing RoPE into linear attention's $\phi(q),\phi(k)$ takes care (it interacts with the decay term).
 - **Distinguish "linear attention" from "sub-quadratic but still attention"**: FlashAttention is an IO optimization of **exact softmax** (still $O(L^2)$ FLOPs, only saving memory), **not** linear attention; Performer/Linformer are the sub-quadratic approximations. Linear attention / SSM **replace attention with a fixed-state recurrence**, fundamentally changing the compute paradigm. Interviewees often conflate these three classes.
 
 > ⚠️ **Biggest footgun #1: taking asymptotic complexity as actual performance**
 > "My method is $O(L)$, so it must be faster/better than the $O(L^2)$ Transformer" — wrong twice: actual speed depends on the constant and access (FlashAttention is very strong), and quality depends on recall (linear has a shortcoming). **Any efficient-attention claim must provide real wall-clock + long-context recall benchmarks**, or it doesn't hold up.
 
 > ❌ **Biggest footgun #2: thinking SSD / SSM "is" attention, or linear attention "≈" softmax**
-> SSD is the precise equivalence "SSM ≡ **structured masked (semiseparable) linear attention**," **not** softmax attention; linear attention is a **finite-dimensional approximation** of softmax, **fundamentally limited** on sharp selection / recall. Overclaiming these equivalences / approximations into "identical to / lossless replacement for softmax" is a classic mistake that gets probed to the bottom.
+> SSD is the precise equivalence "SSM ≡ **structured masked (semiseparable) linear attention**," **not** softmax attention; whether linear attention "approximates softmax" depends on the feature map — **only the Performer family (FAVOR+ random features) is explicitly constructed as an unbiased finite-dimensional approximation of $\exp(q^\top k)$**; ELU+1 (Katharopoulos), RetNet/GLA, and the like instead swap in a different kernel/similarity measure, with no attempt to approximate softmax's exp kernel (see §2.1). What they share is a common limitation: no finite-dimensional inner product (whether or not it approximates softmax) can express softmax's arbitrarily sharp one-hot selection, which is the root cause of weaker recall — but "approximates softmax" only accurately describes the Performer family. Overclaiming these equivalences / approximations into "identical to / lossless replacement for softmax," or treating "approximates softmax" as a property shared by all linear-attention variants, is a classic mistake that gets probed to the bottom.
 
 ## §11 Complexity and resources
 
@@ -585,7 +590,7 @@ Saying "Mamba makes $A$ vary with the input" (wrong); or not knowing that $\Delt
 <summary>Q13. Explain State Space Duality (SSD). Does it say SSM equals softmax attention?</summary>
 
 - expand the selective SSM recurrence into $y=Mx$, where $M$ is a lower-triangular matrix, $M_{ts}=C_t(\prod_{r}\bar A_r)\bar B_s$
-- $M$ is a **1-semiseparable matrix** (lower-triangular sub-blocks have rank $\le 1$), equivalent to a kind of **structured masked (linear) attention**
+- $M$ is an **N-semiseparable matrix** (any lower-triangular sub-block has rank $\le N$, where $N$ is the SSM state dimension, e.g. Mamba's $N=64/128$; rank-$\le 1$ "1-semiseparable" is just the degenerate $N=1$ case), equivalent to a kind of **structured masked (linear) attention**
 - **not** softmax attention — $M$ has no softmax and is semiseparable-structured; this is an equivalence at the "linear/masked attention" level
 
 Overclaiming "SSM = softmax attention" (wrong, it's structured masked linear attention, with no softmax).
@@ -599,8 +604,9 @@ Overclaiming "SSM = softmax attention" (wrong, it's structured masked linear att
 - Mamba-1: a hardware-aware selective **scan** (a custom kernel that **doesn't use tensor cores**)
 - Mamba-2: uses SSD to rewrite the same computation as **matmul-heavy chunkwise** (materialize the small $M$ intra-chunk, pass a low-rank state inter-chunk), **saturating tensor cores**
 - benefit: trains several times faster, the state dim $N$ can be made larger (matmuls are cheap) → stronger expressiveness
+- caveat: "algorithmically equivalent" precisely means the scan / chunkwise-matmul / quadratic-attention evaluation paths of **the same SSD layer** are equivalent, not that Mamba-1 and Mamba-2 as a whole are equivalent — Mamba-2 also simplifies $A$ to a scalar decay $\bar A_t=a_tI$, more restricted than Mamba-1's per-channel diagonal $A$
 
-Saying only "Mamba-2 is faster," unable to articulate the causal chain "SSD → chunkwise matmul → tensor core."
+Saying only "Mamba-2 is faster," unable to articulate the causal chain "SSD → chunkwise matmul → tensor core"; or mistakenly thinking Mamba-1 and Mamba-2 are two implementations of the same model (Mamba-2 also simplifies $A$'s structure, so the two are not strictly algorithmically equivalent).
 
 </details>
 
@@ -810,7 +816,12 @@ if __name__ == "__main__":
     beta = torch.ones(L)
     S_delta = delta_rule_recurrent(K, V, beta, use_delta=True)[-1]
     S_lin   = delta_rule_recurrent(K, V, beta, use_delta=False)[-1]  # additive version
-    # Note: the two are strictly equal iff the erase term S_{t-1}k_t=0 at every step; "all k pairwise-orthogonal (and beta=1)" is the cleanest sufficient condition.
+    # Note: S_{t-1}k_t=0 (at every step) is a sufficient condition for the two step-by-step trajectories
+    #       (and hence the final states) to be strictly equal; for "final state equal" alone it is
+    #       sufficient but not necessary -- Delta_L = sum_t S_{t-1}^delta k_t k_t^T, so it's enough for
+    #       this SUM to vanish (nonzero terms at different steps can cancel), not for S_{t-1}k_t=0 to
+    #       hold at every single step. "All k pairwise-orthogonal (and beta=1)" is a clean concrete case
+    #       that makes the sufficient condition hold.
     #       In general the rewrite term S_{t-1}(beta k k^T) is nonzero -> a difference appears (exactly DeltaNet overwriting old associations)
     print("delta vs additive final-state diff:", (S_delta - S_lin).norm().item())
     # block-sparse: each row keeps exactly topk blocks
@@ -838,7 +849,7 @@ all linear / sparse attention sanity checks passed ✓
 > ✅ **Reading the numbers**
 > - **[a]** chunkwise matches the token-by-token recurrence within floating-point error (max $|\Delta|\approx 3.8\mathrm{e}{-6}$) — the golden validation of chunkwise correctness, holding for $C=1/4/7/L$.
 > - **[d]** dropping the rewrite term $(I-\beta kk^\top)$ with $\beta=1$ **strictly** falls back to additive linear attention ($|\Delta|=0$, §A.4).
-> - **[e]** the rewrite term really is acting: under non-orthogonal keys, delta and additive differ by $8.3$ (nonzero), and under orthogonal keys + $\beta=1$ they are strictly equal ($3.6\mathrm{e}{-7}\approx0$) — confirming "they are equal only when $S_{t-1}k_t=0$ each step, and pairwise orthogonality is a sufficient condition."
+> - **[e]** the rewrite term really is acting: under non-orthogonal keys, delta and additive differ by $8.3$ (nonzero), and under orthogonal keys + $\beta=1$ they are strictly equal ($3.6\mathrm{e}{-7}\approx0$) — pairwise orthogonality (with $\beta=1$) is a sufficient condition for $S_{t-1}k_t=0$ to hold at every step and hence for **strict** equality (not necessary for final-state equality alone, see the §A code comment).
 > - **[f]** block-sparse keeps exactly $\text{topk}=2$ blocks per query and has softmax row sums of 1 whether $L$ divides (12) or **does not divide** (13) the block (the masked block-mean makes non-divisible lengths correct too).
 
 ## 📚 References
@@ -859,7 +870,7 @@ all linear / sparse attention sanity checks passed ✓
 - **Kimi-Linear** — Kimi Team, *Kimi Linear: An Expressive, Efficient Attention Architecture*, arXiv 2510.26692 (2025).
 - **HiPPO** — Gu et al., *HiPPO: Recurrent Memory with Optimal Polynomial Projections*, arXiv 2008.07669 (2020), NeurIPS 2020.
 - **S4** — Gu et al., *Efficiently Modeling Long Sequences with Structured State Spaces*, arXiv 2111.00396 (2021), ICLR 2022.
-- **DeepSeek-V3.2 / DSA** — DeepSeek-AI, *DeepSeek-V3.2* technical report / model card — DeepSeek Sparse Attention (DSA, lightning indexer), 2025 (per the official technical report / model card; no standalone arXiv paper).
+- **DeepSeek-V3.2 / DSA** — DeepSeek-AI, *DeepSeek-V3.2: Pushing the Frontier of Open Large Language Models*, arXiv 2512.02556 (2025) — the technical report itself covers the DeepSeek Sparse Attention (DSA, lightning indexer) mechanism, not just a model card.
 - **Zamba** — Glorioso et al., *Zamba: A Compact 7B SSM Hybrid Model*, arXiv 2405.16712 (2024).
 - **Qwen3-Next** — Qwen Team, *Qwen3-Next* (Gated DeltaNet + gated full attention hybrid), 2025 (technical blog / model report; no standalone arXiv paper).
 - **Longformer** — Beltagy et al., *Longformer: The Long-Document Transformer*, arXiv 2004.05150 (2020).

@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/optimizer_lr_schedule_tutorial.md",
-  "source_sha256": "52c3c7509834e0111f6ab2fc180fbf9ad7cb3857e594b1f3eeea01190c9e6edd",
+  "source_sha256": "c134fc37eb009cfa6165349968007a20ab56d57a8869f4c687a09e613bac6bc8",
   "output": "docs/tutorials/optimizer_lr_schedule_tutorial.html",
   "runnable_code": "docs/tutorials/code/optimizer_lr_schedule.py",
   "topic": "优化器 / LR Schedule — SGD·Momentum·Nesterov / AdaGrad→RMSProp→Adam / Adam bias correction / AdamW(解耦权重衰减) / 前沿(Muon·Lion·Shampoo·SOAP·Adafactor·LAMB·Sophia) / LR schedule(warmup·cosine·Noam·WSD·one-cycle) / weight decay·LR-batch 缩放·no-decay 组 / grad clipping / LLM 超参(β2=0.95) / 显存(8-bit Adam)",
@@ -9,7 +9,7 @@
   "reviewer": "codex gpt-5.5 xhigh, fresh thread per batch",
   "drafted_by": "subagent (general-purpose), then orchestrator self-verified the hard math + ran the full cross-model review + reconciled §A to the standalone script",
   "math_code_review": {
-    "verdict": "PASS (6 batches: math + 2 citation + code + answers + overall — all clean; 1 bad citation id removed)",
+    "verdict": "PASS (6 batches: math + 2 citation + code + answers + overall — all clean; 1 bad citation id removed; + 2026-07-12 P0 resweep round 7: 5 CONFIRMED + 2 NEEDS_NUANCE fixed, incl. restoring the AMSGrad arXiv 1904.09237 id that run 3 had wrongly removed)",
     "rounds": [
       {
         "run": 1,
@@ -52,6 +52,13 @@
         "verdict": "PASS (2 calibration hedges applied)",
         "thread_id": "019f11fe-812d-7113-ab7d-e58061771cc1",
         "notes": "No errors. The 'diagonal preconditioner ≠ Hessian/Newton' caveat was already in §1's ⚠️ callout. Applied: (1) qualified 'momentum κ→√κ' as the strongly-convex-quadratic heavy-ball result (intuition not guarantee in noisy/non-convex DL); (2) softened 'AdamW generalizes better' to 'usually more controllable/preferred, not absolutized to all tasks'."
+      },
+      {
+        "run": 7,
+        "date": "2026-07-12",
+        "scope": "P0 全集重扫复审：Codex GPT-5.6-sol 一轮候选 finding + Claude Sonnet 5 独立对抗验证（对每条尝试构造反例/推翻，7 条全部经查证，无 REFUTED）",
+        "verdict": "PASS (5 CONFIRMED + 2 NEEDS_NUANCE，全部已修复)",
+        "notes": "finding_id 13 NEEDS_NUANCE（'SGD 下 L2≡weight decay' 只在裸 SGD 下精确成立；带动量的 SGD 用耦合 L2 时衰减项经动量缓冲跨步累积，与解耦的 SGDW 不再严格等价）→ §0 point5 / §5.2 / Q7 三处限定为'裸 SGD（无 momentum）'。finding_id 14 NEEDS_NUANCE（AdaGrad 的 G_t 单调递增只保证有效 LR 单调非增，'趋于 0' 还需 Σg²→∞，长训练几乎必然满足但原文未说明该前提，把'非增'与'趋于 0'混为一谈）→ §0 point3 / §3.1 / Q4 / Q18 四处补上 Σg²→∞ 条件。finding_id 15 CONFIRMED（warmup 的必要性被错误归因于 §4.2 的 3.16 倍偏差——那是标准 Adam 已用偏差修正精确抵消的确定性偏差；真正原因是 v̂ 在早期样本少、方差高，即使无偏也可能剧烈抖动，这正是 RAdam 的核心动机）→ §7.1 point 1 重写。finding_id 16 CONFIRMED（'大 batch 初期梯度尺度大' 不成立——mean-reduce 下批梯度是无偏估计，batch 增大只降方差不放大尺度；真正的不稳来自大 batch 配合线性缩放规则用了更大 LR，加上初期权重变化快 + Post-LN 顶层梯度天然偏大）→ §7.1 point 2、Q3 两处重写。finding_id 17 CONFIRMED（LayerNorm/RMSNorm 尺度不变性只对紧接归一化层、不经残差直连等缩放敏感路径的权重矩阵成立，不是网络中任意权重的一般性质；残差分支权重、norm 自身 γ/β、bias、输出头均不满足）→ §8.1 补限定与例外说明。finding_id 18 CONFIRMED（AMSGrad 的 arXiv 1904.09237 经重新核实是真实、正确的独立 arXiv id——此前 run 3 误判为'错误 id'并删除改成'无确认 arXiv id'，本轮予以恢复）→ 参考文献表 AMSGrad 条目改回 'arXiv 1904.09237 (2019), ICLR 2018'。finding_id 19 CONFIRMED（偏差修正后首步'严格回到 η'的表述不准确，精确式是 η·g₁/(|g₁|+ε)<η，只在 |g₁|≫ε 时才近似等于 η——训练中梯度量级通常远大于 1e-8，近似基本成立，但不是'严格'相等）→ §4.2 正文与 §A [d] 标题两处补严格式与近似前提。ZH/EN 双语同步修正，均未改动 code/optimizer_lr_schedule.py（7 条全部是正文/公式措辞/引用修正，核实过不影响可跑脚本的逻辑或已验证的数值不变量——§A [d] 的从零实现代码本就含 eps，数值上已经是 g/(|g|+eps)≈0.999999995 而非精确 1.0，与本轮修正的结论一致）。验证结果详见 /private/tmp/claude-501/-Users-yangruofeng-Desktop-ARIS-in---/302812b7-bed4-4d9f-af66-c9b0bee04bb7/scratchpad/resweep56/p0_batch_results.json（finding_id 13-19，对应 file==\"optimizer_lr_schedule_tutorial.md\"）。"
       }
     ]
   },
@@ -71,6 +78,7 @@
     "notes": "docs/tutorials/code/optimizer_lr_schedule.py (pure PyTorch, English comments) ran on Server5 (dllm, torch 2.10). Six asserts pass: [a] SGD+momentum vs torch 1.19e-7; [b] Adam vs torch 1.19e-7; [c] AdamW vs Adam+L2 DIFFER 0.213 / from-scratch decoupled vs AdamW 2.16e-7; [d] bias-correction ratio 0.316=√(1-β2)/(1-β1) (uncorrected 3.16× too large); [e] cosine+warmup t=0→0/peak→1/end→0/mid→0.5; [f] ill-conditioned quadratic κ=20 GD 4.04e-2 vs GD+momentum 1.46e-5. §A real-output is this run, verbatim. Orchestrator found & fixed two of its own demo-config errors on Server5 (bias-correction ratio direction; momentum lr must be well inside 2/κ) before shipping.",
     "headline": "[c] AdamW != Adam+L2 — the most-probed optimizer point — is verified executable (decoupled vs coupled differ by 0.21, from-scratch decoupled matches torch.optim.AdamW)."
   },
-  "summary": "Optimizer / LR Schedule cheat sheet (effort=max, ~825 lines, subagent-drafted then orchestrator-verified): full cross-model review on codex gpt-5.5 xhigh — math (bias-correction direction, AdamW decoupling, momentum √κ, Lion/Shampoo all re-derived correct; the subagent INDEPENDENTLY corrected the brief's wrong 'bias correction → step too small' to the right 'too large ≈3.16×', matching the orchestrator's Server5 finding), 2 citation batches (23 refs; removed a wrong AMSGrad arXiv id the subagent had flagged, all else confirmed or safely venue-only), code (from-scratch SGD/Adam/AdamW match torch.optim; AdamW≠Adam+L2 verified), answers (all fine), overall (2 calibration hedges). Runnable code re-ran clean on Server5 with §A output captured verbatim. The AdamW-vs-Adam-L2 decoupling, bias-correction direction, β2=0.95, Muon, are all interview-accurate.",
-  "rendered_at": "2026-06-29"
+  "summary": "Optimizer / LR Schedule cheat sheet (effort=max, ~825 lines, subagent-drafted then orchestrator-verified): full cross-model review on codex gpt-5.5 xhigh — math (bias-correction direction, AdamW decoupling, momentum √κ, Lion/Shampoo all re-derived correct; the subagent INDEPENDENTLY corrected the brief's wrong 'bias correction → step too small' to the right 'too large ≈3.16×', matching the orchestrator's Server5 finding), 2 citation batches (23 refs; removed a wrong AMSGrad arXiv id the subagent had flagged, all else confirmed or safely venue-only), code (from-scratch SGD/Adam/AdamW match torch.optim; AdamW≠Adam+L2 verified), answers (all fine), overall (2 calibration hedges). Runnable code re-ran clean on Server5 with §A output captured verbatim. The AdamW-vs-Adam-L2 decoupling, bias-correction direction, β2=0.95, Muon, are all interview-accurate. UPDATE 2026-07-12 (round 7, P0 resweep): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification (tried to refute every finding — none REFUTED) surfaced 5 CONFIRMED + 2 NEEDS_NUANCE precision issues, all fixed in both ZH/EN: (1) SGD≡L2/weight-decay equivalence qualified to plain SGD only (momentum SGD needs decoupled SGDW); (2) AdaGrad's 'G monotonic increasing → LR→0' qualified to 'LR monotonically non-increasing, →0 requires Σg²→∞'; (3) warmup's §7.1 point-1 rationale corrected from the already-cancelled 3.16× bias to v̂'s genuine early-step variance (RAdam's motivation); (4) §7.1 point-2 'large batch → large gradient scale' corrected to 'large batch + linear-scaling-rule LR + fast-changing early weights + Post-LN'; (5) LayerNorm/RMSNorm scale-invariance in §8.1 scoped to weights feeding directly into the norm layer, with an explicit exception list (residual branch, γ/β, bias, output head); (6) the AMSGrad arXiv id 1904.09237 — wrongly removed as 'unconfirmed' in round 3 — was re-verified as correct and restored; (7) the post-bias-correction first step is now stated as the strict η|g|/(|g|+ε)<η form, approximately (not exactly) η. None of the 7 fixes touch code/optimizer_lr_schedule.py (prose/formula/citation only; the §A [d] from-scratch snippet already includes eps and was already numerically consistent with the corrected wording).",
+  "rendered_at": "2026-06-29",
+  "last_updated": "2026-07-12"
 }

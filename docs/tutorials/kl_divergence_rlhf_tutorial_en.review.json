@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/kl_divergence_rlhf_tutorial_en.md",
-  "source_sha256": "41c00b1aee520a4a0608e25de9719cf58f5ab8b20b7519306305b1692ed2edcd",
+  "source_sha256": "9a9f44232c7d92abc428d6026450ad605e715fa18ae462bd1d37c32b01546e7c",
   "output": "docs/tutorials/kl_divergence_rlhf_tutorial_en.html",
   "zh_source": "docs/tutorials/kl_divergence_rlhf_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -23,6 +23,25 @@
       "date": "2026-06-29",
       "fix": "Section 4.4 removed the Anthropic-paper 1707.06347 misattribution (1707.06347 is Schulman PPO); section 6.4.2 Gao-2023 RL/PPO overoptimization fit corrected from d(a-gd)-delta*d^1.5 to the published d(a - b*log d). (EN edition mirrors the ZH fix.)",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection rescan re-audit (Codex GPT-5.6-sol candidate sweep on ZH source + independent Claude adversarial verification); EN mirrors substantive ZH fixes",
+      "verdict": "FIXED (10 of 11 applicable candidates fixed in EN; 1 was already correct in EN, 1 REFUTED and kept as-is)",
+      "date": "2026-07-12",
+      "fix_summary": [
+        "§2.5/§9 Q25: 'small-KL token use k1, large-KL token use k3' operational rule is backwards — k3's e^Δ term explodes faster than k1 as KL grows; replaced with an empirical-variance-check recommendation, plus 'holds only when the two distributions are close' qualifiers on the k2/k3 variance-vs-k1 claims (§2.3, §2.4.2).",
+        "§2.6 simulation: k2 mean corrected 0.18 → 0.133.",
+        "k3_estimator() docstring: gradient sign fixed to (1 - e^Δ)∇logπ_θ under this section's Δ=logπ_ref-logπ_θ convention, with an explicit note that §3.6 uses the opposite sign convention.",
+        "§3.6 (P2) row: k2-as-loss is gradient-equivalent to k1-in-reward only for single-step conditional KL, not the full sequence-level KL.",
+        "§7.2 GRPO code: added a rollout-staleness caveat for kl_k3 computed with a stale (multi-epoch-reused) rollout batch.",
+        "§6.6/§7.5: 'prompt token KL=0 because policy and ref agree on the prompt' corrected to the mask-semantics reason, fixed at both occurrences.",
+        "§7.5 checklist item 7: GRPO KL-dominates-loss comparison corrected to compare against the z-score-normalized advantage, not the raw reward mean.",
+        "§9 Q23: early-stop threshold corrected KL_stop=0.5·KL_peak ⇒ √KL < d_peak/√2 (was miscalculated as d_peak/2). Note: the sibling '§9 Q23 PPO fit reverted to d^{3/2} third-order term' error found in the ZH edition did NOT apply here — this EN edition's §6.4.2/§9 already used the correct log-form (per the 2026-06-29 fix above), so no change was needed for that item.",
+        "§8.4 DPO length bias: mechanism corrected to length linearly amplifying an un-normalized sum of per-token log-ratio terms, not raw log-prob negativity.",
+        "§5.3 SimPO: 'no reference model halves training memory' corrected — only the reference's forward-only footprint is saved, not 50% of total training memory.",
+        "REFUTED (kept as-is): the k3 unbiasedness derivation (§2.4.2) omitting the π_ref≪π_θ support condition — defensible simplification, standard in the field."
+      ],
+      "note": "ZH-side first-pass candidates from Codex GPT-5.6-sol full-collection sweep, independently adversarially re-verified by a separate Claude thread (11 CONFIRMED, 1 REFUTED against the ZH source). This EN edition received the same substantive fixes translated into natural English; the §9 Q23 PPO-fit-form item was not applicable since this EN edition was already correct from the 2026-06-29 fix. Source re-rendered, sidecar hash refreshed."
     }
   ]
 }

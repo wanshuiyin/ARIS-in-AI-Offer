@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/linear_sparse_attention_tutorial_en.md",
-  "source_sha256": "9905f5f38239d85e6500fdbb6b8f7e632ae50cc9f30fa31e92b63a9d92c4e34b",
+  "source_sha256": "b2ca3a16be8c8d3efed8383c8629c771bb1f21b2c14a9fbb605d4ac664c68bb4",
   "output": "docs/tutorials/linear_sparse_attention_tutorial_en.html",
   "zh_source": "docs/tutorials/linear_sparse_attention_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -27,5 +27,26 @@
     ]
   },
   "summary": "EN edition of the Linear / Sparse Attention cheat sheet (866 lines): drafted by a general-purpose subagent (math/LaTeX + code blocks copied byte-identical, 14 §-sections + 25 Q&A preserved), then orchestrator applied 2 house-convention fixes (English inline-code comments + 6 bilingual-gloss collapses), then a 1-round cross-model Codex GPT-5.5 xhigh translation-fidelity review confirmed PASS with zero meaning divergences and all hard-won ZH hedges preserved. Code logic identical to ZH with English comments; §A real-run output preserved verbatim.",
-  "rendered_at": "2026-06-18"
+  "rendered_at": "2026-06-18",
+  "post_ship_review": [
+    {
+      "scope": "second-round full-collection re-sweep, ZH-side: Codex GPT-5.6-sol candidate-error sweep + independent Claude adversarial verification (each candidate re-argued from scratch, attempting to refute); the 11 confirmed fixes were then mirrored into this EN edition for ZH/EN parity",
+      "verdict": "8 CONFIRMED + 3 NEEDS_NUANCE, all fixed (mirrored from ZH)",
+      "date": "2026-07-12",
+      "fix_summary": [
+        "(#60, CONFIRMED) softmax denominator 'sum exp >= 1' only holds after max-subtraction numerical stabilization, not for the raw formula — §2.3 corrected.",
+        "(#61, CONFIRMED) S2.2/S6's outer-product order S=sum phi(k)v^T vs S5 DeltaNet's transposed convention S=...+vk^T (masked by every demo setting d_k=d_v) — added an explicit convention note at both first-definition points (S2.2 and S5.1); doc-only fix, no math rewritten.",
+        "(#62, CONFIRMED) 'SSM <=> 1-semiseparable matrix M' corrected to N-semiseparable (N = SSM state dim; rank<=1 '1-semiseparable' is the degenerate N=1 case) — fixed at TL;DR item 4, the S4.1 SSD callout, and Q13.",
+        "(#63, CONFIRMED) Mamba-1 vs Mamba-2 'algorithmically equivalent' narrowed: the genuine equivalence is the 3 eval-paths (scan/chunkwise/quadratic) of the SAME (Mamba-2-restricted) SSD layer, not Mamba-1 vs Mamba-2 as models — fixed at S4.2 and Q14.",
+        "(#64, CONFIRMED) S7.5 table 'training' cell corrected: Longformer/BigBird DO apply their sparse pattern during (continued) pretraining, not only fine-tuning — table cell shortened + footnote callout added.",
+        "(#65, CONFIRMED) S9.1: even one full-attention layer in a hybrid keeps asymptotic time complexity at O(L^2); hybrids cut the constant factor, not the complexity class.",
+        "(#66, NEEDS_NUANCE) RetNet's positional info supplemented with its complex rotation factor Theta_n=e^{i n theta} (xPos/RoPE-style), on top of the scalar decay gamma — noted at S2.4 and S10.",
+        "(#67, CONFIRMED) 'linear attention is a finite-dimensional approximation of softmax' narrowed to Performer-class only (ELU+1/RetNet use a different kernel, not a softmax approximation).",
+        "(#68, CONFIRMED) Appendix code comment's iff-claim for delta-rule == additive final state corrected to sufficient-not-necessary; fixed the inline comment and the matching read-the-numbers prose for [e]. This snippet lives only in this .md's illustrative code block, not in code/linear_sparse_attention.py (unchanged).",
+        "(#59, NEEDS_NUANCE) S6.2's chunkwise derivation silently uses the UNNORMALIZED recurrence while S2.2's boxed formula is normalized — added a bridging sentence flagging this.",
+        "(#69, NEEDS_NUANCE -> resolved by live verification) the References claim of 'no independent arXiv paper' for DeepSeek-V3.2/DSA is outdated: arXiv 2512.02556 (2025-12-02) is now the official V3.2 report and documents DSA — reference entry updated."
+      ],
+      "note": "Mirrors the ZH sidecar's post_ship_review entry (docs/tutorials/linear_sparse_attention_tutorial.review.json) for full detail. No fresh EN-only translation-fidelity round was run this pass (the substantive content fixes were applied directly to the EN source with natural EN phrasing matching the existing style, not re-translated from the patched ZH text); a full 1-round translation-fidelity check (as in the 2026-06-18 round above) remains recommended before the next externally-facing audit if wanted, but was not required to land these correctness fixes."
+    }
+  ]
 }

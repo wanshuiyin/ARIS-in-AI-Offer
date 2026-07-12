@@ -95,8 +95,9 @@ class DoRALinear(nn.Module):
             p.requires_grad_(False)
         in_f, out_f = base.in_features, base.out_features
         self.scaling = alpha / r
-        self.lora_A = nn.Parameter(torch.empty(r, in_f))
-        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        dev, dt = base.weight.device, base.weight.dtype          # follow the base
+        self.lora_A = nn.Parameter(torch.empty(r, in_f, device=dev, dtype=dt))
+        self.lora_B = nn.Parameter(torch.zeros(out_f, r, device=dev, dtype=dt))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
         # per-output magnitude: norm over the in dim (dim=1) -> [out, 1]
         self.m = nn.Parameter(self.base.weight.norm(dim=1, keepdim=True))  # [out, 1]

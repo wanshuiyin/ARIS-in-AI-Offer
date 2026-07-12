@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/llm_opd_tutorial.md",
-  "source_sha256": "621b0792bede0b06654b0341b652bb5055eeac2b24c258e58c2f63ace770bed7",
+  "source_sha256": "9bf4d2a12db9e07ff1829ad76ef999151d653a4f1fa46c3c3710846770f40ff7",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-20); not a new codex review",
   "output": "docs/tutorials/llm_opd_tutorial.html",
   "topic": "LLM On-Policy Distillation (OPD) — MiniLLM, GKD, Qwen3, Thinking Machines, Tinker, vOPD, OPD+GRPO",
@@ -123,5 +123,14 @@
   "summary": "LLM OPD tutorial: solo subagent draft (1037→1196 lines) → 7 rounds of strict math/code review with cross-model codex gpt-5.5 xhigh. Caught 1 CRITICAL sign reversal in vOPD surrogate, 11 MAJOR issues (Tinker default misattribution, MiniLLM Route A misattribution, Route B 'fallback' framing, shape mismatch, return-to-go trajectory PG, KL reward formula ambiguity, etc.), and ~6 MINORs. ALL FIXED — no deferred items per user's no-defer feedback. Render PASS after 3 rounds (table-pipe + list-renumber + TeX double-escape).",
   "no_defer_compliance": true,
   "user_feedback_observed": "LLM OPD 数学有较多问题 — 修关键 + 加 caveats，剩下深层 derivation 在 review.json 标 defer。 这种我不接受哈 你可以无限次的叫codex 但一定要对",
-  "rendered_at": "2026-05-20"
+  "rendered_at": "2026-05-20",
+  "post_ship_review": [
+    {
+      "scope": "full-collection re-sweep audit (Codex GPT-5.6-sol candidate-error sweep + independent Claude adversarial verification)",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "18 candidate findings adversarially verified -> 14 CONFIRMED + 4 NEEDS_NUANCE, all applied. Highlights: Generalized-JSD beta=0/1 endpoints are literal 0 (must use one-sided limits, direction opposite of naive intuition); MiniLLM's actual policy gradient uses a return-to-go single-step decomposition (not plain B1 semi-gradient); OPD+GRPO's r_kl_dense is a trajectory-level scalar broadcast to all tokens, not real per-token dense reward; Route B needs a logprob-only (gray-box) teacher, not a true sample-only black-box API; sampled-token gather saves storage/transfer not compute; teacher-probability-near-zero case makes the reverse-KL term explode to +inf, not vanish to 0; OPD value-function baseline is a single-step conditional expectation, not the true trajectory V(s); bit-rate arithmetic N*17/10 corrected to 1.7N (3400-13600x, not 200-1000x); naive Route-A code's five [B,L,V] tensors (~33-50GB) reconciled against the Sec 8.2 memory table; teacher forward is one call over the full sequence, not one per prefix; Sec 8.3 relabeled Sample Efficiency -> Compute Efficiency throughout; RLHF is NOT a beta->0 special case; Kim&Rush/DistilBERT/R1-Distill years and DistilBERT stats corrected; Gemma 2/3 reclassified from OPD to off-policy soft-target KD (Qwen3/R1-Distill timeline/pipeline entries also disentangled); added needs-verify tags for Qwen3 pass@64 specifics, Thinking Machines FLOPs multiplier, and DeepSeek-V4 details.",
+      "note": "Verification protocol: round 1 Codex GPT-5.6-sol ultra produced candidate errors against the shipped text; round 2 an independent fresh Claude thread adversarially attempted to overturn every candidate (re-deriving the math, re-checking the code, and re-reading surrounding prose) before a verdict was accepted. NEEDS_NUANCE items were softened/qualified rather than reversed. Applied to both ZH and EN editions; EN is a faithful translation of the same substantive fixes. Source re-rendered, sidecar hash refreshed. Original gating reviews (math_code_review, render_review) remain valid for everything not touched by this pass."
+    }
+  ]
 }

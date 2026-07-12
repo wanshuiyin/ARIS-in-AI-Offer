@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/lora_peft_tutorial.md">
-<meta name="aris:source-sha256" content="5e6a533cffa76a3740511f522eb0cd125a48121faee7f23e57a0cf1f83577120">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="9009e663f283467f8f591956b64c09fb3e24a9b94472a034d626b00830be64ad">
+<meta name="aris:generated-at" content="2026-07-12 04:18 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -580,8 +580,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/lora_peft_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>5e6a533cffa7</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>9009e663f283</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:18 UTC</span>
     
   </div>
 </header>
@@ -650,8 +650,10 @@ class LoRALinear(nn.Module):
         self.scaling = alpha / (math.sqrt(r) if rslora else r)
 
         # A: [r, in]  Kaiming 随机；B: [out, r] 置零 -&gt; 起点 ΔW = 0
-        self.lora_A = nn.Parameter(torch.empty(r, in_f))
-        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        # 用 new_empty/new_zeros 继承 base.weight 的 device/dtype，
+        # 避免 base 在 GPU/bf16 而 lora_A/lora_B 落在 CPU/fp32 导致设备或精度不一致
+        self.lora_A = nn.Parameter(base.weight.new_empty(r, in_f))
+        self.lora_B = nn.Parameter(base.weight.new_zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
 
         self.lora_dropout = nn.Dropout(dropout) if dropout &gt; 0 else nn.Identity()
@@ -684,7 +686,10 @@ class LoRALinear(nn.Module):
 
 def inject_lora(model: nn.Module, target_names=(&quot;q_proj&quot;, &quot;v_proj&quot;),
                 r=8, alpha=16, dropout=0.0):
-    &quot;&quot;&quot;把 model 中名字命中 target_names 的 nn.Linear 替换成 LoRALinear。&quot;&quot;&quot;
+    &quot;&quot;&quot;把 model 中名字命中 target_names 的 nn.Linear 替换成 LoRALinear；
+    调用前先冻结整个模型，避免 embedding/LayerNorm/FFN 等未命中模块仍可训。&quot;&quot;&quot;
+    for p in model.parameters():
+        p.requires_grad_(False)
     for name, module in list(model.named_modules()):
         for child_name, child in list(module.named_children()):
             if isinstance(child, nn.Linear) and child_name in target_names:
@@ -692,7 +697,7 @@ def inject_lora(model: nn.Module, target_names=(&quot;q_proj&quot;, &quot;v_proj
                         LoRALinear(child, r=r, alpha=alpha, dropout=dropout))
     return model</code></pre>
 <p>要点：</p>
-<ul><li>注意 <code>x @ A.t() @ B.t()</code>：$x$ 形状 $[\dots, k]$，$A^\top$ 是 $[k, r]$，$B^\top$ 是 $[r, d]$，输出 $[\dots, d]$，与 base 输出对齐。</li><li><code>merge()</code> 用 <code>@torch.no_grad()</code> + <code>add_</code> 原地改 <code>base.weight</code>，合并后 <code>forward</code> 跳过旁路。</li><li>dropout 只作用在<strong>进入旁路的输入</strong>上，不动主路（这是 LoRA 的标准做法）。</li></ul>
+<ul><li>注意 <code>x @ A.t() @ B.t()</code>：$x$ 形状 $[\dots, k]$，$A^\top$ 是 $[k, r]$，$B^\top$ 是 $[r, d]$，输出 $[\dots, d]$，与 base 输出对齐。</li><li><code>merge()</code> 用 <code>@torch.no_grad()</code> + <code>add_</code> 原地改 <code>base.weight</code>，合并后 <code>forward</code> 跳过旁路。</li><li>dropout 只作用在<strong>进入旁路的输入</strong>上，不动主路（这是 LoRA 的标准做法）。</li><li><code>inject_lora()</code> 开头先对整个 <code>model</code> 做一次 <code>requires_grad_(False)</code>：<code>LoRALinear.__init__</code> 只冻结自己包住的那个 base 子模块，若不先全局冻结，embedding / LayerNorm / 未命中 <code>target_names</code> 的 FFN 等模块会保持默认的可训状态，等于悄悄变成了全参微调。</li></ul>
 <div class="callout callout-info"><div class="callout-title">dropout 放在旁路输入</div><p>LoRA dropout 作用于 $x$ 进入 $A$ 之前，相当于对低秩适配做正则；主路 $W_0 x$ 不加 dropout（基座是冻结的、不需要正则）。</p></div>
 <h2 id="4-显存账lora-到底省在哪">§4 显存账：LoRA 到底省在哪</h2>
 <p>把一个 $\Psi$ 参数模型用 Adam 微调，按字节拆解（混合精度训练，per param）：</p>
@@ -709,7 +714,7 @@ def inject_lora(model: nn.Module, target_names=(&quot;q_proj&quot;, &quot;v_proj
 <p>QLoRA（Dettmers et al., 2023, arXiv 2305.14314, NeurIPS 2023）让单张 48GB 卡微调 65B 模型，核心是三件套：<strong>NF4 量化</strong> + <strong>双重量化</strong> + <strong>paged optimizer</strong>，再叠加"基座 4-bit 冻结、LoRA 走 bf16"的配方。</p>
 <h3 id="51-nf44-bit-normalfloat信息论最优">5.1　NF4：4-bit NormalFloat（信息论最优）</h3>
 <p>观察：神经网络权重近似服从零均值正态分布 $\mathcal{N}(0,\sigma^2)$。普通 4-bit 整数量化（INT4，等间距 bin）在正态分布上是浪费的——尾部 bin 几乎没有值落入。<strong>NF4 的思路是让每个量化 bin 落入相等数量的权重（等概率质量），在"权重服从零均值正态 + quantile 量化"的假设下，这是对该固定分布信息论最优的（quantile quantization）。</strong></p>
-<p>构造（简化）：取标准正态 $\mathcal{N}(0,1)$ 的 $2^4=16$ 个分位点作为量化级别，使相邻级别之间的概率质量相等；并做<strong>非对称</strong>处理使 0 能被精确表示（zero-preserving，对剪枝 / padding 友好）。量化时按 block（QLoRA 用 block size 64）算 absmax 把权重归一化到 $[-1,1]$，再查最近的 NF4 级别：</p>
+<p>构造（简化）：分别对标准正态 $\mathcal{N}(0,1)$ 的负半轴与正半轴估计分位点（bitsandbytes 实现里是负侧 8 个含 0、正侧 7 个不含 0，共 $2^4=16$ 级，offset 用经验调优值而非纯理论等分位边界），使各 bin 近似等概率质量，并强制 0 精确可表示（<strong>非对称</strong> + zero-preserving，对剪枝 / padding 友好）——因此并非严格意义上完全等概率的分位划分，而是在满足 zero-preserving 约束下对等概率量化的工程近似。量化时按 block（QLoRA 用 block size 64）算 absmax 把权重归一化到 $[-1,1]$，再查最近的 NF4 级别：</p>
 <p>$$w \;\xrightarrow{\text{normalize by absmax}}\; \hat{w} \in [-1,1] \;\xrightarrow{\text{nearest NF4 level}}\; q \in \{n_0,\dots,n_{15}\}$$</p>
 <p>反量化：$w \approx c \cdot n_q$，其中 $c$ 是该 block 的 absmax 缩放常数。</p>
 <div class="callout callout-info"><div class="callout-title">NF4 vs INT4 vs FP4</div><p>INT4 等间距，对正态分布尾部浪费 bin；FP4 用浮点指数分配非均匀级别但未必匹配权重分布；NF4 直接按正态分位点放级别，对"权重本就近正态"这件事做了最优匹配。论文实测 NF4 显著优于 INT4/FP4。</p></div>
@@ -718,7 +723,7 @@ def inject_lora(model: nn.Module, target_names=(&quot;q_proj&quot;, &quot;v_proj
 <p>$$\text{开销}: \underbrace{0.5\,\text{bit/param}}_{\text{单次}} \;\to\; \underbrace{\frac{8}{64} + \frac{32}{64\times256}}_{\text{双重}} \approx 0.127\,\text{bit/param}$$</p>
 <p>平均每参数省约 <strong>0.37 bit</strong>——对 65B 模型就是约 3 GB，足以决定能不能塞进一张卡。</p>
 <h3 id="53-paged-optimizer">5.3　Paged Optimizer</h3>
-<p>长序列 / 大 batch 时，优化器状态可能出现瞬时显存尖峰导致 OOM。QLoRA 用 NVIDIA <strong>unified memory</strong> 给优化器状态做<strong>分页</strong>：显存吃紧时把优化器状态分页换出到 CPU 内存，需要时再换回，像操作系统的内存分页一样，避免 OOM 崩溃。</p>
+<p>优化器状态的逻辑大小基本固定（$\propto$ 可训练参数量，不随 batch / seq_len 变化）；真正在长序列 / 大 batch 时出现瞬时显存尖峰的是<strong>激活值（activation）和中间 buffer</strong>。QLoRA 用 NVIDIA <strong>unified memory</strong> 给优化器状态做<strong>分页</strong>：当这类瞬时尖峰把 GPU 显存挤满时，把（本可常驻的）优化器状态换出到 CPU 内存腾地方，需要做参数更新时再换回，像操作系统的内存分页一样，避免 OOM 崩溃。</p>
 <h3 id="54-前向--反向怎么走">5.4　前向 / 反向怎么走</h3>
 <p>关键：<strong>基座以 NF4 存储，但计算时按 block 反量化到 bf16 再做矩阵乘</strong>；梯度只流向 bf16 的 LoRA 参数，NF4 基座始终冻结、不存梯度。所以 QLoRA 训练显存 ≈ NF4 基座（4 bit/param = 0.5 byte/param，外加双重量化后约 0.127 bit/param 的量化常数）+ bf16 LoRA 的优化器 + 激活。</p>
 <pre><code class="language-python"># QLoRA 前向的概念骨架（非完整 kernel，仅示意数据流）
@@ -748,8 +753,9 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
             p.requires_grad_(False)
         in_f, out_f = base.in_features, base.out_features
         self.scaling = alpha / r
-        self.lora_A = nn.Parameter(torch.empty(r, in_f))
-        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        # 同 LoRALinear：new_empty/new_zeros 继承 base.weight 的 device/dtype
+        self.lora_A = nn.Parameter(base.weight.new_empty(r, in_f))
+        self.lora_B = nn.Parameter(base.weight.new_zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
         # 逐输出幅度：W 形状 [out, in]，沿 in 维(dim=1)求范数 -&gt; [out, 1]（同 HF PEFT）
         self.m = nn.Parameter(self.base.weight.norm(dim=1, keepdim=True))  # [out, 1]
@@ -764,7 +770,7 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <h2 id="7-lora-家族变体一览">§7 LoRA 家族变体一览</h2>
 <table><thead><tr><th>变体</th><th>一句话</th><th>改了 LoRA 的什么</th><th>论文</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>低秩旁路 $BA$</td><td>基线</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>rsLoRA</strong></td><td>缩放改 $\alpha/\sqrt{r}$</td><td>高秩梯度稳定</td><td>Kalajdzievski 2023, 2312.03732</td></tr><tr><td><strong>DoRA</strong></td><td>幅度-方向分解</td><td>解绑幅度与方向</td><td>Liu 2024, 2402.09353</td></tr><tr><td><strong>PiSSA</strong></td><td>用 $W_0$ 主成分初始化 $A,B$</td><td>初始化（更快收敛）</td><td>Meng 2024, 2404.02948</td></tr><tr><td><strong>LoRA-GA</strong></td><td>让首步梯度逼近满参</td><td>初始化（梯度对齐）</td><td>Wang 2024, 2407.05000</td></tr><tr><td><strong>AdaLoRA</strong></td><td>SVD 形式 + 按重要性剪秩</td><td>自适应分配秩预算</td><td>Zhang 2023, 2303.10512</td></tr><tr><td><strong>LoRA+</strong></td><td>$A,B$ 用不同学习率</td><td>优化（$B$ 更大 lr）</td><td>Hayou 2024, 2402.12354</td></tr><tr><td><strong>(IA)³</strong></td><td>学缩放向量乘激活</td><td>非低秩、参数更省</td><td>Liu 2022, 2205.05638</td></tr></tbody></table>
 <p>几个值得展开的：</p>
-<ul><li><strong>PiSSA</strong>：不再随机初始化，而是对 $W_0$ 做 SVD，用<strong>主奇异值/向量</strong>初始化 $A,B$（适配"最重要"的子空间），残差 $W_0 - BA$ 冻结。因为一开始就对准主成分，收敛更快、效果常更好。</li><li><strong>AdaLoRA</strong>：把 $\Delta W$ 参数化成 SVD 形式 $P\Lambda Q$，训练中按奇异值重要性<strong>动态剪枝</strong>，把有限的秩预算分给更需要的层（不同层 $r$ 不同），而非均匀分配。</li><li><strong>(IA)³</strong>：不走低秩矩阵，而是学三个<strong>缩放向量</strong> $l_k, l_v, l_{ff}$，逐元素乘到 key、value、FFN 隐藏激活上：$k \to l_k \odot k$。参数量比 LoRA 还小一个量级，T-Few 用它做少样本超过 in-context learning。</li></ul>
+<ul><li><strong>PiSSA</strong>：对 $W_0$ 做 SVD 得到主奇异值/向量，用其初始化 $A_0,B_0$（例如 $A_0=U_{:,:r}\Sigma_{:r,:r}^{1/2}$、$B_0=\Sigma_{:r,:r}^{1/2}V_{:,:r}^\top$，使 $B_0A_0$ 逼近 $W_0$ 的主 $r$ 秩分量），冻结残差 $W_{\text{res}} = W_0 - \gamma B_0 A_0$（$\gamma=\alpha/r$ 是与 §2 一致的 LoRA 缩放；若沿用标准带缩放的 forward，残差必须减去带 $\gamma$ 的 $B_0A_0$ 才能保证 $t=0$ 时 $h=W_0x$；等价地也可令 $\alpha=r$，即 $\gamma=1$，把缩放吸收进初始化，此时可简化为 $W_0-B_0A_0$）。因为一开始就对准主成分，收敛更快、效果常更好。</li><li><strong>AdaLoRA</strong>：把 $\Delta W$ 参数化成 SVD 形式 $P\Lambda Q$，训练中按奇异值重要性<strong>动态剪枝</strong>，把有限的秩预算分给更需要的层（不同层 $r$ 不同），而非均匀分配。</li><li><strong>(IA)³</strong>：不走低秩矩阵，而是学三个<strong>缩放向量</strong> $l_k, l_v, l_{ff}$，逐元素乘到 key、value、FFN 隐藏激活上：$k \to l_k \odot k$。参数量比 LoRA 还小一个量级，T-Few 用它做少样本超过 in-context learning。</li></ul>
 <h2 id="8-与其他-peft-范式对比">§8 与其他 PEFT 范式对比</h2>
 <p>PEFT 大致分四类：<strong>加性低秩（LoRA 系）</strong>、<strong>加性模块（Adapter）</strong>、<strong>软提示（Prompt/Prefix）</strong>、<strong>选择性（BitFit）</strong>。</p>
 <table><thead><tr><th>方法</th><th>训练什么</th><th>插在哪</th><th>推理额外开销</th><th>典型可训练比例</th><th>论文</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>低秩 $BA$</td><td>并联到线性层</td><td><strong>零</strong>（可合并）</td><td>0.1%~1%</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>Adapter</strong></td><td>瓶颈 MLP</td><td>串联在子层后</td><td>有（串行子模块）</td><td>0.5%~5%</td><td>Houlsby 2019, 1902.00751</td></tr><tr><td><strong>Prefix-Tuning</strong></td><td>每层前缀 K/V</td><td>注意力 K/V 前缀</td><td>有（占 KV / 序列）</td><td>&lt;0.1%~1%</td><td>Li-Liang 2021, 2101.00190</td></tr><tr><td><strong>Prompt Tuning</strong></td><td>输入软提示</td><td>仅 embedding 层</td><td>有（占序列长度）</td><td>极小</td><td>Lester 2021, 2104.08691</td></tr><tr><td><strong>P-Tuning v2</strong></td><td>每层软提示</td><td>各层前缀</td><td>有</td><td>0.1%~3%</td><td>Liu 2021, 2110.07602</td></tr><tr><td><strong>BitFit</strong></td><td>仅 bias</td><td>各层 bias 项</td><td>零（原地）</td><td>~0.08%</td><td>Ben-Zaken 2021, 2106.10199</td></tr><tr><td><strong>(IA)³</strong></td><td>缩放向量</td><td>K/V/FFN 激活</td><td>有（可部分合并）</td><td>&lt;0.05%</td><td>Liu 2022, 2205.05638</td></tr></tbody></table>
@@ -863,7 +869,7 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <details>
 
 <summary>Q14. NF4 是什么？为什么比 INT4 适合量化权重？</summary>
-<ul><li>NF4 = 4-bit NormalFloat，按标准正态分位点放 16 个量化级别，使各 bin 等概率质量</li><li>权重近似 $\mathcal{N}(0,\sigma^2)$，<strong>正态假设下</strong>等概率 bin 对该固定分布是信息论最优（quantile 量化）</li><li>INT4 等间距，对正态尾部浪费 bin；NF4 还做 zero-preserving</li></ul>
+<ul><li>NF4 = 4-bit NormalFloat，分别对正态分布负/正半轴估计分位点放 16 个量化级别（负侧含 0），使各 bin 近似等概率质量（非严格理论等分位，是 zero-preserving 约束下的工程近似）</li><li>权重近似 $\mathcal{N}(0,\sigma^2)$，<strong>正态假设下</strong>等概率 bin 对该固定分布是信息论最优（quantile 量化）</li><li>INT4 等间距，对正态尾部浪费 bin；NF4 还做 zero-preserving</li></ul>
 <p>说 NF4 是普通 4-bit 整数，或答不出"等概率质量 / quantile"这个关键。</p>
 </details>
 <details>
@@ -935,7 +941,7 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 </details>
 <h2 id="a-附录sanity-check">§A 附录：sanity check</h2>
 <p><code>LoRALinear</code> 的关键不变量（可写一段脚本验证）：</p>
-<ul><li><strong>起点等价</strong>：注入 LoRA 后、训练前，模型输出应与基座逐元素相等（因 $B=0 \Rightarrow \Delta W=0$）。</li><li><strong>合并一致性</strong>：<code>merge()</code> 前后对同一输入的输出应数值一致（fp32 / eval / dropout=0 下误差 ~1e-6 级，纯浮点累加导致；bf16 或 train-mode dropout 下误差更大，不应承诺该数值）。</li><li><strong>可训练量</strong>：只有 <code>lora_A</code>、<code>lora_B</code>（以及 DoRA 的 <code>m</code>）<code>requires_grad=True</code>，基座全 <code>False</code>。</li><li><strong>参数计数</strong>：适配 $q,v$、$r=8$、$d=4096$、$L$ 层时，可训练参数 $= L \times 2 \times 8 \times (4096+4096)$。</li></ul>
+<ul><li><strong>起点等价</strong>：注入 LoRA 后、训练前，模型输出应与基座逐元素相等（因 $B=0 \Rightarrow \Delta W=0$）。</li><li><strong>合并一致性</strong>：<code>merge()</code> 前后对同一输入的输出应数值一致（fp32 / eval / dropout=0 下误差 ~1e-6 级，纯浮点累加导致；bf16 或 train-mode dropout 下误差更大，不应承诺该数值）。</li><li><strong>可训练量</strong>：只有 <code>lora_A</code>、<code>lora_B</code>（以及 DoRA 的 <code>m</code>）<code>requires_grad=True</code>，基座全 <code>False</code>。（该不变量是对 <code>LoRALinear</code>/<code>DoRALinear</code> 独立单元测试脚本成立——脚本里被测模型全由 LoRA/DoRA 层包裹；若在完整模型上用 §3 的 <code>inject_lora()</code>，务必先对整个模型 <code>requires_grad_(False)</code>，否则未命中 <code>target_names</code> 的模块仍是默认可训。）</li><li><strong>参数计数</strong>：适配 $q,v$、$r=8$、$d=4096$、$L$ 层时，可训练参数 $= L \times 2 \times 8 \times (4096+4096)$。</li></ul>
 <p>下面是 <a href="code/lora.py"><code>code/lora.py</code></a>（$\text{IN}=32, \text{OUT}=48, r=8, \alpha=16$）在 <strong>PyTorch 2.10 / CPU</strong> 上的<strong>真实运行</strong>输出（每行带 <code>assert</code>，全过才打印汇总）：</p>
 <pre><code>[a] B=0 init: |out_lora - out_base| = 0.00e+00  OK
 [b] after 1 step: ||dW|| = 4.768e-02, output changed  OK
@@ -953,13 +959,13 @@ all LoRA / DoRA sanity checks passed ✓</code></pre>
 <p>纯 PyTorch，CPU 几秒跑完、无需 GPU：<code>python docs/tutorials/code/lora.py</code>。上方 §A 的输出即该脚本的真实运行结果。</p>
 <hr />
 <h2 id="参考文献">📚 参考文献</h2>
-<ul><li><strong>LoRA</strong> — Hu et al., <em>LoRA: Low-Rank Adaptation of Large Language Models</em>, arXiv 2106.09685 (2021), ICLR 2022.</li><li><strong>Intrinsic Dimension</strong> — Aghajanyan et al., <em>Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning</em>, arXiv 2012.13255 (2020).</li><li><strong>QLoRA</strong> — Dettmers et al., <em>QLoRA: Efficient Finetuning of Quantized LLMs</em>, arXiv 2305.14314 (2023), NeurIPS 2023.</li><li><strong>DoRA</strong> — Liu et al., <em>DoRA: Weight-Decomposed Low-Rank Adaptation</em>, arXiv 2402.09353 (2024), ICML 2024.</li><li><strong>rsLoRA</strong> — Kalajdzievski, <em>A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA</em>, arXiv 2312.03732 (2023).</li><li><strong>PiSSA</strong> — Meng et al., <em>PiSSA: Principal Singular Values and Singular Vectors Adaptation</em>, arXiv 2404.02948 (2024), NeurIPS 2024.</li><li><strong>LoRA-GA</strong> — Wang et al., <em>LoRA-GA: Low-Rank Adaptation with Gradient Approximation</em>, arXiv 2407.05000 (2024).</li><li><strong>AdaLoRA</strong> — Zhang et al., <em>Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning</em>, arXiv 2303.10512 (2023), ICLR 2023.</li><li><strong>LoRA+</strong> — Hayou et al., <em>LoRA+: Efficient Low Rank Adaptation of Large Models</em>, arXiv 2402.12354 (2024).</li><li><strong>(IA)³ / T-Few</strong> — Liu et al., <em>Few-Shot Parameter-Efficient Fine-Tuning Is Better and Cheaper than In-Context Learning</em>, arXiv 2205.05638 (2022).</li><li><strong>Adapter</strong> — Houlsby et al., <em>Parameter-Efficient Transfer Learning for NLP</em>, arXiv 1902.00751 (2019), ICML 2019.</li><li><strong>Prefix-Tuning</strong> — Li &amp; Liang, <em>Prefix-Tuning: Optimizing Continuous Prompts for Generation</em>, arXiv 2101.00190 (2021), ACL 2021.</li><li><strong>Prompt Tuning</strong> — Lester et al., <em>The Power of Scale for Parameter-Efficient Prompt Tuning</em>, arXiv 2104.08691 (2021), EMNLP 2021.</li><li><strong>P-Tuning v2</strong> — Liu et al., <em>P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks</em>, arXiv 2110.07602 (2021).</li><li><strong>BitFit</strong> — Ben-Zaken et al., <em>BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models</em>, arXiv 2106.10199 (2021), ACL 2022.</li><li><strong>S-LoRA</strong> — Sheng et al., <em>S-LoRA: Serving Thousands of Concurrent LoRA Adapters</em>, arXiv 2311.03285 (2023).</li><li><strong>LoRA Learns Less and Forgets Less</strong> — Biderman et al., arXiv 2405.09673 (2024), TMLR 2024.</li></ul>
+<ul><li><strong>LoRA</strong> — Hu et al., <em>LoRA: Low-Rank Adaptation of Large Language Models</em>, arXiv 2106.09685 (2021), ICLR 2022.</li><li><strong>Intrinsic Dimension</strong> — Aghajanyan et al., <em>Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning</em>, arXiv 2012.13255 (2020).</li><li><strong>QLoRA</strong> — Dettmers et al., <em>QLoRA: Efficient Finetuning of Quantized LLMs</em>, arXiv 2305.14314 (2023), NeurIPS 2023.</li><li><strong>DoRA</strong> — Liu et al., <em>DoRA: Weight-Decomposed Low-Rank Adaptation</em>, arXiv 2402.09353 (2024), ICML 2024.</li><li><strong>rsLoRA</strong> — Kalajdzievski, <em>A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA</em>, arXiv 2312.03732 (2023).</li><li><strong>PiSSA</strong> — Meng et al., <em>PiSSA: Principal Singular Values and Singular Vectors Adaptation of Large Language Models</em>, arXiv 2404.02948 (2024), NeurIPS 2024.</li><li><strong>LoRA-GA</strong> — Wang et al., <em>LoRA-GA: Low-Rank Adaptation with Gradient Approximation</em>, arXiv 2407.05000 (2024).</li><li><strong>AdaLoRA</strong> — Zhang et al., <em>Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning</em>, arXiv 2303.10512 (2023), ICLR 2023.</li><li><strong>LoRA+</strong> — Hayou et al., <em>LoRA+: Efficient Low Rank Adaptation of Large Models</em>, arXiv 2402.12354 (2024).</li><li><strong>(IA)³ / T-Few</strong> — Liu et al., <em>Few-Shot Parameter-Efficient Fine-Tuning Is Better and Cheaper than In-Context Learning</em>, arXiv 2205.05638 (2022).</li><li><strong>Adapter</strong> — Houlsby et al., <em>Parameter-Efficient Transfer Learning for NLP</em>, arXiv 1902.00751 (2019), ICML 2019.</li><li><strong>Prefix-Tuning</strong> — Li &amp; Liang, <em>Prefix-Tuning: Optimizing Continuous Prompts for Generation</em>, arXiv 2101.00190 (2021), ACL 2021.</li><li><strong>Prompt Tuning</strong> — Lester et al., <em>The Power of Scale for Parameter-Efficient Prompt Tuning</em>, arXiv 2104.08691 (2021), EMNLP 2021.</li><li><strong>P-Tuning v2</strong> — Liu et al., <em>P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks</em>, arXiv 2110.07602 (2021).</li><li><strong>BitFit</strong> — Ben-Zaken et al., <em>BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models</em>, arXiv 2106.10199 (2021), ACL 2022.</li><li><strong>S-LoRA</strong> — Sheng et al., <em>S-LoRA: Serving Thousands of Concurrent LoRA Adapters</em>, arXiv 2311.03285 (2023).</li><li><strong>LoRA Learns Less and Forgets Less</strong> — Biderman et al., arXiv 2405.09673 (2024), TMLR 2024.</li></ul>
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/lora_peft_tutorial.md</code> ·
-  SHA256 <code>5e6a533cffa7</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>9009e663f283</code> ·
+  generated at 2026-07-12 04:18 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

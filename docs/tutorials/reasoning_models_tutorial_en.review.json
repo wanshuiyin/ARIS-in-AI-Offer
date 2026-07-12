@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/reasoning_models_tutorial_en.md",
-  "source_sha256": "9fd1406479c2117ba3de7cdd0d4fc987cf73cda97868b5fbf4e689290afcdf8c",
+  "source_sha256": "6676c8118f2e05e16f9194fb2db2ff36a142930dc9fabda392f1834e4e07a7a0",
   "output": "docs/tutorials/reasoning_models_tutorial_en.html",
   "zh_source": "docs/tutorials/reasoning_models_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -27,6 +27,13 @@
       "date": "2026-06-29",
       "fix": "Math-Shepherd relabeled MCTS to Monte-Carlo completion rollouts in section 3.3, the section-3 table, and the timeline (it uses plain MC rollouts, not tree search — resolves the self-contradiction with section 0/Q4/Q17; rStar-Math genuine MCTS usage left unchanged). (EN edition mirrors the ZH fix.)",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection re-sweep audit (Codex GPT-5.6-sol candidate-finding round + independent Claude adversarial cross-check attempting to overturn each candidate) — EN mirror of ZH fix",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "Same 14 findings as the ZH edition (12 CONFIRMED + 2 NEEDS_NUANCE) applied as equivalent substantive changes in natural English, matching ZH content and code logic 1:1. Highlights: §1.1 scaling-law description rewritten to 3 independent power laws + Chinchilla optimal ratio; ORM/PRM table training-objective row corrected to the reward model's actual supervised loss (with an RL-policy-objective footnote); Lightman 2023 numbers corrected to N=1860/78.2%/72.4%/69.6%; residual 'MCTS-label(s)' wording fixed to 'MC rollout label(s)' (3 spots + 1 timeline row); GRPO loss code changed to per-completion-length-normalized + equal-weight-mean-over-G reduction (was global length-weighted sum/sum, the DAPO/Dr.GRPO length-bias bug); G=16/β=0.001 annotated as community estimate, not officially published (3 spots); the unverifiable '~147K H800-hours / two orders of magnitude smaller than GPT-4' claim replaced with the actually-disclosed DeepSeek-V3 pretraining cost + non-disclosure note (2 spots); R1 Stage-3 filtering corrected to rule/answer verification + DeepSeek-V3 generative judging (no PRM); R1-Distill SFT data corrected to the full ~800K (600K reasoning + 200K general) (2 spots); PaLM-2 '14× larger model' claims annotated as FLOPs-matched accounting (5 spots); Snell 2024 simple/hard-problem strategy swapped back to sequential-for-easy/parallel-for-hard (2 spots); MCTS misattributed to Snell 2024 corrected to rStar/rStar-Math; s1-32B epochs corrected 1→5; Q24 BoN/ToT/MCTS split into per-method information-exchange behavior instead of being lumped together.",
+      "note": "Detect-only sweep run once against the ZH source of truth; this EN sidecar records the mirrored application. Source re-rendered, sidecar hash refreshed."
     }
   ]
 }

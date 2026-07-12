@@ -4,9 +4,9 @@
 
 1. **Agent = LLM policy + tool I/O + memory + control loop**. Minimal skeleton (ReAct, Yao et al. 2022, arXiv:2210.03629, ICLR 2023): loop `Thought → Action → Observation → Thought …` until `Finish[answer]` is generated. Action invokes external tools (search / calculator / shell), observation is fed back into context, the scratchpad is concatenated back into the prompt at every turn.
 
-2. **Key gains over vanilla CoT**: CoT only "thinks" in latent space, hallucinations propagate all the way through; ReAct lets the model **leave its own head to verify** at every step (Wikipedia API, Python interpreter, code execution) → on interactive decision tasks like ALFWorld / WebShop the absolute success rate is +34% / +10% over IL/RL baselines (with only 1-2 in-context examples). But pure ReAct on HotpotQA EM (27.4) is actually **below** pure CoT (29.4) and CoT-SC (33.4); the true strongest is **ReAct ↔ CoT-SC complementary fallback** (HotpotQA 35.1, Fever 64.6).
+2. **Key gains over vanilla CoT**: CoT only "reasons" within its own generated token sequence (no external action grounding), hallucinations propagate all the way through; ReAct lets the model **leave its own head to verify** at every step (Wikipedia API, Python interpreter, code execution) → on interactive decision tasks like ALFWorld / WebShop the absolute success rate is +34% / +10% over IL/RL baselines (with only 1-2 in-context examples). But pure ReAct on HotpotQA EM (27.4) is actually **below** pure CoT (29.4) and CoT-SC (33.4); the true strongest is **ReAct ↔ CoT-SC complementary fallback** (HotpotQA 35.1, Fever 64.6).
 
-3. **Plan-and-Execute / Plan-and-Solve (Wang et al. 2023, ACL, arXiv:2305.04091)**: first plan ("Let's first understand the problem and devise a plan… Then carry out the plan step by step."), then execute step by step. Advantage: on long horizons the goal won't be "forgotten along the way"; downside: a wrong plan breaks the whole run (without a replan mechanism). In production it is usually hybrid: Plan-and-Execute up front + ReAct as per-step fallback.
+3. **Plan-and-Solve (Wang et al. 2023, ACL, arXiv:2305.04091)**: first plan ("Let's first understand the problem and devise a plan… Then carry out the plan step by step."), then execute step by step — this is a single-generation zero-shot CoT prompting technique with no tool calls or multi-turn LLM execution. Advantage: on long horizons the goal won't be "forgotten along the way"; downside: a wrong plan breaks the whole run (without a replan mechanism). Production systems borrow the "plan first, then execute" idea to build the **Plan-and-Execute** architecture (separate planner+executor components, supporting tool calls and replanning — a later engineering pattern, not content from the Wang 2023 paper): usually hybrid, Plan-and-Execute up front + ReAct as per-step fallback.
 
 4. **Three paradigms of tool use**: (a) **Prompt-time tool use** (ReAct, ART, Paranjape 2023, arXiv:2303.09014) — give demos so the model learns in-context; (b) **Self-supervised fine-tuning** (Toolformer, Schick 2023 NeurIPS, arXiv:2302.04761) — the model labels API calls itself and uses loss to filter "useful" ones; (c) **Structured Function Calling** (OpenAI 2023-06-13 / Anthropic Tool Use 2024 / Gemini Tools) — RLHF/SFT-aligned backend models emit JSON-schema-structured tool calls; the most stable choice and the 2024-2026 industrial-deployment default.
 
@@ -52,7 +52,7 @@ An agent wraps it into a **closed-loop system**:
                        └──→ back to LLM
 ```
 
-This is a **special case of POMDP**: state = full dialogue history $h_t = (q, a_1, o_1, \dots, a_{t-1}, o_{t-1})$, policy $\pi_\theta(a_t | h_t)$, the trajectory terminates when the LLM itself generates `Finish[answer]`.
+This is **an instantiation of a POMDP**: the environment's hidden state is $s_t$ (not directly observable to the agent), and $h_t = (q, a_1, o_1, \dots, a_{t-1}, o_{t-1})$ is just the history — a (non-minimal) sufficient statistic for it; the minimal sufficient statistic is the belief $b_t = P(s_t \mid h_t)$. Since $h_t$ is itself a sufficient statistic, this POMDP can be equivalently reduced to a derived MDP with $h_t$ as its state, so the policy can be written directly as $\pi_\theta(a_t \mid h_t)$; the trajectory terminates when the LLM itself generates `Finish[answer]`.
 
 > 💡 **Common interview question: difference between an agent and a chatbot?** — A chatbot is single-turn / multi-turn but **only acts in the token space**; an agent always has **external side effects** (calls API, writes files, moves the mouse), with observations from the real environment. "Can it call tools" is the hard line that defines an agent.
 
@@ -76,7 +76,7 @@ Classical RL agents (Atari, Mujoco) and LLM agents are structurally homologous; 
 |---|---|---|
 | **policy** | Neural net $\pi_\theta(a \lvert s)$ | LLM autoregressive sampling |
 | **action space** | Hundreds of discrete / low-dim continuous | **Entire token sequence** (extremely large action space) |
-| **state** | image / sensor | Text history (POMDP, no full state) |
+| **state** | image / sensor | Text history $h_t$ (POMDP: the true state $s_t$ is unobservable; $h_t$ is only a non-minimal sufficient statistic) |
 | **reward** | Dense per step / sparse terminal | Extremely sparse (terminal-correct = 1) or from an RM |
 | **learning** | RL (policy gradient / Q-learning) | Mostly via in-context demos + RLHF/SFT fine-tuning |
 | **environment** | simulator | Real API / OS / web |
@@ -214,7 +214,7 @@ def react_loop(llm, question, max_steps=8):
 Plan-and-Solve (Wang et al. 2023 ACL, arXiv:2305.04091) splits reasoning into two stages:
 
 1. **Plan**: given the question, the model first **writes an N-step abstract plan** ("Step 1: find X. Step 2: compute Y. Step 3: ..."), without executing;
-2. **Execute**: execute the plan in order; each step can be either an LLM reasoning step or a tool call.
+2. **Execute**: in the paper itself, this is single-generation step-by-step reasoning following the plan (zero-shot CoT prompting, no tool calls or multi-turn LLM execution, used on pure-reasoning tasks like GSM8K/SVAMP/AQuA); the production-extended **Plan-and-Execute** architecture (separate planner + executor components, supporting tool calls and replanning) is what actually allows each step to call a tool — that is a later engineering pattern, not content from the Wang et al. 2023 paper.
 
 Why does separating planning help? Because the LLM **is not disturbed by observations while writing the plan**, making it easier to maintain a global view; ReAct-style step-by-step is easily dragged off course by the previous observation ("the observation says X, so I follow X next", forgetting the user originally asked Y).
 
@@ -339,9 +339,9 @@ def reflexion_agent(llm, question, evaluator, max_episodes=3):
 | **Gen 0: prompt-only** | Pre-2022Q4 | Big model + regex parser | Model emits `[CALL: search("x")]` in free-form text; external regex extracts |
 | **Gen 1: in-context demo** | 2022Q4-2023Q1 | ReAct, ART (Paranjape 2023, arXiv:2303.09014), HuggingGPT (Shen 2023 NeurIPS, arXiv:2303.17580) | Demos teach the model to emit fixed syntax, still string parsing |
 | **Gen 2: SFT for tools** | 2023Q1 | **Toolformer** (Schick 2023 NeurIPS, arXiv:2302.04761) | Model self-labels API calls, filters by utility loss → fine-tune base |
-| **Gen 3: Structured Function Calling** | 2023-06-13 onward | OpenAI Function Calling, Anthropic Tool Use (beta 2024-04, GA 2024-05-30), Gemini Tools | RLHF/SFT-aligned backend emits **strict JSON-schema** tool calls; frontend frameworks parse directly |
+| **Gen 3: Structured Function Calling** | 2023-06-13 onward | OpenAI Function Calling, Anthropic Tool Use (beta 2024-04, GA 2024-05-30), Gemini Tools | RLHF/SFT-aligned backend emits structured JSON tool calls (strict schema conformance depends on whether constrained-decoding strict mode is enabled; plain function calling does not guarantee 100% compliance); frontend frameworks parse directly |
 
-By 2024-2026, mainstream frameworks stand on top of Gen 3. MCP (§6) then standardizes the server-side implementation of tools at the transport layer.
+By 2024-2026, mainstream frameworks stand on top of Gen 3. MCP (§6) standardizes the server-side implementation of tools/resources/prompts at the application layer (JSON-RPC 2.0 message schema + capability negotiation); it runs on top of existing transports like stdio / Streamable HTTP rather than inventing or standardizing the transport layer itself.
 
 ### 5.2　Toolformer: the core trick of self-supervised labeling
 
@@ -362,7 +362,7 @@ Toolformer aims to solve "how to teach a model to use APIs without human labels"
 
 ### 5.3　Schema specification for Structured Function Calling
 
-Taking OpenAI Function Calling (2023-06-13) and Anthropic Tool Use (2024 onwards) as representatives, the schema looks like:
+Taking Anthropic Tool Use (2024 onwards) as an example, the schema looks like this (the field names `input_schema`/`tool_use`/`input` are Anthropic-specific; OpenAI Function Calling uses `parameters` instead, and the model's output goes through `tool_calls` → `function.arguments` (a JSON string) — semantically equivalent but named differently):
 
 ```json
 {
@@ -392,7 +392,7 @@ The frontend framework parses it, executes the tool, and wraps the result as a `
 
 - **JSON-schema validation**: parameter types / enums / required are all checkable at the frontend, with errors rejected immediately;
 - **Parallel tool calls**: a single inference can produce multiple tool_use blocks, executed in parallel (natively supported by Anthropic 2024 onwards);
-- **High determinism**: the model is SFT-aligned to the schema and almost never produces syntax errors.
+- **Fairly high determinism, but not absolute**: SFT/RLHF alignment significantly reduces syntax errors, but plain function calling doesn't guarantee 100% schema compliance — OpenAI's own reporting puts gpt-4-0613 at only ~35.4% strict compliance on complex schemas without Structured Outputs enabled; the real strong guarantee comes from `strict: true` / Structured Outputs (constrained decoding), introduced 2024-08 onward, and the host side still needs schema validation as a backstop.
 
 ### 5.4　Notes on parallel tool use
 
@@ -475,9 +475,9 @@ Plus **`sampling`** (the server may reverse-request the client to run an LLM cal
 
 #### 6.1.4 Security model (frequent interview follow-up)
 
-- **Local stdio**: process isolation + OS permissions; only the host can spawn the server, relatively safe;
+- **Local stdio**: the server runs as a child process of the host, inheriting the full filesystem/network permissions of the host process (i.e. the currently logged-in user) — there is no extra sandbox (no seccomp/container isolation); its "safety" relative to remote HTTP comes only from having no public network exposure and the user choosing which local binary to spawn, not from any OS-enforced privilege boundary;
 - **Remote HTTP**: uses **OAuth 2.1** (added in the 2025-03 spec) plus the `Authorization` header; DCR (Dynamic Client Registration, RFC 7591) was demoted from SHOULD to **MAY** in the 2025-11-25 spec — clients and authorization servers **may** support it but it is no longer required; **CIMD (Client ID Metadata Documents)** was introduced as an alternative without preregistration;
-- **Prompt injection via tool/resource output**: the protocol layer cannot prevent this — MCP feeds arbitrary content directly into the LLM context, so a malicious server can inject `"<system>Ignore previous instructions and ..."`. Production mitigations: **(1) the host marks content as untrusted and sandboxes it; (2) a classifier filters tool results; (3) restrict the whitelist of spawnable servers**.
+- **Prompt injection via tool/resource output**: the protocol layer cannot prevent this — MCP only hands the server's returned tool/resource content to the client as-is; whether and how that content gets fed into the LLM context is entirely up to the host application, and the protocol itself carries no trusted/untrusted marking, so a malicious server can inject `<system>Ignore previous instructions and ...</system>` into the returned content. Production mitigations: **(1) the host marks content as untrusted and sandboxes it; (2) a classifier filters tool results; (3) restrict the whitelist of spawnable servers**.
 
 ### 6.2　A2A (Agent-to-Agent Protocol)
 
@@ -677,7 +677,7 @@ Agent memory is typically layered:
 | **Working memory** | Single task | Stuff the whole history into the context window; summarize when too long |
 | **Episodic / long-term** | Across tasks | Vector store (semantic retrieval) + KG (structured relations) + time index |
 
-- The footgun of **working memory** is **lost-in-the-middle** (Liu et al. 2023, arXiv:2307.03172) — info in the middle of long context is ignored; mitigations: **summarization + reordering** (prepend key facts to the end).
+- The footgun of **working memory** is **lost-in-the-middle** (Liu et al. 2023, arXiv:2307.03172) — info in the middle of long context is ignored; mitigations: **summarization + reordering** (prepend key facts to the beginning, right after the system/task instructions; to also exploit the recency effect at both ends, you can additionally append a summary at the very end).
 - The footgun of **long-term memory** is **stale recall** — retrieved old memories clash with the current task; mitigations: **memory aging / decay** or active pruning during reflection.
 
 ### 7.4　Token budget / early termination
@@ -782,7 +782,7 @@ Usually $T_{\text{LLM}}$ includes prefill ($\propto |h_t|$) + decode ($\propto |
 
 $$\text{Pass@}k = 1 - (1 - p_1)^k$$
 
-where $p_1$ is the single-shot success rate. If $p_1 = 0.5$, $\text{Pass@}5 \approx 97\%$. But **this requires a ground-truth verifier** (unit test / env reward / human) that can reliably judge success.
+where $p_1$ is the single-shot success rate. If $p_1 = 0.5$, in theory $\text{Pass@}5 \approx 97\%$ — but this needs two preconditions: (1) a **ground-truth verifier** (unit test / env reward / human) that can reliably judge success; (2) the $k$ attempts are approximately **i.i.d.** (as with independent temperature sampling per prompt). Production agent retries often reuse the same reasoning/tool-calling logic, so failure modes are highly correlated, and real-world reliability gains are usually well below what the formula predicts.
 
 τ-bench's (Yao 2024-06, arXiv:2406.12045) $\text{pass}^k$ (**all k attempts correct**) is far below $\text{pass@}k$ (**at least one attempt correct**); it is a stricter reliability metric — GPT-4o on retail has $\text{pass}^8 < 25\%$, meaning "consistently getting it right" is still very far off.
 
@@ -796,7 +796,7 @@ Ordered from the perspective of a gpt-5.5 xhigh-simulated top-lab interviewer.
 
 <summary>Q1. Where is ReAct better than CoT? When to use it?</summary>
 
-- CoT reasons in latent space; hallucinations propagate
+- CoT reasons only within its own token sequence (no external tool/environment grounding); hallucinations propagate
 - ReAct can call external tools at each step (search / Python / lookup) → uses ground truth to correct reasoning
 - Empirical (Yao 2022/2023 Table 1, PaLM-540B):
   - **Big lead on ALFWorld / WebShop** — absolute success +34% / +10% over IL/RL baselines
@@ -855,7 +855,7 @@ Thinking "Toolformer = ReAct" — the former is SFT and modifies weights, the la
 
 - JSON-schema validation: types / enums / required can all be enforced at the frontend
 - Parallel tool calls: one inference can produce multiple tool_use blocks for parallel execution
-- Determinism: SFT-aligned to the schema, almost no syntax errors
+- Fairly high determinism, not absolute: SFT alignment significantly reduces syntax errors; 100% schema compliance requires strict/Structured Outputs (constrained decoding) from 2024-08 onward, host side still needs validation as a backstop
 - But ReAct doesn't need backend fine-tuning, only prompting
 - OpenAI Function Calling launched on 2023-06-13 (gpt-4-0613 / gpt-3.5-turbo-0613)
 
@@ -870,7 +870,7 @@ Thinking "Toolformer = ReAct" — the former is SFT and modifies weights, the la
 - **Not RL** — no gradient update, weights unchanged
 - It is **"verbal RL"**: write reflections in natural language, store in episodic memory, prepend to the prompt in the next episode
 - Equivalent to in-context learning simulating policy iteration
-- Paper (Shinn 2023 NeurIPS, arXiv:2303.11366) HumanEval pass@1 80.1 → 91.0 (GPT-4 base); AlfWorld 75 → 97
+- Paper (Shinn 2023 NeurIPS, arXiv:2303.11366) HumanEval pass@1 80.1 → 91.0 (GPT-4 base); AlfWorld 75/134 (~56%, ReAct baseline) → 130/134 (~97%, ReAct+Reflexion)
 - **Strongly depends on base model capability** + **strongly depends on evaluator quality**
 
 Treating reflection as a "magic prompt" — it needs a trustworthy evaluator (rule-based / unit tests / env reward) to be stable.
@@ -1049,7 +1049,7 @@ Thinking parallel always speeds things up — incorrect parallel can introduce b
 
 - **SWE-bench** (Jimenez et al. 2024 ICLR, arXiv:2310.06770): 2294 real GitHub Python issues; the agent must fix them given the codebase
 - **SWE-bench Verified** (OpenAI Preparedness team 2024-08-13): a 500-task **human-reviewed subset** — 93 contracted engineers filtered out unclear issue descriptions / unfair unit tests / unreasonable time budgets
-- OpenAI reports that in the original sample **38.3% of question descriptions are underspecified** and **61.1% of unit tests may misjudge correct solutions**; Verified samples ensure both are clean
+- OpenAI reports that in the original sample **38.3% of question descriptions are underspecified** and **61.1% of unit tests may misjudge correct solutions**; Verified sampling aims to filter out the most obvious cases of both (not "ensure both are clean" — see below, a later audit still found ~59% of failed tasks flawed)
 - 2025-2026 frontier models + scaffolds (Claude Opus 4.x, GPT-5.x, Gemini 3, Live-SWE-agent, etc.) broke through 75-80% on Verified
 - **OpenAI announced on 2026-02-23 that it will no longer use SWE-bench Verified for frontier evaluation** (team sampling found that ~59% of failed tasks still had flaws + training data contamination); the community is moving to stricter benchmarks like SWE-bench Pro
 
@@ -1064,6 +1064,7 @@ Thinking benchmark numbers are "absolutely comparable" — subsets + contaminati
 - **pass@k**: at least one of k attempts succeeds (best-of-k)
 - **pass^k**: **all** k attempts succeed ("consistently reliable")
 - pass^k ≪ pass@k: single success rate 0.5 → pass@8 ≈ 0.996 but pass^8 ≈ 0.004
+- Both formulas assume the $k$ attempts are approximately **i.i.d.**; real agent retries often reuse the same reasoning/tool-calling logic, so failures are correlated and the real numbers are usually worse than the formulas suggest
 - τ-bench (Yao 2024-06, arXiv:2406.12045) paper: GPT-4o on retail has pass^8 < 25%
 - Implication: **"got it right once" ≠ "deployable reliably"** — in low-tolerance scenarios like customer service / finance / medical, pass^k is the real metric
 
@@ -1154,7 +1155,7 @@ Thinking "we just need to train harder" — it's a security problem that **must 
   - Difficulty: depends on evaluator; LLM evaluators drift easily
 - Path 3: **Online RL (RLHF / GRPO on agent task)**
   - Difficulty: tool I/O is the real environment, rollout is expensive + not replayable; reward is at the terminal, credit assignment is hard
-  - DeepSeek-R1 / o-series broke through on math/code via rule-based reward, but on agent benchmarks it's still frontier-only
+  - DeepSeek-R1 (arXiv:2501.12948, confirmed) explicitly uses rule-based reward (answer matching / unit-test execution) on math/code; whether OpenAI's o-series is trained with a similar verifiable-reward scheme has never been officially disclosed — it remains a community inference, not confirmed — and either way both are still frontier-only on agent benchmarks
 - Path 4: **Meta-prompting / Agent generates new agents** (OpenAI Agent Builder, Manus / Devin self-correction, AutoGen / CrewAI auto-generated workflows)
   - Difficulty: the generated agent cannot be reliably verified → no trustworthy auto-iteration
   - Note: Anthropic 2025's **Constitutional Classifiers** is a jailbreak-defense classifier, **does not belong** to self-improvement (early draft versions wrongly placed it here)
@@ -1175,7 +1176,7 @@ Thinking "AutoGPT already self-improves" — it's a prompt-loop, not a learning-
   4. **Multi-domain**: a single domain easily overfits the benchmark; AgentBench's 8 environments are designed exactly for this
   5. **Reliability metric (not just pass@1)**: τ-bench's pass^k captures "consistent reliability"
   6. **Cost-aware**: a Pareto curve (success vs cost) is more useful than a single point
-  7. **Human upper bound**: provide a reference (GAIA human 92% / WebArena human 78.24% / OSWorld human 72.36% — the tasks themselves are hard, humans are not 100%)
+  7. **Human reference score** (not an absolute upper bound): provide a reference (GAIA human 92% / WebArena human 78.24% / OSWorld human 72.36% — the tasks themselves are hard, humans are not 100%; these are empirical human average success rates, not a ceiling agents can't cross in principle — as noted in §8.3, Simular already crossed the OSWorld human baseline on 2025-12-16 with 72.6%)
   8. **Open + reproducible**: open-source evaluators + Docker; closed-source benchmarks can't sustain long-term comparison
 - **What each benchmark "did right"**:
   - **GAIA** (Mialon 2024 ICLR, arXiv:2311.12983): comprehensive real multimodal + tool use; the human 92% vs GPT-4 plugins 15% gap is most striking

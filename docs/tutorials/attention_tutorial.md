@@ -30,7 +30,7 @@ Attention 的本质是 **可学习的检索（learned retrieval）**：
 
 对比 RNN：RNN 把过去信息**压缩进一个固定大小的 hidden state**，长序列必丢信息；attention 在每一步都**直接、全局、动态地**检索过去所有位置，因此适合长程依赖。
 
-"Q/K/V 是同一个向量经过三个不同投影"——这点要主动说明，因为面试常考新手会以为 Q/K/V 是三份不同输入。
+"在 self-attention 中，Q/K/V 是同一个向量经过三个不同投影"——这点要主动说明，因为面试常考新手会以为 Q/K/V 是三份不同输入（注意 cross-attention 中 Q 与 K/V 并不同源，见 §4）。
 
 ## §2 Scaled Dot-Product Attention
 
@@ -283,7 +283,7 @@ out, _ = mha(x, x, x, mask=pmask)
 
 ### 6.1　KV Cache（autoregressive inference 关键优化）
 
-问题：GPT 自回归生成时，每生成一个 token，把整个 prefix 重新过 forward——$t$ 步累计 $O(t^2)$ 重复计算。
+问题：GPT 自回归生成时，每生成一个 token，把整个 prefix 重新过 forward——单步代价是 $O(t^2)$，对 $T$ 步求和，累计冗余计算是 $O(T^3)$（而非 $O(T^2)$）。
 
 解：把每层 $K^{(\ell)}, V^{(\ell)}$ 缓存。生成第 $t+1$ 个 token 时：
 
@@ -293,13 +293,13 @@ out, _ = mha(x, x, x, mask=pmask)
 
 - 新 $q$ 对整个 cache 做 attention（$O(t)$ 不是 $O(t^2)$）
 
-> ⚠️ **易踩坑** — KV cache 是 **推理优化**，**训练**时不能用——训练时所有位置同时做 attention，没有"逐个生成"的概念。
+> ⚠️ **易踩坑** — KV cache 是 **推理优化**；标准 teacher-forcing 的并行训练（SFT / 预训练的前向-反向）用不到它，因为所有位置同时并行计算，没有"逐个生成"的概念。但 RLHF / GRPO 等含 on-policy rollout 采样的训练中，rollout 生成阶段本质上是自回归推理，同样会用 KV cache 加速。
 
 **KV cache 显存（per sample）**：
 
 $$\text{KV cache} = L_\text{ctx} \cdot n_\text{layers} \cdot \underbrace{2}_{K, V} \cdot H_\text{kv} \cdot d_\text{head} \cdot \text{bytes\_per\_elem}$$
 
-注意：MQA/GQA 下 $H_\text{kv} \ll H$，cache 显著缩减。对 LLaMA-2-70B（GQA, $H_\text{kv}=8$）、$L_\text{ctx}=4096$、80 层、fp16：约 **1.25 GB / sample**——这就是 LLaMA-2 用 GQA 不用 MHA 的原因（vanilla MHA 会到 10 GB / sample）。
+注意：MQA/GQA 下 $H_\text{kv} \ll H$，cache 显著缩减。对 LLaMA-2-70B（GQA, $H_\text{kv}=8$）、$L_\text{ctx}=4096$、80 层、fp16：约 **1.25 GiB**（≈1.34 GB）/ sample——这就是 LLaMA-2 用 GQA 不用 MHA 的原因（vanilla MHA 会到约 **10 GiB ≈ 10.74 GB** / sample）。
 
 ### 6.2　MQA / GQA（attack KV cache 显存）
 
@@ -307,7 +307,7 @@ $$\text{KV cache} = L_\text{ctx} \cdot n_\text{layers} \cdot \underbrace{2}_{K, 
 | --- | --- | --- | --- | --- |
 | **MHA** (Vanilla) | $H$ | $H$ | 1× | 原始 Transformer |
 | **MQA** (Multi-Query) | $H$ | **1** | $H \times$ | PaLM, Falcon |
-| **GQA** (Grouped-Query) | $H$ | $G$（$1 < G < H$） | $H/G \times$ | LLaMA-2/3, Mistral |
+| **GQA** (Grouped-Query) | $H$ | $G$（$1 < G < H$） | $H/G \times$ | LLaMA-2-70B（7B/13B 仍是 MHA）、LLaMA-3 全系列、Mistral |
 
 核心：**多个 Q head 共享一组 K/V**。MQA 极端但质量略降；GQA 是折中（如 H=32, G=8），显存 / 带宽降 4 倍，质量基本不掉。
 
@@ -753,7 +753,7 @@ FP16 下直接手写 naive attention 不做 fp32 accumulation。
 
 - **Absolute**：位置向量加到 input embedding 上（Vaswani sinusoidal / GPT-2 learned）
 
-- **RoPE**：对 $Q, K$ 做位置相关的旋转，保留**相对位置**信息（$q_m^\top k_n$ 只依赖 $m-n$）
+- **RoPE**：对 $Q, K$ 做位置相关的旋转，保留**相对位置**信息（位置项只经由 $m-n$ 进入 $q_m^\top k_n$，但内容向量仍决定具体数值——不是只依赖位置）
 
 - **ALiBi**：在 score 上加距离 bias $-m |i-j|$，自然外推
 
@@ -783,33 +783,28 @@ FP16 下直接手写 naive attention 不做 fp32 accumulation。
 
 ## §A 附录：完整 from-scratch 代码骨架
 
-参考 from-scratch 实现包含：
+参考 from-scratch 实现（`code/mha.py`）包含：
 
-- `scaled_dot_product_attention()`—— 含 NaN 防护
+- `MultiHeadAttention`——标准多头 self-attention（单个 fused `qkv` Linear 一次产出 Q/K/V，支持 `[N,N]` additive mask；无 NaN 全 mask 防护，无 cross-attention wrapper）；`__init__` 里 `assert embed_dim % num_heads == 0` 校验维度，不满足时抛 `AssertionError`（注意 `assert` 在 `python -O` / `PYTHONOPTIMIZE` 下会被整体移除，生产代码应改用显式 `raise ValueError(...)`）
 
-- `MultiHeadAttention`—— 标准 MHA，支持 4 种 mask 形状
+- `make_causal_mask()`—— 生成上三角填 `-inf` 的因果 mask
 
-- `SelfAttention` / `CrossAttention`—— thin wrapper，调用语义清晰
+- 3 个 sanity check：`sanity_check()`（对齐 `nn.MultiheadAttention`，diff < 1e-5）、`shape_check()`、`causal_check()`
 
-- `causal_mask()` / `padding_mask()` / `combine_masks()`
-
-- 9 个 sanity check（self / causal / padding / cross / wrappers / nn.MHA 对齐 / NaN防护 / d_model%H / return_weights=False）
-
-实跑 sanity check 输出（PyTorch 2.x，单机 GPU）：
+实跑 sanity check 输出（PyTorch 2.x，CPU 几秒跑完）：
 
 ```
-[a] self-attn  out=(2, 5, 16) weights=(2, 4, 5, 5)  weights row-sum=1 ✓
-[b] causal mask: upper triangle ~ 0  ✓
-[c] padding mask: pad-key columns ~ 0 in sample-1  ✓
-[d] cross-attn out=(2, 7, 16) weights=(2, 4, 7, 5)  ✓
-[e] SelfAttention(causal) ✓   CrossAttention(context-pad) ✓
-[f] vs nn.MultiheadAttention:  |Δout|=0.00e+00  |Δweights|=0.00e+00  ✓
-[g] all-masked row: no NaN, weights row = 0  ✓
-[h] d_model not divisible by num_heads -> ValueError  ✓
-[i] return_weights=False -> weights is None  ✓
+== Multi-Head Attention sanity ==
+[sanity] max diff vs nn.MultiheadAttention = 5.96e-08
+[sanity] PASS
+[shape] input  x: (2, 1024, 768)
+[shape] output y: (2, 1024, 768)
+[causal] applied causal mask, output shape (1, 8, 32)
+
+All checks passed.
 ```
 
-代码经独立 reviewer 静态检查 + PyTorch 实跑 sanity check，与 `nn.MultiheadAttention` diff = 0。
+代码经独立 reviewer 静态检查 + PyTorch 实跑 sanity check，与 `nn.MultiheadAttention` diff < 1e-5。
 
 ---
 

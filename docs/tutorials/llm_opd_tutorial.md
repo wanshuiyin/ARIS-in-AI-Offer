@@ -18,9 +18,9 @@
 
 6. **与 DPO / GRPO 的关系**：(a) **DPO** 用 offline preference pair 做 closed-form RLHF，**没有 teacher logits，没有 student rollout**——与 OPD 几乎正交；(b) **GRPO** 用 group-relative advantage 做 on-policy RL，**有 student rollout 但 reward 是 sparse outcome**；(c) **OPD = GRPO 的"dense teacher KL 替代 sparse outcome reward"** 版本。Survey (Song 2026) 给出统一视角：OPD ≈ "KL-constrained RL with $\beta \to \infty$ 且 token-level reward 来自 teacher log-prob"。
 
-7. **2025-2026 工业采用**：Qwen3（off-policy + on-policy 两阶段蒸馏 small models）、DeepSeek-R1 distillation series（off-policy SFT 为主，但后续 follow-up 用 OPD）、Gemma 2/3、MiMo-V2、Kimi distill 系列。Thinking Machines (Murati 团队 2025) 把 OPD 包装成"便宜 RL 替代品"路线。
+7. **2025-2026 工业采用**：Qwen3（off-policy + on-policy 两阶段蒸馏 small models）、DeepSeek-R1 distillation series（off-policy SFT 为主，但后续 follow-up 用 OPD）、MiMo-V2、Kimi distill 系列（Gemma 2/3 的官方蒸馏方法是固定数据集上的 off-policy soft-target KD，不含 student self-rollout，不应归为 OPD 采用案例，见 §5.3）。Thinking Machines (Murati 团队 2025) 把 OPD 包装成"便宜 RL 替代品"路线。
 
-8. **三个最常考的 footgun**：(a) **Length inflation / truncation collapse**——student rollout 越训越长，触发 truncation 后 gradient 偏置，validation 暴跌（Demystifying OPD 2026, arXiv 2604.08527）；(b) **Reverse KL mode collapse**——student 收敛到 teacher 单一模，生成多样性塌缩；(c) **Teacher / student gap 太大**：student 完全采不到 teacher 概率高的 region，OPD 信号近乎 0（"prefix teach, suffix fade" 现象，arXiv 2605.13643）。
+8. **三个最常考的 footgun**：(a) **Length inflation / truncation collapse**——student rollout 越训越长，触发 truncation 后 gradient 偏置，validation 暴跌（Demystifying OPD 2026, arXiv 2604.08527）；(b) **Reverse KL mode collapse**——student 收敛到 teacher 单一模，生成多样性塌缩；(c) **Teacher / student gap 太大**：student 完全采不到 teacher 概率高的 region——注意这不是"KL 信号消失"，采到的极少数 teacher 低概率 token 反而会产生数值极端的惩罚（"prefix teach, suffix fade" 现象，arXiv 2605.13643，详见 §7.5）。
 
 ## §1 直觉：为什么需要 On-Policy Distillation
 
@@ -32,10 +32,11 @@
 |---|---|---|---|---|
 | 2015 | Hinton soft target | teacher 在 dataset 上 forward | forward KL $D(\pi_T \,\Vert\, \pi_\theta)$ | 分类 / 检测，单步预测 |
 | 2019 | DistilBERT (Sanh) | dataset 上 teacher logit | forward KL + MLM cross-entropy | encoder 类，单步预测 |
-| 2020 | Seq-level KD (Kim & Rush 2016) | teacher beam search 的 $\hat y$ | hard token CE on $\hat y$ | NMT，autoregressive 但仍 off-policy |
+| 2016 | Seq-level KD (Kim & Rush 2016) | teacher beam search 的 $\hat y$ | hard token CE on $\hat y$ | NMT，autoregressive 但仍 off-policy |
 | 2023 | MiniLLM (Gu, ICLR 2024) | **student rollout** $y \sim \pi_\theta$ | **reverse KL** $D(\pi_\theta \,\Vert\, \pi_T)$ | LLM instruction following |
 | 2023 | GKD (Agarwal, ICLR 2024) | mix student rollout + dataset | generalized JSD（forward/reverse 插值） | LLM seq-to-seq |
-| 2024-2026 | Qwen3 / R1-Distill / Thinking Machines / Survey | student rollout + token-level teacher logit | reverse KL 为主 | 生产级 LLM post-training |
+| 2024-2026 | Qwen3 / Thinking Machines / Survey | student rollout + token-level teacher logit | reverse KL 为主 | 生产级 LLM post-training |
+| 2025-01 | DeepSeek-R1-Distill 官方 pipeline | teacher 离线生成 800K trajectory | n/a（纯 off-policy CE，不含 KL 信号，见 §3.4） | 归入 Off-policy SFT KD 类别更准确，社区 follow-up 才会用 OPD 续训 |
 
 关键演化：**off-policy → on-policy** 这一步是 LLM 蒸馏从"模仿数据集"升级成"模仿决策过程"的分水岭。
 
@@ -66,7 +67,7 @@ $$D_{\text{KL}}(\pi_\theta \,\|\, \pi_T) = \sum_y \pi_\theta(y) \log \frac{\pi_\
 
 假设单步错误率（student 与 teacher 在某个 prefix 上偏离的概率）为 $\epsilon$。off-policy 训练只在 teacher prefix 上"教过"student，所以推理时 student 一旦走错一步，**后续步骤进入了训练中没见过的状态分布**——student 的错误率不再是 $\epsilon$，而是 $\epsilon' > \epsilon$（甚至跳到 0.5+ 的随机水平）。
 
-Bagnell 2010 在 imitation learning 上证明：**off-policy 模仿的累积误差是 $O(L^2 \epsilon)$**（compound error），而 on-policy 监督（如 DAgger）能把累积误差压到 $O(L \epsilon)$。这正是 OPD 在 LLM 上的理论动机——把训练 state 分布对齐到推理 state 分布。
+Bagnell 2010 在 imitation learning 上证明：**off-policy 模仿的累积误差是 $O(L^2 \epsilon)$**（compound error），而 on-policy 监督（如 DAgger）能把累积误差压到 $O(L \epsilon)$。这正是 OPD 在 LLM 上的理论动机——把训练 state 分布对齐到推理 state 分布。DAgger 达到 $O(L\epsilon)$ 并非无条件成立，依赖两个前提：expert 可在 learner 访问到的任意 state 上被查询、且所用在线学习子程序满足 no-regret 保证。
 
 Survey (Song & Zheng 2026 arXiv 2604.00626) 在 §3 复述了这个结果：
 > "off-policy distillation 的 exposure bias 随序列长度大约按平方放大；on-policy distillation 把累积误差线性化。"
@@ -82,7 +83,7 @@ Thinking Machines blog (Lu 2025-10) 给了一个简洁的 information-theoretic 
 | **RL with outcome reward** | $O(1)$ —— 一个 scalar reward（典型 $\{0, 1\}$ 或 [-1, 1] 区间） |
 | **OPD with per-token teacher KL** | $O(N \log V)$ —— $N$ 个 token × 每个 token 对 vocab $V$ 的完整分布 |
 
-换句话说，OPD 在每个 token 都"教" student 一整个分布，而 RL 只在序列末尾"教"一个数。在数学推理、code、long-form QA 这些需要 dense supervision 的任务上，OPD 的 sample efficiency 显著高于 RL。这也解释了为什么 Qwen3 / Thinking Machines 都报告 OPD 达到 RL 性能但 compute 降一个量级。
+换句话说，OPD 在每个 token 都"教" student 一整个分布，而 RL 只在序列末尾"教"一个数。在数学推理、code、long-form QA 这些需要 dense supervision 的任务上，OPD 的 compute efficiency（达到同等准确率所需的 FLOPs）显著高于 RL——这是 FLOPs/compute 维度的效率，与"需要多少条 rollout 样本"的 sample efficiency 是不同的量，两者可能不同步变化。这也解释了为什么 Qwen3 / Thinking Machines 都报告 OPD 达到 RL 性能但 compute 降一个量级。
 
 ## §2 OPD 的精确定义与核心公式
 
@@ -107,6 +108,8 @@ $$\boxed{\;L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D}\,\mathbb{E}_{y \sim \p
 | **Generalized JSD** | $D_\beta = \beta D(\pi_\theta \,\Vert\, M_\beta) + (1-\beta) D(\pi_T \,\Vert\, M_\beta)$, $M_\beta = \beta \pi_\theta + (1-\beta)\pi_T$ | GKD 的 $\beta$ 插值 |
 | **Total Variation** | $\frac{1}{2}\sum_v \lvert\pi_\theta(v) - \pi_T(v)\rvert$ | 较少用，bounded but non-smooth |
 
+> ⚠️ **Generalized JSD 的端点是极限，不是取值** — 直接代入 $\beta=0$：$M_0=\pi_T$，两项分别是 $0\cdot D(\pi_\theta\|\pi_T)$ 与 $1\cdot D(\pi_T\|\pi_T)=0$，即 $D_{\beta=0}=0$；同理 $D_{\beta=1}=0$。所以严格来说 $D_\beta$ 在两端点都恒为 0，"forward/reverse KL" 只能理解为**单侧极限**：$\lim_{\beta\to 0^+} D_\beta/\beta = D_{\text{KL}}(\pi_\theta\,\Vert\,\pi_T)$（reverse KL），$\lim_{\beta\to 1^-} D_\beta/(1-\beta) = D_{\text{KL}}(\pi_T\,\Vert\,\pi_\theta)$（forward KL）——注意这个极限方向与直觉相反：$\beta\to 0$ 对应 reverse KL，$\beta\to 1$ 对应 forward KL（详见 §10 L2-2 的更正表述）。
+
 **核心点**：不管 $D_f$ 是哪个，**期望下标必须包含 $y \sim \pi_\theta$**——student 自己采，这是 "on-policy" 的定义。
 
 ### 2.2　Reverse KL 展开 + token-level loss
@@ -115,7 +118,7 @@ $$\boxed{\;L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D}\,\mathbb{E}_{y \sim \p
 
 $$D_{\text{KL}}\!\big(\pi_\theta(\cdot|s_t)\,\|\,\pi_T(\cdot|s_t)\big) = \sum_{v=1}^{V} \pi_\theta(v|s_t) \left[\log \pi_\theta(v|s_t) - \log \pi_T(v|s_t)\right]$$
 
-这是**完整 KL**（"full-distribution" 形式），需要 teacher 在每个 prefix 上做一次 forward，得到整个 vocab 的 logits。计算成本：$O(B \cdot L \cdot V)$ 的 teacher forward + softmax。
+这是**完整 KL**（"full-distribution" 形式），需要 teacher 在完整 rollout 序列上做一次 teacher-forced forward（利用 causal self-attention 并行算出所有位置的 logits），而非对每个 prefix 长度单独跑一次前向。计算成本：$O(B \cdot L \cdot V)$ 的 teacher forward + softmax（$L$ 个位置共用同一次 forward 调用，不是 $L$ 次独立前向）。
 
 实践中常用 **"sampled-token" 近似**——只在 student 实际采到的 token $v = y_t$ 上算：
 
@@ -126,7 +129,7 @@ $$\hat L_t = \log \pi_\theta(y_t|s_t) - \log \pi_T(y_t|s_t)$$
 > ⚠️ **Sampled-token KL ≠ 完整 KL** — sampled-token 是无偏 estimator，但**方差大**，因为只看一个 token 而不是整个 vocab 分布。两种形式各有偏好：
 
 - **完整 KL**：信息密度高、方差小，但每步要 teacher 做一次 vocab-level forward（昂贵，尤其 teacher 大）
-- **Sampled-token KL**：便宜（teacher 只算 $\log \pi_T(y_t)$ 一个数），但方差大；可以加 control variate baseline（见 §4.4）降方差
+- **Sampled-token KL**：只需从结果里 `gather` 出 $\log \pi_T(y_t)$ 一个数，节省的是这个 $[B,L,V]$ logits 张量的**存储/传输**开销——但 teacher 仍要完整跑一遍 $V$ 维投影 + softmax 归一化才能拿到这一个精确值，**计算量（FLOPs）并没有减少**；换来的是方差大，可以加 control variate baseline（见 §4.4）降方差
 
 ### 2.3　两种实现路线：full-vocab supervised KL vs REINFORCE
 
@@ -146,7 +149,7 @@ $$\boxed{\;L_{\text{OPD}}^{\text{A}}(\theta) = \mathbb{E}_{s_t \sim \text{rollou
 
 > 💡 **直觉** — Full-vocab KL 在每个 student-visited prefix $s_t$ 上让 $\pi_\theta(\cdot|s_t)$ 对齐 $\pi_T(\cdot|s_t)$ 整条分布，不仅看 sampled token。信号密度 $O(\log V)$，但每步要 teacher forward 一次 logits（昂贵）。
 
-> ⚠️ **实现层归属** — 不要把 Route A 等同于 "Tinker / Thinking Machines blog 默认"。Thinking Machines 的开源实现 (Tinker) 实际默认走 **Route B 的 importance-sampling 变体**（sampled-token logprob + negative-KL advantage，对应 `train_on_policy.py` 的 `loss_fn="importance_sampling"` + `incorporate_kl_penalty`）；**MiniLLM** (Gu 2024) 也是 sampled-token + REINFORCE 形式的 trajectory PG（含 single-step decomposition / length norm / teacher-mixed sampling 等稳定 trick）。Route A 的 full-vocab autograd 是**教学上最干净的形式**（一行 PyTorch 反传，方差为零），生产场景里当 teacher full logits 可用时也是简洁正确的实现，但它**不**是哪个具体大 lab 的 production 默认。两者**期望等价**，方差/工程成本不同——Route A 优势：零方差、不需 IS clip。Route B 优势：与 PPO/GRPO 共享 sampled-token 接口、节约 teacher vocab memory。
+> ⚠️ **实现层归属** — 不要把 Route A 等同于 "Tinker / Thinking Machines blog 默认"。Thinking Machines 的开源实现 (Tinker) 实际默认走 **Route B 的 importance-sampling 变体**（sampled-token logprob + negative-KL advantage，对应 `train_on_policy.py` 的 `loss_fn="importance_sampling"` + `incorporate_kl_penalty`）；**MiniLLM** (Gu 2024) 也是 sampled-token + REINFORCE 形式的 trajectory PG（含 single-step decomposition / length norm / teacher-mixed sampling 等稳定 trick）。Route A 的 full-vocab autograd 是**教学上最干净的形式**（一行 PyTorch 反传，方差为零），生产场景里当 teacher full logits 可用时也是简洁正确的实现，但它**不**是哪个具体大 lab 的 production 默认。两者**期望等价**，方差/工程成本不同——Route A 优势：零方差、不需 IS clip。Route B 优势：与 PPO/GRPO 共享 sampled-token 接口、节约 teacher vocab memory。（这里"零方差"特指：给定固定 prefix $s_t$ 后，内层 full-vocab KL 是闭式求和，不需要再对 Route B1 那样的采样估计做蒙特卡洛，因而消除了同一状态下的采样估计方差；训练流水线整体仍因 rollout 阶段 student 自身采样而带有跨 batch 的方差，并非"整条训练 pipeline 零方差"。）
 
 **路线 B：Sampled-token REINFORCE / importance-sampling estimator（Tinker 默认 / MiniLLM trajectory PG 形式）**
 
@@ -160,11 +163,11 @@ $$\nabla_\theta D_{\text{KL}}(s_t) = \mathbb{E}_{y_t \sim \pi_\theta(\cdot|s_t)}
 $$\nabla_\theta\,\mathbb{E}_\tau\!\Big[\sum_t D_{\text{KL}}(s_t)\Big] = \mathbb{E}_\tau\!\Big[\sum_u \nabla_\theta \log\pi_\theta(a_u|s_u)\cdot \underbrace{\sum_{t \ge u} D_{\text{KL}}(s_t)^{\text{detach}}}_{\text{return-to-go}}\Big] + \mathbb{E}_\tau\!\Big[\sum_t \nabla_\theta D_{\text{KL}}(s_t)\Big].$$
 注意 score-function 权重不是同 token $G_t$，**是后续所有 step 的 KL 之和**。
 
-> ⚠️ **生产中没人真做 B2**。MiniLLM 等都用 **semi-gradient**（对 state visitation stop-grad，只反传内层 KL），等价于 Route A 或 B1 + stop-grad rollouts。完整 B2 由于 return-to-go 跨 step 累加，方差极大、几乎无法稳定训练。
+> ⚠️ **完整 B2 几乎没人原样做，但 MiniLLM 不是简单 semi-gradient**。MiniLLM (Gu et al. 2024) 实际的 policy gradient 用**带 future log-ratio return 的单步分解**（single-step decomposition）：$R_t = \sum_{t' \ge t} r_{t'}$，$r_{t'} = \log\frac{\pi_T(y_{t'}|y_{<t'})}{\pi_\theta(y_{t'}|y_{<t'})}$——这本质是 B2（return-to-go）的**方差削减近似**，不是仅对当前 state 做 fixed-state KL 的 B1，也不是对 state visitation 整体 stop-grad 的 Route A。完整、未削减的 B2 由于 return-to-go 跨 step 累加，方差极大、几乎无法稳定训练，才是真正"没人做"的部分；MiniLLM 走的是介于两者之间的实用折中。
 
 **统一的实践规则**：
 - **Route A**（教学清晰，§4.1）：full-vocab KL + stop-grad rollouts，直接 autograd，**不需要 REINFORCE**。零方差，但需要 teacher full logits。
-- **Route B1**（§4.4 vOPD-style, Tinker / MiniLLM 默认）：sampled-token REINFORCE / IS estimator + control variate。期望等价于 A，方差更大但适配 sampled-token 接口、节约 teacher vocab memory、支持 black-box teacher。
+- **Route B1**（§4.4 vOPD-style, Tinker / MiniLLM 默认）：sampled-token REINFORCE / IS estimator + control variate。期望等价于 A，方差更大但适配 sampled-token 接口、节约 teacher vocab memory、支持 logprob-only（灰盒）teacher——注意仍需 teacher 吐出 $\log \pi_T(y_t|s_t)$，真正 sample-only 的黑盒 teacher（无 logprob）需要 §6.5 的专门 Black-Box OPD 方法。
 - **不能**对 sampled-token 的 $\log(\pi_\theta/\pi_T)$ 直接 `.backward()` —— 那是 pathwise gradient + 固定 sampled index，丢失 score-function 项，**不是 reverse-KL gradient**（既不是 MLE，也不是 KL 下降方向）
 
 ### 2.4　与 KL-constrained RL 的关系
@@ -228,7 +231,7 @@ DPO 是 **completely offline**：无需 sampling、无 teacher、无 RM、无 cr
 | Compute | 最便宜（纯 forward + 反传） | 中等（student sampling + teacher forward） |
 | 何时用 | 有偏好数据集、无 strong teacher | 有 strong teacher、想压缩到小 student |
 
-**两者可以叠加**：先 DPO 对齐人类偏好，再 OPD 用更强的 teacher 压缩到小 student。Qwen3 / R1-Distill 的 production pipeline 都用类似套路。
+**两者可以叠加**：先 DPO 对齐人类偏好，再 OPD 用更强的 teacher 压缩到小 student。Qwen3 的 production pipeline 用类似套路；R1-Distill 官方发布的流程本身是纯 off-policy SFT（不含 student rollout / KL 信号，见 §3.4），并未叠加 OPD——用 OPD 对 R1-Distill checkpoint 做进一步蒸馏属于社区 follow-up 工作，不是 DeepSeek 官方流程的一部分。
 
 ### 3.3　OPD vs GRPO
 
@@ -240,7 +243,7 @@ $$L_{\text{GRPO}}(\theta) = \mathbb{E}_x \frac{1}{G}\sum_i \frac{1}{|y_i|}\sum_t
 
 其中 $\rho_t^i = \pi_\theta / \pi_{\theta_{\text{old}}}$ 是重要性比。
 
-**OPD 与 GRPO 的关系**：把 GRPO 的 sparse outcome reward $R(x, y_i)$ 替换成 **per-token teacher KL reward** $r_t^i = \log\pi_T(y_t^i|s_t^i) - \log\pi_\theta^{\text{old}}(y_t^i|s_t^i) = -\log\!\frac{\pi_\theta^{\text{old}}(y_t^i|s_t^i)}{\pi_T(y_t^i|s_t^i)}$（注意必须取 log-ratio，不是 LaTeX 容易误读成的 $-\log\pi_\theta/\pi_T$），且 reference $\pi_{\text{ref}} \leftarrow \pi_T$，GRPO loss 就退化为 OPD 的 policy-gradient 形式（见 §2.3）。
+**OPD 与 GRPO 的关系**：把 GRPO 的 sparse outcome reward $R(x, y_i)$ 替换成对逐 token teacher KL log-ratio **求和得到的轨迹级 reward** $r^i = \sum_t \big(\log\pi_T(y_t^i|s_t^i) - \log\pi_\theta^{\text{old}}(y_t^i|s_t^i)\big) = -\sum_t\log\!\frac{\pi_\theta^{\text{old}}(y_t^i|s_t^i)}{\pi_T(y_t^i|s_t^i)}$（注意必须取 log-ratio，不是 LaTeX 容易误读成的 $-\log\pi_\theta/\pi_T$；且这是对轨迹内所有 token 求和后的**单个标量**，经组内归一化后会被广播到该轨迹每个 token 上作为 advantage，并不提供 token 级差异化 credit assignment，详见 §4.5），且 reference $\pi_{\text{ref}} \leftarrow \pi_T$，GRPO loss 就退化为 OPD 的 policy-gradient 形式（见 §2.3）。
 
 > 💡 **集成实战** — 现代 production pipeline 常用 **OPD + GRPO 混合**：
 
@@ -332,9 +335,10 @@ def per_token_reverse_kl_loss(
 
 - **`action_mask`** 必须只 mask student rollout 的 token；prompt 上算 KL 没意义（teacher 也只是 condition）
 - **teacher forward 用 `torch.no_grad()`** 否则 memory 翻倍
-- **Full-vocab (Route A) vs sampled-token (Route B)**：上面的 loss 是 **Route A**（求和 over $V$ 个 token，autograd 直接反传）。**Route B**（sampled-token + REINFORCE/IS，§4.4）是 Tinker / MiniLLM 等生产实现的默认形式，与 PPO/GRPO 共享 sampled-token 接口，支持 black-box teacher，A 与 B **期望等价**。无论选哪条，**不能**对 sampled-token 的 `log π_θ − log π_T` 直接 `.backward()` —— 那等价于对固定 sampled index 取 pathwise $\nabla\log\pi_\theta(y_t)$，**丢失了 score-function 项**，既不是 reverse-KL 梯度，也不是 MLE。Route B 必须配 REINFORCE 估计器（detached reward + score-function trick）
+- **Full-vocab (Route A) vs sampled-token (Route B)**：上面的 loss 是 **Route A**（求和 over $V$ 个 token，autograd 直接反传）。**Route B**（sampled-token + REINFORCE/IS，§4.4）是 Tinker / MiniLLM 等生产实现的默认形式，与 PPO/GRPO 共享 sampled-token 接口，支持 logprob-only（灰盒）teacher（真正 sample-only 的黑盒 teacher 需要 §6.5 的 Black-Box OPD），A 与 B **期望等价**。无论选哪条，**不能**对 sampled-token 的 `log π_θ − log π_T` 直接 `.backward()` —— 那等价于对固定 sampled index 取 pathwise $\nabla\log\pi_\theta(y_t)$，**丢失了 score-function 项**，既不是 reverse-KL 梯度，也不是 MLE。Route B 必须配 REINFORCE 估计器（detached reward + score-function trick）
 - **batched teacher inference** 在生产里通常**异步**：先用 vLLM 起 teacher server，把 student rollout batch 发过去拿 log-probs；本地只跑 student forward + backward。这是 Tinker / vLLM-based 框架的标配
 - **mixed precision**：student 用 bf16，teacher logits 用 fp32 算 log-softmax（防数值不稳）
+- **朴素实现的显存开销不小**：本函数同时物化 `s_logits / s_log_probs / s_probs / t_logits / t_log_probs` 五个 $[B,L,V]$ BF16 张量；按 §4.2/§4.6 给出的典型配置（`batch_size=64`、`max_new_tokens=512`、vocab 100K-152K），单个张量约 6.5-10 GB，五个合计约 **33-50 GB**，已超过 §8.2 显存表中 activations 的预算——生产实现通常做分块 / fused cross-entropy 来避免同时物化五个满 vocab 张量，见 §8.2 说明
 
 #### 共用辅助函数（贯穿 §4.2 - §4.6）
 
@@ -352,7 +356,8 @@ def per_token_logp(model, input_ids):
 
 def teacher_kl_reward(student, teacher, input_ids, action_mask):
     """
-    OPD-GRPO 中作为 dense token reward 的 teacher-vs-behavior KL：
+    OPD-GRPO 中用作轨迹级 reward 的 teacher-vs-behavior KL（逐 token 计算后在轨迹内求和，
+    不是逐 token 的 dense reward——见函数末尾 .sum(dim=-1)）：
         r_t = log π_T(y_t|s_t) - log π_θ_old(y_t|s_t)
     输入 action_mask 形状 [B, L]（同 input_ids），内部 shift 到 [B, L-1]。
     全程 no_grad，返回每轨迹的标量 reward（sum over generated tokens）。
@@ -440,7 +445,7 @@ def opd_loss(student, teacher, prompts):
 
 ### 4.4　Control Variate Baseline（vOPD 风格的 token-level KL）
 
-> ⚠️ **使用场景**：本节是 Route B（sampled-token REINFORCE / importance sampling）的标准展示。**Route B 是 Tinker、MiniLLM 等生产实现的默认形式**，与 Route A (§4.1, full-vocab autograd) **期望等价**，trade-off 在方差 vs 工程接口：Route A 零方差但需 teacher full logits，Route B 适配 PPO/GRPO sampled-token 接口、支持 black-box teacher、节约 teacher vocab memory。**closed-form baseline** 这个具体降方差技巧只在 teacher full logits 可用时算得出来；black-box teacher 下要换 learned / EMA / per-prompt 均值 baseline——见末尾 caveat。
+> ⚠️ **使用场景**：本节是 Route B（sampled-token REINFORCE / importance sampling）的标准展示。**Route B 是 Tinker、MiniLLM 等生产实现的默认形式**，与 Route A (§4.1, full-vocab autograd) **期望等价**，trade-off 在方差 vs 工程接口：Route A 零方差但需 teacher full logits，Route B 适配 PPO/GRPO sampled-token 接口、支持 logprob-only（灰盒）teacher——仍需 teacher 吐出 $\log \pi_T(y_t|s_t)$，不是真正 sample-only 的黑盒 API（那需要 §6.5 的 Black-Box OPD）——并节约 teacher vocab memory。**closed-form baseline** 这个具体降方差技巧只在 teacher full logits 可用时算得出来；灰盒（logprob-only）teacher 下要换 learned / EMA / per-prompt 均值 baseline——见末尾 caveat。
 
 > 注：vOPD（"KL for a KL"）的 control-variate 思想是 OPD 文献里反复出现的模式（Survey 2026 / Tinker blog 等都有等价讨论），下面给出**正确的 detach + sign + estimator** 形式。
 
@@ -498,12 +503,12 @@ def vopd_token_kl_estimator(student, teacher, input_ids, action_mask):
 > 1. **`r_hat` 必须 detach**：它是 reward signal，不是 loss 的一部分；如果不 detach，会把 $\log\pi_T$ 和 student log-prob 同时拉进 backward，与论文 estimator 完全不同。
 > 2. **`baseline` 必须 detach**：control variate 不能反传梯度，否则 unbiasedness 不再成立。
 > 3. **surrogate 的符号**：我们想 **minimize** $D_{\text{KL}}$。REINFORCE 恒等式给出 $\nabla D_{\text{KL}} = \mathbb{E}[\nabla\log\pi_\theta\cdot \hat r]$，所以让 `loss = +E[\log\pi_\theta\cdot(\hat r - B).\text{detach}()]`，则 `loss.backward()` 得到 $+\nabla D_{\text{KL}}$，optimizer step `θ -= η·∇L` 就在做 KL 下降。**正号才对**——容易把符号写反。
-> 4. **Route A vs Route B 的选择**：`full_kl_per_pos`（§4.1 Route A）零方差、一行 autograd，但要 teacher full logits；本节 Route B 适配 sampled-token 接口（与 §4.5 PPO clipping 自然衔接）、支持 black-box teacher、节约 vocab-size memory。两者**期望等价**，按工程约束选。
-> 5. **Black-box teacher 的 baseline choices**：如果只能 query teacher log-prob 而拿不到 full vocab，closed-form `B(s_t)` 算不了；可改用 (a) `running mean of r_hat` 作 baseline；(b) 学习一个 lightweight value head；(c) per-prompt 经验均值。失去 closed-form 优势但仍保留 unbiased + 显著降方差。
+> 4. **Route A vs Route B 的选择**：`full_kl_per_pos`（§4.1 Route A）零方差、一行 autograd，但要 teacher full logits；本节 Route B 适配 sampled-token 接口（与 §4.5 PPO clipping 自然衔接）、支持 logprob-only（灰盒）teacher、节约 vocab-size memory。两者**期望等价**，按工程约束选。
+> 5. **Logprob-only（灰盒）teacher 的 baseline choices**：如果只能 query teacher log-prob 而拿不到 full vocab（注意这仍然是灰盒场景，不是真正 sample-only 的黑盒 API），closed-form `B(s_t)` 算不了；可改用 (a) `running mean of r_hat` 作 baseline；(b) 学习一个 lightweight value head；(c) per-prompt 经验均值。失去 closed-form 优势但仍保留 unbiased + 显著降方差。
 
 ### 4.5　OPD 集成进 GRPO（multi-sample group baseline）
 
-GRPO 的 ratio 是 **new student policy vs old behavior student policy**（rollout 时记录 `s_logp_old`，update 时算 `s_logp_new`），teacher 进入两个独立位置：(i) **reward** 通过 token-level KL reward $r_t^{\text{kl}} = \log\pi_T(y_t|s_t) - \log\pi_\theta^{\text{old}}(y_t|s_t)$（dense token reward 形式），与 outcome reward 加权得到总 reward；(ii) **KL regularization** 通过 $D_{\text{KL}}(\pi_\theta\,\Vert\,\pi_T)$ 显式约束 student 不偏离 teacher。**Teacher 绝不进入 PPO ratio 的分母**。
+GRPO 的 ratio 是 **new student policy vs old behavior student policy**（rollout 时记录 `s_logp_old`，update 时算 `s_logp_new`），teacher 进入两个独立位置：(i) **reward** 通过对 token-level KL reward $r_t^{\text{kl}} = \log\pi_T(y_t|s_t) - \log\pi_\theta^{\text{old}}(y_t|s_t)$ 求和得到的**轨迹级标量 reward**（组内归一化后对该轨迹所有 token 广播相同 advantage，不提供 token 级差异化 credit assignment，见下方代码 `r_kl_dense` 的 `.sum().item()`），与 outcome reward 加权得到总 reward；(ii) **KL regularization** 通过 $D_{\text{KL}}(\pi_\theta\,\Vert\,\pi_T)$ 显式约束 student 不偏离 teacher——这一项才是真正的逐 token dense 监督（full-vocab 闭式，§4.1）。**Teacher 绝不进入 PPO ratio 的分母**。
 
 ```python
 def opd_grpo_step(student, teacher, batch, G=8, alpha=0.5, kl_coef=0.1, clip=0.2):
@@ -571,7 +576,7 @@ def opd_grpo_step(student, teacher, batch, G=8, alpha=0.5, kl_coef=0.1, clip=0.2
 
 > 💡 **关键细节** —
 > 1. **ratio 的分母是 `s_logp_old`（behavior policy）**，rollout 时一次性算出并 `.detach()`，与 teacher 无关。这与 vanilla GRPO/PPO 完全一致。
-> 2. **Teacher 的两个角色互不重叠**：作为 reward source 提供 `r_kl_dense`（dense token reward，进 advantage），作为 KL anchor 提供闭式 reverse-KL penalty（直接进 loss）。
+> 2. **Teacher 的两个角色互不重叠**：作为 reward source 提供 `r_kl_dense`（对逐 token KL 求和后的轨迹级标量，`.sum().item()` 后进 advantage，再经 `expand_as` 广播回每个 token，token 维度上是均匀的，并非 token 级差异化信号），作为 KL anchor 提供闭式 reverse-KL penalty（真正的逐 token dense 监督，直接进 loss）。
 > 3. **`per_token_reverse_kl_loss` 是 full-vocab 闭式**（§4.1），不是 sampled-token estimator，所以 KL 项 unbiased 且低方差。
 > 4. **mini-batch 多步更新**：实际 GRPO 一个 rollout batch 会做 `n_epochs` 次 inner update，ratio 不为 1（关键，否则 clipping 不起作用）。
 
@@ -615,7 +620,7 @@ def synthetic_distillation_pipeline(
     return student
 ```
 
-这是 Qwen3 / R1-Distill / Thinking Machines 类似 recipe 的标准三段式。Stage 1 给 cold start（student 学会模仿 teacher 的 style 与 format），Stage 2 用 OPD 把 exposure bias 消掉，Stage 3 用 verifier 做 task-aligned 微调。
+这是 Qwen3 / Thinking Machines 类似 recipe 的标准三段式（R1-Distill 官方发布的流程仅对应 Stage 1 的 off-policy SFT，不含 Stage 2/3 的 on-policy 部分，见 §3.4）。Stage 1 给 cold start（student 学会模仿 teacher 的 style 与 format），Stage 2 用 OPD 把 exposure bias 消掉，Stage 3 用 verifier 做 task-aligned 微调。
 
 ## §5 OPD 在 Knowledge Distillation 谱系中的位置
 
@@ -632,7 +637,7 @@ def synthetic_distillation_pipeline(
    分类             encoder-     LLM 首次     generalized   "便宜 RL"
    forward KL      level KD     reverse KL   JSD + mix     范式 + 大规模
                                 + on-policy  on/off        实证（Qwen3/
-                                              policy        Gemma/Kimi）
+                                              policy        MiMo/Kimi）
 ```
 
 **核心演化方向**：
@@ -647,13 +652,13 @@ def synthetic_distillation_pipeline(
 |---|---|---|
 | 2015 | Hinton, Vinyals, Dean — "Distilling the Knowledge in a Neural Network" (arXiv 1503.02531) | Soft target KD + temperature softmax 的开山之作 |
 | 2016 | Kim & Rush — "Sequence-Level Knowledge Distillation" (EMNLP, arXiv 1606.07947) | 把 KD 推到 seq-to-seq NMT，提出 seq-level / token-level KD 区分 |
-| 2019 | Sanh et al. — "DistilBERT" (NeurIPS workshop, arXiv 1910.01108) | encoder LLM 压缩到 60% size 保 95% 性能 |
+| 2019 | Sanh et al. — "DistilBERT" (NeurIPS workshop, arXiv 1910.01108) | 参数减少 40%（约保留 60% 原始参数量），保留约 97% GLUE 性能，推理速度提升约 60% |
 | 2020 | Sun et al. — "MobileBERT" (ACL, arXiv 2004.02984) | 任务无关 KD + 渐进式蒸馏 |
 | 2023 | Gu et al. — "MiniLLM" (ICLR 2024, arXiv 2306.08543) | **第一次正式把 reverse KL + on-policy 应用到 LLM**；policy gradient 优化 reverse KL |
 | 2023 | Agarwal et al. — "GKD: On-Policy Distillation of LM" (ICLR 2024, arXiv 2306.13649) | 统一 forward/reverse KL + on/off-policy 数据，generalized JSD 插值；$\lambda$ 控制 student 数据比例 |
-| 2024 | DeepSeek-R1-Distill (DeepSeek 2025-01, arXiv 2501.12948) | Off-policy SFT 蒸馏 800K reasoning trajectory，1.5B-70B family |
+| 2025 | DeepSeek-R1-Distill (DeepSeek 2025-01, arXiv 2501.12948) | Off-policy SFT 蒸馏 800K reasoning trajectory，1.5B-70B family |
 | 2025-05 | Qwen3 Tech Report (arXiv 2505.09388) | 工业级 OPD recipe：off-policy SFT 冷启动 + on-policy distillation；比 RL 省 10× GPU 时长 |
-| 2025-10 | Thinking Machines — "On-Policy Distillation" blog (Lu et al.) | 把 OPD 包装成"便宜 RL"路线；Qwen3-8B + Qwen3-32B-teacher 复现 RL gain，9-30× FLOPs 节省 |
+| 2025-10 | Thinking Machines — "On-Policy Distillation" blog (Lu et al.) | 把 OPD 包装成"便宜 RL"路线；Qwen3-8B + Qwen3-32B-teacher 复现 RL gain，9-30× FLOPs 节省（大方向可信，精确倍数区间 [needs-verify]） |
 | 2025-11 | Black-Box OPD (arXiv 2511.10643) | 不需要 teacher logits，只用 teacher samples 做 on-policy 蒸馏 |
 | 2026 | Song & Zheng — "A Survey of OPD for LLMs" (arXiv 2604.00626) | 把 OPD 形式化为 student-rollout 上的 $f$-divergence minimization；三轴 taxonomy |
 | 2026 | "Rethinking OPD" (arXiv 2604.13016) | 现象学 + 机制 + recipe：truncation collapse / mode-seeking 失败 / 反事实回归 |
@@ -665,8 +670,8 @@ reasoning model 蒸馏的两条主线：
 
 | 路线 | 代表 | 范式 |
 |---|---|---|
-| **Off-policy SFT KD** | DeepSeek-R1-Distill, s1 (Muennighoff 2025), OpenThinker | teacher 生成 trajectory → student SFT |
-| **On-Policy Distillation (OPD)** | Qwen3, Gemma 2/3, MiMo-V2, Thinking Machines | student 采 → teacher 给 per-token KL |
+| **Off-policy SFT KD** | DeepSeek-R1-Distill, s1 (Muennighoff 2025), OpenThinker, Gemma 2/3（固定数据集上的 soft-target KD，不含 student self-rollout） | teacher 生成 trajectory / soft label → student SFT |
+| **On-Policy Distillation (OPD)** | Qwen3, MiMo-V2, Thinking Machines | student 采 → teacher 给 per-token KL |
 
 **何时用哪个**：
 - 如果 teacher trajectory 质量极高、student 与 teacher capability gap 不大 → off-policy SFT 已经够
@@ -702,6 +707,8 @@ Qwen3-8B-final
 - 在 AIME'24 / AIME'25 上 pass@64 显著提升（说明 OPD 没塌缩 diversity）
 - 比 off-policy SFT 在 long-CoT 任务上 +3-5pp
 
+**[needs-verify]** pass@64 的具体数值与 "+3-5pp" 的精确度量口径待核对原始 Qwen3 Technical Report §3.2（arXiv 2505.09388），与 §A.4 的既有 needs-verify 惯例保持一致。
+
 ### 6.2　Thinking Machines Blog（Lu 2025-10-27）
 
 实验 setting：
@@ -730,6 +737,8 @@ GitHub: `thinking-machines-lab/tinker-cookbook/tree/main/tinker_cookbook/recipes
 这种"把 KL 当 reward 注入 advantage"的设计正好对应 §3.3 的 OPD-GRPO 等价：把 sparse outcome reward 替换成 dense teacher KL reward。
 
 ### 6.4　DeepSeek-V4 报告（multi-teacher OPD 替代 RL）
+
+**[needs-verify]** DeepSeek-V4 及其 multi-teacher OPD consolidation 细节来自二手/推断信息，未核实原始技术报告，与 §A.4 中对同一主张（L3-3）已有的 needs-verify 标注保持一致。
 
 DeepSeek-V4 在 model consolidation 阶段**完全用 multi-teacher OPD 替代 mixed RL**——多个 teacher（specialized：math / code / reasoning / chat）的 logits 加权 ensemble 作为 student 的 OPD target。这是 OPD 范式扩展到 multi-teacher 与 specialist consolidation 的代表案例。
 
@@ -783,7 +792,7 @@ DeepSeek-V4 在 model consolidation 阶段**完全用 multi-teacher OPD 替代 m
 
 ### 7.5　Teacher / Student Gap 太大
 
-**现象**：student 比 teacher 小很多（如 1B vs 70B）时，student 的 sample 完全采不到 teacher 概率高的 region，OPD 信号近乎 0（"student visits states teacher never thought of"）。
+**现象**：student 比 teacher 小很多（如 1B vs 70B）时，student 的 sample 完全采不到 teacher 概率高的 region（"student visits states teacher never thought of"）。这不是"信号消失"：sampled-token reverse KL 项 $\log\pi_\theta(y_t|s_t) - \log\pi_T(y_t|s_t)$ 在 $\pi_T(y_t|s_t)\to 0$ 时因 $\log\pi_T(y_t|s_t)\to -\infty$ 而**趋于 $+\infty$**（极端惩罚 / 数值不稳定）。真正的问题是：(a) student 自身采样分布可能从未覆盖 teacher 高概率 token（mode-covering 缺失，有效学习信号方向性差）；(b) 一旦采到 teacher 极不可能的 token，该 step 会产生数值极端（而非趋零）的 loss。
 
 **缓解**：
 - **off-policy SFT warm start**：先让 student 模仿 teacher 一段时间，状态分布拉近后再 OPD
@@ -824,13 +833,15 @@ OPD 的额外开销主要来自：(1) student rollout（sampling 比 forward 慢
 | KV cache (student rollout) | ~5-10 GB |
 | **Total** | **~150-170 GB** → 单 H100 (80GB) 跑不下，需 2-4 GPU |
 
+> ⚠️ **本表假设了省显存的工程优化，§4.1 朴素代码原样跑会超出上表的 activations 预算** — 按本教程给出的典型配置（`batch_size=64`、`max_new_tokens=512`、vocab 100K-152K），§4.1 Route A 教学代码同时物化的 `s_logits / s_log_probs / s_probs / t_logits / t_log_probs` 五个 $[B,L,V]$ BF16 张量合计约 **33-50 GB**，已经超过上表 "Student activations (~10-20 GB) + Teacher activations (~5-10 GB)" 合计 15-30 GB 的预算。上表数字隐含假设了分块计算 / fused cross-entropy 等省显存优化；未做这些优化的朴素实现实际开销显著更高。
+
 **降显存技巧**：
 - Teacher 用 **separate inference server**（vLLM）跑，student 训练机不存 teacher weight
 - Teacher 用 **fp8 / int8 quantization**（teacher 只 forward 不反传，精度损失小）
 - Student 用 **LoRA**（rank 128）+ teacher 完整 weight
 - **Async teacher inference**：student 训第 $N$ batch 时，teacher server 在算第 $N+1$ batch
 
-### 8.3　Sample Efficiency
+### 8.3　Compute Efficiency
 
 Thinking Machines blog 的核心数据点：
 
@@ -841,7 +852,7 @@ Thinking Machines blog 的核心数据点：
 | **+ OPD (Qwen3-32B teacher)** | **~62%** | **~1× baseline** |
 | + RL 训到匹配 OPD | 62% | ~10× baseline |
 
-**OPD 在同等准确率下 sample efficient 约 9-30×**——这是 OPD 火起来的核心数字。
+**OPD 在同等准确率下 compute-efficient（以 Total FLOPs 计）约 9-30×**——这是 OPD 火起来的核心数字。注意这是 FLOPs/compute 维度的效率，与"需要多少条 rollout 样本"的 sample efficiency 是不同的量。
 
 ## §9 与相关方法的对比与定位
 
@@ -929,7 +940,7 @@ $$L_{\text{OPD}}(\theta) = \mathbb{E}_{x \sim D,\, y \sim \pi_\theta(\cdot|x)}\!
 <details>
 <summary><strong>L1-8：OPD 需要 critic / value model 吗？</strong></summary>
 
-**答**：**不需要**。OPD 的 value function 有闭式解：$V(s_t) = -D_{\text{KL}}(\pi_\theta(\cdot|s_t) \,\|\, \pi_T(\cdot|s_t))$，可以从已经算好的 student 与 teacher logits 直接读出（"KL for a KL" baseline, arXiv 2605.07865），不需要单独训 critic。这是 OPD 相对 PPO 的一个工程优势。
+**答**：**不需要**。在教程采用的 semi-gradient（B1，对 state visitation stop-grad）近似下，$D_{\text{KL}}(\pi_\theta(\cdot|s_t) \,\|\, \pi_T(\cdot|s_t))$ 是该 step **即时（single-step）reward** 的条件期望闭式值，可以从已经算好的 student 与 teacher logits 直接读出，用作该 step REINFORCE 估计量的零偏差控制变量 / baseline（"KL for a KL", arXiv 2605.07865），不需要单独训 critic——这是 OPD 相对 PPO 的一个工程优势。但严格来说它不是完整轨迹目标的真正状态价值函数 $V(s_t) = \mathbb{E}[\sum_{t'\ge t} D_{\text{KL}}(s_{t'})]$（后者需要对未来所有 step 的 KL 求 return-to-go，即 §2.3 中"几乎没人做"的完整 B2 形式）；把单步条件期望直接称为 $V(s_t)$ 是概念上的简化说法。
 </details>
 
 <details>
@@ -963,8 +974,8 @@ $$\nabla L = \mathbb{E}_\tau\!\Big[\underbrace{\sum_u \nabla\log\pi_\theta(a_u|s
 注意 score-function 权重是**未来所有 step 的 KL 之和**，不是同 token $G_t$。
 
 **生产中的实践规则**：
-- **Route A（教学清晰）**：rollout 时对 $\theta$ stop-grad（即 $\rho_{\pi_{\theta^-}}$ 固定），只反传内层 full-vocab KL（autograd 直接做），**不需要 REINFORCE**。这等价于"semi-gradient"近似。优势是零方差、一行 PyTorch；要求 teacher full logits 可用。
-- **Route B（生产常见）**：sampled-token REINFORCE / importance-sampling estimator + control variate（§4.4）；与 PPO/GRPO 共享 sampled-token 接口、节约 teacher vocab memory、支持 black-box teacher。MiniLLM (Gu 2024) 与 Thinking Machines Tinker 的开源实现都走这条。**完整 (2) 几乎没人做**——return-to-go 跨 step 累加，方差爆炸；都用 semi-gradient (stop-grad rollouts) 近似。
+- **Route A（教学清晰）**：rollout 时对 $\theta$ stop-grad（即 $\rho_{\pi_{\theta^-}}$ 固定），只反传内层 full-vocab KL（autograd 直接做），**不需要 REINFORCE**。这等价于"semi-gradient"近似。优势是零方差、一行 PyTorch；要求 teacher full logits 可用。（"零方差"特指给定固定 prefix 后内层 full-vocab KL 消除了 Route B1 的采样估计方差，训练流水线整体仍因 rollout 阶段 student 采样带有跨 batch 方差）
+- **Route B（生产常见）**：sampled-token REINFORCE / importance-sampling estimator + control variate（§4.4）；与 PPO/GRPO 共享 sampled-token 接口、节约 teacher vocab memory、支持 logprob-only（灰盒）teacher（真正 sample-only 黑盒需 §6.5 Black-Box OPD）。MiniLLM (Gu 2024) 与 Thinking Machines Tinker 的开源实现都走这条，但两者近似程度不同：Tinker 走的是更贴近 (1) 的 fixed-state estimator；**MiniLLM 实际用带 future log-ratio return 的单步分解**（$R_t=\sum_{t'\ge t} r_{t'}$），是 (2) 的方差削减近似，不是纯粹的 semi-gradient。**完整、未削减的 (2) 才是几乎没人做的**——return-to-go 跨 step 累加，方差爆炸；生产中普遍在 (1) 附近或 MiniLLM 式的削减近似上折中。
 - **不能**对 sampled-token $\log(\pi_\theta/\pi_T)$ 直接 `.backward()`：那是 pathwise + 固定 index，丢失 score-function 项，既不是 KL gradient 也不是 MLE。
 
 **A 与 B 期望等价**，差异在方差 vs 工程接口 trade-off。
@@ -975,7 +986,7 @@ $$\nabla L = \mathbb{E}_\tau\!\Big[\underbrace{\sum_u \nabla\log\pi_\theta(a_u|s
 <details>
 <summary><strong>L2-2：GKD 与 MiniLLM 的关键差异？$\lambda$ 与 $\beta$ 分别控制什么？</strong></summary>
 
-**答**：**MiniLLM** (Gu 2024)：纯 reverse KL on student rollout + REINFORCE 优化 + 一些稳定 trick（mixed policy $\pi_{\text{mix}} = (1-\alpha)\pi_\theta + \alpha\pi_T$，$\alpha = 0.2$ 防止 collapse；length penalty）。**GKD** (Agarwal 2024)：generalized 框架，两个 hyperparameter：(1) $\lambda \in [0, 1]$ 控制 **student-generated data fraction**（$\lambda=0$ 完全 off-policy on dataset $\hat y$，$\lambda=1$ 完全 on-policy on student $y$）；(2) $\beta \in [0, 1]$ 控制 **generalized JSD 的插值**（$\beta=0$ forward KL on dataset，$\beta=1$ reverse KL on student）。GKD 是 MiniLLM 的 superset。
+**答**：**MiniLLM** (Gu 2024)：纯 reverse KL on student rollout + REINFORCE 优化 + 一些稳定 trick（mixed policy $\pi_{\text{mix}} = (1-\alpha)\pi_\theta + \alpha\pi_T$，$\alpha = 0.2$ 防止 collapse；length penalty）。**GKD** (Agarwal 2024)：generalized 框架，两个 hyperparameter：(1) $\lambda \in [0, 1]$ 控制 **student-generated data fraction**（$\lambda=0$ 完全 off-policy on dataset $\hat y$，$\lambda=1$ 完全 on-policy on student $y$）；(2) $\beta \in [0, 1]$ 控制 **generalized JSD 的插值**——严格取极限时方向与直觉相反：$\beta \to 0$ 的单侧极限是 reverse KL（$D_\beta/\beta \to D_{\text{KL}}(\pi_\theta\|\pi_T)$），$\beta \to 1$ 的单侧极限是 forward KL（$D_\beta/(1-\beta) \to D_{\text{KL}}(\pi_T\|\pi_\theta)$），且 $\beta=0,1$ 处 $D_\beta$ 本身恒为 0（见 §2.1 表格端点说明）。GKD 是 MiniLLM 的 superset。
 </details>
 
 <details>
@@ -1017,19 +1028,19 @@ $B(s_t)$ 是 $\hat r_t$ 在 $y_t \sim \pi_\theta(\cdot|s_t)$ 下的条件期望�
 <details>
 <summary><strong>L2-6：OPD 的 "sampled-token KL" 与 "full-vocab KL" trade-off？</strong></summary>
 
-**答**：(a) **sampled-token (REINFORCE / importance-sampling，Route B)**：reward 用 $G_t = \log \pi_\theta(y_t) - \log \pi_T(y_t)$.detach()（只 query teacher 一个 log-prob），grad = $\nabla\log\pi_\theta(y_t)\cdot G_t$；便宜但方差大。**MiniLLM (Gu 2024) 与 Thinking Machines Tinker 的开源实现都是这种 sampled-token PG/IS 形式**（Tinker `train_on_policy.py` 用 `loss_fn="importance_sampling"` + `incorporate_kl_penalty`；MiniLLM 用 single-step decomposition + length norm + teacher-mixed sampling 等 trick 稳定方差）。(b) **full-vocab (Route A)**：loss = $\sum_v \pi_\theta(v)(\log \pi_\theta(v) - \log \pi_T(v))$，直接 autograd；零方差但要 teacher full logits + 整 vocab 显存；GKD 等概念推导常用这种形式当教学起点，也是工程上 teacher full logits 可用时的最简实现。**两者期望等价**，trade-off：Route A 零方差、一行 PyTorch，但要 full logits + vocab memory；Route B 适配 PPO/GRPO sampled-token 接口、支持 black-box teacher、节约 vocab memory，需要 control variate（§4.4）降方差。
+**答**：(a) **sampled-token (REINFORCE / importance-sampling，Route B)**：reward 用 $G_t = \log \pi_\theta(y_t) - \log \pi_T(y_t)$.detach()（只 query teacher 一个 log-prob），grad = $\nabla\log\pi_\theta(y_t)\cdot G_t$；便宜但方差大。**MiniLLM (Gu 2024) 与 Thinking Machines Tinker 的开源实现都是这种 sampled-token PG/IS 形式**（Tinker `train_on_policy.py` 用 `loss_fn="importance_sampling"` + `incorporate_kl_penalty`；MiniLLM 用 single-step decomposition + length norm + teacher-mixed sampling 等 trick 稳定方差）。(b) **full-vocab (Route A)**：loss = $\sum_v \pi_\theta(v)(\log \pi_\theta(v) - \log \pi_T(v))$，直接 autograd；零方差但要 teacher full logits + 整 vocab 显存；GKD 等概念推导常用这种形式当教学起点，也是工程上 teacher full logits 可用时的最简实现。**两者期望等价**，trade-off：Route A 零方差、一行 PyTorch，但要 full logits + vocab memory；Route B 适配 PPO/GRPO sampled-token 接口、支持 logprob-only（灰盒）teacher（真正 sample-only 黑盒需 §6.5 Black-Box OPD）、节约 vocab memory，需要 control variate（§4.4）降方差。
 </details>
 
 <details>
 <summary><strong>L2-7：OPD 为什么比 off-policy KD 在 long-CoT 任务上更好？</strong></summary>
 
-**答**：long-CoT 上 student 自身 rollout 与 teacher rollout 的状态分布差距更大（错误累积 $O(L^2)$）。off-policy KD 训练时 student 见的全是 teacher prefix（光滑、正确），推理时遇到自己的错误 prefix 完全没见过——错误指数级 compound。OPD 训练时就在 student 自己的错误 prefix 上学，teacher 给"我会怎么 recover"的监督——直接训"错误修复能力"。
+**答**：long-CoT 上 student 自身 rollout 与 teacher rollout 的状态分布差距更大（错误累积 $O(L^2)$）。off-policy KD 训练时 student 见的全是 teacher prefix（光滑、正确），推理时遇到自己的错误 prefix 完全没见过——错误按 $O(L^2)$ 复合累积（而非指数级，与 §1.3/L1-4 的结论一致）。OPD 训练时就在 student 自己的错误 prefix 上学，teacher 给"我会怎么 recover"的监督——直接训"错误修复能力"。
 </details>
 
 <details>
 <summary><strong>L2-8：如果 student 与 teacher gap 极大（如 1.5B vs 671B），OPD 会失败吗？怎么 mitigate？</strong></summary>
 
-**答**：**会失败**——student 的 sample 大概率落在 teacher 概率极低的 region，sampled-token KL 极小但语义错（"student 看起来在被 teacher 认可，但其实就是在乱说话"）。Mitigate：(1) **off-policy SFT warm start**：先让 student 在 teacher trajectory 上 SFT 一段，状态分布拉近后再 OPD；(2) **intermediate teacher**：用中等大小的 teacher（如 70B）当桥梁；(3) **curriculum**：先短 trajectory，再逐渐放长；(4) **temperature scheduling**：student temperature 初期高扩大探索。
+**答**：**会失败**——student 的 sample 大概率落在 teacher 概率极低的 region。这里的失败机制不是"KL 信号趋零"：一旦采到这种 token，$\log\pi_T(y_t|s_t)\to -\infty$ 会让该 token 的 reverse KL 项**趋于 $+\infty$**（数值极端、梯度不稳），而 gap 过大时真正拖累训练的是 student 自身采样分布可能从未覆盖 teacher 高概率 token，导致有效学习信号方向性差（"student 看起来在被 teacher 认可，但其实就是在乱说话"）。Mitigate：(1) **off-policy SFT warm start**：先让 student 在 teacher trajectory 上 SFT 一段，状态分布拉近后再 OPD；(2) **intermediate teacher**：用中等大小的 teacher（如 70B）当桥梁；(3) **curriculum**：先短 trajectory，再逐渐放长；(4) **temperature scheduling**：student temperature 初期高扩大探索。
 </details>
 
 <details>
@@ -1056,7 +1067,7 @@ $$\max_\theta\, \mathbb{E}_{y \sim \pi_\theta}[R(x, y)] - \beta\, \mathbb{E}_{y 
 - **OPD**：$R \equiv 0$（无外部 reward）, $\pi_{\text{ref}} = \pi_T$（reference = teacher），$\beta = 1$
 - **OPD + GRPO**（生产标配）：$R$ = outcome verifier + dense teacher KL reward, $\pi_{\text{ref}} = \pi_T$
 
-Survey (arXiv 2604.00626) 把这统一称为 "$f$-divergence minimization on student rollout"，OPD 是这类问题的 $R \equiv 0$ 特例，RLHF 是 $\beta \to 0$ 特例，DPO 是 closed-form $R$ + offline 特例。
+Survey (arXiv 2604.00626) 把这统一称为 "$f$-divergence minimization on student rollout"，OPD 是这类问题的 $R \equiv 0$ 特例，DPO 是 closed-form $R$ + offline 特例。**注意 RLHF 不是 $\beta \to 0$ 特例**：一般 KL-constrained RL 目标在 $\beta$ 取常见小正值（如 0.01-0.1）时本身就是 RLHF/PPO 的标准形式，并非某个极限特例；相反，$\beta \to 0$ 对应去掉 KL 正则、纯粹 reward 最大化的无约束 RL（易 reward hacking），这与 RLHF 保留有限非零 KL 惩罚以防止偏离参考策略的核心特征相悖。
 </details>
 
 <details>
@@ -1094,9 +1105,9 @@ weight $w_k$ 可以是固定权重（如 math task 上 math teacher 权重高）
 - **OPD per-token teacher KL（sampled）**：每 token 一个 $\log \pi_T(y_t)$ 值，约 $\log_2 V \approx 17$ bits（典型 vocab 100K-128K）；trajectory 累计 $N \cdot 17$ bits
 - **OPD per-token full KL**：每 token 整个 vocab 分布，理论上限 $\log_2 V$ bits per token（但实际信息量取决于 teacher 分布 entropy）
 
-bit-rate 比：OPD / RL ≈ $N \cdot 17 / 10 \approx N$。在 long-CoT 任务（$N = 2K$-$8K$）上 OPD 提供的监督信息是 RL 的 200-1000× 量级——这从信息论角度解释了 Thinking Machines 报告的 9-30× sample efficiency（实际效率受 student capacity / teacher 质量限制，没达到信息论上限）。
+bit-rate 比：OPD / RL ≈ $N \cdot 17 / 10 = 1.7N$。在 long-CoT 任务（$N = 2K$-$8K$）上该比值约为 **3400-13600×** 量级——这从信息论角度解释了 Thinking Machines 报告的 9-30× compute efficiency 为什么有数量级的空间存在，但实际效率远没达到这个信息论上限。
 
-**caveat**：这是 upper bound 论证——实际 sample efficiency 还受梯度噪声、teacher / student gap、optimizer 等影响。OPD 在简单任务上的 advantage 通常不到 10×，在 long-horizon 复杂任务上才能逼近 30×。
+**caveat**：这是 upper bound 论证，有两层不严谨之处需要注意。(1) 把连续标量 $\log \pi_T(y_t)$ 直接等同于携带 $\log_2 V \approx 17$ bits 信息是一种启发式类比——$\log_2 V$ 只是"从 $V$ 个离散候选中选 1 个"这一分类结果的信息熵上界，并不严格等于对数概率这个连续值本身携带的信息量；此 bit-rate 论证应视为启发式上界，而非严格的信息论推导。(2) 实际 compute efficiency 还受梯度噪声、teacher / student gap、optimizer 等影响，远达不到 3400-13600× 的理论上限。OPD 在简单任务上的 advantage 通常不到 10×，在 long-horizon 复杂任务上才能逼近报告中的 9-30×。
 </details>
 
 ## §A 附录
@@ -1174,7 +1185,8 @@ assert losses[-1] < losses[0], "OPD should reduce KL over training"
 3. **L3-4 "OPD + PRM 融合"**：截至 2026-05 active research，尚无单一权威 paper 整合两者
 4. **§6.2 Thinking Machines 数据**："9-30× FLOPs 节省" 来自 blog secondary source，原 blog 数字与具体 setting 应核对
 5. **§5.2 timeline**：2025-2026 多篇 OPD-related arXiv paper 编号（如 2604.* 系列）来自 2026 Q1-Q2 投稿/预印本，部分 ID 可能在投稿后更新版本号或重排
-6. **OPD 在 Qwen3 / Gemma 2 / MiMo 上的具体采用细节**：多数信息来自 Thinking Machines blog 与 Qwen3 paper §3.2，但 Gemma 2 / MiMo 的 distillation 部分细节需查各自 tech report
+6. **OPD 在 Qwen3 / MiMo 上的具体采用细节**：多数信息来自 Thinking Machines blog 与 Qwen3 paper §3.2，但 MiMo 的 distillation 部分细节需查其 tech report；**Gemma 2/3 已重新归类为 off-policy soft-target KD（非 OPD，见 §5.3 与 §0 TL;DR 第 7 条）**，这一归类基于对 Gemma 2 技术报告方法描述的回忆，未做逐字核对，建议再查原始报告确认
+7. **§6.1 Qwen3 具体数值**：pass@64（vs pass@1）与 "+3-5pp" 的精确度量口径待核对原始 Qwen3 Technical Report §3.2（arXiv 2505.09388）
 
 ### A.5　术语速查表
 

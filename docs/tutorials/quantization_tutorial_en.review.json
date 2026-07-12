@@ -1,19 +1,33 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/quantization_tutorial_en.md",
-  "source_sha256": "75722c1b91c79f67a6c0d7df40469fbc1938f574601a6e4b02f9a3b9c1f9cb65",
+  "source_sha256": "8ad86614e405aa465da696075f116c7b9018d43b82a7165807b76c258fed3864",
   "output": "docs/tutorials/quantization_tutorial_en.html",
   "zh_source": "docs/tutorials/quantization_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
   "verdict": "PASS",
   "thread_id": "019e7cca-f8a7-70a1-a107-22e0968d150d",
   "translation_fidelity_review": {
-    "verdict": "PASS",
-    "thread_id": "019e7cca-f8a7-70a1-a107-22e0968d150d",
-    "phase": "B3 fix-verify",
-    "date": "2026-05-31",
-    "issues": [],
-    "summary": "Fresh cross-model VERIFY confirmed. A fresh GPT-5.5 xhigh Codex thread (read-only, detect-only) independently read /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/quantization_tutorial_en.md, .../quantization_tutorial_en.html, and the canonical ZH .../quantization_tutorial.md, and returned verdict PASS with no issues. The previously-flagged direction reversal at the '每减 1 bit SNR 降约 6 dB' passage is now FIXED: the EN states the correct direction matching ZH — removing a bit DOUBLES the quant step -> SNR decreases by 20*log10(2) ~= 6 dB. ZH: '每减 1 bit SNR 降约 6 dB（每 bit 增加 1 倍量化 step → SNR "
+    "verdict": "PASS (+ 2026-07-12 P0 resweep round 2: 16 ZH fixes synced to EN)",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "PASS",
+        "thread_id": "019e7cca-f8a7-70a1-a107-22e0968d150d",
+        "phase": "B3 fix-verify",
+        "date": "2026-05-31",
+        "issues": [],
+        "summary": "Fresh cross-model VERIFY confirmed. A fresh GPT-5.5 xhigh Codex thread (read-only, detect-only) independently read /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/quantization_tutorial_en.md, .../quantization_tutorial_en.html, and the canonical ZH .../quantization_tutorial.md, and returned verdict PASS with no issues. The previously-flagged direction reversal at the '每减 1 bit SNR 降约 6 dB' passage is now FIXED: the EN states the correct direction matching ZH — removing a bit DOUBLES the quant step -> SNR decreases by 20*log10(2) ~= 6 dB. ZH: '每减 1 bit SNR 降约 6 dB（每 bit 增加 1 倍量化 step → SNR "
+      },
+      {
+        "run": 2,
+        "date": "2026-07-12",
+        "scope": "P0 全集重扫复审 EN 同步：ZH 侧经 Codex GPT-5.6-sol 候选 + Claude Sonnet 5 对抗验证确认的 16 条 finding（15 CONFIRMED + 1 NEEDS_NUANCE，见 zh sidecar math_code_review.rounds[2]，即 run 5）逐条译入 EN 版对应位置",
+        "verdict": "PASS (hand-synced by the same agent that applied the ZH fixes, natural-English rewording not literal MT)",
+        "notes": "Same 16 locations patched in the EN edition, matching the ZH fixes 1:1 in substance and identical in code logic: rounding tie-point '0.5 ULP' → 'a full quantization step s (1 LSB)'; GPTQ complexity O(K³+K·K²) → O(MK²+K³+NK²) plus a block_size-vs-group_size clarification and a docstring note that §4.5's pseudocode is a direct (non-batched) update, not the real lazy block-batched implementation; AWQ salient-channel protection mechanism corrected (inverse-transform error reduction, not 'finer per-channel scale'); `s.mean()` docstring 'geometric mean' → 'arithmetic mean' (code unchanged); AWQ/SmoothQuant LayerNorm-fusion equivalence now notes bias-bearing LN (OPT/BLOOM) needs `prev_ln_bias` synced too — `apply_smoothing()` gained an optional `prev_ln_bias` parameter, byte-identical logic to ZH; SmoothQuant's skipped out_proj/down_proj smoothing clarified (still INT8, not FP16); QuIP's W'=UWV^T completed to the full Wx=U^T W'(Vx) relation; QuaRot's RMSNorm-γ/Hadamard fix corrected (offline γ-fusion, not online Hadamard); **the E4M3FN encoder round-trip bug** `if biased_e >= 15` → `if biased_e > 15` (byte-identical code fix to ZH, independently re-verified in the EN file: ax=300 → code 121/288.0 instead of wrongly-saturated 126/448.0); E8M0 exponent range [0,255] → [0,254]; Q11's H=X^TX Hessian dichotomy resolved; Hadamard incoherence bound gains randomization/high-probability caveat + √(log d) factor; QServe's unsourced '1000+ tokens/s/H100' removed (paper's actual hardware A100/L40S); Q22's dequant+MMA fusion corrected to software pipelining; §2.3 bits/weight formula labeled symmetric-only with the asymmetric variant added; OCP MX spec year 2024→2023. No standalone .py script exists for this tutorial (all code lives inline in markdown). ZH source verified in /private/tmp/claude-501/-Users-yangruofeng-Desktop-ARIS-in---/302812b7-bed4-4d9f-af66-c9b0bee04bb7/scratchpad/resweep56/p0_batch_results.json (finding_id 33-48)."
+      }
+    ]
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "last_updated": "2026-07-12"
 }

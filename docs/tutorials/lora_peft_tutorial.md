@@ -127,8 +127,10 @@ class LoRALinear(nn.Module):
         self.scaling = alpha / (math.sqrt(r) if rslora else r)
 
         # A: [r, in]  Kaiming 随机；B: [out, r] 置零 -> 起点 ΔW = 0
-        self.lora_A = nn.Parameter(torch.empty(r, in_f))
-        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        # 用 new_empty/new_zeros 继承 base.weight 的 device/dtype，
+        # 避免 base 在 GPU/bf16 而 lora_A/lora_B 落在 CPU/fp32 导致设备或精度不一致
+        self.lora_A = nn.Parameter(base.weight.new_empty(r, in_f))
+        self.lora_B = nn.Parameter(base.weight.new_zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
 
         self.lora_dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
@@ -161,7 +163,10 @@ class LoRALinear(nn.Module):
 
 def inject_lora(model: nn.Module, target_names=("q_proj", "v_proj"),
                 r=8, alpha=16, dropout=0.0):
-    """把 model 中名字命中 target_names 的 nn.Linear 替换成 LoRALinear。"""
+    """把 model 中名字命中 target_names 的 nn.Linear 替换成 LoRALinear；
+    调用前先冻结整个模型，避免 embedding/LayerNorm/FFN 等未命中模块仍可训。"""
+    for p in model.parameters():
+        p.requires_grad_(False)
     for name, module in list(model.named_modules()):
         for child_name, child in list(module.named_children()):
             if isinstance(child, nn.Linear) and child_name in target_names:
@@ -175,6 +180,7 @@ def inject_lora(model: nn.Module, target_names=("q_proj", "v_proj"),
 - 注意 `x @ A.t() @ B.t()`：$x$ 形状 $[\dots, k]$，$A^\top$ 是 $[k, r]$，$B^\top$ 是 $[r, d]$，输出 $[\dots, d]$，与 base 输出对齐。
 - `merge()` 用 `@torch.no_grad()` + `add_` 原地改 `base.weight`，合并后 `forward` 跳过旁路。
 - dropout 只作用在**进入旁路的输入**上，不动主路（这是 LoRA 的标准做法）。
+- `inject_lora()` 开头先对整个 `model` 做一次 `requires_grad_(False)`：`LoRALinear.__init__` 只冻结自己包住的那个 base 子模块，若不先全局冻结，embedding / LayerNorm / 未命中 `target_names` 的 FFN 等模块会保持默认的可训状态，等于悄悄变成了全参微调。
 
 > 💡 **dropout 放在旁路输入** — LoRA dropout 作用于 $x$ 进入 $A$ 之前，相当于对低秩适配做正则；主路 $W_0 x$ 不加 dropout（基座是冻结的、不需要正则）。
 
@@ -217,7 +223,7 @@ QLoRA（Dettmers et al., 2023, arXiv 2305.14314, NeurIPS 2023）让单张 48GB �
 
 观察：神经网络权重近似服从零均值正态分布 $\mathcal{N}(0,\sigma^2)$。普通 4-bit 整数量化（INT4，等间距 bin）在正态分布上是浪费的——尾部 bin 几乎没有值落入。**NF4 的思路是让每个量化 bin 落入相等数量的权重（等概率质量），在"权重服从零均值正态 + quantile 量化"的假设下，这是对该固定分布信息论最优的（quantile quantization）。**
 
-构造（简化）：取标准正态 $\mathcal{N}(0,1)$ 的 $2^4=16$ 个分位点作为量化级别，使相邻级别之间的概率质量相等；并做**非对称**处理使 0 能被精确表示（zero-preserving，对剪枝 / padding 友好）。量化时按 block（QLoRA 用 block size 64）算 absmax 把权重归一化到 $[-1,1]$，再查最近的 NF4 级别：
+构造（简化）：分别对标准正态 $\mathcal{N}(0,1)$ 的负半轴与正半轴估计分位点（bitsandbytes 实现里是负侧 8 个含 0、正侧 7 个不含 0，共 $2^4=16$ 级，offset 用经验调优值而非纯理论等分位边界），使各 bin 近似等概率质量，并强制 0 精确可表示（**非对称** + zero-preserving，对剪枝 / padding 友好）——因此并非严格意义上完全等概率的分位划分，而是在满足 zero-preserving 约束下对等概率量化的工程近似。量化时按 block（QLoRA 用 block size 64）算 absmax 把权重归一化到 $[-1,1]$，再查最近的 NF4 级别：
 
 $$w \;\xrightarrow{\text{normalize by absmax}}\; \hat{w} \in [-1,1] \;\xrightarrow{\text{nearest NF4 level}}\; q \in \{n_0,\dots,n_{15}\}$$
 
@@ -235,7 +241,7 @@ $$\text{开销}: \underbrace{0.5\,\text{bit/param}}_{\text{单次}} \;\to\; \und
 
 ### 5.3　Paged Optimizer
 
-长序列 / 大 batch 时，优化器状态可能出现瞬时显存尖峰导致 OOM。QLoRA 用 NVIDIA **unified memory** 给优化器状态做**分页**：显存吃紧时把优化器状态分页换出到 CPU 内存，需要时再换回，像操作系统的内存分页一样，避免 OOM 崩溃。
+优化器状态的逻辑大小基本固定（$\propto$ 可训练参数量，不随 batch / seq_len 变化）；真正在长序列 / 大 batch 时出现瞬时显存尖峰的是**激活值（activation）和中间 buffer**。QLoRA 用 NVIDIA **unified memory** 给优化器状态做**分页**：当这类瞬时尖峰把 GPU 显存挤满时，把（本可常驻的）优化器状态换出到 CPU 内存腾地方，需要做参数更新时再换回，像操作系统的内存分页一样，避免 OOM 崩溃。
 
 ### 5.4　前向 / 反向怎么走
 
@@ -283,8 +289,9 @@ class DoRALinear(nn.Module):
             p.requires_grad_(False)
         in_f, out_f = base.in_features, base.out_features
         self.scaling = alpha / r
-        self.lora_A = nn.Parameter(torch.empty(r, in_f))
-        self.lora_B = nn.Parameter(torch.zeros(out_f, r))
+        # 同 LoRALinear：new_empty/new_zeros 继承 base.weight 的 device/dtype
+        self.lora_A = nn.Parameter(base.weight.new_empty(r, in_f))
+        self.lora_B = nn.Parameter(base.weight.new_zeros(out_f, r))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
         # 逐输出幅度：W 形状 [out, in]，沿 in 维(dim=1)求范数 -> [out, 1]（同 HF PEFT）
         self.m = nn.Parameter(self.base.weight.norm(dim=1, keepdim=True))  # [out, 1]
@@ -314,7 +321,7 @@ class DoRALinear(nn.Module):
 
 几个值得展开的：
 
-- **PiSSA**：不再随机初始化，而是对 $W_0$ 做 SVD，用**主奇异值/向量**初始化 $A,B$（适配"最重要"的子空间），残差 $W_0 - BA$ 冻结。因为一开始就对准主成分，收敛更快、效果常更好。
+- **PiSSA**：对 $W_0$ 做 SVD 得到主奇异值/向量，用其初始化 $A_0,B_0$（例如 $A_0=U_{:,:r}\Sigma_{:r,:r}^{1/2}$、$B_0=\Sigma_{:r,:r}^{1/2}V_{:,:r}^\top$，使 $B_0A_0$ 逼近 $W_0$ 的主 $r$ 秩分量），冻结残差 $W_{\text{res}} = W_0 - \gamma B_0 A_0$（$\gamma=\alpha/r$ 是与 §2 一致的 LoRA 缩放；若沿用标准带缩放的 forward，残差必须减去带 $\gamma$ 的 $B_0A_0$ 才能保证 $t=0$ 时 $h=W_0x$；等价地也可令 $\alpha=r$，即 $\gamma=1$，把缩放吸收进初始化，此时可简化为 $W_0-B_0A_0$）。因为一开始就对准主成分，收敛更快、效果常更好。
 - **AdaLoRA**：把 $\Delta W$ 参数化成 SVD 形式 $P\Lambda Q$，训练中按奇异值重要性**动态剪枝**，把有限的秩预算分给更需要的层（不同层 $r$ 不同），而非均匀分配。
 - **(IA)³**：不走低秩矩阵，而是学三个**缩放向量** $l_k, l_v, l_{ff}$，逐元素乘到 key、value、FFN 隐藏激活上：$k \to l_k \odot k$。参数量比 LoRA 还小一个量级，T-Few 用它做少样本超过 in-context learning。
 
@@ -537,7 +544,7 @@ PEFT 大致分四类：**加性低秩（LoRA 系）**、**加性模块（Adapter
 
 <summary>Q14. NF4 是什么？为什么比 INT4 适合量化权重？</summary>
 
-- NF4 = 4-bit NormalFloat，按标准正态分位点放 16 个量化级别，使各 bin 等概率质量
+- NF4 = 4-bit NormalFloat，分别对正态分布负/正半轴估计分位点放 16 个量化级别（负侧含 0），使各 bin 近似等概率质量（非严格理论等分位，是 zero-preserving 约束下的工程近似）
 - 权重近似 $\mathcal{N}(0,\sigma^2)$，**正态假设下**等概率 bin 对该固定分布是信息论最优（quantile 量化）
 - INT4 等间距，对正态尾部浪费 bin；NF4 还做 zero-preserving
 
@@ -686,7 +693,7 @@ PEFT 大致分四类：**加性低秩（LoRA 系）**、**加性模块（Adapter
 
 - **起点等价**：注入 LoRA 后、训练前，模型输出应与基座逐元素相等（因 $B=0 \Rightarrow \Delta W=0$）。
 - **合并一致性**：`merge()` 前后对同一输入的输出应数值一致（fp32 / eval / dropout=0 下误差 ~1e-6 级，纯浮点累加导致；bf16 或 train-mode dropout 下误差更大，不应承诺该数值）。
-- **可训练量**：只有 `lora_A`、`lora_B`（以及 DoRA 的 `m`）`requires_grad=True`，基座全 `False`。
+- **可训练量**：只有 `lora_A`、`lora_B`（以及 DoRA 的 `m`）`requires_grad=True`，基座全 `False`。（该不变量是对 `LoRALinear`/`DoRALinear` 独立单元测试脚本成立——脚本里被测模型全由 LoRA/DoRA 层包裹；若在完整模型上用 §3 的 `inject_lora()`，务必先对整个模型 `requires_grad_(False)`，否则未命中 `target_names` 的模块仍是默认可训。）
 - **参数计数**：适配 $q,v$、$r=8$、$d=4096$、$L$ 层时，可训练参数 $= L \times 2 \times 8 \times (4096+4096)$。
 
 下面是 [`code/lora.py`](code/lora.py)（$\text{IN}=32, \text{OUT}=48, r=8, \alpha=16$）在 **PyTorch 2.10 / CPU** 上的**真实运行**输出（每行带 `assert`，全过才打印汇总）：
@@ -723,7 +730,7 @@ all LoRA / DoRA sanity checks passed ✓
 - **QLoRA** — Dettmers et al., *QLoRA: Efficient Finetuning of Quantized LLMs*, arXiv 2305.14314 (2023), NeurIPS 2023.
 - **DoRA** — Liu et al., *DoRA: Weight-Decomposed Low-Rank Adaptation*, arXiv 2402.09353 (2024), ICML 2024.
 - **rsLoRA** — Kalajdzievski, *A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA*, arXiv 2312.03732 (2023).
-- **PiSSA** — Meng et al., *PiSSA: Principal Singular Values and Singular Vectors Adaptation*, arXiv 2404.02948 (2024), NeurIPS 2024.
+- **PiSSA** — Meng et al., *PiSSA: Principal Singular Values and Singular Vectors Adaptation of Large Language Models*, arXiv 2404.02948 (2024), NeurIPS 2024.
 - **LoRA-GA** — Wang et al., *LoRA-GA: Low-Rank Adaptation with Gradient Approximation*, arXiv 2407.05000 (2024).
 - **AdaLoRA** — Zhang et al., *Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning*, arXiv 2303.10512 (2023), ICLR 2023.
 - **LoRA+** — Hayou et al., *LoRA+: Efficient Low Rank Adaptation of Large Models*, arXiv 2402.12354 (2024).

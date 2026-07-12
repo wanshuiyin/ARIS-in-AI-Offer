@@ -30,7 +30,7 @@ The essence of attention is **learned retrieval**:
 
 Contrast with RNNs: an RNN **compresses past information into a fixed-size hidden state**, so long sequences inevitably lose information; attention **directly, globally, and dynamically** retrieves all past positions at every step, which is why it suits long-range dependencies.
 
-"Q/K/V come from the same vector passed through three different projections" — proactively say this in interviews, since newcomers often mistakenly think Q/K/V are three separate inputs.
+"In self-attention, Q/K/V come from the same vector passed through three different projections" — proactively say this in interviews, since newcomers often mistakenly think Q/K/V are three separate inputs (note that in cross-attention Q does *not* share a source with K/V — see §4).
 
 ## §2 Scaled Dot-Product Attention
 
@@ -283,7 +283,7 @@ Key points:
 
 ### 6.1　KV Cache (key optimization for autoregressive inference)
 
-Problem: when GPT generates autoregressively, every new token re-runs the entire prefix through the forward pass — across $t$ steps that's $O(t^2)$ redundant computation.
+Problem: when GPT generates autoregressively, every new token re-runs the entire prefix through the forward pass — a single step at position $t$ costs $O(t^2)$, and summing over $T$ steps gives $O(T^3)$ cumulative redundant computation (not $O(T^2)$).
 
 Solution: cache each layer's $K^{(\ell)}, V^{(\ell)}$. When generating the $(t+1)$-th token:
 
@@ -293,13 +293,13 @@ Solution: cache each layer's $K^{(\ell)}, V^{(\ell)}$. When generating the $(t+1
 
 - The new $q$ attends over the full cache ($O(t)$, not $O(t^2)$)
 
-> ⚠️ **Footgun** — KV cache is an **inference optimization**; it **cannot** be used in training — at training time all positions do attention simultaneously, there is no "token-by-token generation".
+> ⚠️ **Footgun** — KV cache is an **inference optimization**; standard teacher-forced parallel training (SFT / pretraining forward-backward) has no use for it, since every position is processed in parallel and there is no "token-by-token generation". But RLHF / GRPO-style training with on-policy rollout sampling *does* perform genuinely autoregressive generation during the rollout phase, so KV cache speeds that up too.
 
 **KV cache memory (per sample)**:
 
 $$\text{KV cache} = L_\text{ctx} \cdot n_\text{layers} \cdot \underbrace{2}_{K, V} \cdot H_\text{kv} \cdot d_\text{head} \cdot \text{bytes\_per\_elem}$$
 
-Note: under MQA/GQA $H_\text{kv} \ll H$, shrinking the cache dramatically. For LLaMA-2-70B (GQA, $H_\text{kv}=8$), $L_\text{ctx}=4096$, 80 layers, fp16: about **1.25 GB / sample** — this is why LLaMA-2 uses GQA instead of MHA (vanilla MHA would reach 10 GB / sample).
+Note: under MQA/GQA $H_\text{kv} \ll H$, shrinking the cache dramatically. For LLaMA-2-70B (GQA, $H_\text{kv}=8$), $L_\text{ctx}=4096$, 80 layers, fp16: about **1.25 GiB** (≈1.34 GB) **/ sample** — this is why LLaMA-2 uses GQA instead of MHA (vanilla MHA would reach about **10 GiB ≈ 10.74 GB / sample**).
 
 ### 6.2　MQA / GQA (attacking KV-cache memory)
 
@@ -307,7 +307,7 @@ Note: under MQA/GQA $H_\text{kv} \ll H$, shrinking the cache dramatically. For L
 | --- | --- | --- | --- | --- |
 | **MHA** (vanilla) | $H$ | $H$ | 1× | original Transformer |
 | **MQA** (Multi-Query) | $H$ | **1** | $H \times$ | PaLM, Falcon |
-| **GQA** (Grouped-Query) | $H$ | $G$ ($1 < G < H$) | $H/G \times$ | LLaMA-2/3, Mistral |
+| **GQA** (Grouped-Query) | $H$ | $G$ ($1 < G < H$) | $H/G \times$ | LLaMA-2-70B (7B/13B are still MHA), all of LLaMA-3, Mistral |
 
 Core idea: **multiple Q heads share one set of K/V**. MQA is extreme but slightly hurts quality; GQA is a compromise (e.g., H=32, G=8) that cuts memory/bandwidth by 4× with essentially no quality loss.
 
@@ -753,7 +753,7 @@ Saying it's approximate attention (like Performer / Linformer) — wrong, FlashA
 
 - **Absolute**: position vectors added to the input embedding (Vaswani sinusoidal / GPT-2 learned)
 
-- **RoPE**: apply position-dependent rotation to $Q, K$, preserving **relative position** info ($q_m^\top k_n$ depends only on $m-n$)
+- **RoPE**: apply position-dependent rotation to $Q, K$, preserving **relative position** info (the position term enters $q_m^\top k_n$ only through $m-n$, but the content vectors still determine the actual value — it's not position-only)
 
 - **ALiBi**: add a distance bias $-m |i-j|$ to scores, extrapolates naturally
 
@@ -783,33 +783,28 @@ Saying diffusion relies only on convolutions; or that attention exists only in D
 
 ## §A Appendix: Full from-scratch code skeleton
 
-The reference from-scratch implementation contains:
+The reference from-scratch implementation (`code/mha.py`) contains:
 
-- `scaled_dot_product_attention()` — with NaN guard
+- `MultiHeadAttention` — standard multi-head self-attention (a single fused `qkv` Linear producing Q/K/V at once, `[N,N]` additive mask; no NaN guard for fully-masked rows, no cross-attention wrapper); `__init__` checks `assert embed_dim % num_heads == 0`, raising `AssertionError` on mismatch (note: `assert` is stripped entirely under `python -O` / `PYTHONOPTIMIZE`, so production code should use an explicit `raise ValueError(...)` instead)
 
-- `MultiHeadAttention` — standard MHA, supports 4 mask shapes
+- `make_causal_mask()` — builds an upper-triangular `-inf` causal mask
 
-- `SelfAttention` / `CrossAttention` — thin wrappers with clear call semantics
+- 3 sanity checks: `sanity_check()` (numerical parity against `nn.MultiheadAttention`, diff < 1e-5), `shape_check()`, `causal_check()`
 
-- `causal_mask()` / `padding_mask()` / `combine_masks()`
-
-- 9 sanity checks (self / causal / padding / cross / wrappers / nn.MHA alignment / NaN guard / d_model%H / return_weights=False)
-
-Actual sanity-check output (PyTorch 2.x, single-machine GPU):
+Actual sanity-check output (PyTorch 2.x, runs on CPU in seconds):
 
 ```
-[a] self-attn  out=(2, 5, 16) weights=(2, 4, 5, 5)  weights row-sum=1 ✓
-[b] causal mask: upper triangle ~ 0  ✓
-[c] padding mask: pad-key columns ~ 0 in sample-1  ✓
-[d] cross-attn out=(2, 7, 16) weights=(2, 4, 7, 5)  ✓
-[e] SelfAttention(causal) ✓   CrossAttention(context-pad) ✓
-[f] vs nn.MultiheadAttention:  |Δout|=0.00e+00  |Δweights|=0.00e+00  ✓
-[g] all-masked row: no NaN, weights row = 0  ✓
-[h] d_model not divisible by num_heads -> ValueError  ✓
-[i] return_weights=False -> weights is None  ✓
+== Multi-Head Attention sanity ==
+[sanity] max diff vs nn.MultiheadAttention = 5.96e-08
+[sanity] PASS
+[shape] input  x: (2, 1024, 768)
+[shape] output y: (2, 1024, 768)
+[causal] applied causal mask, output shape (1, 8, 32)
+
+All checks passed.
 ```
 
-Code passed independent reviewer static check + PyTorch sanity-check run, diff vs `nn.MultiheadAttention` = 0.
+Code passed independent reviewer static check + PyTorch sanity-check run, diff vs `nn.MultiheadAttention` < 1e-5.
 
 ---
 

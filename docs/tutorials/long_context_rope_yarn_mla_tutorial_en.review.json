@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/long_context_rope_yarn_mla_tutorial_en.md",
-  "source_sha256": "9456c1754ce1358ab9652e8e40baa2c29acf8458fb3e252551070fbed59c45eb",
+  "source_sha256": "c604ccc30d07605f47ceaab458532818e7f627a671c6b577cb9d8ac0d034ff9e",
   "output": "docs/tutorials/long_context_rope_yarn_mla_tutorial_en.html",
   "zh_source": "docs/tutorials/long_context_rope_yarn_mla_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -30,6 +30,13 @@
       "date": "2026-06-29",
       "fix": "Differential Transformer cost corrected: not +50% params/compute — the paper halves the head count so params/FLOPs match a standard Transformer (~0 overhead). (EN edition mirrors the ZH fix.)",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "full-collection re-sweep: Codex GPT-5.6-sol candidate errors + independent Claude adversarial verification",
+      "verdict": "FIXED",
+      "date": "2026-07-12",
+      "fix": "10 CONFIRMED + 1 NEEDS_NUANCE, all landed (EN edition mirrors the ZH fix): (1) §2.3 low-freq max wavelength corrected to λ_max=2π·b^{(d-2)/d} (≈54,410 for d=128), not the d→∞ limit 2π·10000; (2) §2.3 callout fixed self-contradiction — the risk is extrapolating a low-freq phase *without* interpolating, not interpolation itself; (3) §6.1/§6.5/TL;DR/Q12 reframed YaRN as two core components (NTK-by-parts + temperature scaling); attention scale is an implementation of temperature scaling via the cos/sin cache, not an independent third component; (4) §6.4/Q24 added a partial-RoPE caveat (GPT-NeoX rotary_pct<1, MLA decoupled key) where the cos/sin-scale ≡ global-temperature equivalence no longer holds strictly (NEEDS_NUANCE — original claim not wrong, just underspecified); (5) §7.2/§7.4 table LongRoPE fine-tune steps corrected 400→≈1000 (400 was YaRN's number, mis-copied); (6) §7.4 callout removed the overclaim that DeepSeek-V2/Llama-3.1 use LongRoPE-style short/long dual scaling tables; (7) §10.1 callout corrected attention-sink's motivation (prevents PPL blow-up from losing the softmax 'trash bin', not a retrieval fix) to stop contradicting §10.3; (8) Q22 MLA additive decomposition relabeled — the RoPE term is content interaction modulated by relative rotation, not a pure 'position' term; (9) §12.3 table Ring Attention memory corrected from O(L²/P) to persistent O(Ld/P) + local block peak O(L²/P²); (10) §11.3 + reference footer attributed FlashAttention-3 to Shah et al. 2024 (Tri Dao co-author), separated from Dao et al. 2022-2023 (v1/v2); (11) Q25 per-dim scaling search attributed only to LongRoPE (YaRN uses an analytical NTK-by-parts ramp, no search).",
+      "note": "2026-07-12 full-collection re-sweep, ZH is the source of truth; this EN edition update is a same-content translation-fidelity mirror of the ZH fix set (see ZH sidecar for the full round-1 Codex / round-2 Claude-adversarial provenance). Source re-rendered, sidecar hash refreshed."
     }
   ]
 }

@@ -6,11 +6,11 @@
 
 2. **SGD / Momentum / Nesterov**：裸 SGD $\theta_t=\theta_{t-1}-\eta g_t$；heavy-ball 动量 $v_t=\mu v_{t-1}+g_t,\ \theta_t=\theta_{t-1}-\eta v_t$（抑制震荡、加速一致方向）；Nesterov 在**前瞻点** $\theta-\eta\mu v$ 求梯度（look-ahead，纠过冲）。动量 $\approx$ 梯度的**指数加权平均**，窗口 $\sim 1/(1-\mu)$。
 
-3. **AdaGrad → RMSProp → Adam**：AdaGrad 逐坐标步长 $\propto 1/\sqrt{\sum g^2}$（**累加全部历史** → LR 单调趋 0，长训练"学不动"）；RMSProp 把累加和换成 **EMA**（修好单调衰减）；Adam = RMSProp 的二阶 EMA + **一阶动量** + **偏差修正**。
+3. **AdaGrad → RMSProp → Adam**：AdaGrad 逐坐标步长 $\propto 1/\sqrt{\sum g^2}$（**累加全部历史** → 只要梯度不会永远为 0（$\Sigma g^2\to\infty$，长训练几乎必然满足），LR 就单调趋于 0，长训练"学不动"）；RMSProp 把累加和换成 **EMA**（修好单调衰减）；Adam = RMSProp 的二阶 EMA + **一阶动量** + **偏差修正**。
 
 4. **Adam 偏差修正**：$m,v$ 从 0 起步早期有偏（偏向 0），除以 $1-\beta^t$ 去偏。因 $\beta_2$（0.999）比 $\beta_1$（0.9）更接近 1，$v$ 偏得更重 → **不修正时早期步长偏大**（默认 $\beta$ 下首步 $\approx\frac{1-\beta_1}{\sqrt{1-\beta_2}}=3.16$ 倍 $\eta$），修正后首步回到 $\eta$。注意 $\epsilon$ 在根号**外**（PyTorch）。
 
-5. **AdamW 解耦权重衰减**：**Adam 的 L2 正则 $\ne$ 权重衰减**。L2 把 $\lambda\theta$ 加进**梯度** → 经 $1/\sqrt{\hat v}$ 缩放 → 历史梯度大的参数被衰减得更少（解耦被破坏）。AdamW（Loshchilov & Hutter）**解耦**：Adam 步之外直接从权重减 $\eta\lambda\theta$。这是现代默认；SGD 下两者等价、Adam 下不等价。
+5. **AdamW 解耦权重衰减**：**Adam 的 L2 正则 $\ne$ 权重衰减**。L2 把 $\lambda\theta$ 加进**梯度** → 经 $1/\sqrt{\hat v}$ 缩放 → 历史梯度大的参数被衰减得更少（解耦被破坏）。AdamW（Loshchilov & Hutter）**解耦**：Adam 步之外直接从权重减 $\eta\lambda\theta$。这是现代默认；**裸 SGD（无 momentum）**下两者等价、Adam 下不等价（带动量的 SGD 若用耦合 L2，衰减项经动量缓冲跨步累积，与解耦的 SGDW 不再严格等价）。
 
 6. **前沿优化器**：**Muon**（把 2D 权重的动量经牛顿-舒尔茨迭代**正交化**，仅隐藏 2D 层，Kimi-K2 在用）、**Lion**（**符号动量**，单状态 → Adam 一半显存）、**Shampoo**（Kronecker 因子化的**全矩阵预条件**）、**SOAP**（在 Shampoo 特征基里跑 Adam）、**Adafactor**（因子化二阶矩 → 亚线性显存）、**LAMB**（逐层自适应，超大 batch）、**Sophia**（轻量二阶，对角 Hessian）。
 
@@ -83,7 +83,7 @@ AdaGrad（Duchi, Hazan & Singer, JMLR 2011）给每个坐标一个**独立**的�
 
 $$G_t = G_{t-1} + g_t^2 \ (\text{逐元素}), \qquad \theta_t = \theta_{t-1} - \frac{\eta}{\sqrt{G_t}+\epsilon}\odot g_t.$$
 
-效果：梯度一直很大的坐标 $G$ 大 → 步长小；稀疏/罕见特征 $G$ 小 → 步长大。在凸优化、稀疏特征（NLP 早期、推荐）上很有效。**致命缺陷**：$G_t$ 是**单调递增**的累加和，分母 $\sqrt{G_t}$ 只增不减 → 有效学习率单调趋于 0。在深网络的长训练里，跑着跑着步长就缩到几乎为 0，**学不动了**（学习过早停滞）。
+效果：梯度一直很大的坐标 $G$ 大 → 步长小；稀疏/罕见特征 $G$ 小 → 步长大。在凸优化、稀疏特征（NLP 早期、推荐）上很有效。**致命缺陷**：$G_t$ 是**单调递增**的累加和，分母 $\sqrt{G_t}$ 只增不减 → 有效学习率单调**非增**；只要 $\Sigma g_t^2\to\infty$（梯度不会恒为 0，长训练几乎必然满足），LR 就趋于 0。在深网络的长训练里，跑着跑着步长就缩到几乎为 0，**学不动了**（学习过早停滞）。
 
 ### 3.2　RMSProp：把累加和换成 EMA
 
@@ -124,7 +124,7 @@ $m,v$ 都从 0 初始化。早期它们是对真实矩的**有偏**估计——�
 
 $$\frac{m_1}{\sqrt{v_1}} = \frac{(1-\beta_1)\,g_1}{\sqrt{(1-\beta_2)}\,\lvert g_1\rvert} = \frac{1-\beta_1}{\sqrt{1-\beta_2}}\,\mathrm{sign}(g_1).$$
 
-代入默认值：$\frac{1-0.9}{\sqrt{1-0.999}}=\frac{0.1}{0.0316}\approx 3.16$。也就是说**不修正的首步约为目标 $\eta$ 的 3.16 倍**——因为 $v$（$\beta_2$ 更接近 1）被压向 0 比 $m$ 更狠，分母 $\sqrt{v}$ 太小，反而把步长放大了。偏差修正把 $\hat m_1=g_1,\ \hat v_1=g_1^2$ 还原，使首步严格回到 $\eta\cdot\mathrm{sign}(g_1)$，量级 $=\eta$。（§A 的 [d] 会数值印证这个 3.16。）
+代入默认值：$\frac{1-0.9}{\sqrt{1-0.999}}=\frac{0.1}{0.0316}\approx 3.16$。也就是说**不修正的首步约为目标 $\eta$ 的 3.16 倍**——因为 $v$（$\beta_2$ 更接近 1）被压向 0 比 $m$ 更狠，分母 $\sqrt{v}$ 太小，反而把步长放大了。偏差修正把 $\hat m_1=g_1,\ \hat v_1=g_1^2$ 还原，使首步回到 $\eta\cdot\dfrac{g_1}{\lvert g_1\rvert+\epsilon}\approx\eta\cdot\mathrm{sign}(g_1)$（严格式含 $\epsilon$：$\eta\lvert g_1\rvert/(\lvert g_1\rvert+\epsilon)<\eta$，仅当 $\lvert g_1\rvert\gg\epsilon$ 时才近似等于 $\eta$，训练中梯度量级通常 $\gg 10^{-8}$ 故此近似基本成立）。（§A 的 [d] 会数值印证这个 3.16。）
 
 > ⚠️ **别顺口说"不修正步长太小"**
 > 朴素直觉只盯分子 $m$ 偏向 0 → 以为步太小，**漏了分母 $v$ 偏得更狠**。对标准 $\beta_2=0.999$，净效果是早期步长**偏大**（$\approx 3.16\eta$），可能导致初期不稳/发散——这也是为什么早期还要配 warmup（§7）。把方向答反是顶级 lab 最爱抓的点。
@@ -154,7 +154,7 @@ $$\boxed{\;\theta_t = \theta_{t-1} - \eta\Big(\frac{\hat m_t}{\sqrt{\hat v_t}+\e
 
 即先按原始梯度 $g$（**不含** $\lambda\theta$）算 Adam 步，再单独减一个 $\eta\lambda\theta_{t-1}$。等价写法 $\theta_t=(1-\eta\lambda)\theta_{t-1}-\eta\,\hat m_t/(\sqrt{\hat v_t}+\epsilon)$——一个干净的、**与 $\hat v$ 无关**的均匀收缩（PyTorch `AdamW` 即把衰减乘上 lr）。
 
-为什么通常更好（更可控）：解耦后**所有参数受到同样的相对收缩 $\lambda$**，正则强度不再被各参数的梯度历史扭曲，更符合"控制权重范数"的本意；Loshchilov & Hutter 实证 AdamW 在多任务上**往往**稳定优于 Adam+L2，且 LR 与 wd 的最优值更容易解耦调参（不必绝对化成"所有任务都更泛化"，但它是更可控、更常用的默认）。**为何 SGD 下两者重合**：SGD 没有 $1/\sqrt{\hat v}$ 这层自适应缩放，$\lambda\theta$ 加进梯度后被原样使用，恰好就是均匀收缩；一旦有了自适应分母，加梯度（L2）和直接收缩（decay）就分道扬镳。
+为什么通常更好（更可控）：解耦后**所有参数受到同样的相对收缩 $\lambda$**，正则强度不再被各参数的梯度历史扭曲，更符合"控制权重范数"的本意；Loshchilov & Hutter 实证 AdamW 在多任务上**往往**稳定优于 Adam+L2，且 LR 与 wd 的最优值更容易解耦调参（不必绝对化成"所有任务都更泛化"，但它是更可控、更常用的默认）。**为何裸 SGD 下两者重合**：裸 SGD 既没有 $1/\sqrt{\hat v}$ 这层自适应缩放，也没有动量缓冲对 $\lambda\theta$ 的跨步累积，$\lambda\theta$ 加进梯度后被原样使用，恰好就是均匀收缩；一旦引入自适应分母（Adam）或动量缓冲（SGD+momentum，对应 SGDW vs 耦合 L2+momentum 的区别），加梯度（L2）和直接收缩（decay）就分道扬镳。
 
 > ✅ **现代默认就是 AdamW**
 > Transformer/LLM 训练几乎一律用 AdamW（不是 Adam）。面试问"Adam 和 AdamW 区别"，标准答案是"**L2 经过 $1/\sqrt{\hat v}$ 缩放、解耦衰减不经过**；SGD 等价、Adam 不等价"。只答"AdamW 加了权重衰减"是没抓到点（Adam 也能加 weight_decay，只不过那是 L2）。
@@ -194,8 +194,8 @@ $$\boxed{\;\theta_t = \theta_{t-1} - \eta\Big(\frac{\hat m_t}{\sqrt{\hat v_t}+\e
 
 **warmup** 在训练最初的几百~几千步把 LR 从 0（或很小）**线性拉到峰值**，再交给后续衰减。动机有二：
 
-1. **Adam 早期方差大**：$\hat v$ 在前几步只用了极少样本估计，**方差很大**，导致自适应步长抖动甚至偏大（§4.2 的 3.16 倍效应）。先用小 LR 让 $m,v$ 的统计"热身"到可靠，再放大步长。
-2. **大 batch / Post-LN 不稳**：大 batch 初期梯度尺度大；Post-LN Transformer 顶层梯度天然偏大（见 normalization 篇 §5）——一上来就大 LR 容易发散。warmup 压住早期不稳。
+1. **Adam 早期方差大**：$\hat v$ 在前几步只用了极少样本估计，即使偏差修正保证 $\mathbb{E}[\hat v_t]$ 无偏（§4.2），单次实现的 $\hat v_t$ 仍是高方差估计——个别 step 上 $\hat v_t$ 可能远小于真实二阶矩，使 $\hat m/\sqrt{\hat v}$ 剧烈抖动、偶尔炸出偏大的有效步长（RAdam, Liu et al. 2019 的核心动机）。这与 §4.2 讨论的"未修正首步系统性偏大 3.16×"是两回事——后者是标准 Adam 已用偏差修正精确抵消的确定性偏差，并非早期不稳的真正来源。先用小 LR 让 $m,v$ 的统计"热身"到可靠，再放大步长。
+2. **大 batch / Post-LN 不稳**：mean-reduce 下批梯度是无偏估计（$\mathbb{E}[g_B]=\mathbb{E}[g]$），batch 增大只降方差（$\mathrm{Var}\propto 1/B$），并不放大梯度尺度本身；真正的不稳来自**大 batch 配合线性缩放规则用了更大的 LR**（§8.2），而初期权重远未收敛、变化快，大 LR 更易发散；此外 Post-LN Transformer 顶层梯度天然偏大（见 normalization 篇 §5）——两者叠加，一上来就大 LR 容易发散。warmup 压住早期不稳。
 
 ### 7.2　Cosine 退火（+ warm restart）
 
@@ -232,7 +232,7 @@ one-cycle（Smith, *Super-Convergence*, 1708.07120）：整个训练就**一个�
 
 ### 8.1　权重衰减做什么（含一个现代视角）
 
-经典视角：权重衰减是**正则**——每步把权重朝 0 收缩，限制权重范数、压模型复杂度、抗过拟合。**现代视角**（在有归一化层的网络里）：因为 LayerNorm/RMSNorm 让权重**尺度不变**（把 $W$ 乘个常数，归一化后输出不变），权重的"绝对大小"本身不直接影响函数，于是 wd 的真正作用更像是在**调有效学习率 / 控制权重范数的平衡点**——wd 越大、权重范数越小、等效梯度步长相对越大。这是近年训练动力学研究里的重要观察（把 wd 当"有效 LR 旋钮"而非单纯正则）。
+经典视角：权重衰减是**正则**——每步把权重朝 0 收缩，限制权重范数、压模型复杂度、抗过拟合。**现代视角**（对网络中**尺度不变**的那部分权重而言）：紧接归一化层、且不经残差直连等其他缩放敏感路径的权重矩阵 $W$（例如 Pre-LN block 里紧跟 LayerNorm/RMSNorm 的线性层权重）具有**尺度不变性**——把 $W$ 乘个正常数，归一化后输出不变；这部分权重的"绝对大小"本身不直接影响函数，于是 wd 的真正作用更像是在**调有效学习率 / 控制权重范数的平衡点**——wd 越大、权重范数越小、等效梯度步长相对越大。**注意**：这一论证不适用于残差分支上的权重、norm 层自身的 $\gamma/\beta$、bias、输出头等——它们的尺度会直接影响网络输出，不满足尺度不变性。这是近年训练动力学研究里的重要观察（把 wd 当"有效 LR 旋钮"而非单纯正则，但仅对满足尺度不变性的那部分权重成立）。
 
 ### 8.2　LR 随 batch size 缩放
 
@@ -382,7 +382,7 @@ LLM 预训练的 Adam/AdamW 配方和"教科书默认"有几处关键不同：
 <summary>Q3. warmup 是干嘛的？</summary>
 
 - 训练初期把 LR 从 0/很小**线性拉到峰值**（几百~几千步）
-- 早期 Adam 的 $\hat v$ 用样本少、方差大 → 自适应步长不稳/偏大；大 batch、Post-LN 初期梯度大
+- 早期 Adam 的 $\hat v$ 用样本少、方差大 → 自适应步长不稳/偏大；大 batch 配大 LR（线性缩放）+ 初期权重变化快、Post-LN 顶层梯度天然偏大 → 合力导致早期不稳
 - warmup 压住早期不稳，避免一上来就发散
 
 把 warmup 当玄学，讲不出"早期方差大 / 梯度大"这个机理。
@@ -394,7 +394,7 @@ LLM 预训练的 Adam/AdamW 配方和"教科书默认"有几处关键不同：
 <summary>Q4. AdaGrad 是什么？为什么长训练会"学不动"？</summary>
 
 - 每坐标累加**全部**历史梯度平方 $G=\sum g^2$，步长 $\propto\eta/\sqrt{G}$
-- $G$ 单调增 → 有效 LR 单调趋 0 → 长训练后步长几乎为 0，停滞
+- $G$ 单调增 → 有效 LR 单调非增，且（只要 $\Sigma g^2\to\infty$）趋于 0 → 长训练后步长几乎为 0，停滞
 - 适合凸 / 稀疏特征，不适合深网长训练
 
 不知道是"累加全部历史"导致 LR 衰减到 0。
@@ -430,7 +430,7 @@ LLM 预训练的 Adam/AdamW 配方和"教科书默认"有几处关键不同：
 <summary>Q7. 权重衰减 / L2 正则直觉上做什么？对 SGD 和 Adam 一样吗？</summary>
 
 - 每步把权重朝 0 收缩 → 限制权重范数、控制复杂度
-- **SGD**：L2 与 weight decay 等价（$\theta\mathrel{-}=\eta(g+\lambda\theta)=(1-\eta\lambda)\theta-\eta g$）
+- **裸 SGD（无 momentum）**：L2 与 weight decay 等价（$\theta\mathrel{-}=\eta(g+\lambda\theta)=(1-\eta\lambda)\theta-\eta g$）；**带动量的 SGD 严格来说不再等价**，需用解耦的 SGDW 才保持均匀收缩
 - **Adam**：两者**不等价**（L2 经 $1/\sqrt{\hat v}$ 缩放），要用 AdamW，见 Q11
 
 以为 L2 和 weight decay 永远一回事（对自适应优化器不成立）。
@@ -563,7 +563,7 @@ LLM 预训练的 Adam/AdamW 配方和"教科书默认"有几处关键不同：
 
 <summary>Q18. AdaGrad → RMSProp → Adam，每一步修了前者什么？</summary>
 
-- AdaGrad：累加**全部** $g^2$ → LR 单调趋 0（长训练死）
+- AdaGrad：累加**全部** $g^2$ → LR 单调非增，$\Sigma g^2\to\infty$ 时趋于 0（长训练死）
 - RMSProp：换成 **EMA** → 修好 LR 衰减（不死）
 - Adam：RMSProp + **一阶动量** + **偏差修正** → 又快又稳
 
@@ -664,7 +664,7 @@ LLM 预训练的 Adam/AdamW 配方和"教科书默认"有几处关键不同：
 1. **[a] 从零 SGD+momentum == `torch.optim.SGD`**：用 $v_t=\mu v_{t-1}+g_t,\ \theta\mathrel{-}=\eta v_t$（PyTorch 约定：$v$ 初值 0、无 damping），跑几步后两者逐元素在浮点误差内相等（`atol≈1e-5`）。
 2. **[b] 从零 Adam == `torch.optim.Adam`**：$\hat m=m/(1-\beta_1^t),\ \hat v=v/(1-\beta_2^t),\ \theta\mathrel{-}=\eta\hat m/(\sqrt{\hat v}+\epsilon)$（$\epsilon$ 根号外）应与 PyTorch 逐元素一致。
 3. **[c] AdamW $\ne$ Adam+L2，且从零解耦衰减 == `torch.optim.AdamW`**：相同 `weight_decay=λ` 下，`torch.optim.AdamW`（解耦）与 `torch.optim.Adam(weight_decay=λ)`（L2）产生**不同**更新（$\lVert\Delta\rVert\gt 0$）；从零"先 Adam 步、再减 $\eta\lambda\theta$"的解耦实现应与 `AdamW` 一致。这是 §5 的核心。
-4. **[d] 偏差修正使首步回到 $\eta$**：$t=1$ **不修正**的等效步长 $\approx 3.16\eta$（$=\frac{1-\beta_1}{\sqrt{1-\beta_2}}$，因 $v$ 被 $\beta_2$ 压向 0 比 $m$ 更狠 → 分母太小 → 步长**偏大**），修正后回到 $\eta$。验证 corrected/uncorrected 比 $=\frac{\sqrt{1-\beta_2}}{1-\beta_1}\approx 0.316$。
+4. **[d] 偏差修正使首步近似回到 $\eta$**（当 $|g_1|\gg\epsilon$ 时；严格式为 $\eta|g_1|/(|g_1|+\epsilon)<\eta$）：$t=1$ **不修正**的等效步长 $\approx 3.16\eta$（$=\frac{1-\beta_1}{\sqrt{1-\beta_2}}$，因 $v$ 被 $\beta_2$ 压向 0 比 $m$ 更狠 → 分母太小 → 步长**偏大**），修正后近似回到 $\eta$（同样需要 $|g_1|\gg\epsilon$）。验证 corrected/uncorrected 比 $=\frac{\sqrt{1-\beta_2}}{1-\beta_1}\approx 0.316$。
 5. **[e] cosine-with-warmup 调度形状**：$\eta(0)\approx 0$、在 warmup 边界处取到峰值 $\eta_{\max}$、末端衰减到 $\sim\eta_{\min}$，且 warmup 之后单调不增。
 6. **[f] 动量加速病态二次**：在条件数 $\kappa$ 大的二次型上、用稳定边界内的**小** $\eta$ 跑 $N$ 步，GD+momentum 的最终 loss 显著低于裸 GD（动量在缓方向累积加速）。
 
@@ -818,7 +818,7 @@ all optimizer / LR-schedule sanity checks passed ✓
 - **RMSProp** — Hinton, *Neural Networks for Machine Learning*, Coursera Lecture 6e (2012)（课程讲义，**无正式论文 / arXiv id**）.
 - **Nesterov accelerated gradient** — Nesterov, *A method of solving a convex programming problem with convergence rate $O(1/k^2)$*, Soviet Math. Doklady 27 (1983)（**无 arXiv id**）.
 - **Momentum for deep nets** — Sutskever, Martens, Dahl & Hinton, *On the importance of initialization and momentum in deep learning*, ICML 2013（PMLR proceedings；**无独立 arXiv id**，按会议出处引用）.
-- **AMSGrad (Adam 收敛性)** — Reddi, Kale & Kumar, *On the Convergence of Adam and Beyond*, ICLR 2018（OpenReview；无确认的独立 arXiv id，按会议出处引用）.
+- **AMSGrad (Adam 收敛性)** — Reddi, Kale & Kumar, *On the Convergence of Adam and Beyond*, arXiv 1904.09237 (2019), ICLR 2018.
 - **SGDR / cosine annealing** — Loshchilov & Hutter, *SGDR: Stochastic Gradient Descent with Warm Restarts*, arXiv 1608.03983 (2016), ICLR 2017.
 - **Transformer / Noam schedule** — Vaswani et al., *Attention Is All You Need*, arXiv 1706.03762 (2017), NeurIPS 2017.
 - **Linear scaling rule** — Goyal et al., *Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour*, arXiv 1706.02677 (2017).

@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/kl_divergence_rlhf_tutorial.md">
-<meta name="aris:source-sha256" content="41d43aea2812bbdefdf9f6d0fc8e0f526b40f1335fc4bfdd35332f8d03eb7c92">
-<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
+<meta name="aris:source-sha256" content="97d01f2b5501a2d9aacff056d08a57dee16555fb5cb430216e9bd230b2493105">
+<meta name="aris:generated-at" content="2026-07-12 04:21 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -615,8 +615,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/kl_divergence_rlhf_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>41d43aea2812</code></span>
-    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
+    <span><strong>SHA256:</strong> <code>97d01f2b5501</code></span>
+    <span><strong>Rendered:</strong> 2026-07-12 04:21 UTC</span>
     
   </div>
 </header>
@@ -670,7 +670,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p><strong>问题</strong>：用 k1 作为"KL 监控指标"会看到<strong>负值</strong>，工程上会让 logger 显示负 KL，新人会困惑（KL 不该非负吗？）。这是因为<strong>期望非负不代表每个样本非负</strong>。但作为 reward shaping 的 per-token KL，可以接受（关键是均值无偏）。</p>
 <h3 id="23-k2-estimator--l2-form">2.3　k2 estimator —— "$L^2$ form"</h3>
 <p>$$\boxed{\;\widehat{\text{KL}}_2 = \tfrac{1}{2}\!\left(\log\frac{\pi_\theta(y)}{\pi_\text{ref}(y)}\right)^2 = \tfrac{1}{2}(\log r)^2\;}$$</p>
-<ul><li><strong>总是非负</strong> ✓</li><li><strong>有偏</strong>：$\mathbb{E}[\tfrac{1}{2}(\log r)^2] \ne \text{KL}$。</li><li><strong>小 KL 极限下</strong>：Taylor 展开 $\log r = (r - 1) - \tfrac{1}{2}(r-1)^2 + O((r-1)^3)$，当 $\pi_\theta \approx \pi_\text{ref}$ 时 $\log r$ 小，$\tfrac{1}{2}(\log r)^2$ 与 KL 在二阶近似下相等（KL 在 $p=q$ 附近 = Fisher 信息度规的二次型）。</li><li><strong>方差小于 k1</strong>：因为平方后正负不再相消，但仍然不是最优。</li></ul>
+<ul><li><strong>总是非负</strong> ✓</li><li><strong>有偏</strong>：$\mathbb{E}[\tfrac{1}{2}(\log r)^2] \ne \text{KL}$。</li><li><strong>小 KL 极限下</strong>：Taylor 展开 $\log r = (r - 1) - \tfrac{1}{2}(r-1)^2 + O((r-1)^3)$，当 $\pi_\theta \approx \pi_\text{ref}$ 时 $\log r$ 小，$\tfrac{1}{2}(\log r)^2$ 与 KL 在二阶近似下相等（KL 在 $p=q$ 附近 = Fisher 信息度规的二次型）。</li><li><strong>方差小于 k1</strong>（仅在两分布接近、log-ratio 较小时成立）：因为平方后正负不再相消，但仍然不是最优。</li></ul>
 <p>实践中 k2 主要用于<strong>监控</strong>（提供"non-negative，但有偏"的视觉化指标）；很少用于 reward shaping。</p>
 <h3 id="24-k3-estimator-schulman-2020-blog--非负无偏-value-estimator但作为-loss-项是-biased-gradient见-36">2.4　k3 estimator (Schulman 2020 blog) —— <strong>非负无偏 value estimator</strong>（但作为 loss 项是 biased gradient，见 §3.6）</h3>
 <h4 id="241-构造">2.4.1　构造</h4>
@@ -689,7 +689,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\mathbb{E}_{\pi_\theta}\!\left[-\log\frac{\pi_\text{ref}}{\pi_\theta}\right] = \mathbb{E}_{\pi_\theta}\!\left[\log\frac{\pi_\theta}{\pi_\text{ref}}\right] = \text{KL}(\pi_\theta\|\pi_\text{ref})$$</p>
 <p>所以：</p>
 <p>$$\mathbb{E}_{\pi_\theta}[\widehat{\text{KL}}_3] = 1 + \text{KL}(\pi_\theta\|\pi_\text{ref}) - 1 = \text{KL}(\pi_\theta\|\pi_\text{ref}) \quad \checkmark$$</p>
-<p><strong>性质 3（方差通常小于 k1）</strong>：</p>
+<p><strong>性质 3（方差通常小于 k1，仅在两分布接近、log-ratio 较小时成立）</strong>：</p>
 <p>直观：$\widehat{\text{KL}}_3$ 把 $\log r$ 的线性项（$-\log r/\pi_\theta$ 部分，即 k1 的等价形式 $\mathbb{E}_{\pi_\theta}[-\log(\pi_\text{ref}/\pi_\theta)]$）和一个<strong>期望为 1 的控制变量</strong> $\pi_\text{ref}/\pi_\theta - 1$ 相加。控制变量降方差（control variate）：当 $r$ 大时 $\log r$ 大但 $1/r$ 小，反之亦然，<strong>两者负相关</strong>，加起来方差比单独 k1 小。</p>
 <p>形式化：$\widehat{\text{KL}}_3 = \widehat{\text{KL}}_1 + (\frac{\pi_\text{ref}}{\pi_\theta} - 1)$，加项 $(\frac{\pi_\text{ref}}{\pi_\theta} - 1)$ 期望为 0，但与 $\log r$ 强负相关 → 减方差。</p>
 <div class="callout callout-info"><div class="callout-title">k3 的 elegance</div><p>Schulman blog 2020 给出的 derivation 等价于上面：他<strong>先找一个 $f(x) \ge 0$ 且 $\mathbb{E}_q f(\log p/q) = \text{KL}$ 的函数</strong>，然后挑 $f(x) = e^x - x - 1$（最简单的非负、可微、不是 trivial 的选择）。所以 k3 不是"灵感来的"——它是"非负 + 无偏"约束下的最自然构造。</p></div>
@@ -717,8 +717,12 @@ def k3_estimator(logp_theta, logp_ref):
 
     Value-estimator properties: unbiased, non-negative, low variance.
     ⚠️ Recommended for KL value MONITORING, NOT as a loss term — k3-as-loss
-       gives gradient (1 - e^{-Δ})∇logπ_θ = (Δ - ½Δ² + O(Δ³))∇logπ_θ, a
-       first-order Taylor approximation of reverse-KL gradient with O(Δ²) bias.
+       gives gradient (1 - e^{Δ})∇logπ_θ = (-Δ - ½Δ² + O(Δ³))∇logπ_θ, a
+       first-order Taylor approximation of reverse-KL gradient with O(Δ²) bias
+       (under this section&#x27;s Δ = log π_ref - log π_θ convention).
+       ⚠️ §3.6 uses the OPPOSITE sign convention Δ_t = log π_θ - log π_ref,
+       where (1 - e^{-Δ_t}) is the correct form — don&#x27;t copy the formula
+       across sections without flipping the sign.
        For principled reverse-KL gradient, use k2-as-loss (gradient-equivalent
        to k1-in-reward on-policy) or k1-in-reward via score function. See §3.6.
     &quot;&quot;&quot;
@@ -753,7 +757,7 @@ def compare_kl_estimators(n_samples=10_000, seed=0):
     #                  k2 mean &gt; 0.125 (biased upward);
     #                  k3 mean ≈ 0.125 (unbiased), min ≥ 0, var(k3) &lt; var(k1).</code></pre>
 <div class="callout callout-good"><div class="callout-title">运行 simulation 你会看到</div></div>
-<ul><li>k1 mean ≈ 0.125, min 约 −1.5（可负），var 大。</li><li>k2 mean ≈ 0.18（偏高），min ≥ 0，var 中。</li><li>k3 mean ≈ 0.125（无偏），min ≥ 0，var <strong>明显小于</strong> k1。</li></ul>
+<ul><li>k1 mean ≈ 0.125, min 约 −1.5（可负），var 大。</li><li>k2 mean ≈ 0.133（偏高），min ≥ 0，var 中。</li><li>k3 mean ≈ 0.125（无偏），min ≥ 0，var <strong>明显小于</strong> k1。</li></ul>
 <p>这正是 Schulman blog 给出的 takeaway：<strong>k3 同时拿到 unbiased + non-negative + 较低方差</strong>。</p>
 <h2 id="3-kl-在-rlhf-中的两种放置">§3 KL 在 RLHF 中的两种放置</h2>
 <h3 id="31-option-ain-reward-shapingppo-rlhf--instructgpt-标准做法">3.1　Option A：In-reward shaping（PPO RLHF / InstructGPT 标准做法）</h3>
@@ -785,7 +789,7 @@ def compare_kl_estimators(n_samples=10_000, seed=0):
 <div class="callout callout-info"><div class="callout-title">关键参考</div><p>Kezhao Liu et al., "Rethinking KL Regularization in RLHF: From Value Estimation to Gradient Optimization", arXiv 2510.01555 (2025-10-02)。这篇文章系统区分 <strong>value estimation</strong>（"KL 量本身估得准不准"）与 <strong>gradient optimization</strong>（"对 θ 求导后是不是真的 reverse-KL gradient"），结论与历史 GRPO 实现不完全一致。</p></div>
 <h4 id="设定与三种-estimator-placement">设定与三种 estimator placement</h4>
 <p>为简洁起见，令 $\Delta_t = \log\!\frac{\pi_\theta(y_t|s_t)}{\pi_\text{ref}(y_t|s_t)}$（per-token log-ratio，<strong>带 θ 梯度</strong>），$\hat\Delta_t = \text{stop\_grad}(\Delta_t)$（在 rollout 时记录的 detached 副本）。三种常见 placement：</p>
-<table><thead><tr><th>方案</th><th>KL 出现的位置</th><th>单 token 形式</th><th>对 θ 的梯度贡献</th></tr></thead><tbody><tr><td><strong>(P1) k1 in reward</strong></td><td>进 reward / advantage</td><td>$\hat r_t \leftarrow r_t - \beta\,\hat\Delta_t$，再走 PPO surrogate</td><td>$-\beta\cdot \mathbb{E}[\nabla_\theta\log\pi_\theta\cdot \hat\Delta_t]$，<strong>严格的 reverse-KL score-function gradient</strong>（on-policy）</td></tr><tr><td><strong>(P2) k2 as loss</strong></td><td>直接 loss 项</td><td>$\mathcal{L}_\text{KL} = \tfrac12 \Delta_t^2$</td><td>$\nabla\mathcal{L}_\text{KL} = \Delta_t\,\nabla_\theta\log\pi_\theta$（用 $\nabla_\theta\Delta_t = \nabla_\theta\log\pi_\theta$）。on-policy 下 $\mathbb{E}_{y\sim\pi_\theta}[\Delta\,\nabla\log\pi_\theta] = \nabla\text{KL}$，与 (P1) <strong>gradient-equivalent</strong>——严格 principled</td></tr><tr><td><strong>(P3) k3 as loss</strong></td><td>直接 loss 项</td><td>$\mathcal{L}_\text{KL} = e^{-\Delta_t} + \Delta_t - 1$</td><td>$\nabla\mathcal{L}_\text{KL} = (1 - e^{-\Delta_t})\nabla_\theta\log\pi_\theta$；这是 reverse-KL gradient 的 <strong>first-order Taylor approximation</strong>，$1-e^{-\Delta} = \Delta - \tfrac12\Delta^2 + O(\Delta^3)$，有 $O(\Delta^2)$ bias</td></tr></tbody></table>
+<table><thead><tr><th>方案</th><th>KL 出现的位置</th><th>单 token 形式</th><th>对 θ 的梯度贡献</th></tr></thead><tbody><tr><td><strong>(P1) k1 in reward</strong></td><td>进 reward / advantage</td><td>$\hat r_t \leftarrow r_t - \beta\,\hat\Delta_t$，再走 PPO surrogate</td><td>$-\beta\cdot \mathbb{E}[\nabla_\theta\log\pi_\theta\cdot \hat\Delta_t]$，<strong>严格的 reverse-KL score-function gradient</strong>（on-policy）</td></tr><tr><td><strong>(P2) k2 as loss</strong></td><td>直接 loss 项</td><td>$\mathcal{L}_\text{KL} = \tfrac12 \Delta_t^2$</td><td>$\nabla\mathcal{L}_\text{KL} = \Delta_t\,\nabla_\theta\log\pi_\theta$（用 $\nabla_\theta\Delta_t = \nabla_\theta\log\pi_\theta$）。在<strong>单步条件 KL</strong>（固定 $y_{&lt;t}$ 的 per-token KL）意义下与 (P1) 的对角项严格相等；但完整序列级 KL 的真实梯度是 reward-to-go 形式 $\sum_t \nabla_\theta\log\pi_\theta(y_t)\cdot(\sum_{t'\ge t}\Delta_{t'})$——(P1) 通过 GAE/return 自动实现了这个跨时间求和，而若 (P2) 只是逐 token 直接 backprop $\sum_t \tfrac12\Delta_t^2$（不经过 advantage/return 传播），则缺少 $s&lt;t$ 的跨时交叉项，<strong>并非在完整序列上严格 gradient-equivalent</strong></td></tr><tr><td><strong>(P3) k3 as loss</strong></td><td>直接 loss 项</td><td>$\mathcal{L}_\text{KL} = e^{-\Delta_t} + \Delta_t - 1$</td><td>$\nabla\mathcal{L}_\text{KL} = (1 - e^{-\Delta_t})\nabla_\theta\log\pi_\theta$；这是 reverse-KL gradient 的 <strong>first-order Taylor approximation</strong>，$1-e^{-\Delta} = \Delta - \tfrac12\Delta^2 + O(\Delta^3)$，有 $O(\Delta^2)$ bias</td></tr></tbody></table>
 <h4 id="为什么-k3-as-loss-是-biased-gradient关键直觉">为什么 k3 as loss 是 biased gradient（关键直觉）</h4>
 <p>k3 作为 <strong>value estimator</strong>（计算 KL 的数值）是无偏的：$\mathbb{E}_{\pi_\theta}[\widehat{\text{KL}}_3] = \text{KL}(\pi_\theta\|\pi_\text{ref})$（见 §2.4.2 性质 2）。但当 <strong>对 θ 反传</strong>时，autograd 计算的是 $\nabla_\theta\widehat{\text{KL}}_3$，而<strong>不是</strong> $\nabla_\theta\,\mathbb{E}_{\pi_\theta}[\widehat{\text{KL}}_3]$。后者由 score-function trick 给出：</p>
 <p>$$\nabla_\theta\,\text{KL}(\pi_\theta\|\pi_\text{ref}) = \mathbb{E}_{y\sim\pi_\theta}\!\big[\nabla_\theta\log\pi_\theta(y) \cdot \log(\pi_\theta(y)/\pi_\text{ref}(y))\big] \;+\; \mathbb{E}_{\pi_\theta}[\nabla_\theta\log\pi_\theta]\,\quad\text{(=0)}$$</p>
@@ -871,7 +875,7 @@ for epoch in range(num_epochs):
 <p><strong>关键差异</strong>：<strong>没有 $\pi_\text{ref}$</strong>，所以<strong>没有 KL 项</strong>。损失：</p>
 <p>$$\mathcal{L}_\text{SimPO} = -\mathbb{E}\log\sigma\!\left(\frac{\beta}{|y_w|}\log\pi(y_w) - \frac{\beta}{|y_l|}\log\pi(y_l) - \gamma\right)$$</p>
 <p><strong>后果</strong>：</p>
-<ul><li>✅ 训练时省一份 reference policy（显存减半）。</li><li>❌ 没有 KL anchor，policy 离 SFT 的距离<strong>完全不可控</strong>。</li><li>实测上 SimPO 在某些 benchmark（AlpacaEval-2 / Arena-Hard）上优于 DPO；但生成质量在 OOD prompt 上<strong>比 DPO 不稳</strong>。SimPO 的设计是"用 length-norm + margin 替代 KL anchor"——它假定了"短 prompt-response 任务下，长度归一 + margin 足以约束 policy"，<strong>不是对所有任务都成立</strong>。</li></ul>
+<ul><li>✅ 训练时不需要同时维护一个可反传的 policy + 一个只做前向的 frozen reference，省下 reference 权重的显存占用和它的前向计算——但这不等于总训练显存减半：可训练 policy 的权重 + 梯度 + optimizer state（Adam 额外约 2× 参数量的动量/方差缓存）+ 反传 activation，通常远大于一份只读、只做前向的 reference 权重，实际节省幅度视 optimizer/精度配置而定，一般远小于 50%。</li><li>❌ 没有 KL anchor，policy 离 SFT 的距离<strong>完全不可控</strong>。</li><li>实测上 SimPO 在某些 benchmark（AlpacaEval-2 / Arena-Hard）上优于 DPO；但生成质量在 OOD prompt 上<strong>比 DPO 不稳</strong>。SimPO 的设计是"用 length-norm + margin 替代 KL anchor"——它假定了"短 prompt-response 任务下，长度归一 + margin 足以约束 policy"，<strong>不是对所有任务都成立</strong>。</li></ul>
 <div class="callout callout-info"><div class="callout-title">SimPO 没有 KL 的工程影响</div><p>工程上发现 SimPO 训完的 model 在重复模式、生成长度、对 prompt 微扰的鲁棒性上<strong>都比 DPO 差</strong>。这是为什么很多生产 RLHF 仍然用 DPO + small β 而不是 SimPO——KL anchor 是有代价但有价值。</p></div>
 <h3 id="54-kto--ipo--orpo-的-kl-处理">5.4　KTO / IPO / ORPO 的 KL 处理</h3>
 <table><thead><tr><th>算法</th><th>KL 形式</th><th>备注</th></tr></thead><tbody><tr><td><strong>KTO</strong> (Ethayarajh 2024 ICML)</td><td>通过 reference point $z_0 = \mathbb{E}[\beta\cdot\text{KL}]$（batch mismatched pair 估，detach）</td><td>KL 隐式地"作 anchor"：implicit reward 偏离 $z_0$ 多远</td></tr><tr><td><strong>IPO</strong> (Azar 2024 AISTATS)</td><td>与 DPO 同（$\log(\pi/\pi_\text{ref})$），但损失从 sigmoid 改 squared</td><td>防止 deterministic preference 下 $\hat{r}$ 无界增长</td></tr><tr><td><strong>ORPO</strong> (Hong 2024 EMNLP)</td><td><strong>无 reference model</strong>（与 SimPO 类似），用 odds-ratio 代替</td><td>一阶段同时做 SFT + preference；KL anchor 隐含在 SFT loss 里</td></tr></tbody></table>
@@ -937,7 +941,7 @@ for epoch in range(num_epochs):
 <p>$$\text{KL}(\pi_\theta(\cdot|x) \| \pi_\text{ref}(\cdot|x)) = \mathbb{E}_{y \sim \pi_\theta}\!\left[\sum_t \log\frac{\pi_\theta(y_t | x, y_{&lt;t})}{\pi_\text{ref}(y_t | x, y_{&lt;t})}\right]$$</p>
 <p>即 <strong>sequence-level KL = token-level KL 之和的期望</strong>（自回归 chain rule）。注意：单条 rollout 上把 $\sum_t \log\pi_\theta(y_t)/\pi_\text{ref}(y_t)$ 直接当 KL 是 <strong>k1 estimator</strong>（unbiased 但 per-rollout 方差大）；若要 true token-level KL $D(\pi_\theta(\cdot|s_t)\|\pi_\text{ref}(\cdot|s_t))$ 还需 full-vocab forward。<strong>两者期望相等</strong>，工程上选 sampled log-ratio 是因为 vocab 求和昂贵。</p>
 <p>但有两个<strong>implementation trick</strong> 与 token-level 相关：</p>
-<ol><li><strong>Per-token clipping</strong>：单 token KL 偶尔很大（罕见 token、长 tail），可以对每 token KL 做 clip 防止单 token 拖飞 batch 总 KL。</li><li><strong>Mask on assistant tokens only</strong>：在 chat / agent setting 下，prompt token 不应该参与 KL 计算（prompt 是同一的，policy 和 ref 在 prompt 上完全一致，KL = 0；但浮点误差会污染）。所以 KL mask 与 PPO action_mask 重合，<strong>只在 assistant generation token 上算 KL</strong>。</li></ol>
+<ol><li><strong>Per-token clipping</strong>：单 token KL 偶尔很大（罕见 token、长 tail），可以对每 token KL 做 clip 防止单 token 拖飞 batch 总 KL。</li><li><strong>Mask on assistant tokens only</strong>：在 chat / agent setting 下，prompt token 不参与 KL 计算，不是因为 policy 和 ref 在 prompt 上给出的分布碰巧相同（两个模型权重不同，对同一 context 的 next-token 分布一般并不相等），而是因为 mask 语义：prompt token 是外生给定的输入，不是 policy 这一步做出的动作，不应计入 KL 惩罚。所以 KL mask 与 PPO action_mask 重合，<strong>只在 assistant generation token 上算 KL</strong>。</li></ol>
 <pre><code class="language-python"># Per-token KL with action mask (chat / agentic RL setting)
 def per_token_kl_with_mask(logp_theta, logp_ref, action_mask, estimator=&quot;k3&quot;):
     &quot;&quot;&quot;
@@ -1050,6 +1054,7 @@ def ppo_reward_with_kl(rewards_terminal, rollout_logp_theta, logp_ref,
     with torch.no_grad():
         kl_mean = (kl_per_tok_k3 * mask).sum() / mask.sum().clamp_min(1.0)
     return loss, {&quot;kl_k3&quot;: kl_mean.item(), &quot;advantage_std&quot;: A.std().item()}</code></pre>
+<div class="callout callout-warn"><div class="callout-title">rollout staleness caveat</div><p>若这批 rollout（<code>old_log_probs</code> 对应的 $\pi_\text{old}$）被复用于多个 PPO/GRPO epoch 的梯度更新，上面用 <code>new_log_probs</code> 算出的 <code>kl_k3</code> 只是 $\mathbb{E}_{y\sim\pi_\text{old}}[\text{k3}(\pi_\theta^\text{new},\pi_\text{ref})]$，并不等于当前真实的 $\text{KL}(\pi_\theta^\text{new}\|\pi_\text{ref})$（k3 无偏性要求 $y\sim\pi_\theta^\text{new}$，见 §2.4.2）。要得到无偏估计，需每个 epoch 重新 rollout，或对 k3 做 $\pi_\theta^\text{new}/\pi_\text{old}$ 的重要性采样修正。</p></div>
 <h3 id="73-dpo-闭式-loss--implicit-reward-监控">7.3　DPO 闭式 loss + implicit reward 监控</h3>
 <pre><code class="language-python">def dpo_loss_with_implicit_reward_monitor(policy, ref_policy, batch, beta=0.1):
     &quot;&quot;&quot;
@@ -1131,7 +1136,7 @@ def ppo_reward_with_kl(rewards_terminal, rollout_logp_theta, logp_ref,
     return avg_kl, avg_gold</code></pre>
 <h3 id="75-工程清单debug-checklist">7.5　工程清单（debug checklist）</h3>
 <div class="callout callout-warn"><div class="callout-title">KL 相关 bug Top 8</div></div>
-<ol><li><strong>KL 用错了 mask</strong>：在 prompt token 上算 KL 应该 = 0（同 prompt 输入），但 floating-point 噪声会污染，所以<strong>必须 mask only assistant tokens</strong>。</li><li><strong>k1 显示为负</strong>：log-ratio 单样本可负，但<strong>期望非负</strong>。不是 bug，是 estimator 性质。换 k3 / k2 看监控更直观。</li><li><strong>β 单位错</strong>：reward scale = O(1) 时 β = 0.02；reward scale = O(100) 时 β 要相应放大。否则 KL anchor 失效。</li><li><strong>adaptive β 振荡</strong>：target_kl 太严 / mult 太大。把 mult clip 到 [0.8, 1.2]，update 频率降到每 100 steps。</li><li><strong>Reference policy 没冻结</strong>：忘记 <code>ref_policy.eval()</code> + <code>torch.no_grad()</code>，ref 跟着训，KL 变成 self-distillation。</li><li><strong>Per-token vs sequence-level KL 混淆</strong>：监控里有时报 per-token，有时报 sequence-level，看错就调错 β。统一一个单位。</li><li><strong>GRPO 中 KL 项缩 reward</strong>：当 reward 是 binary {0, 1}（数学题）且 β = 0.04，KL ≈ 0.5 时，KL penalty 已大于 reward 平均值——loss 被 KL 主导。<strong>降 β 到 1e-3 或更小</strong>。</li><li><strong>Float overflow on $\pi_\text{ref}/\pi_\theta$</strong>：当 policy 大幅偏离 ref，$\pi_\text{ref}/\pi_\theta$ 可能极大，$e^\Delta$ 溢出。<strong>用 log-space 写 k3</strong>：<code>exp(delta) - delta - 1</code> 在 $\Delta$ 大时仍可能溢出，可以加 <code>torch.clamp(delta, max=10)</code> 或换数值稳定 form。</li></ol>
+<ol><li><strong>KL 用错了 mask</strong>：prompt token 不是 policy 这一步做出的动作（mask 语义，不是"policy 和 ref 在 prompt 上分布碰巧相同"），floating-point 噪声还会污染，所以<strong>必须 mask only assistant tokens</strong>。</li><li><strong>k1 显示为负</strong>：log-ratio 单样本可负，但<strong>期望非负</strong>。不是 bug，是 estimator 性质。换 k3 / k2 看监控更直观。</li><li><strong>β 单位错</strong>：reward scale = O(1) 时 β = 0.02；reward scale = O(100) 时 β 要相应放大。否则 KL anchor 失效。</li><li><strong>adaptive β 振荡</strong>：target_kl 太严 / mult 太大。把 mult clip 到 [0.8, 1.2]，update 频率降到每 100 steps。</li><li><strong>Reference policy 没冻结</strong>：忘记 <code>ref_policy.eval()</code> + <code>torch.no_grad()</code>，ref 跟着训，KL 变成 self-distillation。</li><li><strong>Per-token vs sequence-level KL 混淆</strong>：监控里有时报 per-token，有时报 sequence-level，看错就调错 β。统一一个单位。</li><li><strong>GRPO 中 KL 项缩 reward</strong>：GRPO loss 里真正与 KL 相加的是 z-score 标准化后的 advantage（均值 0、标准差 1，量级 O(1)），不是原始 reward 均值。reward binary {0, 1}、β = 0.04、KL ≈ 0.5 时 β·KL = 0.02，仍远小于 advantage 的 O(1) 量级。要判断 KL 是否主导 loss，应比较 β·KL 与实际参与 loss 的 advantage 量级（见 §9 Q18），而非与未标准化的 raw reward 均值比较；β 明显增大（如 β = 1，KL ≈ 0.3）时才需要担心 KL 主导，应<strong>降 β</strong>。</li><li><strong>Float overflow on $\pi_\text{ref}/\pi_\theta$</strong>：当 policy 大幅偏离 ref，$\pi_\text{ref}/\pi_\theta$ 可能极大，$e^\Delta$ 溢出。<strong>用 log-space 写 k3</strong>：<code>exp(delta) - delta - 1</code> 在 $\Delta$ 大时仍可能溢出，可以加 <code>torch.clamp(delta, max=10)</code> 或换数值稳定 form。</li></ol>
 <h2 id="8-失败模式kl-collapse--runaway--reward-hacking">§8 失败模式：KL Collapse / Runaway / Reward Hacking</h2>
 <h3 id="81-kl-collapse-过大或-entropy-太低">8.1　KL Collapse（β 过大或 entropy 太低）</h3>
 <p><strong>症状</strong>：</p>
@@ -1156,7 +1161,7 @@ def ppo_reward_with_kl(rewards_terminal, rollout_logp_theta, logp_ref,
 <h3 id="84-length-biasdpo-特有也可视作-kl-anchor-不够强">8.4　Length bias（DPO 特有，也可视作 KL anchor 不够强）</h3>
 <p><strong>症状</strong>：</p>
 <ul><li>DPO 训完后输出明显变长。</li><li>AlpacaEval 上分数高但用户感受变啰嗦。</li></ul>
-<p><strong>原因</strong>：DPO loss 是 sequence-level log-ratio 差。$y_w$ 通常更长（人选更详尽答案），longer $y_w$ → 更负的 $\log\pi(y_w)$ → log-ratio 差更大 → loss 减小。但这是 RM scale 而非 reasoning quality。</p>
+<p><strong>原因</strong>：DPO 的 implicit reward 是序列级 log-ratio 之和 $\hat r(x,y) = \beta \sum_t [\log\pi_\theta(y_t|y_{&lt;t}) - \log\pi_\text{ref}(y_t|y_{&lt;t})]$，是 $T$ 个 per-token log-ratio 项的和，不是原始 log-prob。训练会让 preferred response 的 per-token log-ratio 出现一个小的系统性正偏移；$y_w$ 通常更长（人选更详尽答案），累加的 token 数更多，即使每 token 偏移量不变，未经长度归一的总 margin 也会随长度线性放大——这不是因为原始 log-prob 更负（那对 $\pi_\theta$、$\pi_\text{ref}$ 是对称的，在 log-ratio 里会大体抵消），而是因为长度会机械放大未归一化的 log-ratio 求和。</p>
 <p><strong>修复</strong>：</p>
 <ul><li>SimPO 的 length-normalization（$r = (\beta/|y|)\log\pi$）。</li><li>Reward shaping 加 length penalty。</li><li>数据 curation：让 $y_w$ 和 $y_l$ 长度分布相似。</li></ul>
 <h3 id="85-reference-policy-wrong-checkpoint-failure">8.5　Reference policy "wrong checkpoint" failure</h3>
@@ -1338,8 +1343,8 @@ def ppo_reward_with_kl(rewards_terminal, rollout_logp_theta, logp_ref,
 <p><strong>安全 budget</strong>：要在 peak 之前停下来。一般选 $\text{KL}_\text{stop} = 0.5 \cdot \text{KL}_\text{peak}$（留 50% safety margin）。</p>
 <p><strong>怎么估 $\alpha_g, \gamma_g$？</strong> 需要 gold reward 信号（人工 / 强 RM ensemble）。在小规模 pilot run 跑几个 KL 点，拟合 $R_g(d)$。</p>
 <p><strong>RM 越大，越靠右</strong>：Gao 2023 给的 scaling law 表明 $\alpha_g, \gamma_g$ 随 RM size 改变（拟合系数本身依赖于 RM 规模和数据），更大 RM 的 $\text{KL}_\text{peak}$ 更靠右，但 $R_g(\text{peak})$ 也更高。这是为什么大 RM 既"对得起 budget" 又能拿更高 gold。</p>
-<p><strong>PPO 比 BoN 复杂一点</strong>：$R_g(d) = d(\alpha_g - \gamma_g d) - \delta_g d^{3/2}$，三阶项使 peak 稍微靠左。</p>
-<p>应用：实际工程里把 measured KL 限制在 $\text{KL}_\text{peak} \cdot 0.5$ 作 early stop，即 "$\sqrt{\text{KL}}$ &lt; $d_\text{peak}/2$"。</p>
+<p><strong>PPO 比 BoN 复杂一点</strong>：PPO 用的是与 §6.4.2 一致的 log-form $R_g(d) = d(\alpha_g - \beta_g \log d)$，$\log d$ 项（不是多项式高阶项）使曲线在大 $d$ 时比 BoN 的二次型 $d(\alpha_g - \gamma_g d)$ 增长更慢；不要写成 $d^{3/2}$ 的"三阶项"，那与 §6.4.2 矛盾，且 $d^{3/2}$ 本身也不是"三阶"（三阶应为 $d^3$）。</p>
+<p>应用：实际工程里把 measured KL 限制在 $\text{KL}_\text{peak} \cdot 0.5$ 作 early stop，即 $\sqrt{\text{KL}} &lt; d_\text{peak}/\sqrt{2}$（≈$0.707 \cdot d_\text{peak}$）。</p>
 <p>不展开 derivative；或不知 RM size 与 peak 的 scaling。</p>
 </details>
 <details>
@@ -1359,7 +1364,7 @@ def ppo_reward_with_kl(rewards_terminal, rollout_logp_theta, logp_ref,
 
 <summary>Q25.下一代 RLHF 算法可能怎么改进 KL regularization？给 3 个方向 + trade-off。</summary>
 <p><strong>方向 1：Adaptive KL estimator per token</strong></p>
-<ul><li>对每 token 单独决定用 k1 还是 k3：小 KL token 用 k1（无偏 + 简单），大 KL token 用 k3（防方差爆炸）。</li><li>Trade-off：实现复杂度 + per-token 阈值难定。</li></ul>
+<ul><li>三者不存在全局方差排序：k3 的 $e^\Delta$ 项在分布差异变大（KL 变大）时会指数增长，往往比 k1 爆炸得更快（例如 $\mu: 0.5 \to 2.5$ 时 $\text{Var}(k3)$ 从 ≈0.03 飙到 ≈270，远超同期近似线性增长的 $\text{Var}(k1) \approx 6$）。工程上应对当前 $\pi_\theta, \pi_\text{ref}$ 做经验方差检验再决定用哪个 estimator，而非套用"大 KL 用 k3"这类固定规则；大 KL 场景反而更应谨慎使用 k3（或退回 k1/k2）。</li><li>Trade-off：实现复杂度 + per-token 阈值难定。</li></ul>
 <p><strong>方向 2：Per-task β controller</strong></p>
 <ul><li>不同 sub-task（数学 / 代码 / 对话 / safety）用不同 β，由 task classifier 在线分发。</li><li>Trade-off：要求 task labels 准确；β 之间的 cross-task 干扰需要研究。</li></ul>
 <p><strong>方向 3：Adversarial KL</strong></p>
@@ -1396,8 +1401,8 @@ def ppo_reward_with_kl(rewards_terminal, rollout_logp_theta, logp_ref,
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/kl_divergence_rlhf_tutorial.md</code> ·
-  SHA256 <code>41d43aea2812</code> ·
-  generated at 2026-06-29 10:11 UTC.
+  SHA256 <code>97d01f2b5501</code> ·
+  generated at 2026-07-12 04:21 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>
