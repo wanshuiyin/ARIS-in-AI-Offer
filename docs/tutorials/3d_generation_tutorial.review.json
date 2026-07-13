@@ -1,8 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/3d_generation_tutorial.md",
-  "source_sha256": "279221f16647dd2f61d80d5aa546d6e6da41c209574392cdc36b776944a0f65d",
-  "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
+  "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review. Superseded 2026-07-13 by the post_ship_review round below (source edited, hash refreshed).",
   "output": "docs/tutorials/3d_generation_tutorial.html",
   "topic": "3D Generation (NeRF / Instant-NGP / 3DGS / SDS / DreamFusion / Trellis)",
   "effort": "max",
@@ -61,5 +60,25 @@
   "summary": "3D Gen tutorial passed both math/code review (subagent rounds 1-3) and render review (main-session DIY). 64KB MD, 94KB HTML.",
   "rendered_at": "2026-05-19",
   "notes": "Subagent was killed before writing review.json (codex MCP concurrency issue). HTML was already rendered. Render review backfilled from main session with thread 019e3f3d (PASS 13/13).",
-  "thread_id": "019e7cad-2374-77b1-b653-2a484f59aaef"
+  "thread_id": "019e7cad-2374-77b1-b653-2a484f59aaef",
+  "source_sha256": "b3aed31c1377ffdb13af4f02612310d3687fad97d3e5f16b58710258132aca3c",
+  "post_ship_review": [
+    {
+      "scope": "2026-07-13 full-collection resweep (diffusion cluster): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification (attempted to refute every candidate finding; only load-bearing ones kept)",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "summary": "8 findings verified (6 CONFIRMED + 1 NEEDS_NUANCE + 1 REFUTED). 7 fixes precisely applied to the source MD; the REFUTED finding (SDS U-Net Jacobian described as a 'second-order' term) was left untouched — DreamFusion's own text ties that Jacobian to the Hessian of the log-density, so the tutorial's phrasing is an accurate paraphrase, not an error.",
+      "fixes": [
+        "§0/§3/interview-Q4: Instant-NGP speedup '5+ OOM' softened to 'roughly 4+ orders of magnitude' — the tutorial's own worked example (1-2 days vs 5s) only nets ~4.2-4.5 orders of magnitude, not 5+ (CONFIRMED, 3 occurrences)",
+        "§3.3/interview-Q13: hash-collision point 3 corrected — empty-region sample points with non-zero density DO get a nonzero volume-rendering gradient (proportional to delta_i * e^(-sigma_i*delta_i), pushing sigma toward 0); they only stop getting gradient once sigma decays and the occupancy grid skips them, not 'from the start' (CONFIRMED, 2 occurrences)",
+        "§4.5 table + code: 3DGS clone/split mechanism was reversed — clone duplicates in place (new_xyz = original xyz, no gradient offset) and split is the one that samples a new position (torch.normal with scale as std + rotation, then scale / 1.6); fixed table row wording, code comments, the clone_at() call (dropped the fabricated offset=grad_dir argument and grad_dir field), and the split_at() comment (CONFIRMED)",
+        "§4.5 table: opacity-reset value corrected 0.005 -> 0.01; 0.005 is the separate min_opacity prune threshold already used correctly elsewhere in the same code block, not the reset value (CONFIRMED)",
+        "§5.2: DMTet 'geometry fully differentiable' claim qualified — differentiable within a fixed-topology region, but not differentiable at the measure-zero instant a vertex SDF crosses zero and switches the tetrahedron's marching-tetrahedra look-up case (topology change), analogous to the ReLU kink at 0 (NEEDS_NUANCE, severity downgraded from P0 to P1)",
+        "§6.7/interview-Q15/Q25: VSD's auxiliary score network epsilon_psi was mischaracterized as merely a zero-mean 'variance-reduction baseline (isomorphic to an RL actor-critic value baseline)'; corrected to: epsilon_psi is the necessary term corresponding to the q-distribution's own score arising from differentiating the KL objective w.r.t. theta — dropping it changes the expected gradient direction (degrading distribution-matching back to SDS's mode-seeking), unlike a true RL baseline which only reduces variance without changing the expected gradient (CONFIRMED, 4 occurrences)",
+        "§1 comparison table: 3DGS 'downstream fit' cell claimed 'easy to plug into PBR/IsaacSim/URDF', contradicting the tutorial's own §10.2 recommendation (convert to mesh first via Trellis/Hunyuan3D-2 before IsaacSim/MuJoCo); cell rewritten to require mesh conversion first, consistent with §10.2 (CONFIRMED)",
+        "§7.1/interview-Q16: Zero-1-to-3++'s 6 fixed anchor views were described as a zenith/pole layout ('north-pole view + 4 eye-level views + a top view'); corrected to the paper's actual configuration — azimuth uniformly spaced every 60 degrees around 30/90/150/210/270/330 degrees, elevation alternating between -10 and 20 degrees (interleaved elevation + uniform azimuth) (CONFIRMED)"
+      ],
+      "note": "REFUTED finding (SDS U-Net Jacobian 'second-order' framing at the naive-diffusion-gradient derivation, 3 occurrences) intentionally left unmodified. EN edition (3d_generation_tutorial_en.md) received the same substantive corrections in natural English (see its own sidecar). Both HTMLs re-rendered; source_sha256 refreshed to match this run. Gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ]
 }

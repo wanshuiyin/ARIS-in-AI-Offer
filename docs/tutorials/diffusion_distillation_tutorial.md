@@ -112,7 +112,7 @@ $$\mathcal{L}_\text{cont} = \mathbb{E}\left\|\frac{d f_\theta}{dt}\right\|^2 = \
 
 $$\mathcal{L}_\text{CD} \approx \mathbb{E}\|f_\theta(x_{t_{n+1}}, t_{n+1}) - f_{\theta^-}(\hat x_{t_n}, t_n)\|^2$$
 
-> ⚠️ **不能去掉 EMA 锚点** — 如果两侧都用 $\theta$，loss 退化为 $\|f_\theta - f_\theta\| = 0$，**网络无信号**。EMA 提供"过去的自己"做 supervision，类似 BYOL 防 collapse 的机制。iCT 论文（§2.3）证明在合适的 noise schedule + pseudo-Huber loss 下可以**去掉 EMA**——这是 iCT 的核心贡献之一。
+> ⚠️ **不能同时去掉 target 分支的 stop-gradient** — 若两侧都用当前 $\theta$ 但 target 侧仍 stop-gradient（如 iCT 令 $\theta^- = \theta$，见 §2.3），loss **并不会自动等于 0**：$(x_{t_{n+1}}, t_{n+1})$ 与 $(\hat x_{t_n}, t_n)$ 是不同输入，同一网络在两处的输出一般不同，梯度依然存在——iCT 正是这样成功训练的（FID 2.83，CIFAR-10）。真正的坍缩风险是：若把 target 分支的 stop-gradient **也**去掉（两侧对称反传梯度），训练可能坍缩到 $f_\theta$ 变成与输入无关的常函数这一平凡解（类似 BYOL/SimSiam 去掉 stop-gradient 后的坍缩）——这是训练动力学层面的坍缩，而非"参数相同就数学上恒等于 0"。iCT 论文（§2.3）证明在合适的 noise schedule + pseudo-Huber loss 下可以**去掉 EMA（但保留 stop-gradient）**——这是 iCT 的核心贡献之一。
 
 ### 2.3　iCT / Improved Techniques (Song-Dhariwal 2023, arXiv:2310.14189)
 
@@ -139,14 +139,14 @@ CT (Consistency Training) 原本质量远低于 CD。iCT 改进四件事：
 
 **TrigFlow 参数化**：把 forward path 写成三角形式——
 
-$$\boxed{\;x_t = \cos(t)\, x_0 + \sin(t)\, z,\quad t \in [0, \pi/2],\; z \sim \mathcal{N}(0, I)\;}$$
+$$\boxed{\;x_t = \cos(t)\, x_0 + \sin(t)\, z,\quad t \in [0, \pi/2],\; z \sim \mathcal{N}(0, \sigma_d^2 I)\;}$$
 
-边界：$t = 0$ 时 $x_t = x_0$（数据），$t = \pi/2$ 时 $x_t = z$（标准高斯）。
+边界：$t = 0$ 时 $x_t = x_0$（数据），$t = \pi/2$ 时 $x_t = z$——这是方差 $\sigma_d^2$ 的高斯（$\sigma_d$ 是 data std），**不是标准高斯**：只有 $z$ 按 $\sigma_d$ 缩放，才能让 $\mathrm{Var}(x_t) = \cos^2(t)\sigma_d^2 + \sin^2(t)\sigma_d^2 = \sigma_d^2$ 对所有 $t$ 恒成立（variance-preserving），与 EDM 的 $\sigma_\text{data}$-scaled precondition 严格衔接。
 
 **为什么三角形式？** 这是同时让以下四件事**形式简洁**的唯一参数化（Lu-Song 2024 Theorem 1）：
 
 - EDM precond：$D_\theta(x_t, t) = \cos(t)\, x_t - \sin(t)\, F_\theta$，自动满足 boundary
-- PF-ODE：$\frac{dx_t}{dt} = -\sin(t) x_0 + \cos(t) z$，干净表达
+- PF-ODE：$\frac{dx_t}{dt} = -\sin(t) x_0 + \cos(t) z$，干净表达——注意这是给定 $(x_0, z)$ 这一固定配对的**条件/逐点路径导数**，把它直接当训练回归 target 是标准做法（条件期望恒等式保证匹配到真正的边缘 PF-ODE 速度场），但严格意义上不应不加限定地直接称其为"PF-ODE"（边缘 PF-ODE 是对所有配对取期望后的场）
 - CM 输出：$f_\theta(x_t, t) = \cos(t) x_t - \sin(t) (\sigma_d F_\theta(x_t / \sigma_d, c_\text{noise}(t)))$（$\sigma_d$ 是 data std）
 - Continuous-time consistency loss：直接梯度可写成 closed-form
 
@@ -220,7 +220,7 @@ $$\Delta W = B A,\quad B \in \mathbb{R}^{d \times r},\; A \in \mathbb{R}^{r \tim
 
 ### 2.9　rCM / Score-Regularized Continuous-Time CM (2025, arXiv:2510.08431)
 
-> 📍 **本文写作时（2025-2026）最新的 CM 工作之一** — rCM = "Score-Regularized Continuous-Time Consistency Model"，arXiv:2510.08431 verified。
+> 📍 **本文写作时（2025-2026）最新的 CM 工作之一** — rCM = "Score-Regularized Continuous-Time Consistency Model"，arXiv:2510.08431 verified。具体 arXiv id 与数字建议读者自行核对最新版本，本文成文时间可能早于/晚于该论文的修订。
 
 **动机**：sCM 在 fine detail 上有质量瓶颈——作者归因于 **forward-divergence 的 mode-covering 性质**（KL(p_data ‖ p_student) 倾向覆盖所有 mode，导致细节模糊）。
 
@@ -313,7 +313,7 @@ $$s_\text{real} - s_\text{fake} = \nabla_x \log\frac{p_\text{real}}{p_\text{fake
 $$\boxed{\;\mathcal{L}_\text{ADD} = \mathcal{L}_\text{adv}^G(\theta, \psi) + \lambda \cdot \mathcal{L}_\text{distill}(\theta, \phi)\;}$$
 
 - **$\mathcal{L}_\text{adv}$**：hinge loss + **DINOv2 vision backbone 当 discriminator**（不是 from-scratch 训 D，而是 fix DINOv2 + 多个 head）
-- **$\mathcal{L}_\text{distill}$**：student 1-step 输出 vs teacher multi-step 输出的 MSE（"score distillation" 的离散形式）
+- **$\mathcal{L}_\text{distill}$**：把 student 1-step 输出重新加噪到随机采样的更高噪声水平，喂给冻结 teacher denoiser 做一次去噪重构，再取两者的（加权）距离——score-distillation 风格的回归，**不是** student 输出与 teacher 独立多步采样图像之间的 pixel MSE（详见下方 §4.1 末尾说明）
 
 **DINOv2 discriminator** 是 ADD 的关键：
 
@@ -334,7 +334,7 @@ $$\boxed{\;\mathcal{L}_\text{ADD} = \mathcal{L}_\text{adv}^G(\theta, \psi) + \la
 | | ADD | LADD |
 |---|---|---|
 | Discriminator backbone | DINOv2 (pixel) | **teacher diffusion 自己的中间 layer feature**（latent） |
-| Distillation | pixel MSE | latent space distill |
+| Distillation | pixel-space score-distill（非 MSE，见 §4.1 末尾说明） | latent-space score-distill |
 | 分辨率 scale | 受 DINOv2 限制 | latent 任意尺寸 |
 | 应用模型 | SDXL | **SD3 (8B)、FLUX (12B)** |
 
@@ -359,12 +359,12 @@ ByteDance 的开源 SDXL 蒸馏方案，**progressive + adversarial 双管**：
 
 | 方法 | Discriminator | Distill loss | 应用 | 1-step quality |
 |---|---|---|---|---|
-| **ADD** | DINOv2 (pixel) | pixel MSE | SDXL | 中（512²) |
+| **ADD** | DINOv2 (pixel) | pixel-space score-distill | SDXL | 中（512²) |
 | **LADD** | teacher MM-DiT feat (latent) | latent score-distill | SD3, FLUX | 高（1024²） |
 | **Lightning** | self-trained CNN | progressive MSE | SDXL | 中-高 |
 | **DMD2** | self-trained + score gap | reverse-KL via score | SDXL | 高（含多样性） |
 
-> 💡 **production 选型 cheat sheet** — 如果 base 是 SD 1.5 / SDXL，用 **LCM-LoRA**（生态最广）或 **SDXL-Lightning**（开源稳定）；如果 base 是 SD3 / FLUX，**LADD** 是官方路线；想要 **GAN-free + score-based** 选 **DMD2**；学术想刷 SOTA 选 **sCM / rCM**。
+> 💡 **production 选型 cheat sheet** — 如果 base 是 SD 1.5 / SDXL，用 **LCM-LoRA**（生态最广）或 **SDXL-Lightning**（开源稳定）；如果 base 是 SD3 / FLUX，**LADD** 是官方路线；想要**纯 score-based、不含判别器**的方案选 **DMD**（v1，仅 regression + distribution-matching KL，无 GAN）；接受额外 GAN 组件换取更高质量/多样性选 **DMD2**（DMD2 并非 GAN-free——它的核心改动之一正是加入了 GAN loss，见 §3.3）；学术想刷 SOTA 选 **sCM / rCM**。
 
 ## §5 Flow / Rectified Flow 蒸馏
 
@@ -380,7 +380,7 @@ ByteDance 的开源 SDXL 蒸馏方案，**progressive + adversarial 双管**：
 
 **为什么 reflow 让 trajectory 变直？**
 
-考虑 transport cost $\mathbb{E}[\|x_1 - x_0\|^2]$ 当 coupling。独立 pair 的 cost 大；reflow 后 $(x_0, x_1^{(1)})$ 已经被 ODE 自然配对，是当前 $v_\theta^{(1)}$ 下的"最优传输"。Liu 2022 证：再训一次后总 transport cost 不增（实际上往往严格减），且**曲线"直"等价于 vector field 不依赖 $t$**——$v(t, x) = $ const 沿轨迹 → 1-step 生成。
+考虑 transport cost $\mathbb{E}[\|x_1 - x_0\|^2]$ 当 coupling。独立 pair 的 cost 大；reflow 后 $(x_0, x_1^{(1)})$ 已经被 ODE 自然配对，得到一个 transport cost **更低的新耦合**——但 Liu 2022 Theorem 3.6 只证明总 transport cost **单调不增**（$C^{(k+1)} \le C^{(k)}$，实际上往往严格减），并不是证明单次 reflow 后就收敛到全局最优传输（OT）解。另外，**"沿某条固定轨迹速度不随 $t$ 变"（条件速度恒定）不等价于边缘速度场 $v(x,t)$ 作为整体函数不含 $t$ 依赖**——真正带来 1-step/少步生成质量提升的直接原因是轨迹更直、离散化误差更小，而不是"$v(t,x)=$ const"这个更强的（且不成立的）断言。
 
 **InstaFlow (2023, arXiv:2309.06380)**：第一个把 reflow 用到 SD 上，1-step 出图 FID 23.3（512²）。
 
@@ -390,7 +390,7 @@ ByteDance 的开源 SDXL 蒸馏方案，**progressive + adversarial 双管**：
 
 $$x_1 = x_0 + 1 \cdot v_\theta(x_0)$$
 
-**实际**：1-2 次 reflow 后已足够"直"以支撑 4-step Euler 媲美 50-step；完全 1-step 需要更多 reflow + adversarial 微调（如 SD3-Turbo / FLUX-schnell）。
+**实际**：reflow 显著拉直轨迹、降低所需 NFE，但要达到与 50-step teacher 相当的质量，实践中（如 InstaFlow）通常仍需在 1-2 次 reflow 后叠加额外蒸馏 / 对抗微调，而非单靠 reflow 本身；完全 1-step 更依赖这类额外的 adversarial 微调（如 SD3-Turbo / FLUX-schnell 采用的是 LADD，见 §5.3，并非纯 reflow 产物）。
 
 ### 5.3　SD3-Turbo / FLUX-schnell = RF + LADD
 
@@ -411,7 +411,7 @@ SD3-Turbo / FLUX-schnell (1-4 step 1024²)
 
 > 📍 **澄清范围** — Flow-OPD 的主要 contribution 是 **multi-reward RL alignment + on-policy specialist distillation**，**不是** few-step inference distillation。把它放在这里是因为它名字带 "Distillation" 且涉及 flow models；但本 cheat sheet §2-§4 的核心主线（CM/DMD/ADD 把 50 step → 1-4 step）与 Flow-OPD 的 RL alignment 目标不同。
 >
-> 与本文相邻的姊妹篇 **`diffusion_post_training_tutorial.md`** 有完整 RL alignment 讨论（Flow-GRPO / Diffusion-DPO / DDPO 等），Flow-OPD 在那个语境下更准确。
+> 与本文相邻的姊妹篇 **`diffusion_post_training_tutorial.md`** 有完整 RL alignment 讨论（Flow-GRPO / Diffusion-DPO / DDPO 等），Flow-OPD 在那个语境下更准确。具体 arXiv id 与数字建议读者自行核对最新版本，本文成文时间可能早于/晚于该论文的修订。
 
 **简要 idea（仅 sidebar，深入讨论见 post-training 教程 + 原 paper）**：用多个 reward-specific teacher（每个 reward GRPO fine-tuned）做 on-policy distillation supervision，student 在 inference 时仍是 few-step + 同时获得 multi-reward alignment。
 
@@ -537,17 +537,33 @@ def update_ema(ema_model, model, decay=0.9999):
 ### 7.2　Code 2: iCT (去 EMA + Pseudo-Huber + Lognormal + Curriculum)
 
 ```python
-def pseudo_huber(a, b, c=0.00054):
+import math
+
+def pseudo_huber(a, b, c):
     """Pseudo-Huber loss: sqrt(||a-b||^2 + c^2) - c
-    小残差 ≈ L2/2c, 大残差 ≈ L1. iCT 论文 c=0.00054 (CIFAR-10)"""
+    小残差 ≈ L2/2c, 大残差 ≈ L1. iCT 论文取 c = 0.00054 * sqrt(D)，
+    D = C×H×W 是数据维度（不是固定常数 0.00054；CIFAR-10 32×32×3, D=3072 时 c ≈ 0.0299）"""
     return torch.sqrt((a - b).pow(2).sum(dim=(1, 2, 3)) + c**2).mean() - c
 
-def lognormal_sigma(B, P_mean=-1.1, P_std=2.0, sigma_min=0.002, sigma_max=80.0):
-    """iCT 用 lognormal 而不是 uniform 采样 sigma
-    log_sigma ~ N(P_mean, P_std)"""
-    log_sigma = torch.randn(B) * P_std + P_mean
-    sigma = torch.exp(log_sigma).clamp(sigma_min, sigma_max)
-    return sigma
+def karras_schedule(N, sigma_min=0.002, sigma_max=80.0, rho=7.0, device='cpu'):
+    """确定性 Karras/EDM 噪声网格——iCT 每个 curriculum 档 N(k) 的 schedule 都建在
+    这样一个固定网格上，而不是每步重新随机采样 sigma 再排序：
+    t_i = (sigma_min^(1/rho) + i/(N-1) * (sigma_max^(1/rho) - sigma_min^(1/rho)))^rho, i=0..N-1"""
+    i = torch.arange(N, dtype=torch.float64, device=device)
+    min_inv_rho = sigma_min ** (1 / rho)
+    max_inv_rho = sigma_max ** (1 / rho)
+    sigmas = (min_inv_rho + i / (N - 1) * (max_inv_rho - min_inv_rho)) ** rho
+    return sigmas.float()
+
+def lognormal_index_weights(sigmas, P_mean=-1.1, P_std=2.0):
+    """iCT 用 lognormal 密度给 Karras 网格上的离散区间 index 赋采样权重（离散化
+    erf 差分近似该密度在每个区间上的质量），而不是直接对 sigma 采样后排序生成
+    schedule 本身——schedule 是确定性的，随机的只是"训练时选哪个区间"。"""
+    log_sigmas = torch.log(sigmas)
+    z = (log_sigmas - P_mean) / P_std
+    cdf = 0.5 * (1 + torch.erf(z / math.sqrt(2)))
+    weights = (cdf[1:] - cdf[:-1]).clamp(min=1e-8)
+    return weights / weights.sum()
 
 def get_curriculum_N(step, total_steps, N_min=10, N_max=1280, schedule='exp'):
     """Step-count curriculum: N 从 10 渐增到 1280
@@ -564,14 +580,17 @@ def ict_loss(student, x_0, step, total_steps):
     consistency loss on (x_0 + sigma_n*eps, x_0 + sigma_{n+1}*eps) with SAME eps"""
     B = x_0.shape[0]
     device = x_0.device
+    D = x_0.shape[1] * x_0.shape[2] * x_0.shape[3]  # C×H×W，Pseudo-Huber 常数按数据维度缩放
     
     # 1) curriculum N
     N = get_curriculum_N(step, total_steps)
     
-    # 2) 选相邻 sigma_n, sigma_{n+1}（从 lognormal 离散化的 N+1 个点里选）
-    # !!! 约定 sigmas 升序，所以 sigmas[n+1] > sigmas[n]（与 §2.3 CD 代码一致）
-    sigmas = lognormal_sigma(N + 1).to(device).sort(descending=False).values
-    n_idx = torch.randint(0, N, (B,), device=device)
+    # 2) 确定性 Karras/EDM 网格（N+1 个边界，升序）+ lognormal 权重采样训练用的 index
+    # !!! 网格本身是确定性的，不是每步重新采样 lognormal 再排序；
+    #     约定 sigmas 升序，所以 sigmas[n+1] > sigmas[n]（与 §2.3 CD 代码一致）
+    sigmas = karras_schedule(N + 1, device=device)
+    idx_weights = lognormal_index_weights(sigmas).to(device)
+    n_idx = torch.multinomial(idx_weights, B, replacement=True)
     t_n1 = sigmas[n_idx + 1]  # higher noise
     t_n  = sigmas[n_idx]      # lower noise
     
@@ -585,8 +604,9 @@ def ict_loss(student, x_0, step, total_steps):
     with torch.no_grad():
         f_target = edm_precond(student, x_tn, t_n)
     
-    # 5) Pseudo-Huber
-    loss = pseudo_huber(f_online, f_target, c=0.00054)
+    # 5) Pseudo-Huber，c 按数据维度缩放（论文: c = 0.00054 * sqrt(D)）
+    c = 0.00054 * math.sqrt(D)
+    loss = pseudo_huber(f_online, f_target, c=c)
     return loss
 ```
 
@@ -596,7 +616,10 @@ def ict_loss(student, x_0, step, total_steps):
 import torch.func as tfunc
 
 def trigflow_xt(x_0, z, t):
-    """TrigFlow path: x_t = cos(t) x_0 + sin(t) z, t in [0, π/2]"""
+    """TrigFlow path: x_t = cos(t) x_0 + sin(t) z, t in [0, π/2]
+    !!! z 必须是 N(0, σ_d^2 I)（按 sigma_data 缩放），不是标准正态——
+        否则 Var(x_t) 不再对所有 t 恒等于 σ_d^2（variance-preserving 被破坏）。
+        调用方在采样 z 时要乘 sigma_data，见 scm_loss。"""
     cos_t = torch.cos(t).view(-1, 1, 1, 1)
     sin_t = torch.sin(t).view(-1, 1, 1, 1)
     return cos_t * x_0 + sin_t * z
@@ -615,8 +638,8 @@ def scm_loss(F_net, x_0, sigma_data=0.5, r_warmup=0.5):
     log_t = torch.randn(B, device=device) * 1.0 - 0.4  # σ ≈ 1, mean shift
     t = torch.sigmoid(log_t) * (math.pi / 2 - 0.001) + 0.001  # 避开 boundary
 
-    # 2) 采样 x_t
-    z = torch.randn_like(x_0)
+    # 2) 采样 x_t（z ~ N(0, σ_d^2 I)，按 sigma_data 缩放而非标准正态，见 trigflow_xt 注释）
+    z = torch.randn_like(x_0) * sigma_data
     x_t = trigflow_xt(x_0, z, t)
 
     # 3) PF-ODE tangent direction (TrigFlow: dx_t/dt = -sin(t) x_0 + cos(t) z)
@@ -866,6 +889,7 @@ class DMD2Trainer(DMDTrainer):
 ### 7.6　Code 6: ADD (Adversarial Diffusion Distillation, SDXL-Turbo 风格)
 
 ```python
+import math
 import torchvision  # for DINOv2 backbone
 
 class ADDTrainer:
@@ -915,18 +939,23 @@ class ADDTrainer:
             loss += F.relu(1 - d_r).mean() + F.relu(1 + d_f).mean()
         return loss / len(self.disc_heads)
 
-    def distill_loss(self, z, x_fake):
-        """teacher multi-step ODE output 做 supervision"""
+    def distill_loss(self, x_fake, sigma_min=0.002, sigma_max=80.0):
+        """Score-distillation 风格（不是 pixel MSE）：把 student 1-step 输出重新
+        加噪到随机采样的更高噪声水平 t，喂给冻结 teacher denoiser 做一次去噪重构，
+        再取 student 输出与该重构之间的距离——而不是与 teacher 独立多步采样出的
+        图像做 MSE。"""
+        B = x_fake.shape[0]
+        # 1) 随机采样一个噪声水平 t（log-uniform in [sigma_min, sigma_max]）
+        log_t = torch.rand(B, device=x_fake.device) \
+            * (math.log(sigma_max) - math.log(sigma_min)) + math.log(sigma_min)
+        t = torch.exp(log_t)
+        # 2) 把 student 1-step 输出重新加噪
+        x_fake_t = x_fake + t.view(-1, 1, 1, 1) * torch.randn_like(x_fake)
+        # 3) 冻结 teacher 在该噪声水平上去噪，得到重构目标（stop-gradient，不反传 teacher）
         with torch.no_grad():
-            x_teacher = self.teacher_ode_sample(z, steps=4)
-        # pixel-level MSE
-        return F.mse_loss(x_fake, x_teacher)
-
-    @torch.no_grad()
-    def teacher_ode_sample(self, z, steps=4):
-        """teacher 跑 K-step ODE 出图，作为 student 的 distillation target"""
-        # ... EDM Heun sampler, 省略具体实现
-        return self.teacher.sample(z, num_steps=steps)
+            x_teacher_recon = self.teacher(x_fake_t, t)
+        # 4) score-distillation 风格的距离回归
+        return F.mse_loss(x_fake, x_teacher_recon)
 
     def step(self, z, x_real):
         # 1) G output (1-step)
@@ -940,7 +969,7 @@ class ADDTrainer:
         x_fake = self.G(z)  # recompute (D updated)
         self.opt_G.zero_grad()
         loss_adv = self.adv_loss_G(x_fake)
-        loss_dist = self.distill_loss(z, x_fake)
+        loss_dist = self.distill_loss(x_fake)
         loss_G = loss_adv + self.lambda_distill * loss_dist
         loss_G.backward()
         self.opt_G.step()
@@ -1251,7 +1280,7 @@ $$\mathcal{L}_\text{CD} = \mathbb{E}\big[d\big(f_\theta(x_{t_{n+1}}, t_{n+1}),\;
 
 - **transport cost 非增定理**：每次 reflow 总传输成本不增
 
-- 1-2 次 reflow 后 1-step Euler 可媲美 50-step
+- 1-2 次 reflow 后能显著拉直轨迹、降低 NFE，但要 1-step Euler 媲美 50-step teacher，实践中（如 InstaFlow）通常还需叠加额外蒸馏 / 对抗微调，并非单靠 reflow 本身
 
 只说"reflow 让轨迹变直" 不会推 transport cost 单调性；忘 InstaFlow 是 reflow 在 SD 上的应用。
 
@@ -1260,11 +1289,11 @@ $$\mathcal{L}_\text{CD} = \mathbb{E}\big[d\big(f_\theta(x_{t_{n+1}}, t_{n+1}),\;
 <details>
 <summary>Q9. SDXL-Turbo 和 SD3-Turbo / FLUX-schnell 的方法区别？</summary>
 
-- **SDXL-Turbo (ADD)**：DINOv2 pixel-space discriminator + teacher MSE distillation
+- **SDXL-Turbo (ADD)**：DINOv2 pixel-space discriminator + pixel-space score-distillation（把 student 输出加噪后送回 teacher 去噪重构再做回归，不是与 teacher 多步输出的 MSE）
 
 - **SD3-Turbo / FLUX-schnell (LADD)**：把 D 搬到 latent space，用 teacher MM-DiT 中间层 feature 当 D backbone，**支持高分辨率 + 高参数量 base**
 
-- ADD 受 DINOv2 input 分辨率限制（≤ 518），LADD 无此限制
+- ADD 受 DINOv2 原生训练分辨率（518）限制——超过可用位置编码插值（bicubic）或 patch / downsample 处理，并非架构上绝对不能超过，但有质量折损和额外计算成本；LADD 无此限制
 
 - FLUX-schnell 是 LADD 的 RF 版本
 
@@ -1398,17 +1427,19 @@ $c_\text{skip} = \sigma_d^2 / ((\sigma - \sigma_\min)^2 + \sigma_d^2)$, $c_\text
 </details>
 
 <details>
-<summary>Q17. ADD 的 distillation loss 用 pixel MSE 而不是 score gap，会有什么问题？</summary>
+<summary>Q17. ADD 的 distillation loss 和 DMD 的 score gap 本质区别是什么？为什么 ADD 仍然离不开 GAN？</summary>
 
-- Pixel MSE 是 **mode-covering** + **blurry**：student 输出 = teacher mean，丢细节
+- ADD 的 $\mathcal{L}_\text{distill}$ **不是**与 teacher 多步输出的 pixel MSE——而是把 student 1-step 输出重新加噪到随机噪声水平，送回冻结 teacher 去噪，用 student 输出与该 teacher 重构之间的距离做回归（score-distillation 风格，见 §4.1）
 
-- 加 GAN loss 才能补 high-freq → ADD 必须 GAN（不像 DMD 可纯 score gap）
+- 但它本质仍是**回归（regression）**：teacher 重构是该噪声水平下"合理输出"的一个（近似）均值估计，回归到它同样偏 **mode-covering** + **blurry**，会丢高频细节
 
-- 这就是为什么 ADD 的 distill loss 只是 "anchor"（防 mode 严重塌缩），主战场是 GAN
+- 加 GAN loss 才能补 high-freq → ADD 仍然离不开 GAN（不像 DMD 可以纯靠 score gap）
 
-- 对比 DMD：用 score gap → dense per-pixel gradient，不需 GAN 也能出图（但 DMD2 加 GAN 进一步提升）
+- 这就是为什么 ADD 的 distill loss 只是 "anchor"（防止蒸馏严重跑偏 / mode 塌缩），主战场仍是 GAN
 
-只说"MSE 模糊"不说为什么；以为 ADD 不需要 GAN 也能 work。
+- 对比 DMD：用 reverse-KL score gap → dense per-pixel gradient，不需要 GAN 也能出图（DMD2 额外加 GAN 是为了进一步提升质量，并非必需）
+
+误以为 ADD 的 distill loss 是与 teacher 多步输出的直接 pixel MSE；以为 ADD 不需要 GAN 也能 work。
 
 </details>
 
@@ -1448,7 +1479,7 @@ $c_\text{skip} = \sigma_d^2 / ((\sigma - \sigma_\min)^2 + \sigma_d^2)$, $c_\text
 
 - 严格定理（Liu 2022 Theorem 3.6）：$C^{(k+1)} \le C^{(k)}$（OT 视角下 reflow 不增 transport cost）
 
-直觉：**直线是 OT 解** ⇒ 反复 reflow 推向 OT 解。
+直觉：reflow 单调降低 transport cost（不增，实践中往往严格减），轨迹因此越来越直；但这只保证"不增"，并不等价于证明收敛到全局最优传输（OT）解。
 
 只说"轨迹变直"不会写 transport cost；不知道 Cauchy-Schwarz 直觉。
 
@@ -1539,11 +1570,11 @@ $$\mathcal{L}_\text{CD} \approx \mathbb{E}\|f_\theta(x_{t_{n+1}}, t_{n+1}) - f_{
 
 **ADD bottleneck**：
 
-1. **DINOv2 input 分辨率**：ADD 用 DINOv2 base（518²）当 D backbone，超过此分辨率必须 patch / downsample，1024² 输入受限
+1. **DINOv2 input 分辨率**：ADD 用 DINOv2 base（518²）当 D backbone；超过此分辨率可用位置编码插值（bicubic）或 patch / downsample 处理，并非架构上绝对不能超过 518，但 1024² 输入会有质量折损与额外计算成本
 
-2. **Pixel-space distill**：`MSE(G(z), teacher_ode(z))` 需 VAE decode，**back-prop 通过 VAE 贵且不稳**
+2. **Pixel-space distill**：score-distillation 需要把 student 输出解码到 pixel space、加噪后再送回 teacher 去噪重构做回归（$d(G(z), \hat x_\phi(\text{noise}(G(z)), t))$，而不是与 teacher 独立多步输出 `teacher_ode(z)` 的 MSE），**back-prop 要穿过 VAE decoder，贵且不稳**
 
-3. **Discriminator capacity**：DINOv2 ViT-L 1B 参数远小于 SD3 8B / FLUX 12B 的 base，D 表达力不够
+3. **Discriminator capacity**（工程直觉，非 ADD/LADD 原论文逐字结论）：DINOv2 ViT-L ~0.3-1B 参数远小于 SD3 8B / FLUX 12B 的 base，D 表达力可能不足以匹配大模型的生成分布
 
 **LADD 解法**：
 

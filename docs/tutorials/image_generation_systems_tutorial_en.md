@@ -2,7 +2,7 @@
 
 > 💡 **8 sentences to nail Image Generation systems** — one page covering the core of a production text-to-image stack (see §1–§10 for derivations).
 
-1. **LDM essentials**: VAE encode compresses $H\times W\times 3$ to $h\times w\times c$ (SD 1.x: $8\times$ downsample, $c=4$); diffusion runs in latent space, **saving $8^2=64\times$ compute**, then VAE decode reconstructs pixels (Rombach et al. 2022 CVPR).
+1. **LDM essentials**: VAE encode compresses $H\times W\times 3$ to $h\times w\times c$ (SD 1.x: $8\times$ downsample, $c=4$); diffusion runs in latent space, dropping token count to $1/8^2=1/64$ (an **order-of-magnitude estimate** assuming constant per-token compute; the actual FLOPs saving also depends on latent-space channels being wider and on self-attention FLOPs scaling quadratically with token count, so it is not an exact $64\times$ equivalence), then VAE decode reconstructs pixels (Rombach et al. 2022 CVPR).
 
 2. **SD 1.x → SDXL → SD3 → FLUX lineage**: 1.x uses CLIP-L text encoder + U-Net; SDXL has dual encoders (OpenCLIP-G + CLIP-L) + 2.6B U-Net + size/crop conditioning + Refiner (Podell et al. 2024 ICLR); SD3 switches to **MM-DiT** + Rectified Flow (Esser et al. 2024 ICML); FLUX.1 is a 12B MM-DiT with parallel attention (Black Forest Labs 2024).
 
@@ -65,12 +65,14 @@ with $z_0 = \mathcal{E}(x)$, $z_t = \sqrt{\bar\alpha_t}\, z_0 + \sqrt{1-\bar\alp
 
 Rombach 2022 Table 8 ablation:
 
-| Downsample $f$ | Compute savings | Reconstruction quality (FID↓) | Generation quality (FID↓) |
+| Downsample $f$ | Token count reduction ($f^2$) | Reconstruction quality (FID↓) | Generation quality (FID↓) |
 |---|---|---|---|
 | $f=4$ | $16\times$ | Best (latent close to pixel) | Mediocre (diffusion still expensive) |
 | $f=8$ | $64\times$ | Slight loss (small PSNR drop) | **Best** |
 | $f=16$ | $256\times$ | Notable degradation (VAE reconstruction worsens) | Reconstruction bottleneck drags generation |
 | $f=32$ | $1024\times$ | VAE essentially cannot reconstruct detail | Severe drop in generation quality |
+
+> ⚠️ **Token-count reduction ≠ exact proportional FLOPs reduction** — the $f^2$ figures above are exact token-count ratios, but the actual compute saving also depends on: (i) latent-space networks typically have much wider channels than pixel-space's 3 channels, which offsets some of the token-count saving; (ii) self-attention FLOPs scale **quadratically** with token count, so attention-layer savings can exceed $f^2$ by a lot (e.g. at $f=8$, theoretically up to $\sim f^4=4096\times$). So these numbers should be read as order-of-magnitude savings, not an exact FLOPs equivalence.
 
 **Key insight**: VAE reconstruction quality is an upper bound — no matter how strong the latent diffusion model is, it cannot produce images the VAE cannot decode. So larger $f$ is not always better; balance "compression ratio" vs "reconstruction ceiling".
 
@@ -100,7 +102,7 @@ Three key upgrades:
 |---|---|
 | **2.6B U-Net** | Wider and deeper; 3× the 1.x parameters |
 | **Dual text encoders** | OpenCLIP-G (1280-d) + CLIP-L (768-d); concat then do cross-attn |
-| **Size & crop conditioning** | At training, $(h_\text{orig}, w_\text{orig})$ and $(h_\text{crop}, w_\text{crop})$ are Fourier-embedded and **added to the timestep embedding**, so the model explicitly knows "this image's original size and crop region", preventing low-resolution / crop artifacts from leaking into inference |
+| **Size & crop conditioning** | At training, $(h_\text{orig}, w_\text{orig})$, $(h_\text{crop}, w_\text{crop})$, and **target size** $(h_\text{tgt}, w_\text{tgt})$ (used for multi-aspect-ratio training) — 3 pairs, 6 scalars total — are each Fourier-embedded and **added to the timestep embedding**, so the model explicitly knows "this image's original size, its crop region, and the target resolution", preventing low-resolution / crop artifacts from leaking into inference |
 | **Refiner** | A separate latent diffusion model dedicated to the last ~20% of the noise level ($t < 0.2$) for detail refinement; optional |
 | **Training resolution** | 1024² (final), with bucketing across aspect ratios |
 
@@ -114,7 +116,7 @@ Two core changes:
 
 $$x_t = (1-t)\, x_0 + t\, x_1,\quad u_t = x_1 - x_0$$
 
-where $x_0 \sim \mathcal{N}(0, I)$ at the noise end, $x_1$ at the data end. The model learns $v_\theta(x_t, t, c) \approx x_1 - x_0$. Loss uses logit-normal $t$ sampling (middle $t$ has higher density) + RF weighting. **Note the timestep convention is opposite to DDPM**: the SD3 paper uses $t=0$ at noise, $t=1$ at data, but some code bases (diffusers) revert to the SD-style convention — **proactively disambiguate in interviews**.
+where $x_0$ is the data end ($t=0$), $x_1 \sim \mathcal{N}(0, I)$ is the noise end ($t=1$). The model learns $v_\theta(x_t, t, c) \approx x_1 - x_0$. Loss uses logit-normal $t$ sampling (middle $t$ has higher density) + RF weighting. **The timestep convention runs in the same direction as DDPM** ($t=0$ data, increasing $t$ → more noise — not opposite); but exact variable naming / schedule details can differ across code bases (e.g., diffusers) — **proactively disambiguate in interviews**.
 
 **2) Denoiser switches to MM-DiT (Multimodal Diffusion Transformer)**
 
@@ -142,7 +144,7 @@ Compared to SD 1.x/SDXL **cross-attention**: image queries unidirectionally read
 | Text encoding | T5-XXL (4096-d) + CLIP-L |
 | Training objective | Rectified Flow (same family as SD3) |
 | Sampling | dev: ~28-50 steps; schnell: 1-4 steps (adversarial diffusion distillation) |
-| Position encoding | RoPE 2D (for image tokens); text tokens use absolute positions |
+| Position encoding | Multi-axis RoPE (encodes relative position by 2D coordinates for image tokens); text-token RoPE position ids are typically set to all zeros (`txt_ids` all 0, no explicit positional encoding) — ordering is instead carried implicitly by the T5 encoder's own relative-position mechanism |
 
 > 💡 **Parallel attention** — Standard transformer block: `y = x + Attn(LN(x)); y = y + MLP(LN(y))`. Parallel block: `y = x + Attn(LN(x)) + MLP(LN(x))`, the two branches computed in parallel and summed. **Benefit**: on GPU, attn and MLP kernels can be overlapped, and weight fusion is cleaner; a slight expressivity loss is typically compensated by scale.
 
@@ -500,9 +502,9 @@ class DecoupledCrossAttention(nn.Module):
 
 | Method | Core mechanism |
 |---|---|
-| **InstantID** (Wang, Bai et al. 2024) | IP-Adapter style + face landmark ControlNet, **decoupling face embedding from ID embedding** |
+| **InstantID** (Wang, Bai et al. 2024) | IP-Adapter-style decoupled cross-attention, injecting the face embedding directly (extracted by ArcFace/insightface; this embedding itself is the identity embedding) + **IdentityNet** (a ControlNet-like branch conditioned on 5-point facial landmarks, handling spatial pose control) |
 | **PuLID** (Guo, Wu et al. 2024 NeurIPS) | Dual branch + contrastive alignment, preventing ID signal from contaminating prompt-following |
-| **PhotoMaker** (Li, Cao et al. 2024 CVPR) | "ID embedding stacker": average CLIP embeddings of multiple photos of the same face, concatenate with class embedding, inject into cross-attn |
+| **PhotoMaker** (Li, Cao et al. 2024 CVPR) | **Stacked ID Embedding**: for each reference photo, fuse that photo's CLIP image embedding with the class-word text embedding into a per-photo ID embedding, then **stack** the per-photo ID embeddings along the token dimension (rather than first averaging CLIP embeddings across photos and then fusing once with the class embedding), and inject into cross-attn |
 
 Common thread: **ID-relevant signal** goes through dedicated adapters; **ID-irrelevant signal** (pose / expression / lighting) stays prompt-controlled, avoiding direct identity paste.
 
@@ -652,7 +654,7 @@ def dreambooth_train_step(unet, vae, text_encoder, scheduler,
 
 - **HyperDreamBooth** (Ruiz et al. 2024): use a hypernetwork to directly predict per-reference-image LoRA weights, enabling **inference-time personalization** (~5 seconds vs DreamBooth's ~10-minute training).
 
-- **Custom Diffusion** (Kumari et al. 2023): only update cross-attention's $W_K, W_V$ (leaving $W_Q$ alone), with regularization images to prevent overfitting. Essentially a narrower LoRA-DreamBooth.
+- **Custom Diffusion** (Kumari et al. 2023 CVPR): directly fine-tunes (no low-rank decomposition) the full cross-attention $W_K, W_V$ matrices (leaving $W_Q$ alone), paired with real same-class regularization images to prevent concept forgetting / overfitting. It is a **selective full-parameter fine-tuning** method independent of LoRA, not a narrower variant of LoRA-DreamBooth.
 
 | Method | Trained params | Inference cost | Expressivity | File size |
 |---|---|---|---|---|
@@ -781,13 +783,11 @@ Suitable for "swap one word", "add adjective", and "reweight emphasis" types of 
 
 - **Student**: same architecture as teacher, targeting 1-4 step generation
 
-- **Three losses**:
+- **Two losses** (not three — the distillation term is itself a score-distillation-style loss, not a separate third term):
 
-  1. Distillation loss: MSE / LPIPS between student output and teacher's multi-step output
+  1. Adversarial loss: DINOv2-based discriminator judges the student's single-step output
 
-  2. Adversarial loss: DINOv2-based discriminator judges student outputs
-
-  3. Score loss: SDS-style score distillation
+  2. Distillation loss (score-distillation style): re-noise the student's single-step denoised output to a randomly sampled higher noise level, denoise it with the **frozen teacher** at that level, and regress the student's output toward that teacher reconstruction — there is **no** separate third MSE/LPIPS term matching the teacher's full multi-step sampling trajectory
 
 ADD is one of the SOTA few-step distillation routes; FLUX schnell is based on similar ideas ("timestep distillation" + adversarial).
 
@@ -893,11 +893,11 @@ Expand each entry to see key answer points + common pitfalls.
 
 - VAE downsamples $H\times W$ by $f=8$: $(H/8)\times(W/8)$ tokens
 
-- Token count drops by $f^2 = 64$, FLOPs drop accordingly
+- Token count drops by $f^2 = 64$, and FLOPs drop by a similar order of magnitude (not an exact ratio — wider latent-space channels and the quadratic scaling of self-attention FLOPs with token count make actual savings deviate from $64\times$)
 
 - Same compute budget enables higher resolution (512² → 1024²)
 
-Common pitfall: just saying "compression" without the factor derivation; forgetting that VAE reconstruction quality is the upper bound.
+Common pitfall: just saying "compression" without the factor derivation; treating the token-count reduction as an exact FLOPs saving; forgetting that VAE reconstruction quality is the upper bound.
 
 </details>
 
@@ -937,7 +937,7 @@ Common pitfall: treating $s$ as a temperature knob; forgetting the dropout step 
 
 - Text token embeddings are K, V
 
-- Appears in **U-Net levels equipped with transformer blocks** (SD 1.5 config `attention_resolutions=[4,2,1]`: DS=1/2/4, i.e. latent 64/32/16 downsample levels + corresponding upsample + middle block 8×8 (at 512² input with f=8 VAE → 64² latent, DS=8 means 8×8 middle); SD/SDXL typically use pure ResBlock + self-attention at the deepest DS=8 middle (e.g., 512²/8/8 = 8×8 or 1024²/8/8 = 16×16), **no cross-attn**)
+- Appears in **U-Net levels equipped with transformer blocks** (SD 1.5 config `attention_resolutions=[4,2,1]`: DS=1/2/4, i.e. latent 64/32/16 downsample levels + corresponding upsample + middle block 8×8 (at 512² input with f=8 VAE → 64² latent, DS=8 means 8×8 middle); the SD/SDXL middle block is a standard SpatialTransformer / `UNetMidBlock2DCrossAttn`: ResBlock → (self-attention → cross-attention → FFN transformer block) → ResBlock — **it does perform cross-attn** (consistent with §3.1), not "pure ResBlock + self-attention with no cross-attn")
 
 - Inside each transformer block the order is: self-attention → cross-attention → FFN
 
@@ -987,9 +987,9 @@ Common pitfall: thinking zero-conv "can't be trained"; or conflating with BN / d
 
 - $W$ frozen, only $A, B$ trained
 
-- Parameters from $dk$ to $r(d+k)$, ratio $\approx r/\min(d,k)$; on SD with $r=8$, ~100× fewer
+- Parameters from $dk$ to $r(d+k)$, exact ratio $r(d+k)/dk = r(1/d+1/k)$; when $d=k=n$ (square matrices, e.g. common attention Q/K/V/O projections) this is $2r/n$, **not** $r/n=r/\min(d,k)$ (off by a factor of 2); on SD, $W_K$ ($d=1280, k=2048$) with $r=8$ gives ~100× fewer parameters (the exact factor depends on the shape of $d,k$)
 
-Common pitfall: swapping shapes of $A, B$; forgetting $W$ is frozen.
+Common pitfall: quoting the ratio as $r/\min(d,k)$ (missing the factor of 2); swapping shapes of $A, B$; forgetting $W$ is frozen.
 
 </details>
 
@@ -1043,15 +1043,15 @@ Common pitfall: treating FID as a universal gold standard; comparing FID-10K vs 
 
 <summary>Q11. How is SDXL's size conditioning trained / used at inference?</summary>
 
-- At training, record each image's original $(h_\text{orig}, w_\text{orig})$ and crop origin $(h_\text{crop}, w_\text{crop})$
+- At training, record each image's original $(h_\text{orig}, w_\text{orig})$, crop origin $(h_\text{crop}, w_\text{crop})$, and **target size** $(h_\text{tgt}, w_\text{tgt})$ (used for multi-aspect-ratio training, SDXL paper §2.3)
 
-- These 4 scalars are Fourier-embedded, passed through an MLP, then **added to the timestep embedding** before entering the U-Net
+- These 3 pairs — 6 scalars total — are each Fourier-embedded, passed through an MLP, then **added to the timestep embedding** before entering the U-Net
 
 - At inference, fill $(1024, 1024)$ and $(0, 0)$ to tell the model "I want 1024 full-image quality", avoiding leakage of low-res / crop artifacts
 
 - Can intentionally fill smaller sizes / nonzero crops to control style
 
-Common pitfall: just saying "added resolution labels" without explaining the injection point (time embedding) and the Fourier-embed detail.
+Common pitfall: just saying "added resolution labels" while missing the target-size pair; not explaining the injection point (time embedding) and the Fourier-embed detail.
 
 </details>
 
@@ -1109,7 +1109,7 @@ Common pitfall: mixing SD's and LLM's LoRA configs; assuming "anywhere works".
 
 - **DDPM** ε-pred: $\mathcal{L} = \|\epsilon - \hat\epsilon_\theta(x_t, t)\|^2$, $x_t = \sqrt{\bar\alpha_t} x_0 + \sqrt{1-\bar\alpha_t}\epsilon$
 
-- **RF**: $x_t = (1-t)x_0 + tx_1$ ($x_0$ noise, $x_1$ data), $\mathcal{L} = \|u_t - v_\theta(x_t, t)\|^2$, $u_t = x_1 - x_0$ is constant in $t$
+- **RF**: $x_t = (1-t)x_0 + tx_1$ ($x_0$ data, $x_1$ noise), $\mathcal{L} = \|u_t - v_\theta(x_t, t)\|^2$, $u_t = x_1 - x_0$ is constant in $t$
 
 - **Sampling**: DDPM commonly uses DDIM / DPM++ (high-order solvers from SDE / ODE); RF uses direct Euler / Heun
 
@@ -1173,7 +1173,7 @@ Common pitfall: thinking P2P modifies the latent; not knowing it manipulates att
 
 - **LCM** (Luo 2023): trains the student to directly predict $z_0$; target is "self-consistency" along the ODE trajectory (consistency loss)
 
-- **ADD** (Sauer et al. 2024 ECCV, preprint arXiv 2311.17042 / 2023): distillation + adversarial (DINOv2 discriminator) + score loss, three-in-one
+- **ADD** (Sauer et al. 2024 ECCV, preprint arXiv 2311.17042 / 2023): adversarial loss (DINOv2 discriminator) + distillation loss (score-distillation style) — two terms, not three-in-one
 
 - LCM-LoRA is in LoRA form, plug-and-play on any base; ADD is full distillation, slightly stronger but requires retraining
 

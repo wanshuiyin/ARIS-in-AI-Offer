@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/video_generation_tutorial_en.md",
-  "source_sha256": "ad4399f70b8db47dd9d8b130e63e836581691d6b34bd318a4524c2d8ab2dfb5f",
+  "source_sha256": "e1671fc7c3b5a1f652409ca1489f24fc4a472e7416fead3561272910afdcb10e",
   "output": "docs/tutorials/video_generation_tutorial_en.html",
   "zh_source": "docs/tutorials/video_generation_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -23,6 +23,13 @@
       "date": "2026-06-29",
       "fix": "CogVideoX open-source sizes corrected 5B/15B to 2B/5B (no 15B release exists). (EN edition mirrors the ZH fix.)",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "2026-07-13 full-collection resweep (diffusion cluster): Codex GPT-5.6-sol ultra find candidates → independent Claude adversarial verify (attempted to overturn each) → 9 CONFIRMED + 3 NEEDS_NUANCE fixed",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "fix": "Same 12 substantive corrections as the ZH edition, mirrored into natural English (no new content introduced): (1) §2.2 T=1 image/video-shared-latent-space reasoning corrected; (2) §3.3 added a caveat that Sora's RoPE-2D/RoPE-1D/aspect-ratio-token details are community speculation, not disclosed fact; (3) TL;DR item 5 — Wan 2.x uses cross-attention to UMT5, not joint-stream MM-DiT; (4) Movie Gen split into two separate models (Video 30B + Audio 13B) in the timeline table and §A.4 SoTA table; (5) §6.1 SVD corrected to its actual 4+4=8-channel latent concat + CLIP cross-attention (not a mask-based (2C+1) scheme); (6) §6.2 removed an incorrect AnimateDiff attribution to ref-image cross-attention; (7) Q12 'factorized is a strict subset of full 3D' softened to an inductive-bias / 2-hop-composition explanation; (8) Q13 LTX-Video compression recalculated to ≈1:192 (via ~128 latent channels), not 1:8192; (9) §5.5 + code comment relabeled RF's τ convention as SD3-equivalent-via-time-reversal rather than 'consistent with SD3'; (10) Random latent decode sanity check corrected (near-zero KL weight invalidates N(0,I)-decode as a check); (11) Q25 DDPM ε-pred target-scale claim corrected in both the bullet and the closing summary line; (12) §10.2 Hunyuan-Video PFLOP/sample recomputed to tens of PFLOP/sample, not several hundred to a thousand.",
+      "note": "Mirrors the ZH edition's 2026-07-13 post_ship_review entry (Codex GPT-5.6-sol ultra find → independent Claude adversarial verify → 9 CONFIRMED + 3 NEEDS_NUANCE). Applied as natural English rewrites of the same substantive fixes, preserving the article's existing style; no content added beyond the ZH fix_text scope."
     }
   ]
 }

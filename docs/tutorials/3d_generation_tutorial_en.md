@@ -6,7 +6,7 @@
 
 2. **NeRF core equation**: $C(\mathbf{r}) = \int_{t_n}^{t_f} T(t)\sigma(\mathbf{r}(t))\mathbf{c}(\mathbf{r}(t),\mathbf{d})\,dt$, where $T(t) = \exp\!\left(-\int_{t_n}^{t}\sigma(\mathbf{r}(s))\,ds\right)$ is the transmittance. Discretization yields $\alpha$-compositing: $C \approx \sum_i T_i (1-e^{-\sigma_i\delta_i})\mathbf{c}_i$.
 
-3. **Instant-NGP** (Müller 2022 SIGGRAPH): **multi-resolution hash grid** + tiny MLP, 5+ OOM speedup; hash collisions are automatically disambiguated by the MLP over colliding entries (suppressed jointly by the loss and multi-scale redundancy).
+3. **Instant-NGP** (Müller 2022 SIGGRAPH): **multi-resolution hash grid** + tiny MLP, roughly a 4+ order-of-magnitude speedup; hash collisions are automatically disambiguated by the MLP over colliding entries (suppressed jointly by the loss and multi-scale redundancy).
 
 4. **3DGS core**: scene represented as a set of 3D Gaussians $\{\mu_i, \Sigma_i, \alpha_i, c_i(\mathbf{d})\}$, **differentiable rasterization** projects the 3D covariance to 2D via Jacobian $J$: $\Sigma' = J W \Sigma W^\top J^\top$, then performs front-to-back alpha-blending after depth sorting.
 
@@ -32,7 +32,7 @@ The first multiple-choice question in 3D generation is **representation** — pi
 | **Quality** | SOTA for view synthesis | On par with or better than NeRF (higher PSNR) | Limited by polygon resolution |
 | **Editing** | Hard (neural field is not interpretable) | Easy (points can be moved, deleted, merged) | Easy (standard DCC pipelines) |
 | **Mesh export** | Hard (needs NeuS / Poisson) | Medium (2DGS / GSDF / SuGaR) | Already a mesh |
-| **Downstream fit** | Unfriendly for physical simulation | Easy to plug into PBR, IsaacSim, URDF | Standard robot / AR/VR pipeline |
+| **Downstream fit** | Unfriendly for physical simulation | Needs mesh conversion first (no collision geometry/materials/physics params); standard robot/physics-sim pipelines still run on mesh | Standard robot / AR/VR pipeline |
 
 > 💡 **Interview intuition** — Embodied AI leans toward mesh / 3DGS (simulator-friendly); AR/VR depends on scene scale (mesh for small foreground objects, 3DGS for large scenes); SOTA visual reconstruction uses 3DGS. NeRF is now more of a research baseline; industrial deployment is dominated by 3DGS.
 
@@ -172,7 +172,7 @@ where $\Phi_s$ is the sigmoid and $s$ is a learnable "sharpness". Properties: th
 
 **VolSDF** (Yariv 2021 NeurIPS) uses Laplace CDF $\sigma = \alpha\,\Phi(-d/\beta)$, with a similar idea.
 
-## §3 Instant-NGP: 5+ OOM speedup (must-know)
+## §3 Instant-NGP: roughly 4+ orders of magnitude faster (must-know)
 
 Training a vanilla NeRF on one scene takes 1-2 days. **Instant-NGP** (Müller 2022 SIGGRAPH **Best Paper**) fits a simple scene in 5 seconds.
 
@@ -197,7 +197,7 @@ When $N_\ell^d > T$ (inevitable at fine levels), multiple grid points map to the
 
 1. **Multi-resolution redundancy**: features at coarse levels are unique ($N_\ell^d \le T$); fine levels add detail. The MLP can recover structure from coarse features, with fine levels only responsible for detail.
 2. **Sparsity prevails**: most of space is empty (most voxels in a NeRF scene are background), and meaningful queries concentrate near surfaces, so "valid colliding grid-point pairs" are rare.
-3. **Gradients auto-disambiguate**: during training only grid points near the surface have non-zero gradients (weighted by ray weights). "Colliding entries" in empty regions receive no gradient signal and do not contaminate surface entries.
+3. **Gradients auto-disambiguate**: early in training, sample points in empty regions with non-zero density still receive a gradient through the volume-rendering photometric loss (gradient magnitude $\propto \delta_i e^{-\sigma_i\delta_i}$, pushing $\sigma$ toward 0); as $\sigma\to 0$ that gradient magnitude naturally decays, and once the occupancy grid updates it skips sampling there entirely — so it's not that empty-region entries "never get a gradient signal" from the start.
 4. **MLP post-processing**: the tiny MLP learns a classification/regression on the $L \times F$ concatenated features; surface points with collisions can be disambiguated via **non-colliding features from other levels**.
 
 > 💡 **Interview gold answer** — "Hash collisions seem to break uniqueness, but the **effective region is actually sparse** (a scene's thin surface occupies a tiny fraction of the voxel total), and colliding regions are mostly unsupervised background; even at colliding surface entries, the non-colliding features from other multi-resolution levels + the tiny MLP can still learn a consistent output. This is **'lazy collision resolution'**: rather than pay the cost of perfect hashing, use redundancy + data-driven disambiguation."
@@ -363,10 +363,10 @@ def gaussian_splat_forward(
 
 | Trigger | Action | Intuition |
 | --- | --- | --- |
-| **Large gradient + small scale** | **clone** (duplicate, offset along gradient direction) | "Under-reconstruction" — this region lacks detail |
-| **Large gradient + large scale** | **split** (split into 2 smaller Gaussians, scale ÷ 1.6) | "Over-reconstruction" — a big Gaussian covers what it shouldn't |
+| **Large gradient + small scale** | **clone** (duplicate in place: new_xyz = original xyz, no explicit offset along the gradient; the two overlapping Gaussians separate naturally through subsequent independent gradient descent) | "Under-reconstruction" — this region lacks detail |
+| **Large gradient + large scale** | **split** (the step that actually samples a new position: draw via torch.normal with the original Gaussian's scale as the std + rotation, then divide scale by 1.6, splitting into 2 smaller Gaussians) | "Over-reconstruction" — a big Gaussian covers what it shouldn't |
 | **Opacity near 0** | **prune** (delete) | This Gaussian contributes nothing, wasting VRAM |
-| **Every 3k iter** | reset opacities to 0.005 | Force the model to relearn opacity, prevent floaters |
+| **Every 3k iter** | reset opacities to 0.01 (0.005 is the min_opacity threshold used by prune below — not the same number) | Force the model to relearn opacity, prevent floaters |
 
 Heuristic conditions: `gradient norm > τ_pos` (e.g. $2 \times 10^{-4}$), `scale > τ_scale` (1% of scene scale).
 
@@ -380,7 +380,6 @@ def densify_and_prune(gaussians, grad_thresh=2e-4, scale_thresh=0.01,
           scales:         [N, 3]  log-scale
           opacities:      [N]  ∈ (0, 1) after sigmoid
           screen_size:    [N]  last-render screen-projected size (optional)
-          grad_dir:       [N, 3]  last gradient direction (for clone offset)
     """
     grad_norm  = gaussians.xyz_grad_accum / gaussians.denom.clamp(min=1)      # [N]
     mean_scale = gaussians.scales.exp().max(dim=-1).values                    # [N]
@@ -392,10 +391,14 @@ def densify_and_prune(gaussians, grad_thresh=2e-4, scale_thresh=0.01,
     clone_mask = (grad_norm > grad_thresh) & (mean_scale <= scale_thresh)     # [N]
     split_mask = (grad_norm > grad_thresh) & (mean_scale >  scale_thresh)     # [N]
 
-    # CLONE: high gradient + small scale — duplicate and offset along the gradient; keep original (append at the end)
-    gaussians.clone_at(clone_mask, offset=gaussians.grad_dir[clone_mask])
+    # CLONE: high gradient + small scale — duplicate in place (new_xyz = original xyz, no
+    # positional offset); keep original (append at the end), and the two overlapping
+    # Gaussians separate naturally through subsequent independent gradient descent
+    gaussians.clone_at(clone_mask)
 
-    # SPLIT: high gradient + large scale — split into 2 children (scale ÷ 1.6), remove original at the end
+    # SPLIT: high gradient + large scale — this is the step that actually samples a new
+    # position: draw via torch.normal with the original Gaussian's scale as the std +
+    # rotation, then divide scale by 1.6, splitting into 2 children, removing original at the end
     # split_at applies explicitly to the original N only: pass original_n, do not rely on implicit alignment with the post-append array length
     gaussians.split_at(split_mask, n=2, scale_div=1.6, original_n=split_mask.shape[0])
 
@@ -456,7 +459,7 @@ def marching_cubes_sketch(density: torch.Tensor, threshold: float):
 
 Marching Cubes is not differentiable (the lookup table is discrete).
 
-- **DMTet** (Shen 2021 NeurIPS / Munkberg 2022 CVPR): uses a **deformable tetrahedral grid**, each tetrahedron has 4 vertex SDFs + position offsets that are differentiable. **Marching Tetrahedra** replaces MC; topology is determined by SDF signs and geometry by vertex positions, **fully differentiable**.
+- **DMTet** (Shen 2021 NeurIPS / Munkberg 2022 CVPR): uses a **deformable tetrahedral grid**, each tetrahedron has 4 vertex SDFs + position offsets that are differentiable. **Marching Tetrahedra** replaces MC; topology is determined by SDF signs and geometry by vertex positions: within a region of fixed topology, geometry (vertex positions) is **differentiable** with respect to the SDF values and offsets; but at the instant a vertex SDF crosses zero and triggers a switch in that tetrahedron's look-up case, the topology itself is **not differentiable** (a measure-zero set, akin to the kink in ReLU at 0) — it should not be described unconditionally as "fully differentiable."
 - **FlexiCubes** (Shen 2023 SIGGRAPH): generalizes dual marching cubes by introducing extra learnable parameters (dual vertex offsets / interpolation weights) to fix quality artifacts.
 
 **Typical use**: Magic3D and Fantasia3D after DreamFusion use DMTet to learn meshes + textures under SDS supervision.
@@ -573,14 +576,14 @@ where $q_\mu^t$ is the distribution induced by "rendering from $\theta\sim\mu$ +
 
 $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Big[\,w(t)\,\big(\epsilon_\phi(x_t;y,t) \;-\; \epsilon_\psi(x_t;y,t,\pi)\big)\,\frac{\partial x}{\partial \theta}\,\Big]\;}$$
 
-Compared to SDS: replace the raw noise $\epsilon$ with an **auxiliary score** $\epsilon_\psi$. $\epsilon_\psi$ is a **LoRA-finetuned** score network that online-minimizes a score-matching loss to track the score of the current $q_\mu^t$; it plays the role of a "variance-reduction baseline" (isomorphic to a value baseline in RL actor-critic). **Note**: the above is the gradient form, not a squared-loss form; the paper does not have an implementable form "write a scalar loss $\|\epsilon_\phi-\epsilon_\psi\|^2$ and then differentiate" — $\epsilon_\psi$ depends on $\mu$, which would drop the key term of the KL.
+Compared to SDS: replace the raw noise $\epsilon$ with an **auxiliary score** $\epsilon_\psi$. $\epsilon_\psi$ is a **LoRA-finetuned** score network that online-minimizes a score-matching loss to track the score of the current $q_\mu^t$; it is the necessary term corresponding to the $q$ distribution's own score (an entropy term) that arises from differentiating the KL objective $D_\text{KL}(q_\mu^t\|p_\phi^t)$ with respect to $\theta$ — it is **not** a zero-mean, variance-only-reducing control variate. Dropping it degrades the gradient objective from "distribution matching" back to SDS's mode-seeking (it changes the expected gradient direction, not just the noise), so it cannot be equated with a value baseline in RL actor-critic, which only reduces variance without changing the expected gradient. **Note**: the above is the gradient form, not a squared-loss form; the paper does not have an implementable form "write a scalar loss $\|\epsilon_\phi-\epsilon_\psi\|^2$ and then differentiate" — $\epsilon_\psi$ depends on $\mu$, which would drop the key term of the KL.
 
 #### Intuition for why over-saturation is mitigated
 - SDS: pushes the rendered $x$ toward modes of the prior $p_\phi(\cdot|y)$ (mean-mode → needs CFG=100 → over-saturation)
 - VSD: the auxiliary score tracks the score of the current rendered distribution; the update direction = from "where I am now" to "where the prior is" (**relative gradient**), without needing huge CFG. CFG can drop to 7.5 (the standard diffusion default), avoiding extreme sharpening
 - Empirically: VSD has more natural colors and more complex geometry, and can maintain multiple modes simultaneously (ProlificDreamer reports 50k-step training yielding photorealistic Buddha statues, etc.)
 
-> ✅ **Key insight VSD vs SDS** — SDS is "**single-point + mode-seeking**"; VSD is "**particle / variational + relative score**". The latter is essentially adding a **learnable baseline** ($\epsilon_\psi$) to SDS to reduce variance, conceptually analogous to the value baseline in RL actor-critic.
+> ✅ **Key insight VSD vs SDS** — SDS is "**single-point + mode-seeking**"; VSD is "**particle / variational + relative score**". The latter's $\epsilon_\psi$ is the necessary term corresponding to the $q$ distribution's own score from differentiating the KL objective with respect to $\theta$; dropping it degrades the gradient objective back to SDS's mode-seeking — it is not a value baseline in RL actor-critic that only reduces variance without changing the expected gradient.
 
 ### 6.8　SDS derivative family: mesh / 3DGS + SDS
 
@@ -607,7 +610,7 @@ A more practical setting: **given one image, generate 3D**.
 **Usage**: given one input view, sample 16-32 novel views, then reconstruct via NeRF / 3DGS.
 
 **Derivatives**:
-- **Zero-1-to-3++** (Shi 2023): fixed generation of 6 anchor views (north-pole view + 4 eye-level views + a top view), reducing randomness
+- **Zero-1-to-3++** (Shi 2023): fixed generation of 6 anchor views (azimuth uniformly spaced every 60° at 30°/90°/150°/210°/270°/330°, elevation alternating between -10° and 20° — i.e. interleaved elevation + uniform azimuth, not "one north-pole view + four eye-level views + one top view"), reducing randomness
 - **SyncDreamer** (Liu 2024 ICLR): **joint** prediction of multiple views in latent space (cross-attention lets views see each other), ensuring 3D consistency
 - **MVDream** (Shi 2024 ICLR): text-to-multi-view, generates 4 views simultaneously; followed by SDS refinement
 
@@ -801,7 +804,7 @@ Saying "just sample more densely once" misses the importance-sampling core.
 
 <details>
 
-<summary>Q4. Why is Instant-NGP 5+ OOM faster than NeRF?</summary>
+<summary>Q4. Why is Instant-NGP roughly 4+ orders of magnitude faster than NeRF?</summary>
 
 - **Hash grid replaces dense grid**: fixed-size $T$ hash table, cache-friendly
 
@@ -949,7 +952,7 @@ Plugging into the "covariance projection" formula without deriving; or forgettin
 
 - **Multi-resolution redundancy**: coarse level $N_\ell^d \le T$ has no collision; only fine levels collide; the MLP can infer from coarse + fine jointly
 
-- **Sparse activation**: effective supervision concentrates near surfaces; colliding entries in empty regions get no gradient
+- **Sparse activation**: effective supervision concentrates near surfaces; colliding entries in empty regions with non-zero density still get gradient (pushing $\sigma$ toward 0) until it decays and the occupancy grid skips those samples
 
 - **MLP post-processing**: learns nonlinear fusion over the $L\times F$ concatenated features, can disambiguate
 
@@ -987,7 +990,7 @@ Saying only "for simplification" without the consequences. Or not realizing that
 
 - gradient = $(\epsilon_\phi - \epsilon_\psi)\cdot \partial x/\partial \theta$ — **relative score**, no huge CFG required
 
-- Analogous to RL actor-critic using a value baseline to reduce variance
+- $\epsilon_\psi$ is the necessary term from differentiating the KL objective w.r.t. $\theta$, corresponding to the $q$ distribution's own score (dropping it degrades back to SDS) — not an RL actor-critic value baseline that only reduces variance
 
 Saying VSD "uses variational inference" but not explaining $\epsilon_\psi$ replacing raw noise.
 
@@ -1180,7 +1183,7 @@ Saying only "drop the Jacobian for simplicity" without explaining the mode-seeki
 
 - **Geometric intuition**: points from "where I am now" to "where the prior is" — a local "gradient direction" rather than a global mode; no large CFG sharpening needed
 
-- **RL analogy**: actor-critic uses a value baseline for variance reduction; VSD uses $\epsilon_\psi$ as a baseline to reduce SDS noise
+- **Not an RL baseline**: $\epsilon_\psi$ is the necessary term corresponding to the $q$ distribution's own score from differentiating the KL objective w.r.t. $\theta$; dropping it degrades the gradient objective back to SDS's mode-seeking (changing the expected gradient direction), unlike an RL actor-critic value baseline, which only reduces variance without changing the expected gradient
 
 - **Effects (ProlificDreamer)**: CFG can drop to 7.5, natural colors; finer geometry; can maintain multiple modes (diversity)
 

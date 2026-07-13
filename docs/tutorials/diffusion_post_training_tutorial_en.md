@@ -138,11 +138,13 @@ Fan et al. **2023 NeurIPS** *DPOK: Reinforcement Learning for Fine-tuning Text-t
 
 $$\boxed{\;\max_\theta\; \mathbb{E}_{\tau \sim p_\theta}\!\left[R(x_0, c)\right] - \beta\, \mathbb{E}_c\!\left[\text{KL}\!\big(p_\theta(\cdot \mid c) \,\big\Vert\, p_\text{ref}(\cdot \mid c)\big)\right]\;}$$
 
-The KL term expanded to per-step:
+The KL term expanded to per-step — **note this is an upper bound, not an identity**:
 
-$$\text{KL}(p_\theta \Vert p_\text{ref}) = \sum_{t=1}^{T} \mathbb{E}\!\left[\text{KL}\!\big(p_\theta(x_{t-1} \mid x_t, c) \,\Vert\, p_\text{ref}(x_{t-1} \mid x_t, c)\big)\right]$$
+$$\text{KL}\big(p_\theta(x_0 \mid c) \,\Vert\, p_\text{ref}(x_0 \mid c)\big) \;\le\; \sum_{t=1}^{T} \mathbb{E}\!\left[\text{KL}\!\big(p_\theta(x_{t-1} \mid x_t, c) \,\Vert\, p_\text{ref}(x_{t-1} \mid x_t, c)\big)\right]$$
 
-Since the DDPM $p_\theta(x_{t-1} \mid x_t, c)$ is Gaussian, **the KL between two Gaussians has a closed form**, so per-step KL is directly computable. DPOK uses policy gradient + this KL penalty, the diffusion analog of RLHF's "$\beta \log(\pi/\pi_\text{ref})$ added to reward".
+The right-hand side is the exact chain-rule expansion of the **joint trajectory KL** ($\text{KL}(p_\theta(x_{0:T}\mid c) \Vert p_\text{ref}(x_{0:T}\mid c))$) — this identity holds exactly because $p_\theta$ and $p_\text{ref}$ share the same prior $p(x_T)=\mathcal N(0,I)$. But what DPOK actually wants to regularize is the **terminal marginal** $\text{KL}(p_\theta(x_0\mid c) \Vert p_\text{ref}(x_0\mid c))$; by the data-processing inequality for KL (non-increasing under marginalization), the terminal marginal KL is only an **upper bound** on this per-step sum, not equal to it. DPOK uses this tractable, closed-form upper bound as a surrogate — effective in practice, but not an exact equivalence.
+
+Since the DDPM $p_\theta(x_{t-1} \mid x_t, c)$ is Gaussian, **the KL between two Gaussians has a closed form**, so per-step KL is directly computable. DPOK uses policy gradient + this KL penalty (an upper-bound surrogate), the diffusion analog of RLHF's "$\beta \log(\pi/\pi_\text{ref})$ added to reward".
 
 > 💡 **DPOK vs DDPO** —
 
@@ -282,9 +284,11 @@ DDPM's $L_\text{simple}$ is one of the (negative) ELBO terms of $\log p_\theta(x
 
 $$-\log p_\theta(x_0 \mid c) \le L_\text{simple}(x_0, c, \theta) = \mathbb{E}_{t, \epsilon}\!\left[\|\epsilon - \epsilon_\theta(x_t, t, c)\|^2\right] + \text{const}$$
 
-Use $-L_\text{simple}$ as a **single-sample estimate** of $\log p_\theta(x_0 \mid c)$ (Jensen's inequality strictly gives a lower bound, but numerically it is usable as a DPO implicit-reward proxy) and substitute into the DPO framework:
+> ⚠️ **$L_\text{simple}$ is not a "tight" ELBO** — the true VLB has a per-timestep SNR-dependent weight $\lambda_t$ (equivalently $\omega(\lambda_t)$) in front of each term; $L_\text{simple}$ **sets this weight to 1**, a deliberate reweighting by Ho et al. 2020 chosen for better perceptual sample quality — it is not a tight bound obtained by directly simplifying the VLB. Treating the unweighted MSE as "the" ELBO is an approximation, not an equality.
 
-$$\boxed{\;\mathcal{L}_\text{Diff-DPO}(\theta) = -\mathbb{E}_{(x_0^w, x_0^l, c, t, \epsilon)}\log\sigma\!\left(-\beta T\!\left[\|\epsilon^w - \epsilon_\theta(x_t^w, t, c)\|^2 - \|\epsilon^w - \epsilon_\text{ref}(x_t^w, t, c)\|^2 - \|\epsilon^l - \epsilon_\theta(x_t^l, t, c)\|^2 + \|\epsilon^l - \epsilon_\text{ref}(x_t^l, t, c)\|^2\right]\right)\;}$$
+Use $-L_\text{simple}$ as a **single-sample estimate** of $\log p_\theta(x_0 \mid c)$ (Jensen's inequality strictly gives a lower bound, but numerically it is usable as a DPO implicit-reward proxy) and substitute into the DPO framework ($\omega(\lambda_t)$ is the SNR-dependent weight; $L_\text{simple}$ is the special case $\omega(\lambda_t)\equiv 1$):
+
+$$\boxed{\;\mathcal{L}_\text{Diff-DPO}(\theta) = -\mathbb{E}_{(x_0^w, x_0^l, c, t, \epsilon)}\log\sigma\!\left(-\beta T\,\omega(\lambda_t)\!\left[\|\epsilon^w - \epsilon_\theta(x_t^w, t, c)\|^2 - \|\epsilon^w - \epsilon_\text{ref}(x_t^w, t, c)\|^2 - \|\epsilon^l - \epsilon_\theta(x_t^l, t, c)\|^2 + \|\epsilon^l - \epsilon_\text{ref}(x_t^l, t, c)\|^2\right]\right)\;}$$
 
 > 💡 **Intuitive reading** — the inside of the sigmoid is "for $y_w$, policy denoises better than ref" minus "for $y_l$, policy denoises better than ref". If the policy is more accurate on $y_w$ and less accurate on $y_l$, the difference is positive and the loss decreases.
 
@@ -294,7 +298,7 @@ $$\boxed{\;\mathcal{L}_\text{Diff-DPO}(\theta) = -\mathbb{E}_{(x_0^w, x_0^l, c, 
 - Each training step **randomly samples $t \in \{1, \dots, T\}$ and $\epsilon \sim \mathcal{N}(0,I)$**, constructing $x_t^w = \sqrt{\bar\alpha_t} x_0^w + \sqrt{1-\bar\alpha_t}\epsilon$ (the same $\epsilon$ is used for both $y_w$ and $y_l$ — paired noise).
 - $\pi_\text{ref}$ is a frozen base UNet (usually the original SDXL checkpoint).
 
-> ⚠️ **Crucial: shared noise** — the paper emphasizes that $x_t^w$ and $x_t^l$ must use **the same $\epsilon$** (paired noise); otherwise $\beta$ becomes incomparable and loss variance explodes. This is the most common Diffusion-DPO footgun.
+> 💡 **Shared noise is a variance-reduction trick, not a mathematical requirement** — $x_t^w$ and $x_t^l$ sharing the same $\epsilon$ (paired noise / common random numbers) reduces gradient variance and makes training more stable; but even with independently sampled $\epsilon^w, \epsilon^l$, the loss remains a valid (higher-variance but unbiased) estimator of the same DPO objective — unpaired noise does not change the scale or comparability of $\beta$, it just makes optimization noisier. Paired noise is recommended in practice, but it is not a correctness requirement.
 
 #### 4.1.3 Results (on SDXL)
 
@@ -504,17 +508,22 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
     for t, (mean_old, std_old, x_tm1) in zip(reversed(range(T)), traj_log_probs):
         eps_pred = unet(x_t, t, prompts)                   # grad needed
         mean, std = scheduler.step_mean_std(x_t, eps_pred, t)
+        # t=0 is the deterministic terminal transition under the DDPM convention
+        # (std=0, no noise added); dividing by / taking log of std there NaNs/Infs
+        # unless guarded.
+        std_safe = std.clamp(min=1e-6)
         # Gaussian log-prob
-        log_p = -0.5 * (((x_tm1 - mean) / std) ** 2).sum([1, 2, 3])
-        log_p -= std.log().sum([1, 2, 3])
+        log_p = -0.5 * (((x_tm1 - mean) / std_safe) ** 2).sum([1, 2, 3])
+        log_p -= std_safe.log().sum([1, 2, 3])
         loss_pg = loss_pg - (log_p * A).mean()             # REINFORCE
         if beta > 0:
             ref_eps = ref_unet(x_t, t, prompts).detach()
             mean_ref, std_ref = scheduler.step_mean_std(x_t, ref_eps, t)
+            std_ref_safe = std_ref.clamp(min=1e-6)         # same terminal std=0 issue
             # Gaussian-Gaussian KL closed form
-            kl = ((mean - mean_ref) ** 2 / (2 * std_ref ** 2)
-                  + (std / std_ref) ** 2 / 2
-                  - 0.5 - (std / std_ref).log()).sum([1, 2, 3])
+            kl = ((mean - mean_ref) ** 2 / (2 * std_ref_safe ** 2)
+                  + (std_safe / std_ref_safe) ** 2 / 2
+                  - 0.5 - (std_safe / std_ref_safe).log()).sum([1, 2, 3])
             loss_pg = loss_pg + beta * kl.mean()
         x_t = x_tm1.detach()
     return loss_pg
@@ -523,7 +532,8 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 > ⚠️ **DDPO implementation footguns** —
 
 - Use `set_grad_enabled(False)` during rollout, then enable grad in the policy-gradient pass — avoids $O(T)$ memory.
-- DDPM stochastic transition is critical: DDIM is deterministic with no $dW$ dimension to optimize, so **DDPO must use DDPM or DDIM-eta=1**.
+- DDPM stochastic transition is critical **for REINFORCE/score-function estimators**: DDIM-eta=0 is deterministic, with no $dW$ dimension and no well-defined log-density to differentiate, so the score-function gradient degenerates — **DDPO (REINFORCE-based) must use DDPM or DDIM-eta=1**; conversely, for the pathwise-gradient methods in §3 (DRaFT/AlignProp), deterministic sampling is actually a prerequisite.
+- **The t=0 terminal transition is deterministic (std=0, the Ho et al. 2020 convention)**: if the policy-gradient recompute pass takes log/division on std directly, this step NaNs/Infs; guard with `std.clamp(min=1e-6)` (as in the code above), or special-case t=0 and keep gradient only through the mean term.
 - The batch baseline $A = (R - \bar R)/\sigma_R$ is much more stable than no baseline.
 - Train LoRA rather than full fine-tune, otherwise the base drifts quickly.
 
@@ -535,11 +545,14 @@ def diffusion_dpo_loss(unet, ref_unet, scheduler,
     """
     Diffusion-DPO (Wallace 2024) one-step training.
     x0_w, x0_l: [B, 4, H, W]  preferred / dispreferred latents
-    beta: paper uses 2000~5000 (note: this is the combined β·T coefficient, larger than LLM DPO)
+    beta: paper uses 2000~5000 — this magnitude depends on implementation conventions
+          (mean vs. sum reduction of the MSE; whether T refers to the DDPM training
+          schedule or the inference schedule), not a portable, implementation-independent
+          "β·T temperature"
     """
     B = x0_w.shape[0]
     t = torch.randint(0, scheduler.num_train_timesteps, (B,), device=x0_w.device)
-    noise = torch.randn_like(x0_w)                          # paired noise!
+    noise = torch.randn_like(x0_w)                          # paired noise (variance reduction, not required)
 
     xt_w = scheduler.add_noise(x0_w, noise, t)
     xt_l = scheduler.add_noise(x0_l, noise, t)
@@ -573,7 +586,7 @@ def diffusion_dpo_loss(unet, ref_unet, scheduler,
     return loss, {"margin": margin.item(), "acc": accuracy.item()}
 ```
 
-> ⚠️ **β magnitude note** — Diffusion-DPO's $\beta$ is several orders of magnitude larger than LLM DPO's, because it absorbs the $T$-fold accumulation ($\beta T$ is the true "temperature"). Paper uses $\beta \in [2000, 5000]$; LLM DPO uses $\beta \in [0.05, 0.5]$.
+> ⚠️ **β magnitude note (implementation-dependent, not a clean universal fact)** — Diffusion-DPO's $\beta$ is several orders of magnitude larger than LLM DPO's, and directionally this is because it absorbs the accumulation over trajectory length $T$; but saying "$\beta T$ is the true temperature" glosses over two concrete implementation choices: (1) whether the per-pixel MSE is reduced with `.mean()` or `.sum()` (this tutorial's code uses `.mean([1,2,3])`, which needs a much larger $\beta$ than a sum-reduced loss would); (2) which $T$ is meant — the $\sim$1000-step DDPM training schedule that the DPO loss samples/sums over, not the $\sim$20–50-step inference schedule used elsewhere in this tutorial (§1.4). So $\beta T$ is not a portable, implementation-independent "true temperature" — only informal intuition for why diffusion-DPO's $\beta$ is orders of magnitude larger than LLM DPO's. Paper uses $\beta \in [2000, 5000]$ (under that implementation's mean-reduce + 1000-step convention); LLM DPO uses $\beta \in [0.05, 0.5]$.
 
 ### 6.3 AlignProp / DRaFT backprop with checkpointing
 
@@ -682,10 +695,18 @@ def flow_grpo_step(flow_net, ref_flow, prompts, reward_fn,
             v = flow_net(x_t, t_now, prompts_rep)
             # SDE Euler: drift = v + 0.5 σ² ∇log p (PF-ODE → SDE conversion, Song 2021)
             # !!! IMPORTANT: the following drift is a simplified pedagogical placeholder.
-            #     Production implementations follow Flow-GRPO paper Eq.(6) and derive score
-            #     correctly from score = (data_pred - x_t)/σ_t² with the specific
-            #     Rectified Flow / EDM schedule. Refer to paper + official repo for deployment;
-            #     the -v/σ here is only illustrative.
+            #     Production implementations should re-derive score from the data/noise/velocity
+            #     relationship, with the specific Rectified Flow / EDM schedule; refer to Flow-GRPO
+            #     paper Eq.(6) + official repo for deployment. The -v/σ here is only illustrative
+            #     (guarded with +1e-6, so it does not divide by zero: at t=1, sigma→0, and this
+            #     correction term goes to 0 together with sigma² — not NaN — but the formula itself
+            #     is not a rigorous derivation).
+            #     Note: this placeholder's sigma_fn(t)=sqrt(1-t) gives zero SDE noise at the
+            #     trajectory start (t=1, pure noise) and maximal noise right at the trajectory end
+            #     (t=0, near-clean data) — the reverse of the usual intuition that exploration noise
+            #     should be larger early and smaller near the final output. Anyone implementing a
+            #     real Flow-GRPO trainer should re-derive both the score term (paper Eq.6) and the
+            #     sign/direction of the noise schedule rather than reusing this illustrative sigma_fn.
             drift = v + 0.5 * sigma ** 2 * (-v / (sigma + 1e-6))  # placeholder, see paper Eq.(6)
             noise = torch.randn_like(x_t)
             x_next = x_t + drift * dt + sigma * noise * abs(dt) ** 0.5
@@ -827,7 +848,7 @@ def combined_reward(images, prompts, weights=None):
 | **SD3** (Stable Diffusion 3, Esser et al. 2024 ICML) | base uses Rectified Flow + MM-DiT | paper does not disclose post-training; community suspects internal DPO |
 | **SD3.5 / SD3.5 Turbo** | distill is present; post-training not disclosed | speculated DPO + distill hybrid |
 | **FLUX.1 dev / pro** (Black Forest Labs 2024) | undisclosed | community speculates DPO + distill; pro API is closed-source |
-| **DALL-E 3** (OpenAI 2023) | "recaptioning + RLHF" | publicly emphasizes prompt-faithful RLHF |
+| **DALL-E 3** (OpenAI 2023) | "synthetic recaptioning" (no RLHF described) | synthetic recaptioning (detailed image-caption data augmentation); does not describe an RLHF post-training procedure |
 | **Imagen 3** (Google 2024) | undisclosed | internal alignment pipeline |
 | **DeepFloyd IF** | no post-training | academic base model |
 
@@ -838,7 +859,7 @@ def combined_reward(images, prompts, weights=None):
 - SD3 paper (arXiv 2403.03206) "Improving Rectified Flow Transformers" section discusses sampling + reflow, with no mention of reward fine-tuning.
 - FLUX has no paper at all; the community infers distillation from the model card (FLUX schnell is a 4-step distilled version).
 - Stability AI mentioned in the SD3.5-Large release that it was "fine-tuned with improved aesthetics", which could be SFT rather than RL.
-- DALL-E 3 paper (OpenAI 2023) explicitly says caption-faithful RLHF was used.
+- DALL-E 3's public technical report (Betker et al. 2023, *Improving Image Generation with Better Captions*) has **synthetic recaptioning** as its core contribution — training an image captioner to produce more detailed synthetic descriptions for the training images, and training on a mix of original short captions and synthetic long captions to improve prompt-following. The report does not describe an RLHF (reward model + PPO, etc.) post-training procedure as its mechanism.
 
 **Industry consensus** (from HuggingFace community + Reddit r/StableDiffusion): closed-source large models (FLUX pro, DALL-E 3, Midjourney v6+) have reward-based fine-tuning but the specifics are undisclosed; open-source bases (SD3.5 base, FLUX dev base) have public training pipelines without RL, but Stability AI's internal dev branches may have it.
 
@@ -938,9 +959,10 @@ Saying "per-step reward" (wrong, only at the terminal); or not knowing the trans
 
 - Uses an ELBO surrogate: $-\|\epsilon - \epsilon_\theta(x_t, t, c)\|^2$ (DDPM's $L_\text{simple}$) as a proxy for $\log p_\theta(x_0)$.
 - This is a (negative) lower-bound term of $\log p_\theta$ — directionally correct.
-- Requires paired noise $\epsilon$ ($y_w$ and $y_l$ share the same $\epsilon$) for stability.
+- Note that $L_\text{simple}$ sets the true VLB's per-timestep weight $\lambda_t$ ($\omega(\lambda_t)$) to 1 — a deliberate reweighting by Ho 2020 for sample quality, not "the tight ELBO on log p_θ" itself; treating it as a proxy for log p_θ is an approximation, not an equality.
+- Pairing the noise $\epsilon$ ($y_w$ and $y_l$ share the same $\epsilon$, a variance-reduction trick) makes training more stable.
 
-Saying the closed-form $\log p(x_0)$ is used (wrong, diffusion has no closed form); or forgetting paired noise.
+Saying the closed-form $\log p(x_0)$ is used (wrong, diffusion has no closed form); treating $L_\text{simple}$ as an exact ELBO identity (ignoring the $\omega(\lambda_t)=1$ reweighting); or forgetting that paired noise reduces variance.
 </details>
 
 <details>
@@ -959,10 +981,10 @@ Saying K=1 equals REINFORCE (wrong, K=1 is reparameterized gradient with far low
 
 - LLM DPO: $\beta \in [0.05, 0.5]$
 - Diffusion-DPO: $\beta \in [2000, 5000]$
-- Reason: the diffusion "trajectory log-likelihood" is the sum of $T$ Gaussian log-probs; the single-step $\epsilon$-distance difference absorbs the $T$-fold coefficient. **The effective temperature** is $\beta T$.
-- Some implementations explicitly factor out $T$, in which case $\beta$ looks the same order as LLM.
+- Reason (directional intuition, not an exact formula): the diffusion "trajectory log-likelihood" is the sum of $T$ Gaussian log-probs; the single-step $\epsilon$-distance difference absorbs the $T$-fold coefficient, which explains the order-of-magnitude direction.
+- **But "$\beta T$ is the true temperature" is not a clean, implementation-independent fact**: it also depends on whether the MSE is mean-reduced or sum-reduced (differing by a factor of $C \times H \times W$), and which $T$ is meant — the $\sim$1000-step DDPM training schedule vs. the $\sim$20–50-step inference schedule. This tutorial's code uses `.mean([1,2,3])` plus 1000-step DDPM $t$-sampling; a different reduction/T convention gives a different "effective temperature".
 
-Saying "diffusion has more noise so β is larger" (wrong, it's the cumulative effect of trajectory length).
+Saying "diffusion has more noise so β is larger" (wrong, it's the cumulative effect of trajectory length); or treating "$\beta T$ is the true temperature" as an exact, universal equivalence (ignoring its dependence on mean/sum reduction and the T convention).
 </details>
 
 <details>
@@ -983,11 +1005,11 @@ Saying they're all the same (wrong, scales and preferences differ substantially)
 <details>
 <summary>Q7. Does DDPO sample with DDPM or DDIM? Why?</summary>
 
-- **DDPM** (or DDIM-eta=1) — stochastic transition needed.
-- DDIM-eta=0 is deterministic with no noise term, so **no action to optimize** → policy gradient is zero.
-- Analogy: LLM RL must use sampling (temperature > 0), cannot use greedy.
+- **DDPM** (or DDIM-eta=1) — stochastic transition is needed so that REINFORCE/score-function policy gradients have a well-defined log-density to differentiate.
+- DDIM-eta=0 is deterministic (a Dirac-delta transition) with no well-defined log-density — **REINFORCE-style score-function estimators degenerate/fail here**, but that does not mean "the policy gradient is zero": $x_0$ remains a deterministic, differentiable function of $\theta$, so a pathwise/reparameterized gradient (what §3's DRaFT/AlignProp use) still exists and is generally nonzero. DDPO needs stochastic transitions because it chose REINFORCE as its specific gradient estimator — not because the true gradient vanishes under deterministic sampling.
+- Analogy: LLM RL's REINFORCE/PPO must use sampling (temperature > 0), cannot use greedy — but the greedy output is still a differentiable function of the parameters; it's only the score-function gradient path that's unavailable.
 
-Saying DDIM is fine (wrong, eta > 0 is needed); or not knowing stochasticity is a prerequisite for RL.
+Saying DDIM is fine (wrong, for REINFORCE eta > 0 is needed); or thinking the true gradient is zero under deterministic sampling (wrong — conflates "REINFORCE fails" with "the true gradient is zero"; see §3's DRaFT/AlignProp pathwise gradient).
 </details>
 
 <details>
@@ -1015,11 +1037,11 @@ Not knowing the marginal is preserved (wrong, may think SDE changes the distribu
 <details>
 <summary>Q10. How are $y_w$ and $y_l$ noises handled in Diffusion-DPO training?</summary>
 
-- **Paired noise**: $x_t^w$ and $x_t^l$ use **the same** $\epsilon$ (i.e. $x_t^w = \sqrt{\bar\alpha_t}x_0^w + \sqrt{1-\bar\alpha_t}\epsilon$, with $x_t^l$ similarly using the same $\epsilon$).
-- Without pairing, the $\beta$ scale becomes incomparable, loss variance rises sharply, and training is unstable.
-- This is the most overlooked implementation detail of Diffusion-DPO.
+- **Paired noise**: $x_t^w$ and $x_t^l$ use **the same** $\epsilon$ (i.e. $x_t^w = \sqrt{\bar\alpha_t}x_0^w + \sqrt{1-\bar\alpha_t}\epsilon$, with $x_t^l$ similarly using the same $\epsilon$) — this is a **variance-reduction** technique (common random numbers), not a prerequisite for mathematical correctness.
+- Without pairing (independently sampled $\epsilon^w, \epsilon^l$), the loss remains an unbiased estimator of the same DPO objective — just with higher variance and less stable optimization; the scale and comparability of $\beta$ is unaffected.
+- This is the implementation detail most often overlooked in Diffusion-DPO practice, but it does materially affect training stability.
 
-Not knowing about paired noise (wrong); or thinking $\epsilon$ refers to $\epsilon_\theta$'s prediction (wrong — here $\epsilon$ is the q-sample noise).
+Not knowing paired noise reduces variance (missing a stability trick); thinking unpaired noise makes the loss mathematically incorrect (wrong — it's just higher variance); or thinking $\epsilon$ refers to $\epsilon_\theta$'s prediction (wrong — here $\epsilon$ is the q-sample noise).
 </details>
 
 ### L2 advanced (10 questions)
@@ -1147,7 +1169,7 @@ Saying "per-pixel KL" (wrong, per-step); not knowing the closed-form Gaussian KL
 <summary>Q21. Derive Diffusion-DPO loss from the reverse ELBO, and explain why the ELBO surrogate works.</summary>
 
 1. DDPM ELBO: $\log p_\theta(x_0) \ge -\sum_{t=2}^T \text{KL}(q(x_{t-1}|x_t,x_0) \Vert p_\theta(x_{t-1}|x_t)) + \log p_\theta(x_0|x_1) - \text{KL}(q(x_T|x_0) \Vert p(x_T))$
-2. Simplify (Ho 2020): $-\log p_\theta(x_0) \le L_\text{simple} + C$, $L_\text{simple} = \mathbb{E}_{t,\epsilon}\|\epsilon - \epsilon_\theta(x_t,t)\|^2$.
+2. Simplify (Ho 2020): $-\log p_\theta(x_0) \le L_\text{simple} + C$, $L_\text{simple} = \mathbb{E}_{t,\epsilon}\|\epsilon - \epsilon_\theta(x_t,t)\|^2$ — **note**: the true VLB has an SNR-dependent weight $\lambda_t$ (i.e. $\omega(\lambda_t)$) in front of each $t$; $L_\text{simple}$ is the reweighted version with $\omega(\lambda_t)$ set to 1 (a deliberate choice by Ho 2020 for sample quality), not a tight bound obtained by directly simplifying the VLB.
 3. KL-regularized optimum $p^* \propto p_\text{ref}\exp(R/\beta)$; solve for $R = \beta\log(p^*/p_\text{ref}) + \beta\log Z$.
 4. Plug into BT; $\log Z$ cancels.
 5. Use the ELBO surrogate for $\log p$: $\log p_\theta(x_0) \approx -L_\text{simple}$ (**note**: this is the negation of the upper bound, used as a single-sample estimate — strictly, it is one term of the lower bound, not $\log p$ itself, but it works numerically as a DPO implicit-reward proxy).
@@ -1200,7 +1222,7 @@ Failing to articulate any geometry is 0 points; saying "reweighting" without spe
 
 1. **SD3 paper (arXiv 2403.03206)**: discusses Rectified Flow + MM-DiT + reflow only; no reward fine-tuning mentioned.
 2. **FLUX**: no paper at all; the model card just says "trained on a large image-text dataset".
-3. **DALL-E 3 (OpenAI 2023)**: explicitly says caption-faithful RLHF (rewrite caption + RM) is used.
+3. **DALL-E 3 (OpenAI 2023)**: the public report (Betker et al. 2023) is centered on **synthetic recaptioning** — using an image captioner to produce more detailed synthetic descriptions for training images and mixing them into training to improve prompt-following; it does not describe an RLHF (reward model + PPO, etc.) post-training mechanism.
 4. **Industry consensus**: closed-source large models (FLUX pro, DALL-E 3, Midjourney v6+) almost certainly have reward-based fine-tuning, but the method is undisclosed.
 
 **How to test (black-box)**:
@@ -1291,8 +1313,8 @@ Just answering "use Diffusion-DPO" is shallow; the answer should articulate "pha
 
 | Footgun | Fix |
 | --- | --- |
-| Diffusion-DPO without paired noise | $\epsilon$ for $x_t^w$ and $x_t^l$ must be shared |
-| DDPO with DDIM-eta=0 | must use eta>0 or DDPM, otherwise gradient is zero |
+| Diffusion-DPO without paired noise | recommended: share $\epsilon$ for $x_t^w$ and $x_t^l$ (reduces variance, not mathematically required) |
+| DDPO with DDIM-eta=0 | REINFORCE-style score-function gradient degenerates; use eta>0 or DDPM (pathwise methods like DRaFT/AlignProp instead require deterministic sampling) |
 | AlignProp memory explosion | $K=1$ + gradient checkpoint + LoRA |
 | Reward scales not normalized | z-score each RM separately |
 | FID crashes after RL | add KL anchor or reward ensemble |

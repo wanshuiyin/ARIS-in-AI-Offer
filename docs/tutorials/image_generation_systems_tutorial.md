@@ -2,7 +2,7 @@
 
 > 💡 **8 句话搞定 Image Generation 系统** — 一页拿下 production text-to-image 栈核心（详见 §1–§10 推导）。
 
-1. **LDM 关键**：VAE encode 把 $H\times W\times 3$ 压成 $h\times w\times c$（SD 1.x: $8\times$ 下采样、$c=4$），扩散在 latent 上做，**计算节省 $8^2=64\times$**，最后再 VAE decode 出像素（Rombach et al. 2022 CVPR）。
+1. **LDM 关键**：VAE encode 把 $H\times W\times 3$ 压成 $h\times w\times c$（SD 1.x: $8\times$ 下采样、$c=4$），扩散在 latent 上做，token 数降到 $1/8^2=1/64$（**数量级估计**，假设每 token 计算量不变；实际 FLOPs 节省还受 latent 通道更宽、self-attention FLOPs 按 token 数平方 scale 等因素影响，非精确的 $64\times$ 等价），最后再 VAE decode 出像素（Rombach et al. 2022 CVPR）。
 
 2. **SD 1.x → SDXL → SD3 → FLUX 主线**：1.x 用 CLIP-L 文本编码 + U-Net；SDXL 双编码器（OpenCLIP-G + CLIP-L）+ 2.6B U-Net + size/crop conditioning + Refiner（Podell et al. 2024 ICLR）；SD3 换 **MM-DiT** + Rectified Flow（Esser et al. 2024 ICML）；FLUX.1 12B MM-DiT 加 parallel attention（Black Forest Labs 2024）。
 
@@ -65,12 +65,14 @@ $$\boxed{\;\mathcal{L}_\text{LDM} = \mathbb{E}_{z_0, \epsilon, t, c}\left[\,\big
 
 Rombach 2022 Table 8 ablation：
 
-| 下采样 $f$ | 计算节省 | 重建质量（FID↓） | 生成质量（FID↓） |
+| 下采样 $f$ | Token 数降低（$f^2$） | 重建质量（FID↓） | 生成质量（FID↓） |
 |---|---|---|---|
 | $f=4$ | $16\times$ | 最好（latent 接近 pixel） | 一般（扩散仍然太贵） |
 | $f=8$ | $64\times$ | 略损（PSNR 微降） | **最佳** |
 | $f=16$ | $256\times$ | 显著降（VAE 重建变差） | 重建瓶颈拖垮生成 |
 | $f=32$ | $1024\times$ | VAE 几乎无法重建细节 | 生成质量大幅下降 |
+
+> ⚠️ **token 数下降 ≠ 精确 FLOPs 等比下降** — 上表 $f^2$ 是空间 token 数量的精确折算，但实际计算量节省还取决于：(i) latent 空间网络通道宽度通常远大于 pixel-space 的 3 通道，会部分抵消 token 数下降带来的节省；(ii) self-attention FLOPs 按 token 数**平方**scale，attention 层的节省可能远超 $f^2$（如 $f=8$ 时理论上可达 $\sim f^4=4096\times$）。因此表中数字应理解为数量级上的显著节省，而非精确的 FLOPs 等价。
 
 **关键洞察**：VAE 重建质量是上限——latent diffusion 无论多强都画不出 VAE 解不出来的图。所以 $f$ 不是越大越好，要在"压缩率"和"重建上限"之间找平衡。
 
@@ -100,7 +102,7 @@ SD VAE 是 **KL-VAE，不是 VQ-VAE**——latent 是**连续高斯**，KL 项�
 |---|---|
 | **2.6B U-Net** | 更宽更深；3× 1.x 参数 |
 | **双文本编码器** | OpenCLIP-G (1280-d) + CLIP-L (768-d)；concat 后做 cross-attn |
-| **Size & crop conditioning** | 训练时 $(h_\text{orig}, w_\text{orig})$ 与 $(h_\text{crop}, w_\text{crop})$ Fourier-embed 后**加到 timestep embedding 上**，让模型显式知道"这张图原本多大、被裁了哪里"，避免低分辨率 / 裁剪伪影泄漏到推理 |
+| **Size & crop conditioning** | 训练时 $(h_\text{orig}, w_\text{orig})$、$(h_\text{crop}, w_\text{crop})$ 与 **target size** $(h_\text{tgt}, w_\text{tgt})$（multi-aspect-ratio 训练用）共 3 组 6 个标量，各自 Fourier-embed 后**加到 timestep embedding 上**，让模型显式知道"这张图原本多大、被裁了哪里、目标分辨率是多少"，避免低分辨率 / 裁剪伪影泄漏到推理 |
 | **Refiner** | 一个独立 latent diffusion 模型，专做最后 ~20% noise level（$t < 0.2$），仅细节精修；可选 |
 | **训练分辨率** | 1024²（最终），bucketing 不同 aspect ratio |
 
@@ -114,7 +116,7 @@ SD VAE 是 **KL-VAE，不是 VQ-VAE**——latent 是**连续高斯**，KL 项�
 
 $$x_t = (1-t)\, x_0 + t\, x_1,\quad u_t = x_1 - x_0$$
 
-其中 $x_0 \sim \mathcal{N}(0, I)$ 噪声端，$x_1$ 数据端。模型学 $v_\theta(x_t, t, c) \approx x_1 - x_0$。Loss 用 logit-normal $t$ sampling（中间 $t$ 概率更高）+ RF 加权。**注意 timestep convention 与 DDPM 相反**：SD3 论文用 $t=0$ 噪声、$t=1$ 数据，但有些代码库（diffusers）会改回 SD 旧 convention，**面试要主动 disambiguate**。
+其中 $x_0$ 数据端（$t=0$），$x_1 \sim \mathcal{N}(0, I)$ 噪声端（$t=1$）。模型学 $v_\theta(x_t, t, c) \approx x_1 - x_0$。Loss 用 logit-normal $t$ sampling（中间 $t$ 概率更高）+ RF 加权。**timestep convention 与 DDPM 方向相同**（$t=0$ 数据、$t$ 增大 → 噪声增多，并非相反）；但不同代码库（如 diffusers）里具体变量命名 / schedule 细节可能不同，**面试要主动 disambiguate**。
 
 **2）Denoiser 换成 MM-DiT（Multimodal Diffusion Transformer）**
 
@@ -142,7 +144,7 @@ $$x_t = (1-t)\, x_0 + t\, x_1,\quad u_t = x_1 - x_0$$
 | 文本编码 | T5-XXL (4096-d) + CLIP-L |
 | 训练目标 | Rectified Flow（与 SD3 同族） |
 | 采样 | dev：~28-50 步；schnell：1-4 步（adversarial diffusion distillation） |
-| Position encoding | RoPE 2D（对图像 token），文本 token 用绝对位置 |
+| Position encoding | 多轴 RoPE（对图像 token 按 2D 坐标编码相对位置）；文本 token 的 RoPE 位置 id 通常直接置零（`txt_ids` 全 0，无显式位置编码），顺序信息由 T5 encoder 自身的相对位置机制隐式携带 |
 
 > 💡 **Parallel attention** — Standard transformer block: `y = x + Attn(LN(x)); y = y + MLP(LN(y))`。Parallel block: `y = x + Attn(LN(x)) + MLP(LN(x))`，两支并行算、加在一起。**收益**是 GPU 上 attn 和 MLP 可以重叠 launch / overlap，且权重融合更简洁；轻微的表达力损失通常被规模补回。
 
@@ -500,9 +502,9 @@ class DecoupledCrossAttention(nn.Module):
 
 | 方法 | 核心机制 |
 |---|---|
-| **InstantID** (Wang, Bai et al. 2024) | IP-Adapter 风格 + 加 face landmark ControlNet，**face embedding 解耦于 ID embedding** |
+| **InstantID** (Wang, Bai et al. 2024) | IP-Adapter 风格 decoupled cross-attention，直接注入 face embedding（ArcFace/insightface 提取，该 embedding 本身即 identity embedding）+ **IdentityNet**（ControlNet 类分支，条件为 5 点 facial landmark，负责空间姿态控制） |
 | **PuLID** (Guo, Wu et al. 2024 NeurIPS) | 双分支 + contrastive alignment，避免 ID 信号污染 prompt 跟随性 |
-| **PhotoMaker** (Li, Cao et al. 2024 CVPR) | "ID embedding stacker"：多张同一人脸的 CLIP embedding 平均后 + class embedding 拼接，注入到 cross-attn |
+| **PhotoMaker** (Li, Cao et al. 2024 CVPR) | **Stacked ID Embedding**：每张参考图各自把 CLIP image embedding 与 class word text embedding 融合成该图的 ID embedding，再把多张图的 ID embedding 沿 token 维**堆叠（stack）**（而非先对多图 CLIP embedding 取平均、再统一融合），注入到 cross-attn |
 
 共同思路：**ID-relevant 信号** 用专门 adapter，**ID-irrelevant 信号**（pose / 表情 / 光照）让 prompt 控制，避免身份直接 paste。
 
@@ -652,7 +654,7 @@ def dreambooth_train_step(unet, vae, text_encoder, scheduler,
 
 - **HyperDreamBooth** (Ruiz et al. 2024)：用 hypernetwork 直接预测每张参考图的 LoRA 权重，**inference-time 个性化**（~5 秒，对比 DreamBooth ~10 分钟训练）。
 
-- **Custom Diffusion** (Kumari et al. 2023)：只更新 cross-attention 的 $W_K, W_V$（不动 $W_Q$），加 regularization image 防过拟合。本质是更窄的 LoRA-DreamBooth。
+- **Custom Diffusion** (Kumari et al. 2023 CVPR)：直接（非低秩分解）微调 cross-attention 的完整 $W_K, W_V$ 矩阵（不动 $W_Q$），配合真实同类图像做 regularization 防概念遗忘/过拟合。它是独立于 LoRA 的**选择性全参数微调**方法，并非 LoRA-DreamBooth 的更窄变体。
 
 | 方法 | 训参数 | 推理代价 | 表达力 | 文件大小 |
 |---|---|---|---|---|
@@ -781,13 +783,11 @@ $$\hat\epsilon = \hat\epsilon(\emptyset, \emptyset) + s_I [\hat\epsilon(c_I, \em
 
 - **Student**：与 teacher 同架构，目标 1-4 步出图
 
-- **三个 loss**：
+- **两个 loss**（不是三个——蒸馏项本身就是 score-distillation 形式，不再额外拆出第三项）：
 
-  1. Distillation loss：student 输出与 teacher 多步采样结果 MSE / LPIPS
+  1. Adversarial loss：DINOv2-based discriminator 判别 student 单步输出真假
 
-  2. Adversarial loss：DINOv2-based discriminator 判 student 输出真假
-
-  3. Score loss：score distillation 类似 SDS 形式
+  2. Distillation loss（score-distillation 形式）：把 student 单步去噪输出重新加噪到随机采样的更高噪声水平，再用**冻结的 teacher** 在该噪声水平上做去噪重建，取 student 输出与该 teacher 重建之间的距离作为回归目标——**不存在**独立于此之外、单独匹配 teacher 多步完整采样轨迹的第三个 MSE/LPIPS 项
 
 ADD 是少步蒸馏 SOTA 路线之一；FLUX schnell 也基于类似思想（"timestep distillation" + adversarial）。
 
@@ -893,11 +893,11 @@ ADD 是少步蒸馏 SOTA 路线之一；FLUX schnell 也基于类似思想（"ti
 
 - VAE 把 $H\times W$ 下采样 $f=8$ 倍：$(H/8)\times(W/8)$ token
 
-- token 数下降 $f^2 = 64$ 倍，FLOPs 也相应下降
+- token 数下降 $f^2 = 64$ 倍，FLOPs 数量级上也相应下降（非精确等比——latent 通道更宽、self-attention FLOPs 按 token 数平方 scale，会让实际节省偏离 $64\times$）
 
 - 同等算力可上更高分辨率（512² → 1024²）
 
-只说"压缩"，不给倍率推导；忘了 VAE 重建质量是上限。
+只说"压缩"，不给倍率推导；把 token 数降低当成精确的 FLOPs 节省；忘了 VAE 重建质量是上限。
 
 </details>
 
@@ -937,7 +937,7 @@ scaling factor 给错（SDXL 是 0.13025，SD3 用 scalar `scaling_factor=1.5305
 
 - Text token embedding 做 K, V
 
-- 出现在 U-Net **装了 transformer block 的那几级**（SD 1.5 config `attention_resolutions=[4,2,1]`：DS=1/2/4，即 latent 64/32/16 三档下采样 + 对应上采样 + middle block 8×8（512² 输入下 f=8 VAE → latent 64²，DS=8 即为 8×8 middle）；SD/SDXL 通常在最深 DS=8（如 512²/8/8 = 8×8，或 1024²/8/8 = 16×16）的中间 block 用纯 ResBlock + self-attention，**不做 cross-attn**）
+- 出现在 U-Net **装了 transformer block 的那几级**（SD 1.5 config `attention_resolutions=[4,2,1]`：DS=1/2/4，即 latent 64/32/16 三档下采样 + 对应上采样 + middle block 8×8（512² 输入下 f=8 VAE → latent 64²，DS=8 即为 8×8 middle）；SD/SDXL 的 middle block 是标准 SpatialTransformer / `UNetMidBlock2DCrossAttn`：ResBlock → (self-attention → cross-attention → FFN 的 transformer block) → ResBlock，**同样有 cross-attn**（与 §3.1 的描述一致），并非"纯 ResBlock + self-attention、不做 cross-attn"）
 
 - 每个 transformer block 内顺序：self-attention → cross-attention → FFN
 
@@ -987,9 +987,9 @@ scaling factor 给错（SDXL 是 0.13025，SD3 用 scalar `scaling_factor=1.5305
 
 - 原 $W$ 冻结，只训 $A, B$
 
-- 参数从 $dk$ 降到 $r(d+k)$，比例 $\approx r/\min(d,k)$，SD 上 $r=8$ 时 ~100× 少
+- 参数从 $dk$ 降到 $r(d+k)$，精确比例是 $r(d+k)/dk = r(1/d+1/k)$；当 $d=k=n$（方阵，如常见 attention Q/K/V/O 投影）时为 $2r/n$，**不是** $r/n=r/\min(d,k)$（相差 2 倍）；SD 上 $W_K$（$d=1280, k=2048$）取 $r=8$ 时约 100× 少（具体倍数依 $d,k$ 形状而定）
 
-把 $A, B$ 的形状写反；忘了 $W$ 是冻结的。
+把参数比例记成 $r/\min(d,k)$（漏了 2 倍因子）；把 $A, B$ 的形状写反；忘了 $W$ 是冻结的。
 
 </details>
 
@@ -1043,15 +1043,15 @@ scaling factor 给错（SDXL 是 0.13025，SD3 用 scalar `scaling_factor=1.5305
 
 <summary>Q11.SDXL 的 size conditioning 是怎么训练 / 推理的？</summary>
 
-- 训练时记录每张图原始 $(h_\text{orig}, w_\text{orig})$ 与 crop 起点 $(h_\text{crop}, w_\text{crop})$
+- 训练时记录每张图原始 $(h_\text{orig}, w_\text{orig})$、crop 起点 $(h_\text{crop}, w_\text{crop})$，以及 **target size** $(h_\text{tgt}, w_\text{tgt})$（multi-aspect-ratio 训练用，SDXL 论文 §2.3）
 
-- 这 4 个标量 Fourier-embed 后过 MLP，**加到 timestep embedding 上**送入 U-Net
+- 这 3 组共 6 个标量各自 Fourier-embed 后过 MLP，**加到 timestep embedding 上**送入 U-Net
 
 - 推理时填 $(1024, 1024)$ 与 $(0, 0)$ 告诉模型"我要 1024 全图质量"，避免低分辨率 / 裁剪伪影泄露到生成
 
 - 也可故意填小 size / 非零 crop 控制风格
 
-只说"加了分辨率信号"，不讲注入位置（时间 embedding）与 Fourier-embed 细节。
+只说"加了分辨率信号"，漏掉 target size 这组；不讲注入位置（时间 embedding）与 Fourier-embed 细节。
 
 </details>
 
@@ -1109,7 +1109,7 @@ scaling factor 给错（SDXL 是 0.13025，SD3 用 scalar `scaling_factor=1.5305
 
 - **DDPM** ε-pred：$\mathcal{L} = \|\epsilon - \hat\epsilon_\theta(x_t, t)\|^2$，$x_t = \sqrt{\bar\alpha_t} x_0 + \sqrt{1-\bar\alpha_t}\epsilon$
 
-- **RF**：$x_t = (1-t)x_0 + tx_1$（$x_0$ 噪声，$x_1$ 数据），$\mathcal{L} = \|u_t - v_\theta(x_t, t)\|^2$，$u_t = x_1 - x_0$ 是常数
+- **RF**：$x_t = (1-t)x_0 + tx_1$（$x_0$ 数据，$x_1$ 噪声），$\mathcal{L} = \|u_t - v_\theta(x_t, t)\|^2$，$u_t = x_1 - x_0$ 是常数
 
 - **采样**：DDPM 多用 DDIM / DPM++（基于 SDE / ODE 推导的高阶 solver），RF 直接 Euler / Heun
 
@@ -1173,7 +1173,7 @@ scaling factor 给错（SDXL 是 0.13025，SD3 用 scalar `scaling_factor=1.5305
 
 - **LCM** (Luo 2023)：训练 student 直接预测 $z_0$，目标是 ODE trajectory 的"自一致"（consistency loss）
 
-- **ADD** (Sauer et al. 2024 ECCV，preprint arXiv 2311.17042 / 2023)：蒸馏 + adversarial（DINOv2 discriminator）+ score loss 三件套
+- **ADD** (Sauer et al. 2024 ECCV，preprint arXiv 2311.17042 / 2023)：adversarial loss（DINOv2 discriminator）+ distillation loss（score-distillation 形式）两项组成，并非三件套
 
 - LCM-LoRA 是 LoRA 形式，可零成本接入任意 base；ADD 是全量蒸馏，效果略强但需重训
 

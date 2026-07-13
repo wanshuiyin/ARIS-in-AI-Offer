@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/3d_generation_tutorial_en.md",
-  "source_sha256": "61199ba076c02a156b46f844ce6c980c133a645ef3f604ac233f6206f2122297",
+  "source_sha256": "ed13fa46cc70a7e20f88b45684c10ad7463dee34ecdda7ae77df253775f82b33",
   "output": "docs/tutorials/3d_generation_tutorial_en.html",
   "zh_source": "docs/tutorials/3d_generation_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -15,5 +15,14 @@
     "issues": [],
     "summary": "Fresh cross-model Codex audit (GPT-5.5 xhigh, read-only) verified that docs/tutorials/3d_generation_tutorial_en.md is a FAITHFUL translation of the cross-model-verified Chinese source docs/tutorials/3d_generation_tutorial.md, and that the rendered docs/tutorials/3d_generation_tutorial_en.html is faithful to the EN markdown. Verdict: PASS, zero issues. Codex confirmed: (a) all formulas/equations, code-block logic, tensor/array shapes, numeric constants, citation years/venues, and model names align between EN and ZH; (b) no section, claim, or caveat was dropped and no new claim was introduced in"
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "2026-07-13 full-collection resweep (diffusion cluster): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification against the ZH source, then mirrored to this EN edition as natural-English translations of the same substantive corrections",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "summary": "Mirrors the 7 fixes applied to the ZH source (3d_generation_tutorial.md, see its sidecar for the full finding-by-finding rationale): Instant-NGP '5+ OOM' -> 'roughly 4+ orders of magnitude' (3x); hash-collision empty-region gradient wording corrected (2x); 3DGS clone/split mechanism un-reversed + opacity-reset 0.005 -> 0.01; DMTet 'fully differentiable' qualified for the topology-switch case; VSD auxiliary score epsilon_psi's 'RL value baseline' mischaracterization corrected (4x); 3DGS downstream-fit table cell corrected to require mesh conversion first; Zero-1-to-3++ anchor-view layout corrected from a zenith/pole description to the paper's actual interleaved-elevation + uniform-azimuth configuration. The REFUTED finding (SDS U-Net Jacobian 'second-order' framing) was left untouched in both editions.",
+      "note": "Re-rendered HTML and refreshed source_sha256 to match this run. Gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ]
 }

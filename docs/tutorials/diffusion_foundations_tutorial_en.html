@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_foundations_tutorial_en.md">
-<meta name="aris:source-sha256" content="472f945ffb064405f5ef17ad3cbf7ca4e0da2ad0f455ef7e5adc70784dcbd94e">
-<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
+<meta name="aris:source-sha256" content="c059813e5a32fd9ba29b6dfeab017444a238828acc996bf821c78a8e41786d72">
+<meta name="aris:generated-at" content="2026-07-13 10:17 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -637,7 +637,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#a3-ddim-sampling-with-eta">A.3　DDIM sampling (with $\eta$)</a></li>
 <li><a href="#a4-classifier-free-guidance-training--sampling">A.4　Classifier-Free Guidance training + sampling</a></li>
 <li><a href="#a5-edm-preconditioning--heun-2nd-order-sampler">A.5　EDM preconditioning + Heun 2nd-order sampler</a></li>
-<li><a href="#a6-probability-flow-ode-simple-euler-solver">A.6　Probability Flow ODE simple Euler solver</a></li>
+<li><a href="#a6-probability-flow-ode-solver-exact-ddim-update-not-naive-euler">A.6　Probability Flow ODE solver (exact DDIM update, not naive Euler)</a></li>
 <li><a href="#a7-sanity-check-output-pedagogical-version">A.7　Sanity-check output (pedagogical version)</a></li>
 </ul>
 </li>
@@ -652,8 +652,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_foundations_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>472f945ffb06</code></span>
-    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
+    <span><strong>SHA256:</strong> <code>c059813e5a32</code></span>
+    <span><strong>Rendered:</strong> 2026-07-13 10:17 UTC</span>
     
   </div>
 </header>
@@ -735,7 +735,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>EDM reparametrizes the $\beta$ schedule into a $\sigma$ schedule (directly using $\sigma$ as time). At sampling:</p>
 <p>$$\sigma_i = \left(\sigma_\text{max}^{1/\rho} + \frac{i}{N-1}\left(\sigma_\text{min}^{1/\rho} - \sigma_\text{max}^{1/\rho}\right)\right)^\rho, \quad i = 0, \dots, N-1$$</p>
 <p>Defaults: $\sigma_\text{min} = 0.002$, $\sigma_\text{max} = 80$, $\rho = 7$. <strong>$\rho = 7$ was swept empirically by Karras</strong> — beats linear / log spacing because it allocates more steps to the small-$\sigma$ (high-SNR) region, where stepping errors are more sensitive.</p>
-<div class="callout callout-info"><div class="callout-title">Discrete vs continuous schedules</div><p>DDPM's $\beta$ array is equivalent to a VP-SDE's $\beta(t) = T \beta_{\lfloor tT \rfloor}$; EDM's $\sigma$-schedule corresponds to a VE-SDE with $\sigma(t) = t$ (linear time); the two differ only by a $t$ reparametrization, <strong>informationally equivalent</strong>. EDM's contribution is discovering an empirically more stable $\sigma_i$ selection rule.</p></div>
+<div class="callout callout-info"><div class="callout-title">Discrete vs continuous schedules</div><p>DDPM's $\beta$ array is equivalent to a VP-SDE's $\beta(t) = T \beta_{\lfloor tT \rfloor}$; EDM's $\sigma$-schedule corresponds to a VE-SDE with $\sigma(t) = t$ (linear time). The exact VP↔VE correspondence is <strong>not</strong> a plain time relabeling — it's a joint time reparametrization plus a state rescaling: set $\sigma(t) = \sqrt{(1-\bar\alpha_t)/\bar\alpha_t}$, and you need to rescale the state as $y_t = x_t / \sqrt{\bar\alpha_t} = x_0 + \sigma(t)\epsilon$ to rewrite the VP marginal in VE form; the two describe the same family of distributions in this sense, but the mapping itself carries an extra state rescaling, not just a reparametrized $t$. EDM's contribution is discovering an empirically more stable $\sigma_i$ selection rule.</p></div>
 <h2 id="5-score-based-view">§5 Score-based view</h2>
 <h3 id="51-score-and-score-matching-hyvrinen-2005">5.1　Score and score matching (Hyvärinen 2005)</h3>
 <p>Define $s(x) = \nabla_x \log p(x)$. If we learn $s_\theta \approx s$, we can sample via <strong>Langevin dynamics</strong>:</p>
@@ -908,10 +908,10 @@ else:
 <h3 id="114-sd3-esser-2024-icml--diffusion-replaced-by-rectified-flow">11.4　SD3 (Esser 2024 ICML) — diffusion replaced by Rectified Flow</h3>
 <p>Two key SD3 changes:</p>
 <ol><li><strong>Rectified Flow replaces DDPM</strong>: training objective becomes $\|v_\theta - (x_1 - x_0)\|^2$ (FM framework)</li><li><strong>MM-DiT</strong>: multimodal DiT, where text tokens and image tokens attend to each other in the same Transformer (rather than via cross-attn)</li></ol>
-<p>Why switch to RF? Esser 2024 ablations: <strong>linear paths have straighter trajectories than cosine paths</strong> → better few-step sampling; logit-normal $t$ sampling emphasizes mid-noise and improves quality.</p>
+<p>Why switch to RF? Esser 2024 ablations: <strong>linear conditional paths have no curvature</strong> (a straight-line interpolation given $(x_0, x_1)$, so the training target has no explicit $t$-dependence), paired with logit-normal $t$ sampling that concentrates training on the useful mid-noise region — quality improves.</p>
 <h3 id="115-flux1-black-forest-labs-2024">11.5　FLUX.1 (Black Forest Labs 2024)</h3>
-<p>Inherits SD3 + MM-DiT with major updates:</p>
-<ul><li>12B parameters (open-source dev version)</li><li><strong>Guidance-distilled</strong>: CFG distilled into a single forward, no 2× CFG forwards at inference</li><li><strong>Adversarial training</strong> late-stage fine-tune (like SD3-Turbo / ADD), 4-step generation</li></ul>
+<p>Inherits SD3 + MM-DiT, released as two separate checkpoints whose properties should not be conflated:</p>
+<ul><li><strong>FLUX.1-dev</strong> (12B, open-weight, non-commercial): <strong>guidance-distilled</strong> — CFG distilled into a single forward, no 2× CFG forwards at inference; still ordinary multi-step sampling (officially recommended ~20-50 steps)</li><li><strong>FLUX.1-schnell</strong> (Apache-2.0): built on dev with an additional <strong>adversarial/latent distillation</strong> step (LADD-like), generates in 1-4 steps and typically no longer needs CFG</li></ul>
 <h3 id="116-controlnet-zhang-2023-iccv">11.6　ControlNet (Zhang 2023 ICCV)</h3>
 <p>Adds a <strong>trainable copy</strong> + <strong>zero-conv</strong> connections to a frozen SD UNet:</p>
 <pre><code>Original UNet (frozen)                   Control signal (canny / depth / pose)
@@ -947,8 +947,8 @@ else:
 <h3 id="124-adversarial-diffusion-distillation-add-sdxl-turbo--ladd-sd3-turbo-sauer-20232024">12.4　Adversarial Diffusion Distillation: ADD (SDXL-Turbo) / LADD (SD3-Turbo) (Sauer 2023/2024)</h3>
 <p><strong>ADD training objective</strong>:</p>
 <p>$$L_\text{ADD} = L_\text{adv}(\text{student}) + \lambda L_\text{distill}(\text{student}, \text{teacher})$$</p>
-<ul><li>$L_\text{adv}$: <strong>ADD (SDXL-Turbo)</strong> uses a pretrained vision model (DINOv2) as the discriminator; <strong>LADD (SD3-Turbo)</strong> instead uses the teacher diffusion-transformer's own latent features as the discriminator (no DINOv2; discrimination happens in latent space)</li><li>$L_\text{distill}$: student multi-step ODE should match teacher multi-step ODE</li></ul>
-<p><strong>Results</strong>: SDXL-Turbo 1-step 1024 px, SD3-Turbo 4-step 1024 px. Quality slightly below multi-step but real-time (~100ms / image).</p>
+<ul><li>$L_\text{adv}$: <strong>ADD (SDXL-Turbo)</strong> uses a pretrained vision model (DINOv2) as the discriminator; <strong>LADD (SD3-Turbo)</strong> instead uses the teacher diffusion-transformer's own latent features as the discriminator (no DINOv2; discrimination happens in latent space)</li><li>$L_\text{distill}$: the student's one-step denoised output $\hat x_\theta(x_s, s)$ is renoised to a randomly sampled higher noise level $t$ to get $x_{\hat x_\theta, t}$; the frozen teacher's denoising prediction $\hat x_\psi(x_{\hat x_\theta, t}, t)$ at that noise level is used as the regression target (a score-distillation / SDS-style signal), not a comparison between the student's and teacher's full multi-step ODE trajectories</li></ul>
+<p><strong>Results</strong>: SDXL-Turbo 1-step 512 px, SD3-Turbo 4-step 1024 px. Quality slightly below multi-step but real-time (~100ms / image).</p>
 <h2 id="13-the-bridge-to-flow-matching">§13 The bridge to Flow Matching</h2>
 <h3 id="131-score-vs-vector-field--same-information-different-parametrization">13.1　Score vs vector field — same information, different parametrization</h3>
 <p>Inside the VP-SDE / VE-SDE framework, FM learning $v$ and score-based learning $s$ are <strong>two parametrizations of the same information</strong>:</p>
@@ -959,7 +959,7 @@ else:
 <p><strong>In practice</strong>: for any Gaussian path with $\alpha(t), \sigma(t)$, the three quantities $\{\epsilon_\theta, s_\theta, v_\theta\}$ are fully equivalent. So training DDPM / score-based / FM on VP/VE paths is the same task.</p>
 <h3 id="132-why-did-sd3--flux-switch-to-rectified-flow">13.2　Why did SD3 / FLUX switch to Rectified Flow?</h3>
 <p><strong>Rectified Flow path</strong>: $x_t = (1-t) x_0 + t x_1$ (linear noise→data interpolation), $v_t = x_1 - x_0$.</p>
-<table><thead><tr><th>Advantage</th><th>RF (linear)</th><th>VP/VE (curved)</th></tr></thead><tbody><tr><td>ODE trajectory</td><td>straight line</td><td>curved (needs higher-order solver)</td></tr><tr><td>Target $v_t$</td><td>doesn't depend on $t$</td><td>depends on $t$ (VP cosine path)</td></tr><tr><td>Few-step sampling</td><td>Euler works at 4-8 steps</td><td>Euler needs 30+ steps</td></tr><tr><td>Reflow compressible to 1-2 steps</td><td>✓ (InstaFlow / SD3-Turbo)</td><td>✗</td></tr><tr><td>Training stability</td><td>stable with logit-normal $t$ + RF</td><td>requires careful noise schedule</td></tr></tbody></table>
+<table><thead><tr><th>Advantage</th><th>RF (linear)</th><th>VP/VE (curved)</th></tr></thead><tbody><tr><td>Conditional path</td><td>straight line (the marginal ODE trajectory can still curve under independent pairing, needs Reflow to straighten)</td><td>curved (needs higher-order solver)</td></tr><tr><td>Target $v_t$</td><td>doesn't depend on $t$</td><td>depends on $t$ (VP cosine path)</td></tr><tr><td>Few-step sampling</td><td>Euler works at 4-8 steps</td><td>Euler needs 30+ steps</td></tr><tr><td>Reflow compressible to 1-2 steps</td><td>✓ (InstaFlow; SD3-Turbo uses LADD, not reflow — see §12.4)</td><td>✗</td></tr><tr><td>Training stability</td><td>stable with logit-normal $t$ + RF</td><td>requires careful noise schedule</td></tr></tbody></table>
 <div class="callout callout-info"><div class="callout-title">One-sentence SD3 ablation conclusion</div><p>"Under the same DiT backbone, RF + logit-normal $t$ improves FID on ImageNet 256 by about 0.5-1.0 over VP + uniform $t$; on T2I tasks, GenEval text alignment is significantly better."</p></div>
 <h3 id="133-ddpmddimedmrfcm-full-picture">13.3　DDPM/DDIM/EDM/RF/CM full picture</h3>
 <pre class="diagram"><code>                Training objective    Sampling                Typical NFE
@@ -969,7 +969,8 @@ else:
  DDIM         (uses DDPM weights)  deterministic ODE step     20-50
  EDM          D_θ (Tweedie)       Heun ODE 2nd-order         18-35
  RF / SD3     v = x_1-x_0         Euler ODE                  4-50
- FLUX         v + CFG-distill     Euler                      1-4
+ FLUX.1-dev      v + CFG-distill  Euler                      ~20-50
+ FLUX.1-schnell  v (distilled)    Euler                      1-4
  ConsistMod   f_θ(x_t,t)→x_0      direct map                 1-4
  LCM-LoRA     consistency on SD   direct                     4-8</code></pre>
 <h2 id="14-25-frequently-asked-interview-questions-l1-must-know--l2-intermediate--l3-top-lab">§14 25 frequently-asked interview questions (L1 must-know · L2 intermediate · L3 top lab)</h2>
@@ -1048,7 +1049,7 @@ else:
 </details>
 <details>
 <summary>Q15. Why did SD3 switch from DDPM to Rectified Flow?</summary>
-<ul><li>The RF path $x_t = (1-t)x_0 + tx_1$ is straight → straight ODE trajectory → small few-step sampling error</li><li>$v_t = x_1 - x_0$ target doesn't depend on $t$ (given $(x_0, x_1)$), numerically stable</li><li>Combined with <strong>logit-normal $t$ sampling</strong> (concentrated at $t=0.5$) for gains</li><li>Esser 2024 ablation: same backbone, RF + LogitNorm vs VP-cosine + Uniform → GenEval text alignment significantly better</li><li>Further reflow can compress to 4 steps (FLUX-Schnell / SD3-Turbo)</li></ul>
+<ul><li>RF's conditional path $x_t = (1-t)x_0 + tx_1$ (given $(x_0, x_1)$) is straight by construction, but the marginal ODE trajectory learned after training (an expectation over independent pairs) typically still has curvature — what actually straightens the generation trajectory and shrinks few-step sampling error is the subsequent Reflow iteration (see below)</li><li>$v_t = x_1 - x_0$ target doesn't depend on $t$ (given $(x_0, x_1)$), numerically stable</li><li>Combined with <strong>logit-normal $t$ sampling</strong> (concentrated at $t=0.5$) for gains</li><li>Esser 2024 ablation: same backbone, RF + LogitNorm vs VP-cosine + Uniform → GenEval text alignment significantly better</li><li>Reflow can further compress to 1-2 steps (InstaFlow); note SD3-Turbo is LADD (§12.4) and FLUX-Schnell's exact distillation recipe is not publicly confirmed — neither should be cited as a reflow example</li></ul>
 <p>Saying only "RF is more stable" without knowing it's because the path is straight; not knowing logit-normal is an additional trick.</p>
 </details>
 <details>
@@ -1138,9 +1139,9 @@ else:
 <details>
 <summary>Q25. Why can SD3 / FLUX be compressed to 4-step / 1-step generation?</summary>
 <p><strong>Core pathway</strong>: <strong>RF (linear path) + Reflow + Distill</strong>. Step-by-step:</p>
-<ol><li><strong>RF makes trajectories straight</strong> — $x_t = (1-t)x_0 + tx_1$, the ODE solution's "ideal curve" is a straight line (linear interpolation), so first-order Euler with long steps has small error (contrast: cosine paths have high curvature near mid-$t$)</li><li><strong>Reflow makes trajectories even straighter</strong> — after first training, run ODE to get coupled $(x_0, x_1)$, then train again; the trajectory converges closer to a straight line. Liu 2022 proves reflow monotonically reduces transport cost</li><li><strong>CFG-distillation</strong> — distill CFG's 2× forward (cond + uncond) into a single forward (FLUX does this); halves NFE</li><li><strong>Adversarial distillation (ADD)</strong> — SD3-Turbo / SDXL-Turbo late-stage fine-tune with DINOv2 discriminator + distill loss, 4-step approaches 30-step quality</li></ol>
+<ol><li><strong>RF's conditional path is straight</strong> — $x_t = (1-t)x_0 + tx_1$ (given $(x_0, x_1)$) has no curvature by construction; but this is only the conditional path used at training time — after a single round of training, the marginal ODE trajectory the network learns (an expectation over independent pairs) typically still has curvature, so first-order Euler with long steps still incurs error (compared to cosine paths' high curvature near mid-$t$, RF is a better starting point, but not the finish line — the actual straightening comes from step 2, Reflow)</li><li><strong>Reflow makes trajectories even straighter</strong> — after first training, run ODE to get coupled $(x_0, x_1)$, then train again; the trajectory converges closer to a straight line. Liu 2022 proves reflow monotonically reduces transport cost</li><li><strong>CFG-distillation</strong> — distill CFG's 2× forward (cond + uncond) into a single forward (FLUX does this); halves NFE</li><li><strong>Adversarial/latent distillation</strong> — SDXL-Turbo uses <strong>ADD</strong> (DINOv2 discriminator, discrimination in pixel/decoded space); SD3-Turbo uses <strong>LADD</strong> (discriminator replaced by the teacher diffusion-transformer's own latent features, no DINOv2, discrimination in latent space); 4-step approaches 30-step quality (consistent with §12.4)</li></ol>
 <p><strong>Vs the DDPM route</strong>: DDPM trajectories have high curvature at mid-$t$ (cosine path), Euler first-order is unusable below 5 steps; you need DPM-Solver-2 second-order + consistency distillation to get to 4 steps. <strong>RF is much more engineering-friendly</strong> — a first-order sampler suffices.</p>
-<p><strong>FLUX-Schnell's 1-step</strong>: RF + reflow + heavy distillation; 1024px single forward generation, ~100ms/image. Cost: slightly reduced controllability / diversity; prompt-following accuracy slightly below multi-step.</p>
+<p><strong>FLUX-Schnell's 1-4 steps</strong>: RF + timestep distillation; 1024px generation in one or a few forward passes, ~100ms/image scale. The exact distillation recipe (whether it includes reflow) is not publicly confirmed. Cost: slightly reduced controllability / diversity; prompt-following accuracy slightly below multi-step.</p>
 <p>Saying only "RF is faster than DDPM" without knowing why; not knowing reflow + distill are two-pronged; thinking FLUX 1-step is solely due to RF (in fact distillation also matters).</p>
 </details>
 <h2 id="a-appendix-core-pytorch-code-from-scratch">§A Appendix: Core PyTorch code (from scratch)</h2>
@@ -1386,12 +1387,15 @@ def edm_heun_sample(D: EDMDenoiser, shape, sigmas: torch.Tensor, device):
         else:
             x = x_euler                                    # final-step Euler
     return x</code></pre>
-<h3 id="a6-probability-flow-ode-simple-euler-solver">A.6　Probability Flow ODE simple Euler solver</h3>
+<h3 id="a6-probability-flow-ode-solver-exact-ddim-update-not-naive-euler">A.6　Probability Flow ODE solver (exact DDIM update, not naive Euler)</h3>
 <pre><code class="language-python">@torch.no_grad()
-def pf_ode_sample_euler(eps_model, sched: DDPMSchedule, shape, device, num_steps: int = 50):
-    &quot;&quot;&quot;PF-ODE Euler sampler under VP view.
+def pf_ode_sample_ddim_exact(eps_model, sched: DDPMSchedule, shape, device, num_steps: int = 50):
+    &quot;&quot;&quot;Samples the PF-ODE under the VP view.
        dx/dt = f(t) x - (1/2) g²(t) s_θ(x, t),  s_θ = -ε_θ / sqrt(1-α_bar_t)
-       In discrete schedule this degenerates to DDIM η=0 + time grid.&quot;&quot;&quot;
+       Note: the update below is the closed-form (exponential-integrator-style) DDIM
+       η=0 solution, not a naive first-order Euler discretization of the continuous
+       drift x_{t-1}=x_t+Δt·drift(x_t,t); the two only coincide when ε_θ is assumed
+       piecewise-constant within each discrete interval.&quot;&quot;&quot;
     # Pick sub-sequence
     step_size = sched.T // num_steps
     timesteps = sorted(set(list(range(0, sched.T, step_size)) + [sched.T - 1]))
@@ -1410,6 +1414,7 @@ def pf_ode_sample_euler(eps_model, sched: DDPMSchedule, shape, device, num_steps
         x = torch.sqrt(alpha_bar_prev) * x0_hat + dir_xt
     return x0_hat</code></pre>
 <h3 id="a7-sanity-check-output-pedagogical-version">A.7　Sanity-check output (pedagogical version)</h3>
+<div class="callout callout-warn"><div class="callout-title">Auditability caveat</div><p>the numbers below are illustrative / hypothetical, meant to show a relative ranking (EDM Heun &lt; DDIM ≈ DDPM, no acceleration &gt; accelerated), not the verified log of an actual training run with scripts you can audit; reproducing them requires running your own toy experiment and keeping the training script, logs, and seed.</p></div>
 <p>Run a 64×64 ImageNet subset toy setup, 2-layer UNet baseline, sched=cosine, T=1000:</p>
 <pre><code>[a] q_sample shape ok, σ_t variance ≈ 1-α_bar_t  ✓
 [b] simple loss converges (5k steps): 0.42 → 0.18  ✓
@@ -1418,15 +1423,15 @@ def pf_ode_sample_euler(eps_model, sched: DDPMSchedule, shape, device, num_steps
 [e] DDIM 50-step (η=1):    FID  (toy) ~ 22.7  ← η=1 matches DDPM variance, not strict 1000-step DDPM
 [f] CFG w=7.5 conditional: visually significant text-alignment boost ✓
 [g] EDM Heun 35-NFE:       FID  (toy) ~ 18.3  ← much better than DDIM 50
-[h] PF-ODE Euler 50-step:  numerically agrees with DDIM η=0 ✓</code></pre>
+[h] PF-ODE 50-step (DDIM closed form): numerically agrees with DDIM η=0 by construction (same update rule) ✓</code></pre>
 <p>Main references: Ho 2020 (DDPM, NeurIPS), Nichol-Dhariwal 2021 (Improved DDPM, ICML), Song-Ermon 2019 (NCSN, NeurIPS), Song 2021 (Score SDE, ICLR), Song 2020 arXiv / ICLR 2021 (DDIM), Karras 2022 (EDM, NeurIPS), Lu 2022/2023 (DPM-Solver / DPM-Solver++), Ho-Salimans 2022 arXiv (CFG; short version: NeurIPS 2021 Workshop on DGMs), Dhariwal-Nichol 2021 (Classifier Guidance, NeurIPS), Rombach 2022 (LDM/SD, CVPR), Podell 2023 arXiv / ICLR 2024 (SDXL), Esser 2024 (SD3, ICML), Peebles-Xie 2023 (DiT, ICCV), Zhang 2023 (ControlNet, ICCV), Song 2023 (Consistency Models, ICML), Luo 2023 (LCM, arXiv), Sauer 2023/2024 (SDXL-Turbo / SD3-Turbo, arXiv).</p>
 <p><strong>Diffusion Foundations Cheat Sheet</strong> · formulas + from-scratch code + 25 frequently-asked questions (L1 must-know · L2 intermediate · L3 top lab)</p>
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_foundations_tutorial_en.md</code> ·
-  SHA256 <code>472f945ffb06</code> ·
-  generated at 2026-06-29 10:11 UTC.
+  SHA256 <code>c059813e5a32</code> ·
+  generated at 2026-07-13 10:17 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

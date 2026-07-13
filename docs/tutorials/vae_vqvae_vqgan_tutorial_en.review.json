@@ -1,30 +1,51 @@
 {
-  "skill": "interview-cheatsheet (EN translation-fidelity)",
-  "source": "docs/tutorials/vae_vqvae_vqgan_tutorial_en.md",
-  "source_sha256": "dd163f95024f8af9e32b70b615509f7acf9ed59024b6873209eb28d017cc7edb",
-  "output": "docs/tutorials/vae_vqvae_vqgan_tutorial_en.html",
-  "zh_source": "docs/tutorials/vae_vqvae_vqgan_tutorial.md",
-  "reviewer": "codex gpt-5.5 xhigh, fresh thread",
+ "skill": "interview-cheatsheet (EN translation-fidelity)",
+ "source": "docs/tutorials/vae_vqvae_vqgan_tutorial_en.md",
+ "source_sha256": "21bfbdac6eba97838fdf1405f8e030fd74465588b3661114507913b54a4f3019",
+ "output": "docs/tutorials/vae_vqvae_vqgan_tutorial_en.html",
+ "zh_source": "docs/tutorials/vae_vqvae_vqgan_tutorial.md",
+ "reviewer": "codex gpt-5.5 xhigh, fresh thread",
+ "verdict": "WARN",
+ "thread_id": "019e7d10-1fbd-7432-8f58-b59cf7dece08",
+ "translation_fidelity_review": {
   "verdict": "WARN",
   "thread_id": "019e7d10-1fbd-7432-8f58-b59cf7dece08",
-  "translation_fidelity_review": {
-    "verdict": "WARN",
-    "thread_id": "019e7d10-1fbd-7432-8f58-b59cf7dece08",
-    "phase": "B3 re-verify (post fix)",
-    "date": "2026-05-31",
-    "issues": [
-      "Cosmetic (non-factual) markup drift: in the Q19 pitfalls section, ZH uses inline math $\\arg\\max$, while the EN .md and .html render it as plain text 'argmax'. Meaning preserved; formula markup not identical."
-    ],
-    "summary": "Fresh cross-model GPT-5.5 xhigh translation-fidelity verify of docs/tutorials/vae_vqvae_vqgan_tutorial_en.{md,html} against the ZH source of truth docs/tutorials/vae_vqvae_vqgan_tutorial.md. Verdict: WARN. (a) The §9.5 FSQ fix LANDED in BOTH the EN .md and EN .html: the `levels` docstring no longer imposes any parity constraint — it states odd OR even level counts both work, with odd merely preferred because it guarantees 0 is included (matching ZH); no remaining \"must be odd\"/\"even invalid\" wording. (b) Otherwise faithful: Codex confirmed matching line counts, sections, display formulas, code"
+  "phase": "B3 re-verify (post fix)",
+  "date": "2026-05-31",
+  "issues": [
+   "Cosmetic (non-factual) markup drift: in the Q19 pitfalls section, ZH uses inline math $\\arg\\max$, while the EN .md and .html render it as plain text 'argmax'. Meaning preserved; formula markup not identical."
+  ],
+  "summary": "Fresh cross-model GPT-5.5 xhigh translation-fidelity verify of docs/tutorials/vae_vqvae_vqgan_tutorial_en.{md,html} against the ZH source of truth docs/tutorials/vae_vqvae_vqgan_tutorial.md. Verdict: WARN. (a) The §9.5 FSQ fix LANDED in BOTH the EN .md and EN .html: the `levels` docstring no longer imposes any parity constraint — it states odd OR even level counts both work, with odd merely preferred because it guarantees 0 is included (matching ZH); no remaining \"must be odd\"/\"even invalid\" wording. (b) Otherwise faithful: Codex confirmed matching line counts, sections, display formulas, code"
+ },
+ "rendered_at": "2026-05-31",
+ "post_ship_review": [
+  {
+   "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+   "verdict": "FIXED",
+   "date": "2026-06-29",
+   "fix": "Blau & Michaeli venue corrected ICML 2018 to CVPR 2018 (Perception-Distortion Tradeoff), x2; Gumbel-Max section 8.2 notation made self-consistent under the logits reading (dropped the spurious log on pi, matching the softmax(pi) result and the code). (EN edition mirrors the ZH fix.)",
+   "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
   },
-  "rendered_at": "2026-05-31",
-  "post_ship_review": [
-    {
-      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
-      "verdict": "FIXED",
-      "date": "2026-06-29",
-      "fix": "Blau & Michaeli venue corrected ICML 2018 to CVPR 2018 (Perception-Distortion Tradeoff), x2; Gumbel-Max section 8.2 notation made self-consistent under the logits reading (dropped the spurious log on pi, matching the softmax(pi) result and the code). (EN edition mirrors the ZH fix.)",
-      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
-    }
-  ]
+  {
+   "scope": "2026-07-13 full-collection re-sweep (diffusion cluster): Codex GPT-5.6-sol candidate-finding pass + independent Claude Sonnet 5 adversarial verification (attempted to refute every candidate; only load-bearing findings kept)",
+   "verdict": "FIXED",
+   "date": "2026-07-13",
+   "fix": "8 findings verified (8 CONFIRMED, 0 REFUTED) and applied as natural-English translations of the same substantive fixes landed in the ZH source (no new content introduced).",
+   "fixes": [
+    "§0 TL;DR bullet 7: FSQ level-count / codebook-size self-contradiction fixed, and the 'no need for STE' overclaim corrected (round is non-differentiable, still needs a one-line STE)",
+    "§5.3 Free bits callout + Q12: corrected overclaim that the clamp guarantees raw KL >= lambda — it only zeroes the gradient below threshold, true KL can still collapse toward 0",
+    "§7.5 LPIPS + Q18: corrected overclaim that LPIPS is standard for diffusion *denoiser* training — it is standard for the VQ-GAN/SD-family VAE tokenizer stage and most image GANs, not the denoiser itself",
+    "§8.2: DALL·E 2 corrected from 'leans toward VQ-GAN' to unCLIP (CLIP embedding prior + diffusion decoder, no VQ-GAN tokens)",
+    "§9.3 + Q9: softened FSQ 'guaranteed full grid coverage' to an empirical near-100%-usage regularity, not a mathematical guarantee",
+    "§9.2 formula + §9.5 code: fixed FSQ bounding — parity shift now added on tanh's input side (atanh-derived) with an eps safety margin, matching Mentzer et al. 2024 and removing the docstring/constructor inconsistency (eps was documented but never implemented)",
+    "§11.2 ecosystem diagram: DALL·E 1 moved off the VQ-GAN row onto its own dVAE row; OpenMagViT2 moved from the FSQ row to the LFQ row (matching the tutorial's own §9.7 table)",
+    "§9.6 LFQ entropy regularization prose + code: corrected to the real two-term mechanism (minimize per-sample entropy for confident bits, maximize batch-aggregate entropy for balanced code usage, plus commitment), replacing the previous single-term formulation that pushed every sample toward the least-confident 50/50 point"
+   ],
+   "note": "Verification and fixes applied to vae_vqvae_vqgan_tutorial_en.md alongside the ZH source in the same pass; this is a translation-fidelity mirror, not an independent EN-only review round. Re-rendered HTML, refreshed source_sha256 (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+  },
+  {
+   "date": "2026-07-13",
+   "note": "2026-07-13 follow-up: mirrored the ZH OpenMagViT2/FSQ-vs-LFQ consistency fix."
+  }
+ ]
 }

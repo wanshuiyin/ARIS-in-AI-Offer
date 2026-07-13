@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/3d_generation_tutorial.md">
-<meta name="aris:source-sha256" content="279221f16647dd2f61d80d5aa546d6e6da41c209574392cdc36b776944a0f65d">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="b3aed31c1377ffdb13af4f02612310d3687fad97d3e5f16b58710258132aca3c">
+<meta name="aris:generated-at" content="2026-07-13 10:05 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -536,7 +536,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#28-neus--volsdf体渲染--sdf导出-mesh-的关键">2.8　NeuS / VolSDF：体渲染 + SDF（导出 mesh 的关键）</a></li>
 </ul>
 </li>
-<li><a href="#3-instant-ngp5-oom-加速必考">§3 Instant-NGP：5+ OOM 加速（必考）</a>
+<li><a href="#3-instant-ngp约-4-个数量级加速必考">§3 Instant-NGP：约 4+ 个数量级加速（必考）</a>
 <ul>
 <li><a href="#31-核心-idea多分辨率-hash-网格">3.1　核心 idea：多分辨率 hash 网格</a></li>
 <li><a href="#32-hash-function">3.2　Hash function</a></li>
@@ -629,18 +629,18 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/3d_generation_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>279221f16647</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>b3aed31c1377</code></span>
+    <span><strong>Rendered:</strong> 2026-07-13 10:05 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
 <div class="callout callout-info"><div class="callout-title">9 句话搞定 3D Generation</div><p>Embodied AI / AR / VR 面试核心要点（详见后文 §1–§11 推导）。</p></div>
-<ol><li><strong>三大表示</strong>：<strong>NeRF</strong>（隐式神经场 + 体渲染）、<strong>3DGS</strong>（显式 Gaussian 点云 + 光栅化）、<strong>Mesh / SDF</strong>（显式表面 / 隐式距离场）。重建质量与速度的 sweet spot：3DGS（Kerbl 2023 SIGGRAPH Best Paper）。</li><li><strong>NeRF 核心公式</strong>：$C(\mathbf{r}) = \int_{t_n}^{t_f} T(t)\sigma(\mathbf{r}(t))\mathbf{c}(\mathbf{r}(t),\mathbf{d})\,dt$，其中 $T(t) = \exp\!\left(-\int_{t_n}^{t}\sigma(\mathbf{r}(s))\,ds\right)$ 是 transmittance。离散化得到 $\alpha$-compositing：$C \approx \sum_i T_i (1-e^{-\sigma_i\delta_i})\mathbf{c}_i$。</li><li><strong>Instant-NGP</strong> (Müller 2022 SIGGRAPH)：<strong>多分辨率 hash 网格</strong> + tiny MLP，5+ OOM 加速；hash collision 由 MLP 在含碰撞表项上自动学习消歧（被 loss + 多尺度冗余共同压制）。</li><li><strong>3DGS 核心</strong>：场景表示为一组 3D Gaussian $\{\mu_i, \Sigma_i, \alpha_i, c_i(\mathbf{d})\}$，<strong>可微光栅化</strong>通过将 3D 协方差用 Jacobian $J$ 投影到 2D：$\Sigma' = J W \Sigma W^\top J^\top$，按深度排序后做 front-to-back alpha-blending。</li><li><strong>DreamFusion SDS</strong> (Poole et al. 2022 arXiv → ICLR 2023 Outstanding)：用 pretrained 2D diffusion 监督 3D 表示：$\nabla_\theta \mathcal{L}_\text{SDS} = \mathbb{E}_{t,\epsilon}[w(t)(\epsilon_\phi(x_t;y,t)-\epsilon)\,\partial x/\partial \theta]$，<strong>故意去掉 U-Net 对 $x_t$ 求导的 Jacobian 项</strong>，使得训练 simulation-free。代价：mode-seeking → over-saturation / Janus。</li><li><strong>VSD</strong> (Wang 2023 NeurIPS, ProlificDreamer)：把 3D 参数 $\theta$ 视为 random variable $\mu(\theta)$，<strong>最小化的是渲染加噪图像分布</strong>之间的 KL：$\mathbb{E}_t\big[D_\text{KL}\big(q_\mu^t(x_t|y)\,\|\,p_\phi^t(x_t|y)\big)\big]$。梯度形式为 <strong>relative score</strong> $\nabla_\theta \approx (\epsilon_\phi(x_t;y,t) - \epsilon_\psi(x_t;y,t,\pi))\,\partial x/\partial\theta$，其中 $\epsilon_\psi$ 是 LoRA 微调的辅助 score。CFG 可从 100 降至 7.5。</li><li><strong>Single-image / Few-view 3D</strong>：Zero-1-to-3 (Liu 2023 ICCV) 用 viewpoint conditioned diffusion；SyncDreamer / MVDream 学多视图联合一致性；TripoSR / InstantMesh / Stable Fast 3D 把 image-to-mesh 推到秒级（TripoSR ~0.5 秒、InstantMesh ~10 秒）。</li><li><strong>3D Foundation Models (2024-25 开源)</strong>：<strong>Trellis</strong> (Microsoft 2024) 用 structured latent + flow matching；<strong>Hunyuan3D-2</strong> (Tencent 2025) shape→texture 两阶段；<strong>CLAY</strong> (Zhang 2024 SIGGRAPH, arXiv:2406.13897) 大尺度 latent diffusion = 多分辨率 VAE + latent DiT。</li><li><strong>Embodied AI 关键应用</strong>：Sim2Real 资产生成、NeRF/3DGS 作为可微 simulator、language-conditioned 3D affordance。<strong>面试常见交叉</strong>：NeRF SLAM、Gaussian-Splat scene editing、3D 物理一致性。</li></ol>
+<ol><li><strong>三大表示</strong>：<strong>NeRF</strong>（隐式神经场 + 体渲染）、<strong>3DGS</strong>（显式 Gaussian 点云 + 光栅化）、<strong>Mesh / SDF</strong>（显式表面 / 隐式距离场）。重建质量与速度的 sweet spot：3DGS（Kerbl 2023 SIGGRAPH Best Paper）。</li><li><strong>NeRF 核心公式</strong>：$C(\mathbf{r}) = \int_{t_n}^{t_f} T(t)\sigma(\mathbf{r}(t))\mathbf{c}(\mathbf{r}(t),\mathbf{d})\,dt$，其中 $T(t) = \exp\!\left(-\int_{t_n}^{t}\sigma(\mathbf{r}(s))\,ds\right)$ 是 transmittance。离散化得到 $\alpha$-compositing：$C \approx \sum_i T_i (1-e^{-\sigma_i\delta_i})\mathbf{c}_i$。</li><li><strong>Instant-NGP</strong> (Müller 2022 SIGGRAPH)：<strong>多分辨率 hash 网格</strong> + tiny MLP，约 4+ 个数量级加速；hash collision 由 MLP 在含碰撞表项上自动学习消歧（被 loss + 多尺度冗余共同压制）。</li><li><strong>3DGS 核心</strong>：场景表示为一组 3D Gaussian $\{\mu_i, \Sigma_i, \alpha_i, c_i(\mathbf{d})\}$，<strong>可微光栅化</strong>通过将 3D 协方差用 Jacobian $J$ 投影到 2D：$\Sigma' = J W \Sigma W^\top J^\top$，按深度排序后做 front-to-back alpha-blending。</li><li><strong>DreamFusion SDS</strong> (Poole et al. 2022 arXiv → ICLR 2023 Outstanding)：用 pretrained 2D diffusion 监督 3D 表示：$\nabla_\theta \mathcal{L}_\text{SDS} = \mathbb{E}_{t,\epsilon}[w(t)(\epsilon_\phi(x_t;y,t)-\epsilon)\,\partial x/\partial \theta]$，<strong>故意去掉 U-Net 对 $x_t$ 求导的 Jacobian 项</strong>，使得训练 simulation-free。代价：mode-seeking → over-saturation / Janus。</li><li><strong>VSD</strong> (Wang 2023 NeurIPS, ProlificDreamer)：把 3D 参数 $\theta$ 视为 random variable $\mu(\theta)$，<strong>最小化的是渲染加噪图像分布</strong>之间的 KL：$\mathbb{E}_t\big[D_\text{KL}\big(q_\mu^t(x_t|y)\,\|\,p_\phi^t(x_t|y)\big)\big]$。梯度形式为 <strong>relative score</strong> $\nabla_\theta \approx (\epsilon_\phi(x_t;y,t) - \epsilon_\psi(x_t;y,t,\pi))\,\partial x/\partial\theta$，其中 $\epsilon_\psi$ 是 LoRA 微调的辅助 score。CFG 可从 100 降至 7.5。</li><li><strong>Single-image / Few-view 3D</strong>：Zero-1-to-3 (Liu 2023 ICCV) 用 viewpoint conditioned diffusion；SyncDreamer / MVDream 学多视图联合一致性；TripoSR / InstantMesh / Stable Fast 3D 把 image-to-mesh 推到秒级（TripoSR ~0.5 秒、InstantMesh ~10 秒）。</li><li><strong>3D Foundation Models (2024-25 开源)</strong>：<strong>Trellis</strong> (Microsoft 2024) 用 structured latent + flow matching；<strong>Hunyuan3D-2</strong> (Tencent 2025) shape→texture 两阶段；<strong>CLAY</strong> (Zhang 2024 SIGGRAPH, arXiv:2406.13897) 大尺度 latent diffusion = 多分辨率 VAE + latent DiT。</li><li><strong>Embodied AI 关键应用</strong>：Sim2Real 资产生成、NeRF/3DGS 作为可微 simulator、language-conditioned 3D affordance。<strong>面试常见交叉</strong>：NeRF SLAM、Gaussian-Splat scene editing、3D 物理一致性。</li></ol>
 <h2 id="1-三大表示的直觉对比">§1 三大表示的直觉对比</h2>
 <p>3D 生成的第一选择题是 <strong>representation</strong>——选错了下游全废。</p>
-<table><thead><tr><th></th><th>NeRF (Implicit Field)</th><th>3DGS (Explicit Point)</th><th>Mesh / SDF</th></tr></thead><tbody><tr><td><strong>存储</strong></td><td>MLP 权重 $f_\theta(\mathbf{x},\mathbf{d}) \to (\sigma, \mathbf{c})$</td><td>一堆 3D Gaussian $\{\mu_i, \Sigma_i, \alpha_i, c_i\}$</td><td>三角网格 / signed distance</td></tr><tr><td><strong>渲染</strong></td><td>Ray marching + 体积分（GPU 数百 ms/帧）</td><td>Differentiable rasterization（GPU 数 ms/帧）</td><td>Rasterization（实时）</td></tr><tr><td><strong>训练</strong></td><td>数百视图，数小时 (vanilla)</td><td>数十视图，10-30 分钟</td><td>需要 mesh + texture optim</td></tr><tr><td><strong>质量</strong></td><td>视图合成 SOTA</td><td>与 NeRF 持平甚至更好（PSNR 高）</td><td>受多边形分辨率制约</td></tr><tr><td><strong>编辑</strong></td><td>困难（神经场不可解释）</td><td>容易（点可移动、删除、合并）</td><td>容易（标准 DCC 流程）</td></tr><tr><td><strong>导出 mesh</strong></td><td>难（需 NeuS / Poisson）</td><td>中等（2DGS / GSDF / SuGaR）</td><td>自身就是 mesh</td></tr><tr><td><strong>下游适配</strong></td><td>物理仿真不友好</td><td>容易接 PBR、IsaacSim、URDF</td><td>标准 robot / AR/VR pipeline</td></tr></tbody></table>
+<table><thead><tr><th></th><th>NeRF (Implicit Field)</th><th>3DGS (Explicit Point)</th><th>Mesh / SDF</th></tr></thead><tbody><tr><td><strong>存储</strong></td><td>MLP 权重 $f_\theta(\mathbf{x},\mathbf{d}) \to (\sigma, \mathbf{c})$</td><td>一堆 3D Gaussian $\{\mu_i, \Sigma_i, \alpha_i, c_i\}$</td><td>三角网格 / signed distance</td></tr><tr><td><strong>渲染</strong></td><td>Ray marching + 体积分（GPU 数百 ms/帧）</td><td>Differentiable rasterization（GPU 数 ms/帧）</td><td>Rasterization（实时）</td></tr><tr><td><strong>训练</strong></td><td>数百视图，数小时 (vanilla)</td><td>数十视图，10-30 分钟</td><td>需要 mesh + texture optim</td></tr><tr><td><strong>质量</strong></td><td>视图合成 SOTA</td><td>与 NeRF 持平甚至更好（PSNR 高）</td><td>受多边形分辨率制约</td></tr><tr><td><strong>编辑</strong></td><td>困难（神经场不可解释）</td><td>容易（点可移动、删除、合并）</td><td>容易（标准 DCC 流程）</td></tr><tr><td><strong>导出 mesh</strong></td><td>难（需 NeuS / Poisson）</td><td>中等（2DGS / GSDF / SuGaR）</td><td>自身就是 mesh</td></tr><tr><td><strong>下游适配</strong></td><td>物理仿真不友好</td><td>需先转 mesh（无碰撞体/材质/物理参数）；标准 robot/物理仿真管线仍以 mesh 为主</td><td>标准 robot / AR/VR pipeline</td></tr></tbody></table>
 <div class="callout callout-info"><div class="callout-title">面试直觉</div><p>Embodied AI 倾向 mesh / 3DGS（仿真器友好）；AR/VR 看场景规模（前景小物 mesh，大场景 3DGS）；视觉重建 SOTA 用 3DGS。NeRF 现在偏 research baseline，工业落地以 3DGS 为主。</p></div>
 <h2 id="2-nerf体渲染原理推导必考">§2 NeRF：体渲染原理推导（必考）</h2>
 <h3 id="21-连续体渲染公式">2.1　连续体渲染公式</h3>
@@ -723,7 +723,7 @@ def volume_render(sigma: torch.Tensor, color: torch.Tensor, t_vals: torch.Tensor
 <p>$$\sigma(t) = \max\!\left(\frac{-\frac{d}{dt}\Phi_s(d(\mathbf{r}(t)))}{\Phi_s(d(\mathbf{r}(t)))},\; 0\right),\quad \Phi_s(d) = (1 + e^{-sd})^{-1}$$</p>
 <p>其中 $\Phi_s$ 是 sigmoid，$s$ 是可学习"sharpness"。性质：表面处（$d=0$）权重峰值；可直接 Marching Cubes 提 mesh（mesh 是 $\{d = 0\}$）。</p>
 <p><strong>VolSDF</strong> (Yariv 2021 NeurIPS) 用 Laplace CDF $\sigma = \alpha\,\Phi(-d/\beta)$，思想类似。</p>
-<h2 id="3-instant-ngp5-oom-加速必考">§3 Instant-NGP：5+ OOM 加速（必考）</h2>
+<h2 id="3-instant-ngp约-4-个数量级加速必考">§3 Instant-NGP：约 4+ 个数量级加速（必考）</h2>
 <p>NeRF (vanilla) 训练一个场景要 1-2 天。<strong>Instant-NGP</strong> (Müller 2022 SIGGRAPH <strong>Best Paper</strong>) 5 秒就能拟合一个简单场景。</p>
 <h3 id="31-核心-idea多分辨率-hash-网格">3.1　核心 idea：多分辨率 hash 网格</h3>
 <p>把"密集网格 vs 大 MLP"换成"<strong>稀疏 hash 网格 + tiny MLP</strong>"。</p>
@@ -733,7 +733,7 @@ def volume_render(sigma: torch.Tensor, color: torch.Tensor, t_vals: torch.Tensor
 <p>$\pi_i$ 是互质的大常数（论文取 $\pi_1 = 1, \pi_2 = 2654435761, \pi_3 = 805459861$——注意 $\pi_1 = 1$ 并非质数，是论文有意设的，使第一维直接映射不打散）。 $\oplus$ 是 XOR。这是一种 <strong>spatial hash</strong>：常用于物理仿真的 BVH。</p>
 <h3 id="33-hash-collision-怎么消歧l3-高频追问">3.3　Hash collision 怎么消歧？（<strong>L3 高频追问</strong>）</h3>
 <p>当 $N_\ell^d &gt; T$（fine level 必然发生），多个格点映到同一表项 → 冲突。Why does it still work?</p>
-<ol><li><strong>Multi-resolution 冗余</strong>：粗 level 的特征 unique（$N_\ell^d \le T$），细 level 提供补充。MLP 可从粗特征恢复结构，细 level 只负责 detail。</li><li><strong>稀疏性优先</strong>：大部分空间是空（NeRF 场景多数 voxel 是 background），有意义的 query 集中在表面附近，冲突的"有效格点对"很少。</li><li><strong>梯度自动消歧</strong>：训练时只有表面附近格点会有非零梯度（被 ray weights 加权）。空白区的"冲突 entry"得不到梯度信号，不污染表面 entry。</li><li><strong>MLP 后处理</strong>：tiny MLP 在 $L \times F$ 拼接特征上学一个分类/回归，遇到冲突的表面点可用 <strong>其他 level 不冲突的特征</strong> disambiguate。</li></ol>
+<ol><li><strong>Multi-resolution 冗余</strong>：粗 level 的特征 unique（$N_\ell^d \le T$），细 level 提供补充。MLP 可从粗特征恢复结构，细 level 只负责 detail。</li><li><strong>稀疏性优先</strong>：大部分空间是空（NeRF 场景多数 voxel 是 background），有意义的 query 集中在表面附近，冲突的"有效格点对"很少。</li><li><strong>梯度自动消歧</strong>：训练早期空白区采样点若密度非零，仍会通过体渲染 photometric loss 获得梯度（梯度幅度 $\propto \delta_i e^{-\sigma_i\delta_i}$，方向是把 $\sigma$ 压向 0）；随着 $\sigma\to 0$ 该梯度幅度自然衰减，且 occupancy grid 更新后会跳过该处后续采样，才真正不再产生梯度信号——不是"从一开始就得不到梯度"。</li><li><strong>MLP 后处理</strong>：tiny MLP 在 $L \times F$ 拼接特征上学一个分类/回归，遇到冲突的表面点可用 <strong>其他 level 不冲突的特征</strong> disambiguate。</li></ol>
 <div class="callout callout-info"><div class="callout-title">面试高分回答</div><p>"Hash collision 看似破坏 unique 性，但<strong>实际生效区域是稀疏的</strong>（场景的 thin surface 仅占 voxel 总数极小比例），冲突区域大概率是无监督信号的 background；即便表面也有冲突，多分辨率层的非冲突特征 + tiny MLP 也能学到一致输出。这是个 <strong>'lazy collision resolution'</strong>：与其代价昂贵地搞 perfect hash，不如用冗余 + 数据驱动消歧。"</p></div>
 <h3 id="34-instant-ngp-训练公式">3.4　Instant-NGP 训练公式</h3>
 <p>参数：hash table $\theta_\text{hash} \in \mathbb{R}^{L \times T \times F}$ + MLP weights $\theta_\text{MLP}$。Loss 仍是 photometric MSE，但训练 5 秒 vs NeRF 1 天的差别来自：</p>
@@ -851,7 +851,7 @@ def gaussian_splat_forward(
 <div class="callout callout-warn"><div class="callout-title">教学版 vs 生产版差距</div><p>上面是 $O(N \cdot HW)$，30k Gaussian + 800×800 图就要好几秒。真实 <code>gsplat</code> 是 (a) tile-based: 每 tile 只处理"接触此 tile"的 Gaussian；(b) GPU radix sort 复合键；(c) 整个 forward / backward 全 manual CUDA，1080p ≤ 10ms。</p></div>
 <h3 id="45-自适应密度控制面试常问">4.5　自适应密度控制（<strong>面试常问</strong>）</h3>
 <p>3DGS 初始用 SfM (COLMAP) 稀疏点云，但训练过程要"撒"出更多 Gaussian。</p>
-<table><thead><tr><th>触发条件</th><th>操作</th><th>直觉</th></tr></thead><tbody><tr><td><strong>梯度大 + scale 小</strong></td><td><strong>clone</strong>（复制一份，沿梯度方向偏移）</td><td>"under-reconstruction"——这块区域缺细节</td></tr><tr><td><strong>梯度大 + scale 大</strong></td><td><strong>split</strong>（拆成 2 个小 Gaussian，scale ÷ 1.6）</td><td>"over-reconstruction"——一个大 Gaussian 覆盖了不该覆盖的区域</td></tr><tr><td><strong>opacity 接近 0</strong></td><td><strong>prune</strong>（删除）</td><td>该 Gaussian 没贡献，浪费显存</td></tr><tr><td><strong>每 3k iter</strong></td><td>reset opacities to 0.005</td><td>让 model 重新学透明度，防止 floater</td></tr></tbody></table>
+<table><thead><tr><th>触发条件</th><th>操作</th><th>直觉</th></tr></thead><tbody><tr><td><strong>梯度大 + scale 小</strong></td><td><strong>clone</strong>（原地复制一份：new_xyz = 原 xyz，无显式沿梯度偏移；两个重合 Gaussian 靠后续独立梯度下降自然分开）</td><td>"under-reconstruction"——这块区域缺细节</td></tr><tr><td><strong>梯度大 + scale 大</strong></td><td><strong>split</strong>（真正采样新位置的一步：以原 Gaussian 的 scale 当标准差做 torch.normal 采样 + 旋转，再把 scale ÷ 1.6，拆成 2 个小 Gaussian）</td><td>"over-reconstruction"——一个大 Gaussian 覆盖了不该覆盖的区域</td></tr><tr><td><strong>opacity 接近 0</strong></td><td><strong>prune</strong>（删除）</td><td>该 Gaussian 没贡献，浪费显存</td></tr><tr><td><strong>每 3k iter</strong></td><td>reset opacities to 0.01（0.005 是下面 prune 用的 min_opacity 阈值，两者不是同一个数）</td><td>让 model 重新学透明度，防止 floater</td></tr></tbody></table>
 <p>启发式条件：<code>gradient norm &gt; τ_pos</code>（如 $2 \times 10^{-4}$），<code>scale &gt; τ_scale</code>（场景尺度 1%）。</p>
 <pre><code class="language-python">def densify_and_prune(gaussians, grad_thresh=2e-4, scale_thresh=0.01,
                       max_screen_size=None):
@@ -862,7 +862,6 @@ def gaussian_splat_forward(
           scales:         [N, 3]  log-scale
           opacities:      [N]  sigmoid 后 ∈ (0, 1)
           screen_size:    [N]  最近一次渲染的屏幕投影大小（可选）
-          grad_dir:       [N, 3]  最近一次梯度方向（用于 clone offset）
     &quot;&quot;&quot;
     grad_norm  = gaussians.xyz_grad_accum / gaussians.denom.clamp(min=1)      # [N]
     mean_scale = gaussians.scales.exp().max(dim=-1).values                    # [N]
@@ -873,10 +872,13 @@ def gaussian_splat_forward(
     clone_mask = (grad_norm &gt; grad_thresh) &amp; (mean_scale &lt;= scale_thresh)     # [N]
     split_mask = (grad_norm &gt; grad_thresh) &amp; (mean_scale &gt;  scale_thresh)     # [N]
 
-    # CLONE：高梯度 + 小 scale —— 复制一份并沿梯度方向偏移；原始保留（append 到末尾）
-    gaussians.clone_at(clone_mask, offset=gaussians.grad_dir[clone_mask])
+    # CLONE：高梯度 + 小 scale —— 原地复制一份（new_xyz = 原 xyz，不做位置偏移）；
+    # 原始保留（append 到末尾），两个重合的 Gaussian 靠后续独立梯度下降自然分开
+    gaussians.clone_at(clone_mask)
 
-    # SPLIT：高梯度 + 大 scale —— 拆成 2 个子高斯（scale ÷ 1.6），并在末尾删除原始
+    # SPLIT：高梯度 + 大 scale —— 才是真正采样新位置的一步：以原 Gaussian 的 scale 为
+    # 标准差做 torch.normal 采样 + 旋转得到新位置，再把 scale ÷ 1.6，拆成 2 个子高斯，
+    # 并在末尾删除原始
     # split_at 显式只作用于原始 N 个：传 original_n，不依赖 append 后的数组长度隐式对齐
     gaussians.split_at(split_mask, n=2, scale_div=1.6, original_n=split_mask.shape[0])
 
@@ -914,7 +916,7 @@ def gaussian_splat_forward(
 <div class="callout callout-warn"><div class="callout-title">NeRF 提 mesh 坑</div><p>vanilla NeRF 没有"表面"概念，提 mesh 时阈值 $\tau$ 难选，且 floater 会被一起提出来。<strong>用 NeuS / VolSDF 提 mesh 才稳</strong>（SDF 0 等值面定义良好）。</p></div>
 <h3 id="52-differentiable-dmtet--flexicubes端到端学-mesh">5.2　Differentiable: DMTet / FlexiCubes（端到端学 mesh）</h3>
 <p>Marching Cubes 不可微（lookup table 离散）。</p>
-<ul><li><strong>DMTet</strong> (Shen 2021 NeurIPS / Munkberg 2022 CVPR)：用 <strong>deformable tetrahedral grid</strong>，每四面体 4 顶点 SDF + 位置 offset 可微。<strong>Marching Tetrahedra</strong> 替代 MC，topology 由 SDF sign 决定，几何由顶点位置决定，<strong>全程可微</strong>。</li><li><strong>FlexiCubes</strong> (Shen 2023 SIGGRAPH)：泛化 dual marching cubes，引入额外可学参数（dual vertex offset / interpolation weight）解决 quality artifacts。</li></ul>
+<ul><li><strong>DMTet</strong> (Shen 2021 NeurIPS / Munkberg 2022 CVPR)：用 <strong>deformable tetrahedral grid</strong>，每四面体 4 顶点 SDF + 位置 offset 可微。<strong>Marching Tetrahedra</strong> 替代 MC，topology 由 SDF sign 决定，几何由顶点位置决定：在拓扑不变的区域内，几何（顶点位置）对 SDF 值和偏移量<strong>可微</strong>；但顶点 SDF 跨越零点、引发该四面体 look-up case 切换的瞬间，拓扑本身<strong>不可微</strong>（测度零集合，类似 ReLU 在 0 点的 kink），不应无条件称"全程可微"。</li><li><strong>FlexiCubes</strong> (Shen 2023 SIGGRAPH)：泛化 dual marching cubes，引入额外可学参数（dual vertex offset / interpolation weight）解决 quality artifacts。</li></ul>
 <p><strong>典型用法</strong>：DreamFusion 之后的 Magic3D、Fantasia3D 用 DMTet 在 SDS 监督下学 mesh + texture。</p>
 <h2 id="6-sds-loss用-2d-diffusion-监督-3ddreamfusion-系列">§6 SDS Loss：用 2D Diffusion 监督 3D（DreamFusion 系列）</h2>
 <h3 id="61-问题设置">6.1　问题设置</h3>
@@ -986,10 +988,10 @@ def gaussian_splat_forward(
 <p>$$\min_{\mu}\; D_\text{KL}\!\Big(q_\mu^t(x_t|y)\;\Big\|\;p_\phi^t(x_t|y)\Big),\quad t\sim\mathcal{U}[0,1]$$</p>
 <p>其中 $q_\mu^t$ 是 "从 $\theta\sim\mu$ 渲染 + 加噪到 $t$" 诱导的分布。<strong>变分梯度</strong>（Wang et al. 2023, Theorem 2 略写）给出关于 $\theta$ 的更新方向为 <strong>relative score</strong>：</p>
 <p>$$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Big[\,w(t)\,\big(\epsilon_\phi(x_t;y,t) \;-\; \epsilon_\psi(x_t;y,t,\pi)\big)\,\frac{\partial x}{\partial \theta}\,\Big]\;}$$</p>
-<p>对比 SDS：把 raw noise $\epsilon$ 替换成<strong>辅助 score</strong> $\epsilon_\psi$。$\epsilon_\psi$ 是 <strong>LoRA 微调</strong> 的 score network，在线最小化 score-matching loss 来跟踪当前 $q_\mu^t$ 的 score；它扮演的是 "variance-reduction baseline" 的角色（与 RL actor-critic 的 value baseline 同构）。<strong>注意</strong>：上面是 gradient form，不是平方-loss form；论文没有"先写一个 $\|\epsilon_\phi-\epsilon_\psi\|^2$ 标量 loss 再求导"的可实现形式——$\epsilon_\psi$ 依赖 $\mu$，那样会丢掉 KL 的关键项。</p>
+<p>对比 SDS：把 raw noise $\epsilon$ 替换成<strong>辅助 score</strong> $\epsilon_\psi$。$\epsilon_\psi$ 是 <strong>LoRA 微调</strong> 的 score network，在线最小化 score-matching loss 来跟踪当前 $q_\mu^t$ 的 score；它是 KL 目标 $D_\text{KL}(q_\mu^t\|p_\phi^t)$ 对 $\theta$ 求导后、$q$ 分布自身 score（entropy 项）对应的必要成分，<strong>不是</strong>零均值、只减方差的 variance-reduction control variate——丢弃它会把梯度目标从"分布匹配"退化为 SDS 的 mode-seeking（改变期望梯度方向，而非只增加噪声），因此不能等同于 RL actor-critic 中只减方差、不改变期望梯度的 value baseline。<strong>注意</strong>：上面是 gradient form，不是平方-loss form；论文没有"先写一个 $\|\epsilon_\phi-\epsilon_\psi\|^2$ 标量 loss 再求导"的可实现形式——$\epsilon_\psi$ 依赖 $\mu$，那样会丢掉 KL 的关键项。</p>
 <h4 id="直觉为什么缓解-over-saturation">直觉为什么缓解 over-saturation</h4>
 <ul><li>SDS：把 rendered $x$ 推向 prior $p_\phi(\cdot|y)$ 的 mode（mean-mode → 需 CFG=100 → over-saturation）</li><li>VSD：用辅助 score 学当前 rendered 分布的"自己的 mode"，更新方向 = 从"我现在在哪"指向"prior 在哪"（<strong>relative gradient</strong>），不需大 CFG 拉满。CFG 可降到 7.5（常规 diffusion 默认值），avoid extreme sharpening</li><li>实验上：VSD 颜色更自然，几何更复杂，可同时维护多个 mode（ProlificDreamer 给出 50k 步训练得 photorealistic Buddha 等）</li></ul>
-<div class="callout callout-good"><div class="callout-title">VSD vs SDS 的关键认知</div><p>SDS 是 "<strong>single-point + mode-seeking</strong>"；VSD 是 "<strong>particle / variational + relative score</strong>"。后者本质是给 SDS 加了个<strong>可学习 baseline</strong>（$\epsilon_\psi$）减方差，思想上类比 RL actor-critic 的 value baseline。</p></div>
+<div class="callout callout-good"><div class="callout-title">VSD vs SDS 的关键认知</div><p>SDS 是 "<strong>single-point + mode-seeking</strong>"；VSD 是 "<strong>particle / variational + relative score</strong>"。后者的 $\epsilon_\psi$ 是 KL 目标对 $\theta$ 求导后 $q$ 分布自身 score 对应的必要项，丢掉它会让梯度目标退化回 SDS 的 mode-seeking——不是只减方差、不改变期望梯度的 RL actor-critic value baseline。</p></div>
 <h3 id="68-sds-衍生家族mesh--3dgs--sds">6.8　SDS 衍生家族：mesh / 3DGS + SDS</h3>
 <table><thead><tr><th>方法</th><th>表示 / Stages</th><th>关键点</th></tr></thead><tbody><tr><td><strong>DreamFusion</strong></td><td>NeRF + SDS @ low-res</td><td>原版，提 mesh 难</td></tr><tr><td><strong>Magic3D</strong> (Lin 2023 CVPR)</td><td>Instant-NGP @ 64px → DMTet + SDS @ 512px</td><td><strong>两阶段</strong>：粗结构 → 高分辨率端到端 mesh</td></tr><tr><td><strong>Fantasia3D</strong> (Chen 2023 ICCV)</td><td>DMTet 几何 + PBR material</td><td>normal-as-input + 物理材质 BRDF</td></tr><tr><td><strong>DreamGaussian</strong> (Tang 2024 ICLR)</td><td>3DGS + SDS, ~2 分钟 / 物体</td><td>GPU 速度优势；mesh export + UV-Net texturing</td></tr><tr><td><strong>GaussianDreamer</strong> (Yi 2024 CVPR)</td><td>Point-E / Shap-E init → 3DGS + SDS</td><td>缓解 from-scratch 几何混乱</td></tr></tbody></table>
 <h2 id="7-single-image--few-view-3d-生成">§7 Single-Image / Few-View 3D 生成</h2>
@@ -999,7 +1001,7 @@ def gaussian_splat_forward(
 <ul><li>Input：单图 $x$ + 相对相机位姿 $\Delta R, \Delta T$</li><li>Diffusion conditioning：image embedding (CLIP) + camera embedding (sinusoidal)</li><li>Output：在 $\Delta R, \Delta T$ 视角下的图</li></ul>
 <p><strong>用法</strong>：给一个 input view，sample 16-32 个 novel view，再用 NeRF / 3DGS 重建。</p>
 <p><strong>衍生</strong>：</p>
-<ul><li><strong>Zero-1-to-3++</strong> (Shi 2023)：固定生成 6 个 anchor view（北极视角 + 4 平视角 + 俯视角），减少 randomness</li><li><strong>SyncDreamer</strong> (Liu 2024 ICLR)：在 latent 上<strong>联合</strong>预测多视图（cross-attention 让 views 看到彼此），保证 3D 一致</li><li><strong>MVDream</strong> (Shi 2024 ICLR)：text-to-multi-view，4 视图同时生成；后接 SDS 精化</li></ul>
+<ul><li><strong>Zero-1-to-3++</strong> (Shi 2023)：固定生成 6 个 anchor view（方位角在 30°/90°/150°/210°/270°/330° 每 60° 均匀环绕一周，仰角在 -10° 与 20° 之间交替排列，即 interleaved elevation + uniform azimuth，而非"一个北极视角 + 四个平视角 + 一个俯视角"），减少 randomness</li><li><strong>SyncDreamer</strong> (Liu 2024 ICLR)：在 latent 上<strong>联合</strong>预测多视图（cross-attention 让 views 看到彼此），保证 3D 一致</li><li><strong>MVDream</strong> (Shi 2024 ICLR)：text-to-multi-view，4 视图同时生成；后接 SDS 精化</li></ul>
 <h3 id="72-one-2-3-45--instantmesh--triposr--stable-fast-3d">7.2　One-2-3-45 / InstantMesh / TripoSR / Stable Fast 3D</h3>
 <table><thead><tr><th>方法</th><th>输入</th><th>输出</th><th>速度</th><th>关键</th></tr></thead><tbody><tr><td><strong>One-2-3-45</strong> (Liu 2023 NeurIPS)</td><td>单图</td><td>mesh</td><td>45 秒</td><td>Zero-1-to-3 → SparseNeuS</td></tr><tr><td><strong>One-2-3-45++</strong> (Liu 2024)</td><td>单图</td><td>mesh</td><td>60 秒</td><td>多视图 + SDF</td></tr><tr><td><strong>TripoSR</strong> (Tochilkin 2024, Stability+Tripo)</td><td>单图</td><td>NeRF/mesh</td><td>0.5-2 秒</td><td>LRM (Large Reconstruction Model) 风格 transformer</td></tr><tr><td><strong>InstantMesh</strong> (Xu 2024, arXiv:2404.07191)</td><td>单图</td><td>mesh</td><td>~10 秒</td><td>Zero-1-to-3++ 多视图 → sparse-view recon transformer</td></tr><tr><td><strong>Stable Fast 3D</strong> (SF3D, Stability 2024)</td><td>单图</td><td>textured mesh</td><td>~0.5 秒</td><td>TripoSR 后继；加 illumination disentangle + UV unwrap</td></tr></tbody></table>
 <p><strong>LRM (Hong et al. 2023 arXiv → ICLR 2024) 设定</strong>：把图当 token + Plucker ray embedding，transformer 输出 NeRF triplane。这是 TripoSR / InstantMesh 的母模型。</p>
@@ -1059,7 +1061,7 @@ def gaussian_splat_forward(
 </details>
 <details>
 
-<summary>Q4.Instant-NGP 为什么比 NeRF 快 5+ OOM？</summary>
+<summary>Q4.Instant-NGP 为什么比 NeRF 快约 4+ 个数量级？</summary>
 <ul><li><strong>Hash 网格替代密集 grid</strong>：固定 $T$ 大小哈希表，cache-friendly</li><li><strong>Tiny MLP</strong> (2 层 hidden 64) 替代大 MLP（NeRF 8 层 256）</li><li><strong>多分辨率级联</strong> + <strong>occupancy grid</strong> skip 空白区采样</li><li><strong>CUDA fused kernel</strong>（tiny-cuda-nn）</li></ul>
 <p>只说"用了哈希"——漏了 multi-resolution + tiny-MLP + occupancy skip 的组合贡献。</p>
 </details>
@@ -1115,7 +1117,7 @@ def gaussian_splat_forward(
 <details>
 
 <summary>Q13.Instant-NGP 的 hash collision 如何消歧？</summary>
-<ul><li><strong>Multi-resolution 冗余</strong>：粗 level $N_\ell^d \le T$ 不冲突，细 level 才冲突；MLP 可从粗-fine 共同推</li><li><strong>稀疏激活</strong>：有效 supervision 集中在 surface 附近；空白区冲突 entry 无梯度</li><li><strong>MLP 后处理</strong>：在 $L\times F$ 拼接特征上学非线性融合，可 disambiguate</li><li>没有 explicit collision resolution；靠"lazy resolution by sparsity + redundancy"</li></ul>
+<ul><li><strong>Multi-resolution 冗余</strong>：粗 level $N_\ell^d \le T$ 不冲突，细 level 才冲突；MLP 可从粗-fine 共同推</li><li><strong>稀疏激活</strong>：有效 supervision 集中在 surface 附近；空白区采样点密度非零时仍有梯度（把 $\sigma$ 压向 0），$\sigma\to 0$ 后梯度幅度自然衰减，occupancy grid 更新后才真正跳过该处采样</li><li><strong>MLP 后处理</strong>：在 $L\times F$ 拼接特征上学非线性融合，可 disambiguate</li><li>没有 explicit collision resolution；靠"lazy resolution by sparsity + redundancy"</li></ul>
 <p>以为有 hash chaining 之类的传统消歧——实际是数据驱动 implicit 消歧。</p>
 </details>
 <details>
@@ -1127,7 +1129,7 @@ def gaussian_splat_forward(
 <details>
 
 <summary>Q15.VSD 如何缓解 SDS 的 over-saturation？</summary>
-<ul><li>SDS：拉向 prior $p_\phi$ 的 mode；需 CFG=100 强化 → over-saturation</li><li><strong>VSD</strong>：把 3D 参数 $\theta$ 视为 random variable $\mu(\theta)$，最小化 KL(rendered dist || prior)</li><li>引入<strong>辅助 score</strong> $\epsilon_\psi$（LoRA 微调 SD）跟踪当前 $\mu$ 的 score</li><li>gradient = $(\epsilon_\phi - \epsilon_\psi)\cdot \partial x/\partial \theta$ —— <strong>relative score</strong>，不需大 CFG</li><li>类似 RL actor-critic 用 value baseline 减方差</li></ul>
+<ul><li>SDS：拉向 prior $p_\phi$ 的 mode；需 CFG=100 强化 → over-saturation</li><li><strong>VSD</strong>：把 3D 参数 $\theta$ 视为 random variable $\mu(\theta)$，最小化 KL(rendered dist || prior)</li><li>引入<strong>辅助 score</strong> $\epsilon_\psi$（LoRA 微调 SD）跟踪当前 $\mu$ 的 score</li><li>gradient = $(\epsilon_\phi - \epsilon_\psi)\cdot \partial x/\partial \theta$ —— <strong>relative score</strong>，不需大 CFG</li><li>$\epsilon_\psi$ 是 KL 目标对 $\theta$ 求导后 $q$ 分布自身 score 对应的必要项（丢了会退化回 SDS），不是只减方差的 RL actor-critic value baseline</li></ul>
 <p>说 VSD 用 "variational" 但讲不清 $\epsilon_\psi$ 替代 raw noise 的角色。</p>
 </details>
 <details>
@@ -1193,7 +1195,7 @@ def gaussian_splat_forward(
 <summary>Q25.VSD 为什么能在小 CFG 下避免 over-saturation？</summary>
 <ul><li><strong>SDS 视角</strong>：把 $\theta$ 当点估计；gradient 拉向 $p_\phi(\cdot|y)$ mode；大 CFG 让 mode 更尖 → over-saturation</li><li><strong>VSD 视角</strong>：把 $\theta$ 当 random variable $\mu(\theta)$；<strong>最小化的是渲染加噪图像分布</strong>之间的 KL：$\mathbb{E}_t[D_\text{KL}(q_\mu^t(x_t|y) \,\|\, p_\phi^t(x_t|y))]$（不是直接在 $\theta$ 域上对一个 3D prior 求 KL）</li><li>引入<strong>辅助 score</strong> $\epsilon_\psi$（用 LoRA 微调 Stable Diffusion）跟踪当前 rendered 分布的 score</li><li><p><strong>VSD gradient</strong>：</p>
 <p>$\nabla_\theta \mathcal{L}_\text{VSD} = \mathbb{E}[w(t)(\epsilon_\phi - \epsilon_\psi)\cdot \partial x/\partial \theta]$</p>
-<p>即 <strong>relative score</strong>（target prior score $-$ current rendered score）</p></li><li><strong>几何直觉</strong>：从"我现在在哪"指向"prior 在哪"——是局部"梯度方向"而非全局 mode；不需大 CFG 锐化</li><li><strong>类比 RL</strong>：actor-critic 用 value baseline 减方差；VSD 用 $\epsilon_\psi$ 作为 baseline 减 SDS 噪声</li><li><strong>效果（ProlificDreamer）</strong>：CFG 可降至 7.5，颜色自然；几何更细；可维护多 mode（多样性）</li></ul>
+<p>即 <strong>relative score</strong>（target prior score $-$ current rendered score）</p></li><li><strong>几何直觉</strong>：从"我现在在哪"指向"prior 在哪"——是局部"梯度方向"而非全局 mode；不需大 CFG 锐化</li><li><strong>不是 RL baseline</strong>：$\epsilon_\psi$ 是 KL 目标对 $\theta$ 求导后 $q$ 分布自身 score 对应的必要成分，丢掉它会把梯度目标退化回 SDS 的 mode-seeking（改变期望梯度方向），不是 RL actor-critic 中只减方差、不改变期望梯度的 value baseline</li><li><strong>效果（ProlificDreamer）</strong>：CFG 可降至 7.5，颜色自然；几何更细；可维护多 mode（多样性）</li></ul>
 <p>只说"VSD 引入变分推断"不讲 $\epsilon_\psi$ 角色 + relative gradient 视角。</p>
 </details>
 <h2 id="a-附录代码完整骨架--参考文献">§A 附录：代码完整骨架 + 参考文献</h2>
@@ -1209,8 +1211,8 @@ def gaussian_splat_forward(
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/3d_generation_tutorial.md</code> ·
-  SHA256 <code>279221f16647</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>b3aed31c1377</code> ·
+  generated at 2026-07-13 10:05 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

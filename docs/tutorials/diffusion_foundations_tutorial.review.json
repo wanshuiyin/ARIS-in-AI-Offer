@@ -1,66 +1,85 @@
 {
-  "skill": "interview-cheatsheet",
-  "source": "docs/tutorials/diffusion_foundations_tutorial.md",
-  "source_sha256_prefix": "c72317f75533ee8b",
-  "output": "docs/tutorials/diffusion_foundations_tutorial.html",
-  "topic": "Diffusion Foundations (DDPM / Score / DDIM / EDM / CFG / Consistency Models)",
-  "effort": "max",
-  "byline": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
-  "math_code_review": {
-    "verdict": "WARN (length only) after 3 rounds of fixes",
-    "rounds": [
-      {
-        "run": 1,
-        "verdict": "FAIL",
-        "thread_id": "019e3ea6-26b7-77e2-9122-7580929ba267",
-        "issue": "DPM-Solver VP g(t) sign; VP velocity bridge formula malformed; A.4 ConditionedEpsNet.forward returned undefined eps_pred; Q10 PF-ODE described as 'reverse SDE removed noise' (missing 1/2 score correction); Q7 mixed paper-w and HF guidance_scale conventions; DDIM citation wrong (Song 2020 ICLR -> arXiv 2020 / ICLR 2021); SDXL citation wrong (NeurIPS Datasets -> arXiv 2023 / ICLR 2024 spotlight); recruitment context (2026 秋招, OpenAI Sora / BFL / Runway / DeepMind 招聘 etc).",
-        "fix": "Corrected g(t) = +β/sqrt(1-α_bar) (§9.1); rewrote VP velocity formula in α_t/σ_t form (§13.1); added backbone field + return eps_pred in ConditionedEpsNet; Q10 clarifies PF-ODE drift differs from reverse SDE by factor 1/2; Q7 distinguishes HF-style $s$ vs Ho-Salimans $w$ conventions; updated DDIM and SDXL citations; removed all recruitment / company-hire context."
-      },
-      {
-        "run": 2,
-        "verdict": "FAIL",
-        "thread_id": "019e3eaf-1afd-7a92-9551-a4070a9f1640",
-        "issue": "§6.4 likelihood change-of-variables sign error (should be + not - per Chen 2018 CNF); §8.4 stochastic churn noise formula used (σ_i γ)² instead of ((1+γ)σ_i)² - σ_i².",
-        "fix": "Fixed PF-ODE likelihood formula to `log p_0 = log p_T + ∫ div v dt` with Chen 2018 citation; rewrote churn formula to `sqrt(σ_hat² - σ²) z` where σ_hat = (1+γ)σ, equivalent to `σ sqrt(2γ + γ²) z`."
-      },
-      {
-        "run": 3,
-        "verdict": "FAIL",
-        "thread_id": "019e3eb3-f056-7ea1-901b-f7e06ccc80c4",
-        "issue": "§6.3 unverified theorem number 'Theorem 13.1'; §8.4 churn equality chain still ambiguous; Q21 step 7 had `U{1,T}` instead of `U{1,...,T}`; Q24 iCT description wrong (claimed 'exponential decay EMA' but real iCT removes EMA teacher entirely).",
-        "fix": "Removed unverified theorem number, kept paper title reference; rewrote churn formula to separate the equality into clear sub-expression; fixed Q21 step 7 to `U{1,...,T}`; rewrote iCT description (Song-Dhariwal 2024) to: removes EMA teacher + pseudo-Huber loss + lognormal noise + curriculum schedule."
-      }
-    ]
-  },
-  "render_review": {
-    "verdict": "PASS after 1 fix round",
-    "rounds": [
-      {
-        "run": 1,
-        "verdict": "FAIL",
-        "thread_id": "019e3ebc-da27-78b2-9d52-c9e72ec633e3",
-        "issue": "Q21 derivation list split into multiple <ol> blocks by display math $$...$$ separators, causing numbering to restart from 1 in HTML output.",
-        "fix": "Restructured Q21 to use explicit **Step N** bullet prefix instead of markdown ordered-list numbering, so display math no longer breaks the sequence."
-      },
-      {
-        "run": 2,
-        "verdict": "PASS",
-        "thread_id": "019e3ec0-7183-7f12-9b95-9880b0e415cf",
-        "issue": null,
-        "fix": "All 13 render-stage checks pass: information_fidelity, structure, math_code_tables, callouts, details_inner_markdown_rendered, safety_escaping, placeholder_leak, author_byline_rendered, eyebrow_subtitle_title, no_absolute_local_path_leak, no_personal_info_leak, heading_glue_fix, toc_sidebar_links_resolve."
-      }
-    ]
-  },
-  "summary": "3-round math/code review settled at WARN (math/code/citations PASS; length 1481 lines exceeds 1000±20% target but content substantive — per spec accepted as WARN). 2-round render review settled at PASS. All blocking issues fixed: DPM-Solver g(t) sign, VP velocity formula, PF-ODE drift coefficient (1/2 vs full), PF-ODE likelihood sign, EDM churn formula, ConditionedEpsNet code bug, CFG conventions, DDIM/SDXL citations, iCT description, Q21 list-numbering rendering bug, and all recruitment-context personal-info leaks.",
-  "rendered_at": "2026-05-19",
-  "source_sha256": "c72317f75533ee8bbab65af66cdc1bb6d7773563123b6001e5888f3571e7acfe",
-  "post_ship_review": [
-    {
-      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
-      "verdict": "FIXED",
-      "date": "2026-06-29",
-      "fix": "Section 12.4 and section 0 distinguished ADD (SDXL-Turbo, DINOv2 discriminator) from LADD (SD3-Turbo, teacher latent-feature discriminator, NOT DINOv2) — previously lumped SD3-Turbo under DINOv2-ADD.",
-      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
-    }
+ "skill": "interview-cheatsheet",
+ "source": "docs/tutorials/diffusion_foundations_tutorial.md",
+ "source_sha256_prefix": "3b7554f2575871b7",
+ "output": "docs/tutorials/diffusion_foundations_tutorial.html",
+ "topic": "Diffusion Foundations (DDPM / Score / DDIM / EDM / CFG / Consistency Models)",
+ "effort": "max",
+ "byline": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
+ "math_code_review": {
+  "verdict": "WARN (length only) after 3 rounds of fixes",
+  "rounds": [
+   {
+    "run": 1,
+    "verdict": "FAIL",
+    "thread_id": "019e3ea6-26b7-77e2-9122-7580929ba267",
+    "issue": "DPM-Solver VP g(t) sign; VP velocity bridge formula malformed; A.4 ConditionedEpsNet.forward returned undefined eps_pred; Q10 PF-ODE described as 'reverse SDE removed noise' (missing 1/2 score correction); Q7 mixed paper-w and HF guidance_scale conventions; DDIM citation wrong (Song 2020 ICLR -> arXiv 2020 / ICLR 2021); SDXL citation wrong (NeurIPS Datasets -> arXiv 2023 / ICLR 2024 spotlight); recruitment context (2026 秋招, OpenAI Sora / BFL / Runway / DeepMind 招聘 etc).",
+    "fix": "Corrected g(t) = +β/sqrt(1-α_bar) (§9.1); rewrote VP velocity formula in α_t/σ_t form (§13.1); added backbone field + return eps_pred in ConditionedEpsNet; Q10 clarifies PF-ODE drift differs from reverse SDE by factor 1/2; Q7 distinguishes HF-style $s$ vs Ho-Salimans $w$ conventions; updated DDIM and SDXL citations; removed all recruitment / company-hire context."
+   },
+   {
+    "run": 2,
+    "verdict": "FAIL",
+    "thread_id": "019e3eaf-1afd-7a92-9551-a4070a9f1640",
+    "issue": "§6.4 likelihood change-of-variables sign error (should be + not - per Chen 2018 CNF); §8.4 stochastic churn noise formula used (σ_i γ)² instead of ((1+γ)σ_i)² - σ_i².",
+    "fix": "Fixed PF-ODE likelihood formula to `log p_0 = log p_T + ∫ div v dt` with Chen 2018 citation; rewrote churn formula to `sqrt(σ_hat² - σ²) z` where σ_hat = (1+γ)σ, equivalent to `σ sqrt(2γ + γ²) z`."
+   },
+   {
+    "run": 3,
+    "verdict": "FAIL",
+    "thread_id": "019e3eb3-f056-7ea1-901b-f7e06ccc80c4",
+    "issue": "§6.3 unverified theorem number 'Theorem 13.1'; §8.4 churn equality chain still ambiguous; Q21 step 7 had `U{1,T}` instead of `U{1,...,T}`; Q24 iCT description wrong (claimed 'exponential decay EMA' but real iCT removes EMA teacher entirely).",
+    "fix": "Removed unverified theorem number, kept paper title reference; rewrote churn formula to separate the equality into clear sub-expression; fixed Q21 step 7 to `U{1,...,T}`; rewrote iCT description (Song-Dhariwal 2024) to: removes EMA teacher + pseudo-Huber loss + lognormal noise + curriculum schedule."
+   }
   ]
+ },
+ "render_review": {
+  "verdict": "PASS after 1 fix round",
+  "rounds": [
+   {
+    "run": 1,
+    "verdict": "FAIL",
+    "thread_id": "019e3ebc-da27-78b2-9d52-c9e72ec633e3",
+    "issue": "Q21 derivation list split into multiple <ol> blocks by display math $$...$$ separators, causing numbering to restart from 1 in HTML output.",
+    "fix": "Restructured Q21 to use explicit **Step N** bullet prefix instead of markdown ordered-list numbering, so display math no longer breaks the sequence."
+   },
+   {
+    "run": 2,
+    "verdict": "PASS",
+    "thread_id": "019e3ec0-7183-7f12-9b95-9880b0e415cf",
+    "issue": null,
+    "fix": "All 13 render-stage checks pass: information_fidelity, structure, math_code_tables, callouts, details_inner_markdown_rendered, safety_escaping, placeholder_leak, author_byline_rendered, eyebrow_subtitle_title, no_absolute_local_path_leak, no_personal_info_leak, heading_glue_fix, toc_sidebar_links_resolve."
+   }
+  ]
+ },
+ "summary": "3-round math/code review settled at WARN (math/code/citations PASS; length 1481 lines exceeds 1000±20% target but content substantive — per spec accepted as WARN). 2-round render review settled at PASS. All blocking issues fixed: DPM-Solver g(t) sign, VP velocity formula, PF-ODE drift coefficient (1/2 vs full), PF-ODE likelihood sign, EDM churn formula, ConditionedEpsNet code bug, CFG conventions, DDIM/SDXL citations, iCT description, Q21 list-numbering rendering bug, and all recruitment-context personal-info leaks.",
+ "rendered_at": "2026-07-13",
+ "source_sha256": "3b7554f2575871b7adef380116023e27397af4c0f09a642088a3ff78e90169e6",
+ "post_ship_review": [
+  {
+   "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+   "verdict": "FIXED",
+   "date": "2026-06-29",
+   "fix": "Section 12.4 and section 0 distinguished ADD (SDXL-Turbo, DINOv2 discriminator) from LADD (SD3-Turbo, teacher latent-feature discriminator, NOT DINOv2) — previously lumped SD3-Turbo under DINOv2-ADD.",
+   "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+  },
+  {
+   "scope": "2026-07-13 全集重扫复审（扩散簇）：Codex GPT-5.6-sol 找候选错误 → 独立 Claude 对抗验证（尝试推翻每条）→ 6 CONFIRMED + 1 NEEDS_NUANCE 已修复",
+   "verdict": "FIXED",
+   "date": "2026-07-13",
+   "fix_summary": [
+    "L195: VP↔VE 'informationally equivalent' claim corrected — exact correspondence needs joint time reparametrization + state rescaling (y_t = x_t/√ᾱ_t), not a plain t relabel.",
+    "L564/665/913/1156: unified fix distinguishing conditional-path straightness (constructive, given (x0,x1)) from marginal ODE trajectory straightness (generally still curved after one training round, independent pairing) — resolves the internal contradiction with the Reflow description at L1158.",
+    "L568/683: split conflated FLUX.1 entry into FLUX.1-dev (guidance-distilled, ~20-50 steps) vs FLUX.1-schnell (additional adversarial/latent distillation, 1-4 steps) in both prose and the NFE table.",
+    "L639: ADD's L_distill rewritten as a score-distillation/SDS-style regression (student one-step output renoised to a higher noise level, teacher denoises it) rather than 'student multi-step ODE matches teacher multi-step ODE'.",
+    "L641/1162: SDXL-Turbo resolution corrected 1024px -> 512px; L1162 discriminator attribution corrected to match L638 (ADD/SDXL-Turbo = DINOv2; LADD/SD3-Turbo = teacher latent features, not DINOv2).",
+    "L1441 (A.6): function renamed pf_ode_sample_euler -> pf_ode_sample_ddim_exact + docstring clarifies the update is the closed-form DDIM η=0 solution, not a naive first-order Euler discretization of the continuous drift.",
+    "L1466 (A.7, NEEDS_NUANCE): added an auditability caveat — the toy FID numbers are illustrative/hypothetical for showing a relative ranking, not a verified log of an actual run; exact digits not independently re-verified."
+   ],
+   "note": "Adversarial resweep-at-scale pattern: Codex GPT-5.6-sol proposed 7 candidate findings for this file, then an independent Claude thread attempted to refute each one (told to argue against, not confirm) — 6/7 CONFIRMED, 1/7 NEEDS_NUANCE (kept as a caveat rather than a hard number correction, since the underlying training run cannot be independently re-verified from the repo alone). All 7 applied verbatim per the verification ledger; EN edition mirrors every change."
+  },
+  {
+   "date": "2026-07-13",
+   "note": "2026-07-13 follow-up: fixed 3 cross-file consistency flags left by the diffusion-cluster fix agents (SD3-Turbo mislabeled as a Reflow example at 2 locations — it's LADD, §12.4; FLUX-Schnell's exact distillation recipe unconfirmed, no longer asserted as reflow) — same class of error already fixed in the sibling flow_matching_tutorial (finding 30) and diffusion_distillation_tutorial (finding 13) audits."
+  }
+ ]
 }

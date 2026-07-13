@@ -138,11 +138,13 @@ Fan et al. **2023 NeurIPS** *DPOK: Reinforcement Learning for Fine-tuning Text-t
 
 $$\boxed{\;\max_\theta\; \mathbb{E}_{\tau \sim p_\theta}\!\left[R(x_0, c)\right] - \beta\, \mathbb{E}_c\!\left[\text{KL}\!\big(p_\theta(\cdot \mid c) \,\big\Vert\, p_\text{ref}(\cdot \mid c)\big)\right]\;}$$
 
-KL 项展开到 per-step：
+KL 项展开到 per-step——**注意这是上界，不是恒等式**：
 
-$$\text{KL}(p_\theta \Vert p_\text{ref}) = \sum_{t=1}^{T} \mathbb{E}\!\left[\text{KL}\!\big(p_\theta(x_{t-1} \mid x_t, c) \,\Vert\, p_\text{ref}(x_{t-1} \mid x_t, c)\big)\right]$$
+$$\text{KL}\big(p_\theta(x_0 \mid c) \,\Vert\, p_\text{ref}(x_0 \mid c)\big) \;\le\; \sum_{t=1}^{T} \mathbb{E}\!\left[\text{KL}\!\big(p_\theta(x_{t-1} \mid x_t, c) \,\Vert\, p_\text{ref}(x_{t-1} \mid x_t, c)\big)\right]$$
 
-由于 DDPM 的 $p_\theta(x_{t-1} \mid x_t, c)$ 是 Gaussian，**两个 Gaussian 的 KL 有闭式**，per-step KL 直接算。DPOK 用 policy gradient + 这个 KL penalty，等价于 RLHF 的 "$\beta \log(\pi/\pi_\text{ref})$" 的 diffusion 版本。
+右边是**联合 trajectory KL**（$\text{KL}(p_\theta(x_{0:T}\mid c) \Vert p_\text{ref}(x_{0:T}\mid c))$）按 chain rule 的精确展开——这个恒等式在 $p_\theta$、$p_\text{ref}$ 共享同一先验 $p(x_T)=\mathcal N(0,I)$ 时严格成立。但 DPOK 真正想 regularize 的是**终态 marginal** $\text{KL}(p_\theta(x_0\mid c) \Vert p_\text{ref}(x_0\mid c))$；由 KL 的 data-processing inequality（对 marginal 化不增），终态 marginal KL 只是这个 per-step 和的**上界**，二者并不相等。DPOK 用这个可闭式计算的上界作为 tractable surrogate，实践有效但不是精确等价。
+
+由于 DDPM 的 $p_\theta(x_{t-1} \mid x_t, c)$ 是 Gaussian，**两个 Gaussian 的 KL 有闭式**，per-step KL 直接算。DPOK 用 policy gradient + 这个 KL penalty（上界 surrogate），等价于 RLHF 的 "$\beta \log(\pi/\pi_\text{ref})$" 的 diffusion 版本。
 
 > 💡 **DPOK vs DDPO** —
 
@@ -282,9 +284,11 @@ DDPM 的 $L_\text{simple}$ 是 $\log p_\theta(x_0)$ 的 (negative) ELBO 项之�
 
 $$-\log p_\theta(x_0 \mid c) \le L_\text{simple}(x_0, c, \theta) = \mathbb{E}_{t, \epsilon}\!\left[\|\epsilon - \epsilon_\theta(x_t, t, c)\|^2\right] + \text{const}$$
 
-用 $-L_\text{simple}$ 作为 $\log p_\theta(x_0 \mid c)$ 的**单 sample 估计**（Jensen 不等式严格意义上给的是 lower bound，但作为 DPO 的 implicit reward 数值代理可用），代入 DPO 框架：
+> ⚠️ **$L_\text{simple}$ 不是"紧"ELBO** — 真正的 VLB 每个 timestep 前有一个 SNR 相关权重 $\lambda_t$（等价地记 $\omega(\lambda_t)$）；$L_\text{simple}$ 把这个权重**人为设为 1**，这是 Ho et al. 2020 为了采样感知质量主动做出的 reweighting，不是对 VLB 直接化简得到的紧 bound。把 unweighted MSE 当作"the ELBO"本身，是一种近似，不是恒等。
 
-$$\boxed{\;\mathcal{L}_\text{Diff-DPO}(\theta) = -\mathbb{E}_{(x_0^w, x_0^l, c, t, \epsilon)}\log\sigma\!\left(-\beta T\!\left[\|\epsilon^w - \epsilon_\theta(x_t^w, t, c)\|^2 - \|\epsilon^w - \epsilon_\text{ref}(x_t^w, t, c)\|^2 - \|\epsilon^l - \epsilon_\theta(x_t^l, t, c)\|^2 + \|\epsilon^l - \epsilon_\text{ref}(x_t^l, t, c)\|^2\right]\right)\;}$$
+用 $-L_\text{simple}$ 作为 $\log p_\theta(x_0 \mid c)$ 的**单 sample 估计**（Jensen 不等式严格意义上给的是 lower bound，但作为 DPO 的 implicit reward 数值代理可用），代入 DPO 框架（$\omega(\lambda_t)$ 为 SNR 相关权重，$L_\text{simple}$ 对应 $\omega(\lambda_t)\equiv 1$ 的特例）：
+
+$$\boxed{\;\mathcal{L}_\text{Diff-DPO}(\theta) = -\mathbb{E}_{(x_0^w, x_0^l, c, t, \epsilon)}\log\sigma\!\left(-\beta T\,\omega(\lambda_t)\!\left[\|\epsilon^w - \epsilon_\theta(x_t^w, t, c)\|^2 - \|\epsilon^w - \epsilon_\text{ref}(x_t^w, t, c)\|^2 - \|\epsilon^l - \epsilon_\theta(x_t^l, t, c)\|^2 + \|\epsilon^l - \epsilon_\text{ref}(x_t^l, t, c)\|^2\right]\right)\;}$$
 
 > 💡 **直觉读法** — sigmoid 内部是"对 $y_w$，policy 比 ref 更会去噪"减去"对 $y_l$，policy 比 ref 更会去噪"。如果 policy 在 $y_w$ 上更准、在 $y_l$ 上更不准，差值正，loss 下降。
 
@@ -294,7 +298,7 @@ $$\boxed{\;\mathcal{L}_\text{Diff-DPO}(\theta) = -\mathbb{E}_{(x_0^w, x_0^l, c, 
 - 训练时每步**随机采 $t \in \{1, \dots, T\}$ 和 $\epsilon \sim \mathcal{N}(0,I)$**，构造 $x_t^w = \sqrt{\bar\alpha_t} x_0^w + \sqrt{1-\bar\alpha_t}\epsilon$（同样的 $\epsilon$ 用在 $y_w$ 和 $y_l$ 上，做 paired noise）。
 - $\pi_\text{ref}$ 是冻结的 base UNet（一般用 SDXL 原始 checkpoint）。
 
-> ⚠️ **共享 noise 的关键性** — 论文强调 $x_t^w$ 和 $x_t^l$ 必须用**同一个 $\epsilon$**（即 paired noise），否则 $\beta$ 不再可比，loss 方差爆炸。这是 Diffusion-DPO 最容易踩的坑。
+> 💡 **共享 noise 是方差缩减技巧，不是数学要求** — $x_t^w$ 和 $x_t^l$ 共享同一个 $\epsilon$（paired noise / common random numbers）能降低梯度方差、让训练更稳；但即使各自独立采样 $\epsilon^w, \epsilon^l$，loss 仍是同一个 DPO 目标的（更高方差但无偏的）合法估计器——不 paired 并不会改变 $\beta$ 的尺度或可比性，只是优化更不稳。实践中推荐 paired，但它不是正确性的前提。
 
 #### 4.1.3 结果（SDXL 上）
 
@@ -504,17 +508,21 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
     for t, (mean_old, std_old, x_tm1) in zip(reversed(range(T)), traj_log_probs):
         eps_pred = unet(x_t, t, prompts)                   # 要梯度
         mean, std = scheduler.step_mean_std(x_t, eps_pred, t)
+        # t=0 是 DDPM 约定下的确定性终态 transition（std=0，不加噪声）；
+        # 直接对 std 做除法 / log 会在这一步 NaN/Inf，须 clamp 兜底。
+        std_safe = std.clamp(min=1e-6)
         # Gaussian log-prob
-        log_p = -0.5 * (((x_tm1 - mean) / std) ** 2).sum([1, 2, 3])
-        log_p -= std.log().sum([1, 2, 3])
+        log_p = -0.5 * (((x_tm1 - mean) / std_safe) ** 2).sum([1, 2, 3])
+        log_p -= std_safe.log().sum([1, 2, 3])
         loss_pg = loss_pg - (log_p * A).mean()             # REINFORCE
         if beta > 0:
             ref_eps = ref_unet(x_t, t, prompts).detach()
             mean_ref, std_ref = scheduler.step_mean_std(x_t, ref_eps, t)
+            std_ref_safe = std_ref.clamp(min=1e-6)         # 同样的终态 std=0 问题
             # Gaussian-Gaussian KL closed form
-            kl = ((mean - mean_ref) ** 2 / (2 * std_ref ** 2)
-                  + (std / std_ref) ** 2 / 2
-                  - 0.5 - (std / std_ref).log()).sum([1, 2, 3])
+            kl = ((mean - mean_ref) ** 2 / (2 * std_ref_safe ** 2)
+                  + (std_safe / std_ref_safe) ** 2 / 2
+                  - 0.5 - (std_safe / std_ref_safe).log()).sum([1, 2, 3])
             loss_pg = loss_pg + beta * kl.mean()
         x_t = x_tm1.detach()
     return loss_pg
@@ -523,7 +531,8 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 > ⚠️ **DDPO 实现踩坑** —
 
 - Rollout 用 `set_grad_enabled(False)`，policy gradient pass 再开梯度，避免显存 $O(T)$。
-- DDPM stochastic transition 是关键：DDIM 是 deterministic，没有 $dW$ 维度可优化，**DDPO 必须用 DDPM 或 DDIM-eta=1**。
+- DDPM stochastic transition 是关键（对 REINFORCE/score-function 估计而言）：DDIM-eta=0 是 deterministic，没有 $dW$ 维度、没有良定义的 log-density 可求导，score-function 梯度退化——**DDPO（REINFORCE-based）必须用 DDPM 或 DDIM-eta=1**；换成 §3 的 DRaFT/AlignProp 这类 pathwise gradient 方法则确定性采样反而是必要前提。
+- **t=0 终态 transition 是确定性的（std=0，Ho et al. 2020 约定）**：policy-gradient recompute 阶段若直接对 std 取 log / 做除法会在这一步 NaN/Inf；需要 `std.clamp(min=1e-6)`（如上面代码），或在 t=0 时跳过 std 相关项、只保留 mean 部分的梯度。
 - Batch baseline $A = (R - \bar R)/\sigma_R$ 比无 baseline 稳得多。
 - LoRA 训而非 full fine-tune，否则 base 漂移很快。
 
@@ -535,11 +544,12 @@ def diffusion_dpo_loss(unet, ref_unet, scheduler,
     """
     Diffusion-DPO (Wallace 2024) 单步训练。
     x0_w, x0_l: [B, 4, H, W]  preferred / dispreferred latents
-    beta: 论文用 2000~5000（注意是 β·T 的合并系数，比 LLM DPO 大）
+    beta: 论文用 2000~5000——这个量级依赖具体实现约定（MSE 用 mean 还是 sum 归约、
+          T 指 DDPM 训练 schedule 还是推理 schedule），并非与实现无关的"β·T 温度"
     """
     B = x0_w.shape[0]
     t = torch.randint(0, scheduler.num_train_timesteps, (B,), device=x0_w.device)
-    noise = torch.randn_like(x0_w)                          # paired noise!
+    noise = torch.randn_like(x0_w)                          # paired noise（方差缩减，非强制要求）
 
     xt_w = scheduler.add_noise(x0_w, noise, t)
     xt_l = scheduler.add_noise(x0_l, noise, t)
@@ -573,7 +583,7 @@ def diffusion_dpo_loss(unet, ref_unet, scheduler,
     return loss, {"margin": margin.item(), "acc": accuracy.item()}
 ```
 
-> ⚠️ **β 量级注意** — Diffusion-DPO 的 $\beta$ 比 LLM DPO 大几个数量级，因为它吸收了 $T$ 倍的累积项（$\beta T$ 才是真正的"温度"）。论文用 $\beta \in [2000, 5000]$；LLM DPO 用 $\beta \in [0.05, 0.5]$。
+> ⚠️ **β 量级注意（依赖实现细节，不是干净的普适事实）** — Diffusion-DPO 的 $\beta$ 比 LLM DPO 大几个数量级，方向上是因为它要吸收 trajectory 长度 $T$ 的累积效应；但"$\beta T$ 就是真正的温度"这个说法掩盖了两个具体实现选择：(1) per-pixel MSE 是用 `.mean()` 还是 `.sum()` 归约（本教程代码用 `.mean([1,2,3])`，比 sum-reduce 需要大得多的 $\beta$）；(2) 这里的 $T$ 指哪一个——是 DPO loss 在其上采样/求和的 $\sim$1000 步 DDPM 训练 schedule，而不是本教程别处（S1.4）用的 $\sim$20–50 步推理 schedule。因此 $\beta T$ 不是一个可移植、implementation-independent 的"真温度"，只能作为"为什么 diffusion-DPO 的 β 比 LLM DPO 大几个数量级"的粗略直觉。论文用 $\beta \in [2000, 5000]$（该实现下的 mean-reduce + 1000-step 约定）；LLM DPO 用 $\beta \in [0.05, 0.5]$。
 
 ### 6.3 AlignProp / DRaFT 反传 with checkpointing
 
@@ -681,8 +691,13 @@ def flow_grpo_step(flow_net, ref_flow, prompts, reward_fn,
             v = flow_net(x_t, t_now, prompts_rep)
             # SDE Euler: drift = v + 0.5 σ² ∇log p (PF-ODE → SDE 转换, Song 2021)
             # !!! 重要：以下 drift 是简化教学版（placeholder），生产实现要按 Flow-GRPO 论文 Eq.(6)
-            #     正确地从 score = (data_pred - x_t)/σ_t² 推导，包含具体 Rectified Flow / EDM schedule.
-            #     真实部署请参考论文 + 官方 repo；此处 -v/σ 仅作 illustrative.
+            #     正确地从 score 关于 data/noise/velocity 的关系重新推导，包含具体 Rectified Flow / EDM schedule.
+            #     真实部署请参考论文 + 官方 repo；此处 -v/σ 仅作 illustrative（已用 +1e-6 guard 避免除零，
+            #     t=1 时 sigma→0，该修正项随 sigma² 一起趋于 0，不是 NaN——但公式本身并非严谨推导）.
+            #     注：本 placeholder 的 sigma_fn(t)=sqrt(1-t) 在轨迹起点 t=1（纯噪声）给零 SDE 噪声、
+            #     在轨迹终点 t=0（接近干净数据）给最大噪声——与"探索噪声应早大晚小"的常见直觉相反；
+            #     实现真正的 Flow-GRPO trainer 时应同时重推 score 项（论文 Eq.6）和噪声 schedule 的方向/符号，
+            #     不要直接照搬这里的示意 sigma_fn.
             drift = v + 0.5 * sigma ** 2 * (-v / (sigma + 1e-6))  # placeholder, see paper Eq.(6)
             noise = torch.randn_like(x_t)
             x_next = x_t + drift * dt + sigma * noise * abs(dt) ** 0.5
@@ -824,7 +839,7 @@ def combined_reward(images, prompts, weights=None):
 | **SD3** (Stable Diffusion 3, Esser et al. 2024 ICML) | base 用 Rectified Flow + MM-DiT | 论文未公开 post-training；社区猜测有内部 DPO |
 | **SD3.5 / SD3.5 Turbo** | 有 distill，post-training 未公开 | 推测有 DPO + distill 混合 |
 | **FLUX.1 dev / pro** (Black Forest Labs 2024) | 未公开 | 社区猜测 DPO + distill；pro 走 API 闭源 |
-| **DALL-E 3** (OpenAI 2023) | "recaptioning + RLHF" | 公开报告强调 prompt-faithful RLHF |
+| **DALL-E 3** (OpenAI 2023) | "synthetic recaptioning"（未描述 RLHF） | synthetic recaptioning（详尽图像描述数据增强），未描述 RLHF 后训练 |
 | **Imagen 3** (Google 2024) | 未公开 | 内部 alignment 流程 |
 | **DeepFloyd IF** | 无 post-training | 学术 base model |
 
@@ -835,7 +850,7 @@ def combined_reward(images, prompts, weights=None):
 - SD3 论文 (arXiv 2403.03206) 的 "Improving Rectified Flow Transformers" 章节讨论 sampling + reflow，没提 reward fine-tune。
 - FLUX 完全没发论文，社区从 model card 推测有 distillation（FLUX schnell 是 4-step 蒸馏版）。
 - Stability AI 在 SD3.5-Large 发布时提到 "fine-tuned with improved aesthetics"，可能是 SFT 而非 RL。
-- DALL-E 3 论文 (OpenAI 2023) 明确说用了 caption-faithful RLHF。
+- DALL-E 3 的公开技术报告（Betker et al. 2023, *Improving Image Generation with Better Captions*）的核心贡献是**合成 recaptioning**——训练一个 image captioner 给训练图像生成更详尽的合成描述，并混合原始短 caption 与合成长 caption 训练，以此提升 prompt-following；报告并未描述 RLHF（reward model + PPO 等）后训练流程作为其方法机制。
 
 **业界共识**（来自 HuggingFace 社区 + Reddit r/StableDiffusion）：闭源大模型（FLUX pro, DALL-E 3, Midjourney v6+）有 reward-based fine-tune，但具体方法不公开；开源 base（SD3.5 base, FLUX dev base）公开训练 pipeline 不含 RL，但 Stability AI 内部 dev 版可能有。
 
@@ -935,9 +950,10 @@ def combined_reward(images, prompts, weights=None):
 
 - 用 ELBO surrogate：$-\|\epsilon - \epsilon_\theta(x_t, t, c)\|^2$（DDPM 的 $L_\text{simple}$）作为 $\log p_\theta(x_0)$ 的代理。
 - 这是 $\log p_\theta$ 的（negative）下界项，方向正确。
-- 配上 paired noise $\epsilon$（$y_w$ 和 $y_l$ 共享同一 $\epsilon$）才稳。
+- 注意 $L_\text{simple}$ 把真正 VLB 的 timestep 权重 $\lambda_t$（$\omega(\lambda_t)$）设为 1，这是 Ho 2020 为了采样质量主动做的 reweighting，并非"log p_θ 的紧 ELBO"本身——把它当 log p_θ 的代理是近似，不是恒等。
+- 配上 paired noise $\epsilon$（$y_w$ 和 $y_l$ 共享同一 $\epsilon$，方差缩减技巧）才更稳。
 
-说用 $\log p(x_0)$ 解析式（错，diffusion 没闭式）；忘记 paired noise。
+说用 $\log p(x_0)$ 解析式（错，diffusion 没闭式）；把 $L_\text{simple}$ 当成严格恒等的 ELBO（忽略了 $\omega(\lambda_t)=1$ 的 reweighting）；忘记 paired noise 能降方差。
 </details>
 
 <details>
@@ -956,10 +972,10 @@ def combined_reward(images, prompts, weights=None):
 
 - LLM DPO: $\beta \in [0.05, 0.5]$
 - Diffusion-DPO: $\beta \in [2000, 5000]$
-- 原因：diffusion 的"trajectory log-likelihood"是 $T$ 个 Gaussian log-prob 之和，单步 $\epsilon$ 距离差吸收了 $T$ 倍系数。**实际有效温度**是 $\beta T$。
-- 也有 implementation 把 $T$ 显式分离，那时 $\beta$ 看起来与 LLM 同量级。
+- 原因（方向性直觉，非精确公式）：diffusion 的"trajectory log-likelihood"是 $T$ 个 Gaussian log-prob 之和，单步 $\epsilon$ 距离差吸收了 $T$ 倍系数，这解释了 $\beta$ 大几个数量级的方向。
+- **但"$\beta T$ 就是真正的温度"不是一个干净的、implementation-independent 的事实**：它还依赖 MSE 是 mean-reduce 还是 sum-reduce（相差 $C \times H \times W$ 倍），以及 $T$ 具体指 DDPM 训练用的 $\sim$1000 步 schedule 还是推理用的 $\sim$20–50 步 schedule——本教程代码用 `.mean([1,2,3])` + 1000-step DDPM $t$-sampling，换一种 reduction/T 约定，"有效温度"就不再是同一个 $\beta T$。
 
-说"diffusion 噪声大所以 β 大"（错，是 trajectory 长度的累计效应）。
+说"diffusion 噪声大所以 β 大"（错，是 trajectory 长度的累计效应）；或把"$\beta T$ 是真温度"当成放之四海而皆准的精确等价（忽略了 mean/sum 归约和 T 约定的依赖）。
 </details>
 
 <details>
@@ -980,11 +996,11 @@ def combined_reward(images, prompts, weights=None):
 <details>
 <summary>Q7. DDPO 用 DDPM 还是 DDIM 采样？为什么？</summary>
 
-- **DDPM**（或 DDIM-eta=1）—— 需要 stochastic transition。
-- DDIM-eta=0 是 deterministic，没有 noise term，**没有 action 可优化** → policy gradient 等于 0。
-- 类比：LLM RL 必须用 sampling（temperature > 0），不能用 greedy.
+- **DDPM**（或 DDIM-eta=1）—— 需要 stochastic transition，REINFORCE/score-function 型策略梯度才有良定义的 log-density 可以求导。
+- DDIM-eta=0 是 deterministic（Dirac delta transition），没有 well-defined 的 log-density——**REINFORCE 这类 score-function 估计在这里退化/失效**，但这不等于"policy gradient 恒为 0"：$x_0$ 仍是 $\theta$ 的确定性可微函数，pathwise/reparameterized gradient（§3 DRaFT/AlignProp 用的正是这个）依然存在且通常非零。DDPO 需要 stochastic transition，是因为它选用了 REINFORCE 这一特定梯度估计方式，不是因为确定性采样下"真梯度"消失。
+- 类比：LLM RL 的 REINFORCE/PPO 必须用 sampling（temperature > 0），不能用 greedy——但 greedy 输出仍是参数的可微函数，只是 score-function 梯度用不了这条路径。
 
-说 DDIM 也行（错，要 eta > 0）；不知道 stochasticity 是 RL 前提。
+说 DDIM 也行（错，对 REINFORCE 而言要 eta > 0）；或以为确定性采样下 true gradient 恒为零（错，混淆了"REINFORCE 失效"和"真梯度为零"，见 §3 DRaFT/AlignProp 的 pathwise gradient）。
 </details>
 
 <details>
@@ -1012,11 +1028,11 @@ def combined_reward(images, prompts, weights=None):
 <details>
 <summary>Q10. Diffusion-DPO 训练时 $y_w$ 和 $y_l$ 的 noise 怎么处理？</summary>
 
-- **paired noise**：$x_t^w$ 和 $x_t^l$ 用**同一个** $\epsilon$（即 $x_t^w = \sqrt{\bar\alpha_t}x_0^w + \sqrt{1-\bar\alpha_t}\epsilon$，$x_t^l$ 同理用同一 $\epsilon$）。
-- 不 paired 时 $\beta$ 的尺度不再可比，loss 方差大幅上升，训练不稳。
-- 这是 Diffusion-DPO 最容易忽视的实现细节。
+- **paired noise**：$x_t^w$ 和 $x_t^l$ 用**同一个** $\epsilon$（即 $x_t^w = \sqrt{\bar\alpha_t}x_0^w + \sqrt{1-\bar\alpha_t}\epsilon$，$x_t^l$ 同理用同一 $\epsilon$）——这是**方差缩减**（common random numbers）技巧，不是数学正确性的前提。
+- 不 paired（各自独立采样 $\epsilon^w,\epsilon^l$）时，loss 仍是同一 DPO 目标的无偏估计，只是方差更大、优化更不稳；$\beta$ 的尺度和可比性不因此改变。
+- 这是 Diffusion-DPO 实践中最容易忽视、但会实打实影响训练稳定性的实现细节。
 
-不知道 paired noise（错）；或以为 $\epsilon$ 是 $\epsilon_\theta$ 的预测（错，这里 $\epsilon$ 是 q-sample 的 noise）。
+不知道 paired noise 能降方差（错失一个稳定性技巧）；或以为不 paired 会让 loss 数学上不正确（错，只是方差更大）；或以为 $\epsilon$ 是 $\epsilon_\theta$ 的预测（错，这里 $\epsilon$ 是 q-sample 的 noise）。
 </details>
 
 ### L2 进阶题（10 题）
@@ -1144,7 +1160,7 @@ $$\mathcal{L}_\text{MaPO} = -\log\sigma\!\big(\beta(\hat\ell_w - \hat\ell_l) - \
 <summary>Q21. 推 Diffusion-DPO loss 从 reverse ELBO 出发，说清 ELBO surrogate 为何有效。</summary>
 
 1. DDPM ELBO：$\log p_\theta(x_0) \ge -\sum_{t=2}^T \text{KL}(q(x_{t-1}|x_t,x_0) \Vert p_\theta(x_{t-1}|x_t)) + \log p_\theta(x_0|x_1) - \text{KL}(q(x_T|x_0) \Vert p(x_T))$
-2. 化简（Ho 2020）：$-\log p_\theta(x_0) \le L_\text{simple} + C$，$L_\text{simple} = \mathbb{E}_{t,\epsilon}\|\epsilon - \epsilon_\theta(x_t,t)\|^2$。
+2. 化简（Ho 2020）：$-\log p_\theta(x_0) \le L_\text{simple} + C$，$L_\text{simple} = \mathbb{E}_{t,\epsilon}\|\epsilon - \epsilon_\theta(x_t,t)\|^2$——**注意**：真正的 VLB 每个 $t$ 前有 SNR 权重 $\lambda_t$（即 $\omega(\lambda_t)$），$L_\text{simple}$ 是把 $\omega(\lambda_t)$ 设为 1 的 reweighted 版本（Ho 2020 为采样质量主动选择），并非对 VLB 直接化简得到的紧 bound。
 3. KL-regularized 最优 $p^* \propto p_\text{ref}\exp(R/\beta)$，反解 $R = \beta\log(p^*/p_\text{ref}) + \beta\log Z$。
 4. 代入 BT，$\log Z$ 消掉。
 5. 用 ELBO surrogate 代 $\log p$：$\log p_\theta(x_0) \approx -L_\text{simple}$（**注意**：这是上界的取负，作为单 sample 估计 — 严格意义上是 lower bound 的一个项，而非 $\log p$ 本身，但作为 DPO 的 implicit reward proxy 数值有效）。
@@ -1197,7 +1213,7 @@ GRPO 的 advantage 在 vector field 空间作用如下：
 
 1. **SD3 论文 (arXiv 2403.03206)**：只讨论 Rectified Flow + MM-DiT + reflow；没提 reward fine-tune。
 2. **FLUX**：完全没发论文，model card 只提"trained on a large image-text dataset"。
-3. **DALL-E 3 (OpenAI 2023)**：明确说用了 caption-faithful RLHF（rewrite caption + RM）。
+3. **DALL-E 3 (OpenAI 2023)**：公开报告（Betker et al. 2023）核心是**synthetic recaptioning**——用 image captioner 给训练图像生成更详尽的合成描述并混合训练，以提升 prompt-following；并未描述 RLHF（reward model + PPO 等）后训练机制。
 4. **业界共识**：闭源大模型（FLUX pro, DALL-E 3, Midjourney v6+）几乎确定有 reward-based fine-tune，但具体方法不公开。
 
 **判断标准（black-box test）**：
@@ -1288,8 +1304,8 @@ GRPO 的 advantage 在 vector field 空间作用如下：
 
 | 坑 | 解 |
 | --- | --- |
-| Diffusion-DPO 没 paired noise | $\epsilon$ for $x_t^w$ 和 $x_t^l$ 必须共享 |
-| DDPO 用 DDIM-eta=0 | 必须 eta>0 或 DDPM，否则梯度为 0 |
+| Diffusion-DPO 没 paired noise | 建议 $\epsilon$ for $x_t^w$ 和 $x_t^l$ 共享（降方差，非数学强制） |
+| DDPO 用 DDIM-eta=0 | REINFORCE 类 score-function 梯度失效，需 eta>0 或 DDPM（DRaFT/AlignProp 等 pathwise 方法反而需要确定性采样） |
 | AlignProp 显存爆炸 | $K=1$ + gradient checkpoint + LoRA |
 | Reward scale 不归一化 | 每个 RM 单独 z-score |
 | RL 后 FID 暴跌 | 加 KL anchor 或 reward ensemble |

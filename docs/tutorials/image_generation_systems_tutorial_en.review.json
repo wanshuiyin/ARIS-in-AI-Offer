@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/image_generation_systems_tutorial_en.md",
-  "source_sha256": "b2253581ba198fd353cb3714c3dc26e0f5aa3bd77e50f1693fcad96bb5cb733b",
+  "source_sha256": "2d3513827bb54ddd6a407d1985b5a58fcadfbf9cccecea990477a4ad3de7271b",
   "output": "docs/tutorials/image_generation_systems_tutorial_en.html",
   "zh_source": "docs/tutorials/image_generation_systems_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -19,5 +19,26 @@
     ],
     "summary": "Fresh cross-model translation-fidelity audit (Codex GPT-5.5 xhigh, read-only, detect-only) of the English edition /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/image_generation_systems_tutorial_en.md against the Chinese source of truth /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/image_generation_systems_tutorial.md (both 1459 lines) plus the rendered HTML /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/image_generation_systems_tutorial_en.html. Verdict: WARN. The EN markdown is a FAITHFUL and COMPLETE translation of the ZH — all numbers, mathematical formulas/equations, co"
   },
-  "rendered_at": "2026-05-31"
+  "rendered_at": "2026-05-31",
+  "post_ship_review": [
+    {
+      "scope": "2026-07-13 full-collection re-sweep (diffusion cluster): Codex GPT-5.6-sol candidate pass (run against the ZH source) + independent Claude Sonnet 5 adversarial verification, then applied in parallel to both editions",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "summary": "10 findings from the ZH-source verification pass (9 CONFIRMED + 1 NEEDS_NUANCE, 0 REFUTED) translated into natural-English equivalent fixes in this EN edition — same substantive corrections as image_generation_systems_tutorial.review.json's post_ship_review entry, no new content introduced.",
+      "fixes": [
+        "§3.3 SD3 RF equation: fixed backward data/noise identity and removed the incorrect 'opposite of DDPM' claim (also fixed the duplicate restatement in §13 Q15)",
+        "§3.4 FLUX.1 spec table: 'text tokens use absolute positions' corrected to 'text-token RoPE ids (txt_ids) set to all zeros, ordering carried by T5's relative-position mechanism'",
+        "§6.7 InstantID row: corrected to decoupled cross-attention injecting the face embedding itself as the identity embedding + IdentityNet (landmark ControlNet)",
+        "§6.7 PhotoMaker row: corrected to Stacked ID Embedding (per-photo fuse-then-stack), not average-then-concat",
+        "§7.7 Custom Diffusion: corrected from 'narrower LoRA-DreamBooth' to an independent selective full-parameter fine-tuning method",
+        "§9.2 ADD: removed the fabricated third 'score loss'; ADD has two losses (adversarial + one score-distillation-style distillation loss) (also fixed the duplicate 'three-in-one' restatement in §13 Q19)",
+        "§13 Q4: SD/SDXL U-Net middle block corrected from 'no cross-attn' to 'has cross-attn' (standard SpatialTransformer/UNetMidBlock2DCrossAttn), consistent with §3.1",
+        "§0/§2.2/§13 Q1: 'f=8 -> exactly 64x compute savings' softened to an order-of-magnitude estimate (NEEDS_NUANCE)",
+        "§13 Q7: LoRA parameter ratio corrected from r/min(d,k) to the exact r(d+k)/dk = r(1/d+1/k) (= 2r/n, not r/n, when d=k=n)",
+        "§3.2/§13 Q11: SDXL size/crop conditioning corrected from 4 scalars to 6 (added missing target_size pair)"
+      ],
+      "note": "HTML re-rendered and source_sha256 refreshed (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ]
 }

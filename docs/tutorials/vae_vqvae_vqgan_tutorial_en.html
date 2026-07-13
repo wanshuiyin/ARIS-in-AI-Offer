@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/vae_vqvae_vqgan_tutorial_en.md">
-<meta name="aris:source-sha256" content="dd163f95024f8af9e32b70b615509f7acf9ed59024b6873209eb28d017cc7edb">
-<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
+<meta name="aris:source-sha256" content="21bfbdac6eba97838fdf1405f8e030fd74465588b3661114507913b54a4f3019">
+<meta name="aris:generated-at" content="2026-07-13 10:17 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -618,15 +618,15 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/vae_vqvae_vqgan_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>dd163f95024f</code></span>
-    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
+    <span><strong>SHA256:</strong> <code>21bfbdac6eba</code></span>
+    <span><strong>Rendered:</strong> 2026-07-13 10:17 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
 <div class="callout callout-info"><div class="callout-title">VAE / VQ-VAE / VQ-GAN / FSQ in 8 sentences</div><p>one page covering the interview essentials (see §2–§9 for derivations).</p></div>
-<ol><li><strong>Continuous VAE objective</strong>: maximize ELBO, $\log p(x) \geq \mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)] - D_\text{KL}(q_\phi(z|x)\,\|\,p(z))$; reparameterization $z = \mu + \sigma \odot \epsilon$ lets gradients flow through stochastic sampling.</li><li><strong>KL closed form (must-know)</strong>: $D_\text{KL}(\mathcal{N}(\mu,\sigma^2 I)\,\|\,\mathcal{N}(0,I)) = \tfrac{1}{2}\sum_i (\mu_i^2 + \sigma_i^2 - \log \sigma_i^2 - 1)$.</li><li><strong>Posterior collapse</strong>: KL → 0 → decoder ignores $z$; mitigations: KL annealing, free bits, $\beta$ schedule, autoregressive prior.</li><li><strong>VQ-VAE</strong>: maps encoder output $z_e(x)$ to the nearest codebook vector $e_k$, loss = recon + $\|\text{sg}[z_e] - e\|^2$ (codebook) $+ \beta \|z_e - \text{sg}[e]\|^2$ (commitment).</li><li><strong>Straight-Through Estimator (STE)</strong>: argmin / quantize is non-differentiable, use quantized value in forward, pass-through gradient $\partial \mathcal{L}/\partial z_q \to \partial \mathcal{L}/\partial z_e$ in backward.</li><li><strong>VQ-GAN</strong>: VQ-VAE + perceptual (LPIPS) + adversarial (PatchGAN) + post-trained Transformer prior; lays the foundation for LDM / Parti / Muse and other discrete-token models.</li><li><strong>FSQ (2024)</strong>: per-dimension scalar quantization to $\{-L,\ldots,L\}$, implicit codebook size $\prod_i L_i$ (e.g. $L=8, d=6 \Rightarrow 8^6 = 262{144}$), <strong>no need for STE, no codebook collapse</strong>, rounding uses STE only, loss only has reconstruction.</li><li><strong>Ecosystem comparison</strong>: continuous latent (VAE / KL) suits LDM-style diffusion; discrete tokens (VQ-VAE / VQ-GAN / FSQ / LFQ) suit AR / MaskGIT Transformer priors, the core component of Parti / Muse / Cosmos.</li></ol>
+<ol><li><strong>Continuous VAE objective</strong>: maximize ELBO, $\log p(x) \geq \mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)] - D_\text{KL}(q_\phi(z|x)\,\|\,p(z))$; reparameterization $z = \mu + \sigma \odot \epsilon$ lets gradients flow through stochastic sampling.</li><li><strong>KL closed form (must-know)</strong>: $D_\text{KL}(\mathcal{N}(\mu,\sigma^2 I)\,\|\,\mathcal{N}(0,I)) = \tfrac{1}{2}\sum_i (\mu_i^2 + \sigma_i^2 - \log \sigma_i^2 - 1)$.</li><li><strong>Posterior collapse</strong>: KL → 0 → decoder ignores $z$; mitigations: KL annealing, free bits, $\beta$ schedule, autoregressive prior.</li><li><strong>VQ-VAE</strong>: maps encoder output $z_e(x)$ to the nearest codebook vector $e_k$, loss = recon + $\|\text{sg}[z_e] - e\|^2$ (codebook) $+ \beta \|z_e - \text{sg}[e]\|^2$ (commitment).</li><li><strong>Straight-Through Estimator (STE)</strong>: argmin / quantize is non-differentiable, use quantized value in forward, pass-through gradient $\partial \mathcal{L}/\partial z_q \to \partial \mathcal{L}/\partial z_e$ in backward.</li><li><strong>VQ-GAN</strong>: VQ-VAE + perceptual (LPIPS) + adversarial (PatchGAN) + post-trained Transformer prior; lays the foundation for LDM / Parti / Muse and other discrete-token models.</li><li><strong>FSQ (2024)</strong>: each dimension is scalar-quantized to $L_i$ fixed levels (via tanh scaling + round, see §9.2 Eq.4), implicit codebook size $\prod_i L_i$ (e.g. $L=8, d=6 \Rightarrow 8^6 = 262{144}$), <strong>no learnable codebook parameters, no codebook collapse</strong>, but rounding itself is non-differentiable so it still needs a one-line STE (forward round, backward identity), loss only has reconstruction.</li><li><strong>Ecosystem comparison</strong>: continuous latent (VAE / KL) suits LDM-style diffusion; discrete tokens (VQ-VAE / VQ-GAN / FSQ / LFQ) suit AR / MaskGIT Transformer priors, the core component of Parti / Muse / Cosmos.</li></ol>
 <h2 id="1-intuition-why-latent-variable-models">§1 Intuition: Why Latent Variable Models</h2>
 <p>The core challenge of generative modeling: <strong>directly modeling $p(x)$ is hard</strong>, but if we introduce low-dim latent $z$:</p>
 <p>$$p(x) = \int p(x|z)\, p(z)\, dz$$</p>
@@ -812,7 +812,7 @@ def vae_loss(x: torch.Tensor, logits: torch.Tensor, mu: torch.Tensor,
 <ul><li><strong>Decoder too strong</strong>: if $p_\theta(x|z)$ is itself an expressive PixelCNN / Autoregressive decoder (Bowman 2016's LSTM text VAE classic flop), it can fit the data without relying on $z$, so ELBO's optimal strategy is to zero out the KL term.</li><li><strong>KL term too high pressure</strong>: ELBO in early training, reconstruction is not yet established, optimizer easily pushes KL to 0 first (local optimum).</li><li><strong>Simple data</strong>: collapse rare on MNIST, common on text VAEs.</li></ul>
 <h3 id="53-mitigation-methods-interview-must-list">5.3　Mitigation methods (interview must list)</h3>
 <table><thead><tr><th>Method</th><th>How</th><th>Source</th></tr></thead><tbody><tr><td><strong>KL annealing</strong></td><td>$\beta(t) = \min(1, t / T)$ linear from 0 to 1</td><td>Bowman et al. (2016)</td></tr><tr><td><strong>Free bits</strong></td><td>Per-dim KL lower bound $\lambda$ nats: $\max(D_\text{KL}^{(i)}, \lambda)$</td><td>Kingma et al. (2016)</td></tr><tr><td><strong>$\beta$ &lt; 1</strong></td><td>Directly reduce KL weight</td><td>$\beta$-VAE reverse usage</td></tr><tr><td><strong>Weakened decoder</strong></td><td>When using strong AR decoders like PixelCNN, manually truncate context / add dropout</td><td>Chen et al. (2017)</td></tr><tr><td><strong>Auxiliary task</strong></td><td>Add word dropout, bag-of-words auxiliary loss</td><td>Bowman et al. (2016)</td></tr><tr><td><strong>VAE-IAF / NF prior</strong></td><td>Use more complex prior or normalizing flow posterior</td><td>Kingma et al. (2016)</td></tr><tr><td><strong>Skip / lateral connections</strong></td><td>Force latent to participate in decoder (e.g. VLAE)</td><td>Zhao et al. (2017)</td></tr><tr><td><strong>VQ-VAE</strong></td><td>Discrete latent + codebook commitment, <strong>structurally avoids</strong> collapse</td><td>van den Oord (2017)</td></tr></tbody></table>
-<div class="callout callout-good"><div class="callout-title">Free bits formula</div><p>Implementation is extremely simple: <code>kl_per_dim = max(kl_per_dim, λ)</code>. Intuition: guarantee a <strong>baseline of λ bits of information per latent dim</strong>, the optimizer cannot push it below 0. Common values $\lambda \approx 0.5$-$2$ nats / dim.</p></div>
+<div class="callout callout-good"><div class="callout-title">Free bits formula</div><p>Implementation is extremely simple: <code>kl_per_dim = max(kl_per_dim, λ)</code>. <strong>This only means "stop penalizing below the threshold"</strong>: once a dimension's raw KL drops below λ, the clamp output becomes the constant λ, whose gradient w.r.t. that dimension is 0 — the optimizer will no longer push it lower, but it also <strong>will not actively push it back above λ</strong>. If the decoder is strong enough to already have collapsed a dimension's posterior, the raw KL can still sit near 0; the loss just reports the saturated λ, not a genuine lower bound. Common values $\lambda \approx 0.5$-$2$ nats / dim.</p></div>
 <h2 id="6-vq-vae-discrete-latent--codebook--ste">§6 VQ-VAE: Discrete Latent + Codebook + STE</h2>
 <h3 id="61-structure-van-den-oord-vinyals-kavukcuoglu-neurips-2017">6.1　Structure (van den Oord, Vinyals, Kavukcuoglu, NeurIPS 2017)</h3>
 <pre class="diagram"><code>
@@ -1042,7 +1042,7 @@ def hinge_g_loss(fake_logits):
 <ul><li>D start delay: only train G for the first K steps (letting recon converge first)</li><li>LeCam regularization: anchor D's output to EMA, mitigating mode collapse</li><li>R1 gradient penalty: $\gamma \|\nabla_x D(x)\|^2$ to prevent D overfitting</li><li>Spectral norm: stabilizes D</li><li>Adam $\beta_1 = 0.5$ (not the default 0.9), $\beta_2 = 0.9$</li></ul>
 <h3 id="75-lpips-perceptual-loss">7.5　LPIPS (Perceptual Loss)</h3>
 <p>$$\mathcal{L}_\text{LPIPS}(x, \hat{x}) = \sum_l w_l \cdot \|\phi_l(x) - \phi_l(\hat{x})\|^2$$</p>
-<p>$\phi_l$ is the $l$-th layer feature map of pretrained VGG / AlexNet, $w_l$ is the learned channel-wise weight (Zhang et al. CVPR 2018). Closer to human perception than pixel-MSE; standard for VQ-GAN / SD / most image GAN / diffusion training.</p>
+<p>$\phi_l$ is the $l$-th layer feature map of pretrained VGG / AlexNet, $w_l$ is the learned channel-wise weight (Zhang et al. CVPR 2018). Closer to human perception than pixel-MSE; standard for training the VQ-GAN / SD-family VAE tokenizer (the first-stage autoencoder) and for most image GANs. Standard diffusion denoisers themselves, however, are typically trained with plain L2 regression on a noise/velocity/flow target and do not include LPIPS — LPIPS only shows up at the tokenizer stage (with a minority exception like Consistency Models, which use a perceptual-style distance for training/distillation).</p>
 <h2 id="8-discrete-vae-and-gumbel-softmax">§8 Discrete VAE and Gumbel-Softmax</h2>
 <h3 id="81-dvae-dalle-1-ramesh-et-al-icml-2021">8.1　dVAE (DALL·E 1, Ramesh et al. ICML 2021)</h3>
 <p>DALL·E uses <strong>dVAE (discrete VAE)</strong> as image tokenizer:</p>
@@ -1069,7 +1069,7 @@ def hinge_g_loss(fake_logits):
     y = y_hard - y_soft.detach() + y_soft   # straight-through
     return y</code></pre>
 <div class="callout callout-info"><div class="callout-title">VQ-VAE vs Gumbel-softmax / dVAE</div><p>Both are discrete latent models, differences:</p></div>
-<ul><li>VQ-VAE: encoder outputs continuous $z_e$, <strong>nearest-neighbor</strong> to codebook (hard, no randomness); STE for backprop.</li><li>Gumbel dVAE: encoder outputs categorical <strong>distribution</strong> (logits over K codes), training uses Gumbel-softmax sampling.</li><li>Practice: DALL·E 1 used dVAE with AR Transformer prior; later DALL·E 2 / Parti / Muse all lean toward <strong>VQ-GAN series</strong> (better quality).</li></ul>
+<ul><li>VQ-VAE: encoder outputs continuous $z_e$, <strong>nearest-neighbor</strong> to codebook (hard, no randomness); STE for backprop.</li><li>Gumbel dVAE: encoder outputs categorical <strong>distribution</strong> (logits over K codes), training uses Gumbel-softmax sampling.</li><li>Practice: DALL·E 1 used dVAE with an AR Transformer prior; later token-based models like Parti / Muse lean toward the <strong>VQ-GAN series</strong> (better quality); DALL·E 2 instead switched to the <strong>unCLIP</strong> route (a CLIP image-embedding prior + diffusion decoder), and does not use VQ-GAN discrete tokens at all.</li></ul>
 <h3 id="83-maskgit-chang-et-al-cvpr-2022">8.3　MaskGIT (Chang et al., CVPR 2022)</h3>
 <p>Replace AR Transformer prior with <strong>BERT-style masked Transformer</strong>:</p>
 <ul><li>Training: randomly mask a portion of VQ tokens, have model predict masked tokens (similar to BERT MLM)</li><li>Sampling: <strong>Non-autoregressive parallel sampling</strong> — each round unmask a batch of tokens, iterating 8-12 rounds to converge</li><li>About 10x faster than AR, comparable or better quality (on ImageNet 256×256)</li></ul>
@@ -1081,8 +1081,9 @@ def hinge_g_loss(fake_logits):
 <p>FSQ bypasses this with one trick: <strong>per-dimension scalar quantization (scalar quantization, not vector quantization)</strong>.</p>
 <h3 id="92-core-formula-must-derive">9.2　Core formula (must derive)</h3>
 <p>Let encoder output $z \in \mathbb{R}^d$. <strong>Independently for each dim</strong>, do scalar quantization (FSQ paper Eq. 4):</p>
-<p>$$z_i \longrightarrow z'_i = \tfrac{L_i-1}{2}\tanh(z_i) - s_i \longrightarrow \hat{z}_i = \text{round}(z'_i) + s_i$$</p>
-<p>where $s_i = 0$ if $L_i$ is odd, $s_i = 0.5$ if $L_i$ is even. So:</p>
+<p>$$\text{half}_i=\tfrac{(L_i-1)(1-\varepsilon)}{2},\quad \text{offset}_i=\begin{cases}0 &amp; L_i\text{ odd}\\0.5 &amp; L_i\text{ even}\end{cases},\quad \text{shift}_i=\operatorname{atanh}(\text{offset}_i/\text{half}_i)$$</p>
+<p>$$z_i \longrightarrow z'_i = \tanh(z_i+\text{shift}_i)\cdot\text{half}_i - \text{offset}_i \longrightarrow \hat{z}_i = \text{round}(z'_i) + \text{offset}_i$$</p>
+<p>where $\varepsilon \approx 10^{-3}$ is a safety margin that keeps a rounded value from falling outside the grid when $\tanh$ numerically saturates near $\pm 1$; the parity shift is added on the input side of $\tanh$ (rather than subtracted on the output side), which is what keeps the even-level interval strictly symmetric about 0. So:</p>
 <ul><li>$L_i$ odd (e.g. 5): $\hat{z}_i \in \{-2,-1,0,1,2\}$ (exactly $L_i$ integer levels)</li><li>$L_i$ even (e.g. 8): $\hat{z}_i \in \{-3.5,-2.5,\ldots,2.5,3.5\}$ (exactly $L_i$ half-integer levels)</li></ul>
 <p>Regardless of parity, each dim has $L_i$ levels; multiply the level counts of all dimensions:</p>
 <p>$$\boxed{\;K_\text{implicit} = \prod_{i=1}^{d} L_i\;}$$</p>
@@ -1090,8 +1091,8 @@ def hinge_g_loss(fake_logits):
 <ul><li>$L = (8, 6, 5)$, $d = 3$: codebook = $8 \times 6 \times 5 = 240$</li><li>$L = (8, 5, 5, 5)$, $d = 4$: codebook = $8 \times 5 \times 5 \times 5 = 1000$</li><li>$L = (7, 5, 5, 5, 5)$, $d = 5$: codebook = $7 \times 5^4 = 4375$</li><li>$L = (8, 8, 8, 5, 5, 5)$, $d = 6$: codebook = $8^3 \cdot 5^3 = 64{,}000$</li><li><strong>No explicit codebook table</strong>: the $(L_1, \ldots, L_d)$ combinations of $\hat{z}_i$ are themselves the discrete codes (directly use base-mixed encoding to convert to $1, \ldots, K_\text{implicit}$).</li></ul>
 <h3 id="93-why-doesnt-fsq-have-codebook-collapse">9.3　Why doesn't FSQ have codebook collapse?</h3>
 <div class="callout callout-good"><div class="callout-title">Key insight</div><p>In VQ-VAE, the root cause of codebook collapse is: the codebook is a <strong>free parameter</strong>, the optimizer lets most $e_k$ drift to useless regions, and only a few $e_k$ are used repeatedly. <strong>FSQ's "codebook" is not a parameter</strong> — it is fixed grid points on the number axis ($\{-L/2, \ldots, L/2\}$).</p></div>
-<ul><li><strong>No codebook parameter → no codebook collapse</strong>: grid points are fixed, can't drift.</li><li><strong>Per-dim independence → high-dim code automatically diversifies through product</strong>: even with each dim using $L=8$ levels, $d=6$ gives $8^6 = 262{144}$ combinations.</li><li><strong>Encoder self-adapts distribution</strong>: with $\tanh$ pre-compressing to $[-1, 1]$, the encoder naturally spreads its output over $[-L/2, L/2]$ — the only reason dead codes appear is if the encoder doesn't use some grid intervals, but as long as reconstruction drives the encoder to explore the full interval, all grids get covered.</li></ul>
-<p>Empirical: FSQ's codebook usage is nearly 100% (compared to VQ-VAE's 50-70%), this conclusion is reproduced on ImageNet / Cosmos / OpenMagViT2.</p>
+<ul><li><strong>No codebook parameter → no codebook collapse</strong>: grid points are fixed, can't drift.</li><li><strong>Per-dim independence → high-dim code automatically diversifies through product</strong>: even with each dim using $L=8$ levels, $d=6$ gives $8^6 = 262{144}$ combinations.</li><li><strong>Encoder self-adapts distribution</strong>: with $\tanh$ pre-compressing to $[-1, 1]$, the encoder tends to spread its output over $[-L/2, L/2]$; reconstruction pressure usually drives the encoder to explore most of the grid points, which is why empirical usage is near 100% — but this is an empirical observation, not a mathematical guarantee: in theory a handful of grid intervals could still go unused (dead levels) depending on data distribution and training dynamics.</li></ul>
+<p>Empirical: FSQ's codebook usage is nearly 100% (compared to VQ-VAE's 50-70%), a conclusion reproduced by the original FSQ paper (Mentzer et al. 2024) on ImageNet and by NVIDIA Cosmos's FSQ-family discrete tokenizer (note: OpenMagViT2 uses LFQ, not FSQ — see §9.7).</p>
 <h3 id="94-why-doesnt-fsq-need-explicit-ste-wrapping-and-why-is-its-loss-minimal">9.4　Why doesn't FSQ need "explicit STE wrapping" and why is its loss minimal</h3>
 <ul><li><strong>Rounding is non-differentiable</strong> — like VQ-VAE, it needs some kind of STE. But FSQ's STE is <strong>just one line <code>x_hat = x + (round(x) - x).detach()</code></strong>, no codebook loss / commitment loss / EMA / dead-code revival.</li><li><strong>Loss is only reconstruction</strong>:</li></ul>
 <p>$$\mathcal{L}_\text{FSQ} = \|x - \hat{x}\|^2 \quad \text{(plus optional perceptual + adversarial)}$$</p>
@@ -1101,19 +1102,23 @@ def hinge_g_loss(fake_logits):
 <pre><code class="language-python">class FSQ(nn.Module):
     &quot;&quot;&quot; Finite Scalar Quantization (Mentzer et al., ICLR 2024)
         levels: tuple, number of quantization levels per dim (odd or even both work; odd guarantees 0 is included in the grid)
-        eps:    bounding safety margin, avoiding round jumping out of grid after tanh &quot;&quot;&quot;
+        eps:    bounding safety margin, avoiding a rounded value falling outside the grid when tanh numerically saturates near ±1 &quot;&quot;&quot;
 
-    def __init__(self, levels=(8, 5, 5, 5)):
+    def __init__(self, levels=(8, 5, 5, 5), eps: float = 1e-3):
         super().__init__()
         levels_t = torch.tensor(levels, dtype=torch.float32)
         self.levels = levels_t
         self.d = len(levels)
         self.K = int(torch.prod(levels_t).item())            # implicit codebook size = ∏ L_i
-        # FSQ paper Eq. 4: half = (L-1)/2; shift = 0.5 if L even else 0
-        half = (levels_t - 1) / 2                            # [d]
-        shift = ((levels_t % 2) == 0).float() * 0.5          # [d]
+        # FSQ paper Eq. 4: half = (L-1)(1-eps)/2; offset = 0.5 if L even else 0
+        half = (levels_t - 1) * (1 - eps) / 2                 # [d]
+        offset = ((levels_t % 2) == 0).float() * 0.5          # [d]
+        # parity shift is added on tanh&#x27;s input side (not subtracted on the output side),
+        # which keeps the even-level interval symmetric about 0
+        atanh_shift = torch.atanh(offset / half)              # [d]
         self.register_buffer(&quot;half_l&quot;, half)
-        self.register_buffer(&quot;shift&quot;, shift)
+        self.register_buffer(&quot;offset&quot;, offset)
+        self.register_buffer(&quot;atanh_shift&quot;, atanh_shift)
         # mixed-radix basis for token id encoding
         cumprod = torch.tensor([1.0] + list(torch.cumprod(levels_t[:-1], dim=0)),
                                dtype=torch.float32)
@@ -1128,11 +1133,12 @@ def hinge_g_loss(fake_logits):
         &quot;&quot;&quot; z: [B, d, ...]  -&gt;  z_hat: [B, d, ...] (quantized values), codes: [B, ...] (∈ 0..K-1) &quot;&quot;&quot;
         view = (1, -1) + (1,) * (z.dim() - 2)
         half = self.half_l.view(*view).to(z.device)
-        shift = self.shift.view(*view).to(z.device)
-        # 1) Bound: tanh(z) * half - shift  → z&#x27;∈[-half-shift, half-shift]
-        z_bounded = torch.tanh(z) * half - shift
-        # 2) Round (STE) + add back shift → odd L gives {-half,…,half} (integers), even L gives {-half,…,half} (half-integers)
-        z_hat = self.round_ste(z_bounded) + shift
+        offset = self.offset.view(*view).to(z.device)
+        atanh_shift = self.atanh_shift.view(*view).to(z.device)
+        # 1) Bound: shift added on tanh&#x27;s input side → tanh(z+shift)*half - offset ∈ (-half-offset, half-offset)
+        z_bounded = torch.tanh(z + atanh_shift) * half - offset
+        # 2) Round (STE) + add back offset → odd L gives {-half,…,half} (integers), even L gives {-half,…,half} (half-integers)
+        z_hat = self.round_ste(z_bounded) + offset
         # 3) Token ID (mixed-radix): map each d-dim ∈ {-half_i,…,half_i} to 0..L_i-1 then encode as single index
         shifted = (z_hat + half).round().long()              # ∈ 0..L_i-1 (round to handle floating-point error)
         basis = self.basis.view(*view).to(z.device).long()
@@ -1153,7 +1159,7 @@ def hinge_g_loss(fake_logits):
 <p>$$\text{LFQ}(z) = \text{sign}(z) \in \{-1, +1\}^d$$</p>
 <p>Only 2 levels per dim, <strong>implicit codebook = $2^d$</strong>: with $d=18$, codebook = $2^{18} = 262{144}$ (same order as FSQ-equivalent).</p>
 <p>Features:</p>
-<ul><li>Per-dim binary, simplest structure</li><li>VQ-token to binary code, trained with BitVQ / bitwise predictor</li><li>MAGVIT-v2 / Open-MAGVIT2 / VideoPoet use LFQ as video tokenizer</li><li>Add entropy regularization to maintain 50/50 per bit (avoiding some bits always being $+1$)</li></ul>
+<ul><li>Per-dim binary, simplest structure</li><li>VQ-token to binary code, trained with BitVQ / bitwise predictor</li><li>MAGVIT-v2 / Open-MAGVIT2 / VideoPoet use LFQ as video tokenizer</li><li>Add entropy regularization: <strong>minimize per-sample (per-token) entropy</strong>, making each bit's quantization decision confident (p near 0 or 1, not 0.5); simultaneously <strong>maximize batch-aggregate (marginal) entropy</strong>, keeping code usage balanced across the batch and preventing some bits from always taking the same sign; usually paired with a commitment loss to stabilize the encoder</li></ul>
 <pre><code class="language-python">class LFQ(nn.Module):
     &quot;&quot;&quot; Lookup-Free Quantization (MAGVIT-v2)
         Per-dim independent sign quantize, implicit codebook = 2^d &quot;&quot;&quot;
@@ -1171,13 +1177,17 @@ def hinge_g_loss(fake_logits):
         # STE
         z_hat = z + (q - z).detach()
 
-        # Entropy regularization (prevents some dim from always having same sign)
-        # p_+ = sigmoid(z), p_- = 1 - p_+
+        # Entropy regularization (MAGVIT-v2 style):
+        # minimize per-sample (per-token) entropy → makes each bit&#x27;s quantization decision more confident;
+        # simultaneously maximize batch-aggregate (marginal) entropy → keeps code usage balanced across the batch
         if self.training:
-            p = torch.sigmoid(z)
-            per_dim_entropy = -(p * torch.log(p + 1e-9)
-                                + (1 - p) * torch.log(1 - p + 1e-9))
-            entropy_loss = -per_dim_entropy.mean()    # maximize entropy → minimize -H
+            p = torch.sigmoid(z)                                    # p_+ = sigmoid(z)
+            per_sample_H = (-(p * torch.log(p + 1e-9)
+                               + (1 - p) * torch.log(1 - p + 1e-9))).mean()
+            p_bar = p.mean(dim=0)                                    # batch-marginal p_+
+            batch_H = (-(p_bar * torch.log(p_bar + 1e-9)
+                         + (1 - p_bar) * torch.log(1 - p_bar + 1e-9))).mean()
+            entropy_loss = per_sample_H - batch_H       # minimize per-sample entropy, maximize batch entropy
         else:
             entropy_loss = z.new_tensor(0.0)
 
@@ -1197,10 +1207,11 @@ def hinge_g_loss(fake_logits):
 <pre class="diagram"><code>
 Tokenizer Stage 1                Generative Stage 2 (prior)
 ────────────────                 ──────────────────────────
-VQ-GAN  →   discrete token grid  →   Transformer AR  (Parti, DALL·E 1, Cogview)
+VQ-GAN  →   discrete token grid  →   Transformer AR  (Parti, Cogview)
 VQ-GAN  →   discrete token grid  →   Masked Transformer (MaskGIT, Muse)
-FSQ    →   discrete token grid  →   Transformer AR  (Cosmos, OpenMagViT2)
-LFQ    →   binary token grid →   AR / bit predictor (MAGVIT-v2, VideoPoet)
+dVAE    →   categorical token grid → Transformer AR  (DALL·E 1)
+FSQ    →   discrete token grid  →   Transformer AR  (Cosmos)
+LFQ    →   binary token grid →   AR / bit predictor (MAGVIT-v2, OpenMagViT2, VideoPoet)
 KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, FLUX)</code></pre>
 <h3 id="113-reconstruction-perception-tradeoff-advanced-question">11.3　Reconstruction-Perception Tradeoff (advanced question)</h3>
 <p>Blau &amp; Michaeli (CVPR 2018) proved: <strong>between reconstruction (MSE / PSNR) and perception (perceptual / FID) there is a strict Pareto boundary</strong>. VQ-GAN / SD VAE introduces LPIPS + adversarial <strong>to trade higher perceptual quality for slightly worse PSNR</strong>.</p>
@@ -1259,7 +1270,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 <details>
 
 <summary>Q9. What is FSQ? Why doesn't it have codebook collapse?</summary>
-<ul><li>Per-dim independent scalar quantize to $L$ fixed levels ($\tanh$ → scale → round)</li><li>Implicit codebook = $\prod L_i$ (e.g. $L=8, d=6 \Rightarrow 8^6$)</li><li>Codebook is not a learnable parameter → nothing to "collapse" to useless region</li><li>Encoder naturally explores the full grid via reconstruction pressure</li></ul>
+<ul><li>Per-dim independent scalar quantize to $L$ fixed levels ($\tanh$ → scale → round)</li><li>Implicit codebook = $\prod L_i$ (e.g. $L=8, d=6 \Rightarrow 8^6$)</li><li>Codebook is not a learnable parameter → nothing to "collapse" to useless region</li><li>Reconstruction pressure usually drives the encoder to explore most of the grid (empirical usage near 100%, but this is an empirical observation, not a mathematical guarantee)</li></ul>
 <p>Pitfalls: treating FSQ as a VQ-VAE codebook optimization trick — wrong, FSQ <strong>has no explicit codebook parameter</strong>.</p>
 </details>
 <details>
@@ -1278,7 +1289,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 <details>
 
 <summary>Q12. How to mitigate posterior collapse? List at least 4.</summary>
-<ul><li><strong>KL annealing</strong>: $\beta(t) = \min(1, t/T)$ linear growth (Bowman 2016)</li><li><strong>Free bits</strong>: per-dim KL lower bound $\lambda$ nats (Kingma 2016)</li><li><strong>Weakened decoder</strong>: restrict decoder expressiveness (Chen 2017)</li><li><strong>VQ-VAE / discrete latent</strong>: structurally no KL term, bypass</li><li>Others: auxiliary loss, word dropout, NF posterior, skip connections</li></ul>
+<ul><li><strong>KL annealing</strong>: $\beta(t) = \min(1, t/T)$ linear growth (Bowman 2016)</li><li><strong>Free bits</strong>: the clamp makes the KL loss a constant (zero gradient) below threshold λ, so it stops penalizing an already-low KL, but that is not the same as forcing raw KL ≥ λ — the true KL can still collapse to 0 (Kingma 2016)</li><li><strong>Weakened decoder</strong>: restrict decoder expressiveness (Chen 2017)</li><li><strong>VQ-VAE / discrete latent</strong>: structurally no KL term, bypass</li><li>Others: auxiliary loss, word dropout, NF posterior, skip connections</li></ul>
 <p>Pitfalls: only answering "KL annealing" alone; or treating $\beta$-VAE as a collapse mitigation tool (actually $\beta &gt; 1$ makes collapse easier).</p>
 </details>
 <details>
@@ -1314,7 +1325,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 <details>
 
 <summary>Q18. What is LPIPS? Advantages over MSE?</summary>
-<ul><li>Compute distance using intermediate-layer features of pretrained VGG / AlexNet: $\sum_l w_l \|\phi_l(x) - \phi_l(\hat{x})\|^2$</li><li>$w_l$ is the learned channel-wise weight (Zhang et al. CVPR 2018)</li><li>Closer to human perception than pixel-MSE</li><li>Standard for VQ-GAN / SD / most image GAN / diffusion training</li><li>Used with distortion-perception tradeoff (Blau &amp; Michaeli CVPR 2018)</li></ul>
+<ul><li>Compute distance using intermediate-layer features of pretrained VGG / AlexNet: $\sum_l w_l \|\phi_l(x) - \phi_l(\hat{x})\|^2$</li><li>$w_l$ is the learned channel-wise weight (Zhang et al. CVPR 2018)</li><li>Closer to human perception than pixel-MSE</li><li>Standard for training the VQ-GAN / SD-family VAE tokenizer (first-stage autoencoder) and for most image GANs; standard diffusion denoisers themselves typically use plain L2 regression on a noise/velocity/flow target and don't include LPIPS — it only appears at the tokenizer stage (with a minority exception like Consistency Models, which train/distill with a perceptual-style distance)</li><li>Used with distortion-perception tradeoff (Blau &amp; Michaeli CVPR 2018)</li></ul>
 <p>Pitfalls: only saying "uses VGG features," not learned channel weights / fit to human study.</p>
 </details>
 <details>
@@ -1382,8 +1393,8 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/vae_vqvae_vqgan_tutorial_en.md</code> ·
-  SHA256 <code>dd163f95024f</code> ·
-  generated at 2026-06-29 10:11 UTC.
+  SHA256 <code>21bfbdac6eba</code> ·
+  generated at 2026-07-13 10:17 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

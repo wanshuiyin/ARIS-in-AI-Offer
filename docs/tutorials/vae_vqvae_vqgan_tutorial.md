@@ -14,7 +14,7 @@
 
 6. **VQ-GAN**：VQ-VAE + perceptual (LPIPS) + adversarial (PatchGAN) + 后训 Transformer prior；为 LDM / Parti / Muse 等离散 token 模型奠基。
 
-7. **FSQ（2024）**：每维标量量化到 $\{-L,\ldots,L\}$，隐式 codebook 大小 $\prod_i L_i$（如 $L=8, d=6 \Rightarrow 8^6 = 262{144}$），**无需 STE、不会 codebook collapse**，rounding 用 STE 即可，loss 只剩 reconstruction。
+7. **FSQ（2024）**：每维标量量化到 $L_i$ 个固定 level（经 tanh 缩放 + round 得到，具体公式见 §9.2 Eq.4），隐式 codebook 大小 $\prod_i L_i$（如 $L=8, d=6 \Rightarrow 8^6 = 262{144}$），**没有可学 codebook 参数、不会 codebook collapse**，但 round 本身不可导，仍需一行 STE（前向 round、反向 identity），loss 只剩 reconstruction。
 
 8. **生态对比**：连续 latent（VAE / KL）适合 LDM 续 diffusion；离散 token（VQ-VAE / VQ-GAN / FSQ / LFQ）适合 AR / MaskGIT Transformer prior，是 Parti / Muse / Cosmos 等的核心组件。
 
@@ -325,7 +325,7 @@ $$\mathcal{L}_\text{recon}^\text{VAE-GAN} = \|D_l(x) - D_l(\hat{x})\|^2$$
 | **Skip / lateral 连接** | 让 latent 强制参与 decoder（如 VLAE） | Zhao et al. (2017) |
 | **VQ-VAE** | 离散 latent 配合 codebook commitment，**结构上避免** collapse | van den Oord (2017) |
 
-> ✅ **Free bits 公式** — 实现极简：`kl_per_dim = max(kl_per_dim, λ)`。直觉：给每维 latent **保底 λ 比特信息**，optimizer 不能把它压到 0 以下。$\lambda \approx 0.5$-$2$ nats / dim 是常见值。
+> ✅ **Free bits 公式** — 实现极简：`kl_per_dim = max(kl_per_dim, λ)`。**这只是"阈值以下不再惩罚"**：一旦某维 raw KL 低于 λ，clamp 输出变成常数 λ，对该维梯度为 0——optimizer 不会再压低它，但也**不会主动把它推回 λ 以上**。如果 decoder 太强导致某维 posterior 已塌缩，raw KL 仍可能停在接近 0 处，loss 里显示的只是饱和后的 λ，并非真实下限保证。λ≈0.5-2 nats/dim 是常见值。
 
 ## §6 VQ-VAE：离散 latent + Codebook + STE
 
@@ -654,7 +654,7 @@ def hinge_g_loss(fake_logits):
 
 $$\mathcal{L}_\text{LPIPS}(x, \hat{x}) = \sum_l w_l \cdot \|\phi_l(x) - \phi_l(\hat{x})\|^2$$
 
-$\phi_l$ 是预训练 VGG / AlexNet 的第 $l$ 层 feature map，$w_l$ 是学到的 channel-wise weight（Zhang et al. CVPR 2018）。比 pixel-MSE 更贴近人类感知，是 VQ-GAN / SD / 大部分 image GAN / diffusion 训练的标配。
+$\phi_l$ 是预训练 VGG / AlexNet 的第 $l$ 层 feature map，$w_l$ 是学到的 channel-wise weight（Zhang et al. CVPR 2018）。比 pixel-MSE 更贴近人类感知，是 VQ-GAN / SD 系列 VAE tokenizer（first-stage autoencoder）训练和大部分 image GAN 训练的标配；但标准 diffusion denoiser 本身通常只用 noise/velocity/flow 的简单 L2 回归损失，不含 LPIPS——LPIPS 只出现在 tokenizer 阶段（以及少数如 Consistency Model 用感知距离做训练/蒸馏的例外）。
 
 ## §8 离散 VAE 与 Gumbel-Softmax
 
@@ -705,7 +705,7 @@ def gumbel_softmax_sample(logits, tau=1.0, hard=False, dim=-1):
 
 - VQ-VAE：encoder 出 continuous $z_e$，**最近邻**到 codebook（hard，无随机性）；用 STE 反传。
 - Gumbel dVAE：encoder 出 categorical **distribution**（logits over K codes），训练用 Gumbel-softmax 采样。
-- 实践：DALL·E 1 用 dVAE 配合 AR Transformer prior；后来 DALL·E 2 / Parti / Muse 都偏向 **VQ-GAN 系列**（更好质量）。
+- 实践：DALL·E 1 用 dVAE 配合 AR Transformer prior；Parti / Muse 等后续 token-based 模型偏向 **VQ-GAN 系列**（更好质量）；DALL·E 2 则改走 **unCLIP** 路线（CLIP image embedding prior + diffusion decoder），并不使用 VQ-GAN 离散 token。
 
 ### 8.3　MaskGIT（Chang et al., CVPR 2022）
 
@@ -734,9 +734,11 @@ FSQ 用一招把这一堆问题**绕过去**：**逐维标量量化（scalar qua
 
 让 encoder 输出 $z \in \mathbb{R}^d$。**对每一维独立**做 scalar quantization（FSQ 论文 Eq. 4）：
 
-$$z_i \longrightarrow z'_i = \tfrac{L_i-1}{2}\tanh(z_i) - s_i \longrightarrow \hat{z}_i = \text{round}(z'_i) + s_i$$
+$$\text{half}_i=\tfrac{(L_i-1)(1-\varepsilon)}{2},\quad \text{offset}_i=\begin{cases}0 & L_i\text{ 奇}\\0.5 & L_i\text{ 偶}\end{cases},\quad \text{shift}_i=\operatorname{atanh}(\text{offset}_i/\text{half}_i)$$
 
-其中 $s_i = 0$ 若 $L_i$ 奇，$s_i = 0.5$ 若 $L_i$ 偶。这样：
+$$z_i \longrightarrow z'_i = \tanh(z_i+\text{shift}_i)\cdot\text{half}_i - \text{offset}_i \longrightarrow \hat{z}_i = \text{round}(z'_i) + \text{offset}_i$$
+
+其中 $\varepsilon \approx 10^{-3}$ 是安全裕度，防止 $\tanh$ 数值饱和到 $\pm 1$ 时 round 后的值落到 grid 外；parity shift 加在 $\tanh$ 的输入端（而非在输出端相减），这样才能保证偶数 level 的区间严格关于 0 对称。这样：
 - $L_i$ 奇（如 5）：$\hat{z}_i \in \{-2,-1,0,1,2\}$（恰好 $L_i$ 个整数 level）
 - $L_i$ 偶（如 8）：$\hat{z}_i \in \{-3.5,-2.5,\ldots,2.5,3.5\}$（恰好 $L_i$ 个半整数 level）
 
@@ -758,9 +760,9 @@ $$\boxed{\;K_\text{implicit} = \prod_{i=1}^{d} L_i\;}$$
 
 - **没有 codebook 参数 → 没有 codebook collapse**：grid 点固定，不会跑偏。
 - **每维独立 → 高维 code 通过乘积自动多样化**：即使每维只用 $L=8$ 个 level，$d=6$ 时已经有 $8^6 = 262{144}$ 种组合。
-- **encoder 自适应分布**：因为前面有 $\tanh$ 压到 $[-1, 1]$，encoder 自然把输出散布在 $[-L/2, L/2]$ 区间——dead code 出现的唯一原因是 encoder 没把某些 grid 区间用到，但只要 reconstruction 推动 encoder 探索整个区间，所有 grid 都会被覆盖。
+- **encoder 自适应分布**：因为前面有 $\tanh$ 压到 $[-1, 1]$，encoder 倾向于把输出散布在 $[-L/2, L/2]$ 区间；reconstruction 压力通常能推动 encoder 探索到绝大部分 grid 点，因此实证 usage 接近 100%——但这是经验观察，不是数学保证：理论上仍可能因数据分布/训练动态导致极少数 grid 区间未被用到（dead level）。
 
-实证：FSQ 的 codebook usage 几乎是 100%（与 VQ-VAE 50-70% 形成对比），ImageNet / Cosmos / OpenMagViT2 复现均有此结论。
+实证：FSQ 的 codebook usage 几乎是 100%（与 VQ-VAE 50-70% 形成对比），原始 FSQ 论文（Mentzer et al. 2024）在 ImageNet 上、以及 NVIDIA Cosmos 的 FSQ 系 discrete tokenizer 上均有此结论（注意 OpenMagViT2 用的是 LFQ 非 FSQ，见 §9.7）。
 
 ### 9.4　为什么 FSQ 不需要"显式 STE 包装"以及 loss 也极简
 
@@ -778,20 +780,23 @@ $$\mathcal{L}_\text{FSQ} = \|x - \hat{x}\|^2 \quad \text{(plus optional perceptu
 ```python
 class FSQ(nn.Module):
     """ Finite Scalar Quantization (Mentzer et al., ICLR 2024)
-        levels: tuple, 每维量化 level 数（必须为奇数或偶数都行，奇数保证含 0）
-        eps:    bounding 安全裕度，避免 tanh 后 round 跳出 grid """
+        levels: tuple, 每维量化 level 数（奇偶都行，奇数保证含 0）
+        eps:    bounding 安全裕度，避免 tanh 数值饱和到 ±1 时 round 后的值跳出 grid """
 
-    def __init__(self, levels=(8, 5, 5, 5)):
+    def __init__(self, levels=(8, 5, 5, 5), eps: float = 1e-3):
         super().__init__()
         levels_t = torch.tensor(levels, dtype=torch.float32)
         self.levels = levels_t
         self.d = len(levels)
         self.K = int(torch.prod(levels_t).item())            # 隐式 codebook size = ∏ L_i
-        # FSQ paper Eq. 4: half = (L-1)/2; shift = 0.5 if L 偶 else 0
-        half = (levels_t - 1) / 2                            # [d]
-        shift = ((levels_t % 2) == 0).float() * 0.5          # [d]
+        # FSQ paper Eq. 4: half = (L-1)(1-eps)/2; offset = 0.5 if L 偶 else 0
+        half = (levels_t - 1) * (1 - eps) / 2                 # [d]
+        offset = ((levels_t % 2) == 0).float() * 0.5          # [d]
+        # parity shift 加在 tanh 输入端（而非输出端相减），保证偶数 level 区间关于 0 对称
+        atanh_shift = torch.atanh(offset / half)              # [d]
         self.register_buffer("half_l", half)
-        self.register_buffer("shift", shift)
+        self.register_buffer("offset", offset)
+        self.register_buffer("atanh_shift", atanh_shift)
         # mixed-radix basis for token id encoding
         cumprod = torch.tensor([1.0] + list(torch.cumprod(levels_t[:-1], dim=0)),
                                dtype=torch.float32)
@@ -806,11 +811,12 @@ class FSQ(nn.Module):
         """ z: [B, d, ...]  ->  z_hat: [B, d, ...] (量化值), codes: [B, ...] (∈ 0..K-1) """
         view = (1, -1) + (1,) * (z.dim() - 2)
         half = self.half_l.view(*view).to(z.device)
-        shift = self.shift.view(*view).to(z.device)
-        # 1) Bound: tanh(z) * half - shift  → z'∈[-half-shift, half-shift]
-        z_bounded = torch.tanh(z) * half - shift
-        # 2) Round (STE) + 加回 shift → 奇 L 得 {-half,…,half}（整数），偶 L 得 {-half,…,half}（含半整数）
-        z_hat = self.round_ste(z_bounded) + shift
+        offset = self.offset.view(*view).to(z.device)
+        atanh_shift = self.atanh_shift.view(*view).to(z.device)
+        # 1) Bound: shift 加在 tanh 输入端 → tanh(z+shift)*half - offset ∈ (-half-offset, half-offset)
+        z_bounded = torch.tanh(z + atanh_shift) * half - offset
+        # 2) Round (STE) + 加回 offset → 奇 L 得 {-half,…,half}（整数），偶 L 得 {-half,…,half}（含半整数）
+        z_hat = self.round_ste(z_bounded) + offset
         # 3) Token ID (mixed-radix)：把 d 维 ∈ {-half_i,…,half_i} 映成 0..L_i-1 再编成单一 index
         shifted = (z_hat + half).round().long()              # ∈ 0..L_i-1（round 兜底浮点误差）
         basis = self.basis.view(*view).to(z.device).long()
@@ -845,7 +851,7 @@ $$\text{LFQ}(z) = \text{sign}(z) \in \{-1, +1\}^d$$
 - 每维 binary，最简结构
 - VQ-token 转 binary code，用 BitVQ / bitwise predictor 训练
 - MAGVIT-v2 / Open-MAGVIT2 / VideoPoet 用 LFQ 做视频 tokenizer
-- 加 entropy regularization 维持每位 50/50（避免某些 bit 总是 $+1$）
+- 加 entropy regularization：**最小化单样本(per-token) entropy**，让每个 bit 的量化决策 confident（p 接近 0 或 1，而非 0.5）；同时**最大化 batch 聚合(marginal) entropy**，让整个 batch 内各 code 的使用趋于均匀，避免部分 bit 恒为同一符号；通常还搭配一个 commitment loss 稳定 encoder
 
 ```python
 class LFQ(nn.Module):
@@ -865,13 +871,17 @@ class LFQ(nn.Module):
         # STE
         z_hat = z + (q - z).detach()
 
-        # Entropy regularization（防止某维总是同符号）
-        # p_+ = sigmoid(z), p_- = 1 - p_+
+        # Entropy regularization（MAGVIT-v2 style）：
+        # 最小化单样本(per-token) entropy → 每个 bit 的量化决策更 confident；
+        # 同时最大化 batch 聚合(marginal) entropy → 各 code 在 batch 内用得更均匀
         if self.training:
-            p = torch.sigmoid(z)
-            per_dim_entropy = -(p * torch.log(p + 1e-9)
-                                + (1 - p) * torch.log(1 - p + 1e-9))
-            entropy_loss = -per_dim_entropy.mean()    # maximize entropy → minimize -H
+            p = torch.sigmoid(z)                                    # p_+ = sigmoid(z)
+            per_sample_H = (-(p * torch.log(p + 1e-9)
+                               + (1 - p) * torch.log(1 - p + 1e-9))).mean()
+            p_bar = p.mean(dim=0)                                    # batch-marginal p_+
+            batch_H = (-(p_bar * torch.log(p_bar + 1e-9)
+                         + (1 - p_bar) * torch.log(1 - p_bar + 1e-9))).mean()
+            entropy_loss = per_sample_H - batch_H       # 最小化单样本 entropy、最大化 batch entropy
         else:
             entropy_loss = z.new_tensor(0.0)
 
@@ -931,10 +941,11 @@ class LFQ(nn.Module):
 
 Tokenizer Stage 1                Generative Stage 2 (prior)
 ────────────────                 ──────────────────────────
-VQ-GAN  →   离散 token grid  →   Transformer AR  (Parti, DALL·E 1, Cogview)
+VQ-GAN  →   离散 token grid  →   Transformer AR  (Parti, Cogview)
 VQ-GAN  →   离散 token grid  →   Masked Transformer (MaskGIT, Muse)
-FSQ    →   离散 token grid  →   Transformer AR  (Cosmos, OpenMagViT2)
-LFQ    →   binary token grid →   AR / bit predictor (MAGVIT-v2, VideoPoet)
+dVAE    →   categorical token grid → Transformer AR  (DALL·E 1)
+FSQ    →   离散 token grid  →   Transformer AR  (Cosmos)
+LFQ    →   binary token grid →   AR / bit predictor (MAGVIT-v2, OpenMagViT2, VideoPoet)
 KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, FLUX)
 ```
 
@@ -1088,7 +1099,7 @@ codex (gpt-5.5 xhigh) 作为顶级 lab 面试官视角列的，按难度分 3 �
 
 - codebook 不是可学参数 → 没东西"塌"到无用区
 
-- encoder 通过 reconstruction 压力自然探索整个 grid
+- encoder 通过 reconstruction 压力通常能探索到绝大部分 grid（实证 usage 接近 100%，但这是经验观察不是数学保证）
 
 把 FSQ 当作 VQ-VAE 的 codebook 优化技巧——错，FSQ **没有显式 codebook 参数**。
 
@@ -1134,7 +1145,7 @@ codex (gpt-5.5 xhigh) 作为顶级 lab 面试官视角列的，按难度分 3 �
 
 - **KL annealing**：$\beta(t) = \min(1, t/T)$ 线性增长（Bowman 2016）
 
-- **Free bits**：每维 KL 下限 $\lambda$ nats（Kingma 2016）
+- **Free bits**：clamp 让 KL loss 在阈值 λ 以下变常数（零梯度），不再惩罚已经很低的 KL，但不等于强制 raw KL ≥ λ——真实 KL 仍可能塌缩到 0（Kingma 2016）
 
 - **Weakened decoder**：限制 decoder 表达力（Chen 2017）
 
@@ -1242,7 +1253,7 @@ codex (gpt-5.5 xhigh) 作为顶级 lab 面试官视角列的，按难度分 3 �
 
 - 比 pixel-MSE 更贴近人类感知判断
 
-- 是 VQ-GAN / SD / 大部分 image GAN / diffusion 训练的标配
+- 是 VQ-GAN / SD 系列 VAE tokenizer（first-stage autoencoder）训练和大部分 image GAN 训练的标配；但标准 diffusion denoiser 本身通常只用 noise/velocity/flow 的简单 L2 回归损失，不含 LPIPS——LPIPS 只出现在 tokenizer 阶段（以及少数如 Consistency Model 用感知距离做训练/蒸馏的例外）
 
 - 配合 distortion-perception tradeoff 用（Blau & Michaeli CVPR 2018）
 

@@ -45,8 +45,8 @@
     }
   ],
   "summary": "Single-round PASS after pre-render structural cleanup (callout-list separation) and personal-info redaction.",
-  "rendered_at": "2026-05-19",
-  "source_sha256": "1c7c8052399a7e641a715a081dd03e392988a9860bb4e65b80e882ccd9b15355",
+  "rendered_at": "2026-07-13",
+  "source_sha256": "f52a889d1dc8449a96095bab199f65afcbbc0b263c00fc694c32b6a1c047bffa",
   "thread_id": "019e7c8b-45c7-7ba3-9666-71445c16c485",
   "post_ship_review": [
     {
@@ -55,6 +55,12 @@
       "date": "2026-06-29",
       "fix": "Reflow / Rectified Flow venue corrected ICLR 2022 to ICLR 2023 (arXiv was 2022).",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "2026-07-13 全集重扫复审（扩散簇）：Codex GPT-5.6-sol 找候选错误 → 独立 Claude 对抗验证（尝试推翻每条）→ 6 条 CONFIRMED，全部已修复",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "fix": "6 处修复：(1) L27 Lipman 2023 时间方向标反——实际与本文/Liu 2022同向，真正需 disambiguate 的是与 DDPM 相反的方向；(2) L82 marginal vector field 非唯一条件由普通 divergence-free 改为 p_t-weighted divergence-free (∇·(p_t w_t)=0)；(3) L11/L90 独立采样的 RF 不应直接称 OT-CFM（只有 OT coupling 配对才严格算 OT-CFM），SD3/FLUX/Lumina 用的是独立采样版本；(4) L128 VE prior 由「严格应是 N(0,σ_max²I)」改为「严格是 p_data * N(0,σ_max²I) 的卷积，仅 σ_max 远大于数据尺度时才近似」；(5) §6/6.1/6.2（原 L390/396/417）：RF 并非没有 SDE 对应（只是未被单独命名为标准扩散过程）；把误标为 Salimans-Ho v-prediction 的 α'(t)x_1+σ'(t)x_0 改标为 path velocity u_t=ẋ_t 并加注两者关系（仅 cosine schedule 下成比例 -π/2）；VP cosine 对应表 cos²(πt/2) 改为 sin²(πt/2)（本文 t=0 噪声/t=1 数据 convention 下）；(6) §6.2 表格 + §6.3 + §7.1（原 L420/426/430/446）：conditional chord 直线 ≠ marginal/生成 ODE 轨迹直线（未 reflow 的 1-RF 轨迹通常仍弯），以及 SD3-Turbo 实为 LADD/对抗扩散蒸馏而非 reflow 产物，不应与 InstaFlow 并列为 reflow 例子。EN 版 (flow_matching_tutorial_en.md) 同步做了对应的地道英文修正。代码 code/flow_matching.py 仅实现纯 Rectified Flow（独立采样线性路径 + Euler 采样），未涉及本轮任何一条修复触及的逻辑，未改动。"
     }
   ]
 }

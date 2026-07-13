@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_post_training_tutorial.md">
-<meta name="aris:source-sha256" content="95b47c84420904cb38b68b156d25372d305084281e28fec71d19c405801efef8">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:source-sha256" content="c005ed58067d968a9a96afabf372728dae76d95b9cc7a2f0a08fbd35fc752dec">
+<meta name="aris:generated-at" content="2026-07-13 10:09 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -629,8 +629,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_post_training_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>95b47c844209</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>SHA256:</strong> <code>c005ed58067d</code></span>
+    <span><strong>Rendered:</strong> 2026-07-13 10:09 UTC</span>
     
   </div>
 </header>
@@ -686,9 +686,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="25-dpokkl-regularized-rl-for-diffusion">2.5 DPOK：KL-regularized RL for diffusion</h3>
 <p>Fan et al. <strong>2023 NeurIPS</strong> <em>DPOK: Reinforcement Learning for Fine-tuning Text-to-Image Diffusion Models</em>（arXiv 2305.16381）和 DDPO 几乎同期，差别在<strong>显式 KL anchor</strong>：</p>
 <p>$$\boxed{\;\max_\theta\; \mathbb{E}_{\tau \sim p_\theta}\!\left[R(x_0, c)\right] - \beta\, \mathbb{E}_c\!\left[\text{KL}\!\big(p_\theta(\cdot \mid c) \,\big\Vert\, p_\text{ref}(\cdot \mid c)\big)\right]\;}$$</p>
-<p>KL 项展开到 per-step：</p>
-<p>$$\text{KL}(p_\theta \Vert p_\text{ref}) = \sum_{t=1}^{T} \mathbb{E}\!\left[\text{KL}\!\big(p_\theta(x_{t-1} \mid x_t, c) \,\Vert\, p_\text{ref}(x_{t-1} \mid x_t, c)\big)\right]$$</p>
-<p>由于 DDPM 的 $p_\theta(x_{t-1} \mid x_t, c)$ 是 Gaussian，<strong>两个 Gaussian 的 KL 有闭式</strong>，per-step KL 直接算。DPOK 用 policy gradient + 这个 KL penalty，等价于 RLHF 的 "$\beta \log(\pi/\pi_\text{ref})$" 的 diffusion 版本。</p>
+<p>KL 项展开到 per-step——<strong>注意这是上界，不是恒等式</strong>：</p>
+<p>$$\text{KL}\big(p_\theta(x_0 \mid c) \,\Vert\, p_\text{ref}(x_0 \mid c)\big) \;\le\; \sum_{t=1}^{T} \mathbb{E}\!\left[\text{KL}\!\big(p_\theta(x_{t-1} \mid x_t, c) \,\Vert\, p_\text{ref}(x_{t-1} \mid x_t, c)\big)\right]$$</p>
+<p>右边是<strong>联合 trajectory KL</strong>（$\text{KL}(p_\theta(x_{0:T}\mid c) \Vert p_\text{ref}(x_{0:T}\mid c))$）按 chain rule 的精确展开——这个恒等式在 $p_\theta$、$p_\text{ref}$ 共享同一先验 $p(x_T)=\mathcal N(0,I)$ 时严格成立。但 DPOK 真正想 regularize 的是<strong>终态 marginal</strong> $\text{KL}(p_\theta(x_0\mid c) \Vert p_\text{ref}(x_0\mid c))$；由 KL 的 data-processing inequality（对 marginal 化不增），终态 marginal KL 只是这个 per-step 和的<strong>上界</strong>，二者并不相等。DPOK 用这个可闭式计算的上界作为 tractable surrogate，实践有效但不是精确等价。</p>
+<p>由于 DDPM 的 $p_\theta(x_{t-1} \mid x_t, c)$ 是 Gaussian，<strong>两个 Gaussian 的 KL 有闭式</strong>，per-step KL 直接算。DPOK 用 policy gradient + 这个 KL penalty（上界 surrogate），等价于 RLHF 的 "$\beta \log(\pi/\pi_\text{ref})$" 的 diffusion 版本。</p>
 <div class="callout callout-info"><div class="callout-title">DPOK vs DDPO</div></div>
 <ul><li>DDPO：纯 RL（REINFORCE 或 PPO-clip），KL 隐式（通过 ratio clip）。</li><li>DPOK：显式 KL 项，与 LLM RLHF 的"reward 上加 KL"对应。</li><li>实测 DPOK 在 reward-prompt alignment（ImageReward）上稳一些；DDPO 在 compressibility 等 rule-based reward 上更激进。</li></ul>
 <h3 id="26-ddpo-失败模式与缓解">2.6 DDPO 失败模式与缓解</h3>
@@ -752,12 +753,13 @@ optimizer.step()</code></pre>
 <p><strong>Wallace et al. 的 trick：用 ELBO surrogate。</strong></p>
 <p>DDPM 的 $L_\text{simple}$ 是 $\log p_\theta(x_0)$ 的 (negative) ELBO 项之一，具体地：</p>
 <p>$$-\log p_\theta(x_0 \mid c) \le L_\text{simple}(x_0, c, \theta) = \mathbb{E}_{t, \epsilon}\!\left[\|\epsilon - \epsilon_\theta(x_t, t, c)\|^2\right] + \text{const}$$</p>
-<p>用 $-L_\text{simple}$ 作为 $\log p_\theta(x_0 \mid c)$ 的<strong>单 sample 估计</strong>（Jensen 不等式严格意义上给的是 lower bound，但作为 DPO 的 implicit reward 数值代理可用），代入 DPO 框架：</p>
-<p>$$\boxed{\;\mathcal{L}_\text{Diff-DPO}(\theta) = -\mathbb{E}_{(x_0^w, x_0^l, c, t, \epsilon)}\log\sigma\!\left(-\beta T\!\left[\|\epsilon^w - \epsilon_\theta(x_t^w, t, c)\|^2 - \|\epsilon^w - \epsilon_\text{ref}(x_t^w, t, c)\|^2 - \|\epsilon^l - \epsilon_\theta(x_t^l, t, c)\|^2 + \|\epsilon^l - \epsilon_\text{ref}(x_t^l, t, c)\|^2\right]\right)\;}$$</p>
+<div class="callout callout-warn"><div class="callout-title">$L_\text{simple}$ 不是&quot;紧&quot;ELBO</div><p>真正的 VLB 每个 timestep 前有一个 SNR 相关权重 $\lambda_t$（等价地记 $\omega(\lambda_t)$）；$L_\text{simple}$ 把这个权重<strong>人为设为 1</strong>，这是 Ho et al. 2020 为了采样感知质量主动做出的 reweighting，不是对 VLB 直接化简得到的紧 bound。把 unweighted MSE 当作"the ELBO"本身，是一种近似，不是恒等。</p></div>
+<p>用 $-L_\text{simple}$ 作为 $\log p_\theta(x_0 \mid c)$ 的<strong>单 sample 估计</strong>（Jensen 不等式严格意义上给的是 lower bound，但作为 DPO 的 implicit reward 数值代理可用），代入 DPO 框架（$\omega(\lambda_t)$ 为 SNR 相关权重，$L_\text{simple}$ 对应 $\omega(\lambda_t)\equiv 1$ 的特例）：</p>
+<p>$$\boxed{\;\mathcal{L}_\text{Diff-DPO}(\theta) = -\mathbb{E}_{(x_0^w, x_0^l, c, t, \epsilon)}\log\sigma\!\left(-\beta T\,\omega(\lambda_t)\!\left[\|\epsilon^w - \epsilon_\theta(x_t^w, t, c)\|^2 - \|\epsilon^w - \epsilon_\text{ref}(x_t^w, t, c)\|^2 - \|\epsilon^l - \epsilon_\theta(x_t^l, t, c)\|^2 + \|\epsilon^l - \epsilon_\text{ref}(x_t^l, t, c)\|^2\right]\right)\;}$$</p>
 <div class="callout callout-info"><div class="callout-title">直觉读法</div><p>sigmoid 内部是"对 $y_w$，policy 比 ref 更会去噪"减去"对 $y_l$，policy 比 ref 更会去噪"。如果 policy 在 $y_w$ 上更准、在 $y_l$ 上更不准，差值正，loss 下降。</p></div>
 <h4 id="412-实现细节">4.1.2 实现细节</h4>
 <ul><li>$(x_0^w, x_0^l)$ 来自一个 prompt $c$ 下的人类偏好对（Pick-a-Pic 数据集是主力）。</li><li>训练时每步<strong>随机采 $t \in \{1, \dots, T\}$ 和 $\epsilon \sim \mathcal{N}(0,I)$</strong>，构造 $x_t^w = \sqrt{\bar\alpha_t} x_0^w + \sqrt{1-\bar\alpha_t}\epsilon$（同样的 $\epsilon$ 用在 $y_w$ 和 $y_l$ 上，做 paired noise）。</li><li>$\pi_\text{ref}$ 是冻结的 base UNet（一般用 SDXL 原始 checkpoint）。</li></ul>
-<div class="callout callout-warn"><div class="callout-title">共享 noise 的关键性</div><p>论文强调 $x_t^w$ 和 $x_t^l$ 必须用<strong>同一个 $\epsilon$</strong>（即 paired noise），否则 $\beta$ 不再可比，loss 方差爆炸。这是 Diffusion-DPO 最容易踩的坑。</p></div>
+<div class="callout callout-info"><div class="callout-title">共享 noise 是方差缩减技巧，不是数学要求</div><p>$x_t^w$ 和 $x_t^l$ 共享同一个 $\epsilon$（paired noise / common random numbers）能降低梯度方差、让训练更稳；但即使各自独立采样 $\epsilon^w, \epsilon^l$，loss 仍是同一个 DPO 目标的（更高方差但无偏的）合法估计器——不 paired 并不会改变 $\beta$ 的尺度或可比性，只是优化更不稳。实践中推荐 paired，但它不是正确性的前提。</p></div>
 <h4 id="413-结果sdxl-上">4.1.3 结果（SDXL 上）</h4>
 <ul><li>在 PickScore / HPSv2 上稳定优于 SDXL base。</li><li>训练成本约 SFT 的 1.5–2x（要算两次 UNet：policy + ref）。</li><li>比 DDPO 简单：完全 offline，不需要 sample。</li></ul>
 <h3 id="42-d3po-yang-et-al-2024-cvpr-arxiv-231113231">4.2 D3PO (Yang et al. 2024 CVPR, arXiv 2311.13231)</h3>
@@ -867,33 +869,38 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
     for t, (mean_old, std_old, x_tm1) in zip(reversed(range(T)), traj_log_probs):
         eps_pred = unet(x_t, t, prompts)                   # 要梯度
         mean, std = scheduler.step_mean_std(x_t, eps_pred, t)
+        # t=0 是 DDPM 约定下的确定性终态 transition（std=0，不加噪声）；
+        # 直接对 std 做除法 / log 会在这一步 NaN/Inf，须 clamp 兜底。
+        std_safe = std.clamp(min=1e-6)
         # Gaussian log-prob
-        log_p = -0.5 * (((x_tm1 - mean) / std) ** 2).sum([1, 2, 3])
-        log_p -= std.log().sum([1, 2, 3])
+        log_p = -0.5 * (((x_tm1 - mean) / std_safe) ** 2).sum([1, 2, 3])
+        log_p -= std_safe.log().sum([1, 2, 3])
         loss_pg = loss_pg - (log_p * A).mean()             # REINFORCE
         if beta &gt; 0:
             ref_eps = ref_unet(x_t, t, prompts).detach()
             mean_ref, std_ref = scheduler.step_mean_std(x_t, ref_eps, t)
+            std_ref_safe = std_ref.clamp(min=1e-6)         # 同样的终态 std=0 问题
             # Gaussian-Gaussian KL closed form
-            kl = ((mean - mean_ref) ** 2 / (2 * std_ref ** 2)
-                  + (std / std_ref) ** 2 / 2
-                  - 0.5 - (std / std_ref).log()).sum([1, 2, 3])
+            kl = ((mean - mean_ref) ** 2 / (2 * std_ref_safe ** 2)
+                  + (std_safe / std_ref_safe) ** 2 / 2
+                  - 0.5 - (std_safe / std_ref_safe).log()).sum([1, 2, 3])
             loss_pg = loss_pg + beta * kl.mean()
         x_t = x_tm1.detach()
     return loss_pg</code></pre>
 <div class="callout callout-warn"><div class="callout-title">DDPO 实现踩坑</div></div>
-<ul><li>Rollout 用 <code>set_grad_enabled(False)</code>，policy gradient pass 再开梯度，避免显存 $O(T)$。</li><li>DDPM stochastic transition 是关键：DDIM 是 deterministic，没有 $dW$ 维度可优化，<strong>DDPO 必须用 DDPM 或 DDIM-eta=1</strong>。</li><li>Batch baseline $A = (R - \bar R)/\sigma_R$ 比无 baseline 稳得多。</li><li>LoRA 训而非 full fine-tune，否则 base 漂移很快。</li></ul>
+<ul><li>Rollout 用 <code>set_grad_enabled(False)</code>，policy gradient pass 再开梯度，避免显存 $O(T)$。</li><li>DDPM stochastic transition 是关键（对 REINFORCE/score-function 估计而言）：DDIM-eta=0 是 deterministic，没有 $dW$ 维度、没有良定义的 log-density 可求导，score-function 梯度退化——<strong>DDPO（REINFORCE-based）必须用 DDPM 或 DDIM-eta=1</strong>；换成 §3 的 DRaFT/AlignProp 这类 pathwise gradient 方法则确定性采样反而是必要前提。</li><li><strong>t=0 终态 transition 是确定性的（std=0，Ho et al. 2020 约定）</strong>：policy-gradient recompute 阶段若直接对 std 取 log / 做除法会在这一步 NaN/Inf；需要 <code>std.clamp(min=1e-6)</code>（如上面代码），或在 t=0 时跳过 std 相关项、只保留 mean 部分的梯度。</li><li>Batch baseline $A = (R - \bar R)/\sigma_R$ 比无 baseline 稳得多。</li><li>LoRA 训而非 full fine-tune，否则 base 漂移很快。</li></ul>
 <h3 id="62-diffusion-dpo-loss">6.2 Diffusion-DPO loss</h3>
 <pre><code class="language-python">def diffusion_dpo_loss(unet, ref_unet, scheduler,
                        x0_w, x0_l, prompt_embeds, beta=2000.0):
     &quot;&quot;&quot;
     Diffusion-DPO (Wallace 2024) 单步训练。
     x0_w, x0_l: [B, 4, H, W]  preferred / dispreferred latents
-    beta: 论文用 2000~5000（注意是 β·T 的合并系数，比 LLM DPO 大）
+    beta: 论文用 2000~5000——这个量级依赖具体实现约定（MSE 用 mean 还是 sum 归约、
+          T 指 DDPM 训练 schedule 还是推理 schedule），并非与实现无关的&quot;β·T 温度&quot;
     &quot;&quot;&quot;
     B = x0_w.shape[0]
     t = torch.randint(0, scheduler.num_train_timesteps, (B,), device=x0_w.device)
-    noise = torch.randn_like(x0_w)                          # paired noise!
+    noise = torch.randn_like(x0_w)                          # paired noise（方差缩减，非强制要求）
 
     xt_w = scheduler.add_noise(x0_w, noise, t)
     xt_l = scheduler.add_noise(x0_l, noise, t)
@@ -925,7 +932,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
         margin = inner.mean()
         accuracy = (inner &gt; 0).float().mean()
     return loss, {&quot;margin&quot;: margin.item(), &quot;acc&quot;: accuracy.item()}</code></pre>
-<div class="callout callout-warn"><div class="callout-title">β 量级注意</div><p>Diffusion-DPO 的 $\beta$ 比 LLM DPO 大几个数量级，因为它吸收了 $T$ 倍的累积项（$\beta T$ 才是真正的"温度"）。论文用 $\beta \in [2000, 5000]$；LLM DPO 用 $\beta \in [0.05, 0.5]$。</p></div>
+<div class="callout callout-warn"><div class="callout-title">β 量级注意（依赖实现细节，不是干净的普适事实）</div><p>Diffusion-DPO 的 $\beta$ 比 LLM DPO 大几个数量级，方向上是因为它要吸收 trajectory 长度 $T$ 的累积效应；但"$\beta T$ 就是真正的温度"这个说法掩盖了两个具体实现选择：(1) per-pixel MSE 是用 <code>.mean()</code> 还是 <code>.sum()</code> 归约（本教程代码用 <code>.mean([1,2,3])</code>，比 sum-reduce 需要大得多的 $\beta$）；(2) 这里的 $T$ 指哪一个——是 DPO loss 在其上采样/求和的 $\sim$1000 步 DDPM 训练 schedule，而不是本教程别处（S1.4）用的 $\sim$20–50 步推理 schedule。因此 $\beta T$ 不是一个可移植、implementation-independent 的"真温度"，只能作为"为什么 diffusion-DPO 的 β 比 LLM DPO 大几个数量级"的粗略直觉。论文用 $\beta \in [2000, 5000]$（该实现下的 mean-reduce + 1000-step 约定）；LLM DPO 用 $\beta \in [0.05, 0.5]$。</p></div>
 <h3 id="63-alignprop--draft-反传-with-checkpointing">6.3 AlignProp / DRaFT 反传 with checkpointing</h3>
 <pre><code class="language-python">def alignprop_step(unet_lora, scheduler, prompts, reward_fn,
                    T=50, K=1, B=4, lr=1e-5):
@@ -1021,8 +1028,13 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
             v = flow_net(x_t, t_now, prompts_rep)
             # SDE Euler: drift = v + 0.5 σ² ∇log p (PF-ODE → SDE 转换, Song 2021)
             # !!! 重要：以下 drift 是简化教学版（placeholder），生产实现要按 Flow-GRPO 论文 Eq.(6)
-            #     正确地从 score = (data_pred - x_t)/σ_t² 推导，包含具体 Rectified Flow / EDM schedule.
-            #     真实部署请参考论文 + 官方 repo；此处 -v/σ 仅作 illustrative.
+            #     正确地从 score 关于 data/noise/velocity 的关系重新推导，包含具体 Rectified Flow / EDM schedule.
+            #     真实部署请参考论文 + 官方 repo；此处 -v/σ 仅作 illustrative（已用 +1e-6 guard 避免除零，
+            #     t=1 时 sigma→0，该修正项随 sigma² 一起趋于 0，不是 NaN——但公式本身并非严谨推导）.
+            #     注：本 placeholder 的 sigma_fn(t)=sqrt(1-t) 在轨迹起点 t=1（纯噪声）给零 SDE 噪声、
+            #     在轨迹终点 t=0（接近干净数据）给最大噪声——与&quot;探索噪声应早大晚小&quot;的常见直觉相反；
+            #     实现真正的 Flow-GRPO trainer 时应同时重推 score 项（论文 Eq.6）和噪声 schedule 的方向/符号，
+            #     不要直接照搬这里的示意 sigma_fn.
             drift = v + 0.5 * sigma ** 2 * (-v / (sigma + 1e-6))  # placeholder, see paper Eq.(6)
             noise = torch.randn_like(x_t)
             x_next = x_t + drift * dt + sigma * noise * abs(dt) ** 0.5
@@ -1109,10 +1121,10 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <ol><li><strong>Reward ensemble</strong>：多 RM 取 min 或 mean（HPSv2 + PickScore + ImageReward 是主流组合）。</li><li><strong>KL anchor</strong>：DPO 的 $\beta$、DPOK 的显式 KL、Flow-GRPO 的 K3 KL term。</li><li><strong>LoRA scale</strong>：full fine-tune 漂移快，LoRA scale 限制 reward hacking 上限。</li><li><strong>Early stop on reward plateau</strong>：reward 涨 + FID 涨 = hacking 信号。</li><li><strong>Composite reward</strong>：rule-based (object count, OCR) + neural RM (aesthetic, alignment) 加权。</li><li><strong>Adversarial RM</strong>：训 RM 时加 hacking 样本作为 negative。</li></ol>
 <h2 id="8-production-landscapesd3--flux-用了什么">§8 Production Landscape：SD3 / FLUX 用了什么</h2>
 <h3 id="81-公开论文--报告说了什么">8.1 公开论文 / 报告说了什么</h3>
-<table><thead><tr><th>模型</th><th>Post-training?</th><th>公开内容</th></tr></thead><tbody><tr><td><strong>SD 1.5</strong></td><td>部分社区 DPO / DDPO LoRA</td><td>base 是纯 LDM；社区 fine-tune 多</td></tr><tr><td><strong>SDXL</strong></td><td>Stability AI 没明确 post-training</td><td>base + refiner; Pick-a-Pic + Diffusion-DPO 社区 LoRA 流行</td></tr><tr><td><strong>SDXL Turbo / ADD</strong></td><td>蒸馏为主</td><td>Adversarial Diffusion Distillation (2311.17042)；本质是 1-step distill，不属 RL post-training</td></tr><tr><td><strong>SD3</strong> (Stable Diffusion 3, Esser et al. 2024 ICML)</td><td>base 用 Rectified Flow + MM-DiT</td><td>论文未公开 post-training；社区猜测有内部 DPO</td></tr><tr><td><strong>SD3.5 / SD3.5 Turbo</strong></td><td>有 distill，post-training 未公开</td><td>推测有 DPO + distill 混合</td></tr><tr><td><strong>FLUX.1 dev / pro</strong> (Black Forest Labs 2024)</td><td>未公开</td><td>社区猜测 DPO + distill；pro 走 API 闭源</td></tr><tr><td><strong>DALL-E 3</strong> (OpenAI 2023)</td><td>"recaptioning + RLHF"</td><td>公开报告强调 prompt-faithful RLHF</td></tr><tr><td><strong>Imagen 3</strong> (Google 2024)</td><td>未公开</td><td>内部 alignment 流程</td></tr><tr><td><strong>DeepFloyd IF</strong></td><td>无 post-training</td><td>学术 base model</td></tr></tbody></table>
+<table><thead><tr><th>模型</th><th>Post-training?</th><th>公开内容</th></tr></thead><tbody><tr><td><strong>SD 1.5</strong></td><td>部分社区 DPO / DDPO LoRA</td><td>base 是纯 LDM；社区 fine-tune 多</td></tr><tr><td><strong>SDXL</strong></td><td>Stability AI 没明确 post-training</td><td>base + refiner; Pick-a-Pic + Diffusion-DPO 社区 LoRA 流行</td></tr><tr><td><strong>SDXL Turbo / ADD</strong></td><td>蒸馏为主</td><td>Adversarial Diffusion Distillation (2311.17042)；本质是 1-step distill，不属 RL post-training</td></tr><tr><td><strong>SD3</strong> (Stable Diffusion 3, Esser et al. 2024 ICML)</td><td>base 用 Rectified Flow + MM-DiT</td><td>论文未公开 post-training；社区猜测有内部 DPO</td></tr><tr><td><strong>SD3.5 / SD3.5 Turbo</strong></td><td>有 distill，post-training 未公开</td><td>推测有 DPO + distill 混合</td></tr><tr><td><strong>FLUX.1 dev / pro</strong> (Black Forest Labs 2024)</td><td>未公开</td><td>社区猜测 DPO + distill；pro 走 API 闭源</td></tr><tr><td><strong>DALL-E 3</strong> (OpenAI 2023)</td><td>"synthetic recaptioning"（未描述 RLHF）</td><td>synthetic recaptioning（详尽图像描述数据增强），未描述 RLHF 后训练</td></tr><tr><td><strong>Imagen 3</strong> (Google 2024)</td><td>未公开</td><td>内部 alignment 流程</td></tr><tr><td><strong>DeepFloyd IF</strong></td><td>无 post-training</td><td>学术 base model</td></tr></tbody></table>
 <h3 id="82-sd3--flux-是否用了-post-training">8.2 SD3 / FLUX 是否用了 post-training？</h3>
 <div class="callout callout-warn"><div class="callout-title">诚实回答</div><p>公开论文 / 技术报告<strong>都没有明说</strong>用 RL / DPO post-training。但有以下间接证据：</p></div>
-<ul><li>SD3 论文 (arXiv 2403.03206) 的 "Improving Rectified Flow Transformers" 章节讨论 sampling + reflow，没提 reward fine-tune。</li><li>FLUX 完全没发论文，社区从 model card 推测有 distillation（FLUX schnell 是 4-step 蒸馏版）。</li><li>Stability AI 在 SD3.5-Large 发布时提到 "fine-tuned with improved aesthetics"，可能是 SFT 而非 RL。</li><li>DALL-E 3 论文 (OpenAI 2023) 明确说用了 caption-faithful RLHF。</li></ul>
+<ul><li>SD3 论文 (arXiv 2403.03206) 的 "Improving Rectified Flow Transformers" 章节讨论 sampling + reflow，没提 reward fine-tune。</li><li>FLUX 完全没发论文，社区从 model card 推测有 distillation（FLUX schnell 是 4-step 蒸馏版）。</li><li>Stability AI 在 SD3.5-Large 发布时提到 "fine-tuned with improved aesthetics"，可能是 SFT 而非 RL。</li><li>DALL-E 3 的公开技术报告（Betker et al. 2023, <em>Improving Image Generation with Better Captions</em>）的核心贡献是<strong>合成 recaptioning</strong>——训练一个 image captioner 给训练图像生成更详尽的合成描述，并混合原始短 caption 与合成长 caption 训练，以此提升 prompt-following；报告并未描述 RLHF（reward model + PPO 等）后训练流程作为其方法机制。</li></ul>
 <p><strong>业界共识</strong>（来自 HuggingFace 社区 + Reddit r/StableDiffusion）：闭源大模型（FLUX pro, DALL-E 3, Midjourney v6+）有 reward-based fine-tune，但具体方法不公开；开源 base（SD3.5 base, FLUX dev base）公开训练 pipeline 不含 RL，但 Stability AI 内部 dev 版可能有。</p>
 <h3 id="83-工业级-pipeline-假说">8.3 工业级 pipeline 假说</h3>
 <pre class="diagram"><code>                    ┌─────────────────┐
@@ -1162,8 +1174,8 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 </details>
 <details>
 <summary>Q3. Diffusion-DPO 用什么代替 $\log \pi_\theta(y|x)$？</summary>
-<ul><li>用 ELBO surrogate：$-\|\epsilon - \epsilon_\theta(x_t, t, c)\|^2$（DDPM 的 $L_\text{simple}$）作为 $\log p_\theta(x_0)$ 的代理。</li><li>这是 $\log p_\theta$ 的（negative）下界项，方向正确。</li><li>配上 paired noise $\epsilon$（$y_w$ 和 $y_l$ 共享同一 $\epsilon$）才稳。</li></ul>
-<p>说用 $\log p(x_0)$ 解析式（错，diffusion 没闭式）；忘记 paired noise。</p>
+<ul><li>用 ELBO surrogate：$-\|\epsilon - \epsilon_\theta(x_t, t, c)\|^2$（DDPM 的 $L_\text{simple}$）作为 $\log p_\theta(x_0)$ 的代理。</li><li>这是 $\log p_\theta$ 的（negative）下界项，方向正确。</li><li>注意 $L_\text{simple}$ 把真正 VLB 的 timestep 权重 $\lambda_t$（$\omega(\lambda_t)$）设为 1，这是 Ho 2020 为了采样质量主动做的 reweighting，并非"log p_θ 的紧 ELBO"本身——把它当 log p_θ 的代理是近似，不是恒等。</li><li>配上 paired noise $\epsilon$（$y_w$ 和 $y_l$ 共享同一 $\epsilon$，方差缩减技巧）才更稳。</li></ul>
+<p>说用 $\log p(x_0)$ 解析式（错，diffusion 没闭式）；把 $L_\text{simple}$ 当成严格恒等的 ELBO（忽略了 $\omega(\lambda_t)=1$ 的 reweighting）；忘记 paired noise 能降方差。</p>
 </details>
 <details>
 <summary>Q4. AlignProp 和 DRaFT 的核心 idea？显存为什么是 $\mathcal{O}(K)$？</summary>
@@ -1172,8 +1184,8 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 </details>
 <details>
 <summary>Q5. 为什么 Diffusion-DPO 的 $\beta$ 比 LLM DPO 大 1000 倍？</summary>
-<ul><li>LLM DPO: $\beta \in [0.05, 0.5]$</li><li>Diffusion-DPO: $\beta \in [2000, 5000]$</li><li>原因：diffusion 的"trajectory log-likelihood"是 $T$ 个 Gaussian log-prob 之和，单步 $\epsilon$ 距离差吸收了 $T$ 倍系数。<strong>实际有效温度</strong>是 $\beta T$。</li><li>也有 implementation 把 $T$ 显式分离，那时 $\beta$ 看起来与 LLM 同量级。</li></ul>
-<p>说"diffusion 噪声大所以 β 大"（错，是 trajectory 长度的累计效应）。</p>
+<ul><li>LLM DPO: $\beta \in [0.05, 0.5]$</li><li>Diffusion-DPO: $\beta \in [2000, 5000]$</li><li>原因（方向性直觉，非精确公式）：diffusion 的"trajectory log-likelihood"是 $T$ 个 Gaussian log-prob 之和，单步 $\epsilon$ 距离差吸收了 $T$ 倍系数，这解释了 $\beta$ 大几个数量级的方向。</li><li><strong>但"$\beta T$ 就是真正的温度"不是一个干净的、implementation-independent 的事实</strong>：它还依赖 MSE 是 mean-reduce 还是 sum-reduce（相差 $C \times H \times W$ 倍），以及 $T$ 具体指 DDPM 训练用的 $\sim$1000 步 schedule 还是推理用的 $\sim$20–50 步 schedule——本教程代码用 <code>.mean([1,2,3])</code> + 1000-step DDPM $t$-sampling，换一种 reduction/T 约定，"有效温度"就不再是同一个 $\beta T$。</li></ul>
+<p>说"diffusion 噪声大所以 β 大"（错，是 trajectory 长度的累计效应）；或把"$\beta T$ 是真温度"当成放之四海而皆准的精确等价（忽略了 mean/sum 归约和 T 约定的依赖）。</p>
 </details>
 <details>
 <summary>Q6. ImageReward / HPSv2 / PickScore 三者区别？</summary>
@@ -1183,8 +1195,8 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 </details>
 <details>
 <summary>Q7. DDPO 用 DDPM 还是 DDIM 采样？为什么？</summary>
-<ul><li><strong>DDPM</strong>（或 DDIM-eta=1）—— 需要 stochastic transition。</li><li>DDIM-eta=0 是 deterministic，没有 noise term，<strong>没有 action 可优化</strong> → policy gradient 等于 0。</li><li>类比：LLM RL 必须用 sampling（temperature &gt; 0），不能用 greedy.</li></ul>
-<p>说 DDIM 也行（错，要 eta &gt; 0）；不知道 stochasticity 是 RL 前提。</p>
+<ul><li><strong>DDPM</strong>（或 DDIM-eta=1）—— 需要 stochastic transition，REINFORCE/score-function 型策略梯度才有良定义的 log-density 可以求导。</li><li>DDIM-eta=0 是 deterministic（Dirac delta transition），没有 well-defined 的 log-density——<strong>REINFORCE 这类 score-function 估计在这里退化/失效</strong>，但这不等于"policy gradient 恒为 0"：$x_0$ 仍是 $\theta$ 的确定性可微函数，pathwise/reparameterized gradient（§3 DRaFT/AlignProp 用的正是这个）依然存在且通常非零。DDPO 需要 stochastic transition，是因为它选用了 REINFORCE 这一特定梯度估计方式，不是因为确定性采样下"真梯度"消失。</li><li>类比：LLM RL 的 REINFORCE/PPO 必须用 sampling（temperature &gt; 0），不能用 greedy——但 greedy 输出仍是参数的可微函数，只是 score-function 梯度用不了这条路径。</li></ul>
+<p>说 DDIM 也行（错，对 REINFORCE 而言要 eta &gt; 0）；或以为确定性采样下 true gradient 恒为零（错，混淆了"REINFORCE 失效"和"真梯度为零"，见 §3 DRaFT/AlignProp 的 pathwise gradient）。</p>
 </details>
 <details>
 <summary>Q8. Reward hacking 在 diffusion 上典型症状有哪些？</summary>
@@ -1198,8 +1210,8 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 </details>
 <details>
 <summary>Q10. Diffusion-DPO 训练时 $y_w$ 和 $y_l$ 的 noise 怎么处理？</summary>
-<ul><li><strong>paired noise</strong>：$x_t^w$ 和 $x_t^l$ 用<strong>同一个</strong> $\epsilon$（即 $x_t^w = \sqrt{\bar\alpha_t}x_0^w + \sqrt{1-\bar\alpha_t}\epsilon$，$x_t^l$ 同理用同一 $\epsilon$）。</li><li>不 paired 时 $\beta$ 的尺度不再可比，loss 方差大幅上升，训练不稳。</li><li>这是 Diffusion-DPO 最容易忽视的实现细节。</li></ul>
-<p>不知道 paired noise（错）；或以为 $\epsilon$ 是 $\epsilon_\theta$ 的预测（错，这里 $\epsilon$ 是 q-sample 的 noise）。</p>
+<ul><li><strong>paired noise</strong>：$x_t^w$ 和 $x_t^l$ 用<strong>同一个</strong> $\epsilon$（即 $x_t^w = \sqrt{\bar\alpha_t}x_0^w + \sqrt{1-\bar\alpha_t}\epsilon$，$x_t^l$ 同理用同一 $\epsilon$）——这是<strong>方差缩减</strong>（common random numbers）技巧，不是数学正确性的前提。</li><li>不 paired（各自独立采样 $\epsilon^w,\epsilon^l$）时，loss 仍是同一 DPO 目标的无偏估计，只是方差更大、优化更不稳；$\beta$ 的尺度和可比性不因此改变。</li><li>这是 Diffusion-DPO 实践中最容易忽视、但会实打实影响训练稳定性的实现细节。</li></ul>
+<p>不知道 paired noise 能降方差（错失一个稳定性技巧）；或以为不 paired 会让 loss 数学上不正确（错，只是方差更大）；或以为 $\epsilon$ 是 $\epsilon_\theta$ 的预测（错，这里 $\epsilon$ 是 q-sample 的 noise）。</p>
 </details>
 <h3 id="l2-进阶题10-题">L2 进阶题（10 题）</h3>
 <details>
@@ -1259,7 +1271,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <h3 id="l3-顶级-lab-题5-题">L3 顶级 lab 题（5 题）</h3>
 <details>
 <summary>Q21. 推 Diffusion-DPO loss 从 reverse ELBO 出发，说清 ELBO surrogate 为何有效。</summary>
-<ol><li>DDPM ELBO：$\log p_\theta(x_0) \ge -\sum_{t=2}^T \text{KL}(q(x_{t-1}|x_t,x_0) \Vert p_\theta(x_{t-1}|x_t)) + \log p_\theta(x_0|x_1) - \text{KL}(q(x_T|x_0) \Vert p(x_T))$</li><li>化简（Ho 2020）：$-\log p_\theta(x_0) \le L_\text{simple} + C$，$L_\text{simple} = \mathbb{E}_{t,\epsilon}\|\epsilon - \epsilon_\theta(x_t,t)\|^2$。</li><li>KL-regularized 最优 $p^* \propto p_\text{ref}\exp(R/\beta)$，反解 $R = \beta\log(p^*/p_\text{ref}) + \beta\log Z$。</li><li>代入 BT，$\log Z$ 消掉。</li><li>用 ELBO surrogate 代 $\log p$：$\log p_\theta(x_0) \approx -L_\text{simple}$（<strong>注意</strong>：这是上界的取负，作为单 sample 估计 — 严格意义上是 lower bound 的一个项，而非 $\log p$ 本身，但作为 DPO 的 implicit reward proxy 数值有效）。</li><li>期望对 $t$ 取，得到最终 loss。</li></ol>
+<ol><li>DDPM ELBO：$\log p_\theta(x_0) \ge -\sum_{t=2}^T \text{KL}(q(x_{t-1}|x_t,x_0) \Vert p_\theta(x_{t-1}|x_t)) + \log p_\theta(x_0|x_1) - \text{KL}(q(x_T|x_0) \Vert p(x_T))$</li><li>化简（Ho 2020）：$-\log p_\theta(x_0) \le L_\text{simple} + C$，$L_\text{simple} = \mathbb{E}_{t,\epsilon}\|\epsilon - \epsilon_\theta(x_t,t)\|^2$——<strong>注意</strong>：真正的 VLB 每个 $t$ 前有 SNR 权重 $\lambda_t$（即 $\omega(\lambda_t)$），$L_\text{simple}$ 是把 $\omega(\lambda_t)$ 设为 1 的 reweighted 版本（Ho 2020 为采样质量主动选择），并非对 VLB 直接化简得到的紧 bound。</li><li>KL-regularized 最优 $p^* \propto p_\text{ref}\exp(R/\beta)$，反解 $R = \beta\log(p^*/p_\text{ref}) + \beta\log Z$。</li><li>代入 BT，$\log Z$ 消掉。</li><li>用 ELBO surrogate 代 $\log p$：$\log p_\theta(x_0) \approx -L_\text{simple}$（<strong>注意</strong>：这是上界的取负，作为单 sample 估计 — 严格意义上是 lower bound 的一个项，而非 $\log p$ 本身，但作为 DPO 的 implicit reward proxy 数值有效）。</li><li>期望对 $t$ 取，得到最终 loss。</li></ol>
 <p><strong>为什么 ELBO surrogate 有效的更深一层</strong>：DPO 的 implicit reward 是 $\beta\log(p_\theta/p_\text{ref})$，它只依赖<strong>相对</strong> likelihood。ELBO surrogate 的常数项（$C$）在 $p_\theta$ 和 $p_\text{ref}$ 之间相消（两个模型用同一架构），只剩 $-\|\epsilon - \epsilon_\theta\|^2$ 的差。所以即使 ELBO 不是 $\log p$ 的紧 bound，<strong>差异是可消的</strong>。</p>
 <p>只能写出最终公式背不出推导链；或不知道常数项相消是关键。</p>
 </details>
@@ -1283,7 +1295,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <details>
 <summary>Q24. SD3 / FLUX 是否真的用了 RL post-training？怎么判断？</summary>
 <p><strong>诚实回答</strong>：公开论文 / 技术报告<strong>都没明说</strong>用 RL / DPO。但有以下线索：</p>
-<ol><li><strong>SD3 论文 (arXiv 2403.03206)</strong>：只讨论 Rectified Flow + MM-DiT + reflow；没提 reward fine-tune。</li><li><strong>FLUX</strong>：完全没发论文，model card 只提"trained on a large image-text dataset"。</li><li><strong>DALL-E 3 (OpenAI 2023)</strong>：明确说用了 caption-faithful RLHF（rewrite caption + RM）。</li><li><strong>业界共识</strong>：闭源大模型（FLUX pro, DALL-E 3, Midjourney v6+）几乎确定有 reward-based fine-tune，但具体方法不公开。</li></ol>
+<ol><li><strong>SD3 论文 (arXiv 2403.03206)</strong>：只讨论 Rectified Flow + MM-DiT + reflow；没提 reward fine-tune。</li><li><strong>FLUX</strong>：完全没发论文，model card 只提"trained on a large image-text dataset"。</li><li><strong>DALL-E 3 (OpenAI 2023)</strong>：公开报告（Betker et al. 2023）核心是<strong>synthetic recaptioning</strong>——用 image captioner 给训练图像生成更详尽的合成描述并混合训练，以提升 prompt-following；并未描述 RLHF（reward model + PPO 等）后训练机制。</li><li><strong>业界共识</strong>：闭源大模型（FLUX pro, DALL-E 3, Midjourney v6+）几乎确定有 reward-based fine-tune，但具体方法不公开。</li></ol>
 <p><strong>判断标准（black-box test）</strong>：</p>
 <ul><li>给同一 prompt 让模型生成 100 张，FID-100 / multi-mode 多样性低 → 可能是 RL/DPO（mode collapse 信号）。</li><li>prompt-image alignment 在 GenEval 高分但 portrait 风格单一 → reward over-optimization 信号。</li><li>同一 model 对 "vibrant"/"colorful" prompt 反应过强 → HPSv2/aesthetic RM 痕迹。</li></ul>
 <p><strong>结论</strong>：FLUX 大概率有内部 DPO + distill 混合；SD3.5 推测有 SFT + 可能的 DPO。但<strong>没有公开证据</strong>——这道题的关键是答出"不公开但有间接证据"，避免胡编技术细节。</p>
@@ -1312,7 +1324,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <h3 id="a3-开源训练代码">A.3 开源训练代码</h3>
 <ul><li><strong>TRL (HuggingFace)</strong>：<code>diffusers</code> + <code>DPO Trainer</code> for Diffusion-DPO（最成熟）</li><li><strong>DDPO 原始仓库</strong>：https://github.com/kvablack/ddpo-pytorch</li><li><strong>AlignProp</strong>：https://github.com/mihirp1998/AlignProp</li><li><strong>DRaFT (Google research)</strong>：https://github.com/clarkjkr/draft（Clark et al. 2024 ICLR）</li><li><strong>MaPO</strong>：https://github.com/mapo-t2i/mapo</li><li><strong>Flow-GRPO</strong>：通过论文 arXiv 2505.05470 找官方实现</li></ul>
 <h3 id="a4-工程踩坑清单">A.4 工程踩坑清单</h3>
-<table><thead><tr><th>坑</th><th>解</th></tr></thead><tbody><tr><td>Diffusion-DPO 没 paired noise</td><td>$\epsilon$ for $x_t^w$ 和 $x_t^l$ 必须共享</td></tr><tr><td>DDPO 用 DDIM-eta=0</td><td>必须 eta&gt;0 或 DDPM，否则梯度为 0</td></tr><tr><td>AlignProp 显存爆炸</td><td>$K=1$ + gradient checkpoint + LoRA</td></tr><tr><td>Reward scale 不归一化</td><td>每个 RM 单独 z-score</td></tr><tr><td>RL 后 FID 暴跌</td><td>加 KL anchor 或 reward ensemble</td></tr><tr><td>$\beta$ 调不动</td><td>Diffusion-DPO 用 $\beta \in [2000, 5000]$，不是 LLM 的 0.1</td></tr><tr><td>Flow-GRPO 训练慢</td><td>用 denoising reduction ($T_\text{train} &lt; T_\text{infer}$)</td></tr><tr><td>MaPO 训崩</td><td>$\alpha\hat\ell_w$ 项必须够大防 likelihood 一起降</td></tr><tr><td>Step-RM 训不起来</td><td>用 rollout-based 自动标注（类 Math-Shepherd）</td></tr><tr><td>reward hacking 检测不到</td><td>同时监控 reward + FID + human blind A/B</td></tr></tbody></table>
+<table><thead><tr><th>坑</th><th>解</th></tr></thead><tbody><tr><td>Diffusion-DPO 没 paired noise</td><td>建议 $\epsilon$ for $x_t^w$ 和 $x_t^l$ 共享（降方差，非数学强制）</td></tr><tr><td>DDPO 用 DDIM-eta=0</td><td>REINFORCE 类 score-function 梯度失效，需 eta&gt;0 或 DDPM（DRaFT/AlignProp 等 pathwise 方法反而需要确定性采样）</td></tr><tr><td>AlignProp 显存爆炸</td><td>$K=1$ + gradient checkpoint + LoRA</td></tr><tr><td>Reward scale 不归一化</td><td>每个 RM 单独 z-score</td></tr><tr><td>RL 后 FID 暴跌</td><td>加 KL anchor 或 reward ensemble</td></tr><tr><td>$\beta$ 调不动</td><td>Diffusion-DPO 用 $\beta \in [2000, 5000]$，不是 LLM 的 0.1</td></tr><tr><td>Flow-GRPO 训练慢</td><td>用 denoising reduction ($T_\text{train} &lt; T_\text{infer}$)</td></tr><tr><td>MaPO 训崩</td><td>$\alpha\hat\ell_w$ 项必须够大防 likelihood 一起降</td></tr><tr><td>Step-RM 训不起来</td><td>用 rollout-based 自动标注（类 Math-Shepherd）</td></tr><tr><td>reward hacking 检测不到</td><td>同时监控 reward + FID + human blind A/B</td></tr></tbody></table>
 <h3 id="a5-与-0-tldr-的呼应">A.5 与 §0 TL;DR 的呼应</h3>
 <table><thead><tr><th>TL;DR 条</th><th>详见章节</th></tr></thead><tbody><tr><td>1. 为什么难</td><td>§1</td></tr><tr><td>2. 三条主线</td><td>§1.2</td></tr><tr><td>3. DDPO</td><td>§2.1–2.4</td></tr><tr><td>4. DRaFT / AlignProp</td><td>§3.2–3.3</td></tr><tr><td>5. Diffusion-DPO</td><td>§4.1</td></tr><tr><td>6. D3PO</td><td>§4.2</td></tr><tr><td>7. SPO</td><td>§4.3</td></tr><tr><td>8. Flow-GRPO</td><td>§5</td></tr><tr><td>9. Reward hacking</td><td>§3.6 + §7</td></tr></tbody></table>
 <div class="callout callout-good"><div class="callout-title">学完 checkpoint</div></div>
@@ -1321,8 +1333,8 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_post_training_tutorial.md</code> ·
-  SHA256 <code>95b47c844209</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  SHA256 <code>c005ed58067d</code> ·
+  generated at 2026-07-13 10:09 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

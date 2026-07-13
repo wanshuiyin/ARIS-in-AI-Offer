@@ -10,7 +10,7 @@
 
 4. **Three spatiotemporal attention variants**: (a) **Factorized 2+1D** (Latte / OpenSora / AnimateDiff): spatial-only first, then temporal-only, complexity $O(T \cdot S^2 + S \cdot T^2)$; (b) **Full 3D** (Sora / Hunyuan-Video / Mochi): all tokens attend to each other, complexity $O((ST)^2)$, most expensive but best quality; (c) **Window / sparse ST** (Wan 2.x / portions of CogVideoX): sliding-window 3D, a middle ground.
 
-5. **MM-DiT for Video (Hunyuan-Video / Mochi)**: text tokens and video tokens share the **same sequence** in self-attention (no longer cross-attn), with each stream having its own QKV projection + AdaLN modulation; conditioning information interacts directly at the token level — Hunyuan / Mochi / Wan extend the SD3 image MM-DiT idea to video.
+5. **MM-DiT for Video (Hunyuan-Video / Mochi)**: text tokens and video tokens share the **same sequence** in self-attention (no longer cross-attn), with each stream having its own QKV projection + AdaLN modulation; conditioning information interacts directly at the token level — Hunyuan-Video / Mochi extend the SD3 image MM-DiT idea to video; Wan 2.x instead injects text via conventional cross-attention to UMT5 embeddings, not a joint-stream MM-DiT.
 
 6. **Image-to-Video (I2V)**: three mainstream techniques — (i) **First-frame concat**: encode the ref image and concat along the channel dim of the latent; (ii) **Cross-attention injection**: ref image tokens serve as K/V; (iii) **AnimateDiff** style: freeze the T2I backbone and insert only a temporal module. SVD / DynamiCrafter / I2VGen-XL / Wan-I2V are representative.
 
@@ -39,7 +39,7 @@ For an $H{\times}W{\times}T$ video, the pixel count grows linearly with $T$, and
 | 2024-05 | **Veo** | Google DeepMind | Closed-source 1080p / 1 minute |
 | 2024-06 | **Kling** | Kuaishou | Closed-source from China, up to 2 minutes |
 | 2024-08 | **CogVideoX** (arXiv) | Zhipu/THU | Open-source 2B/5B; Expert Transformer + 3D VAE |
-| 2024-10 | **Movie Gen** | Meta | 30B; joint video + audio; DiT + FM |
+| 2024-10 | **Movie Gen** | Meta | Movie Gen Video 30B + Movie Gen Audio 13B (two separate models; the audio model generates synchronized sound/music conditioned on the generated video); DiT + FM |
 | 2024-10 | **Mochi-1** | Genmo | 10B open source; AsymmDiT asymmetric MM-DiT |
 | 2024-11 | **LTX-Video** | Lightricks | Real-time (2B); strong-compression VAE + DiT |
 | 2024-12 | **Hunyuan-Video** | Tencent | 13B open-source SoTA; 3D Causal VAE + MM-DiT + prompt rewriter |
@@ -83,7 +83,7 @@ Latent dim $C$ is typically $16$ (Hunyuan) or $4$ (OpenSora); larger retains mor
 
 - **Streaming / autoregressive inference**: causality guarantees the current frame latent only depends on past frames, so **long videos can be processed in chunks**, without having to decode all $T$ frames at once; same idea as KV cache in LLMs.
 
-- **Training data utilization**: when mixing image + video training, images can be treated as $T{=}1$ videos. A standard 3D VAE has its kernel center looking into the future, so it cannot do this.
+- **Training data utilization**: when mixing image + video training, images can be treated as $T{=}1$ videos. A standard (symmetric-padding) 3D VAE can mechanically run a forward pass at $T{=}1$ too (zero-padding both sides), but training never sees an "all-zero-on-both-sides" pattern like that (a true video boundary frame is only ever missing history *or* future on one side), so a single-frame image input falls outside the training distribution — the shared image/video latent space isn't guaranteed to behave well. Causal 3D conv's $T{=}1$ path, by contrast, matches exactly what the model computes for any video's first frame during training (all-zero history), making it the only design that guarantees consistent behavior.
 
 ### 2.3 Causal Conv3d implementation
 
@@ -211,6 +211,8 @@ Key implementation points:
 - **Positional encoding uses relative / decoupled** schemes: RoPE-2D for space, RoPE-1D for time; not bound to a maximum length.
 - **Attention mask**: tokens from different samples in the same batch are masked out from each other.
 - **Target aspect ratio token**: an additional conditioning token telling the model whether to generate 16:9 or 9:16.
+
+> ⚠️ The RoPE-2D/RoPE-1D and aspect-ratio-token specifics above are a reasonable community inference from the "spacetime patches" description; OpenAI's official tech report only confirms the variable-resolution/duration/aspect-ratio capability and the packing-based training idea, without disclosing the actual positional encoding or conditioning mechanism (consistent with the "speculated" framing in §3.4 and §4.1).
 
 This is what lets Sora train / generate videos at arbitrary aspect ratios; Wan-2.x and Hunyuan-Video later borrowed this.
 
@@ -510,7 +512,7 @@ class MMDiTVideoBlock(nn.Module):
 
 ### 5.5 Training objective
 
-Mainstream = **v-prediction or rectified flow vector** (consistent with SD3). Given video latent $x_1$, noise $x_0$, and random $\tau \in [0, 1]$ (logit-normal distribution is more common):
+Mainstream = **v-prediction or rectified flow vector** (the same straight-line RF paradigm as SD3, but with the opposite time-direction convention: the SD3 paper uses $t{=}0$ for data and $t{=}1$ for noise, i.e. $z_t = (1-t) x_\text{data} + t\epsilon$; for intuition this article instead uses $\tau{=}0{=}$noise, $\tau{=}1{=}$data — the two differ only by the substitution $\tau \leftrightarrow 1-t$ and are mathematically equivalent). Given video latent $x_1$, noise $x_0$, and random $\tau \in [0, 1]$ (logit-normal distribution is more common):
 
 $$x_\tau = (1 - \tau) x_0 + \tau\, x_1, \quad u_\tau = x_1 - x_0$$
 
@@ -530,7 +532,7 @@ where $\tilde{z}_\text{ref}[:, t', :, :] = z_\text{ref}^{(0)}$ if $t'$ is a refe
 
 **Pros**: simple to implement, fully compatible with the T2V backbone; only one conv layer needs to change. **Cons**: reference information is mixed into the channels and the model has to extract it via conv; long-range frame guidance is weak.
 
-SVD (Stable Video Diffusion, Blattmann 2023) / DynamiCrafter / I2VGen-XL all use this approach.
+DynamiCrafter / I2VGen-XL use a similar concat approach; SVD (Blattmann 2023) actually replicates the reference-frame latent directly along the channel dim (SD 2.1's 4-channel latent → 4+4=8 channels, with no extra mask channel) and injects semantic information via CLIP image-embedding cross-attention — not quite the same as this section's mask-based $(2C+1)$ scheme.
 
 ### 6.2 Cross-Attention injection (fine-grained control)
 
@@ -538,7 +540,7 @@ Patchify $z_\text{ref}$ into tokens, then inject them as additional K/V into the
 
 $$\text{CrossAttn}: \quad Q = z_\text{video tokens}, \, K, V = [z_\text{text}, z_\text{ref tokens}]$$
 
-Or more complex still — add a dedicated cross-attention layer for the ref image. AnimateDiff-style LoRA tuning basically follows this route too.
+Or more complex still — add a dedicated cross-attention layer for the ref image (e.g. an IP-Adapter-style image-prompt adapter).
 
 ### 6.3 AnimateDiff-style plug-in motion module
 
@@ -683,7 +685,7 @@ Blows up fast. A common interview question is "the attention bottleneck for long
 - **Score matrix memory**: vanilla is $O(L^2)$; FlashAttention drops it to $O(L)$ activation
 - **KV cache**: pure diffusion has no AR steps, so there is no KV cache during training; activation checkpointing + ZeRO-3 are essential
 - **3D Causal VAE inference**: chunkable, memory $O(\text{chunk}_T \cdot h \cdot w \cdot C)$
-- **Training FLOPs**: a 13B model's per-batch attention FLOPs ≈ $4 B N^2 d$ × layers ($B$ = batch size); Hunyuan-Video full model ≈ several hundred to a thousand PFLOP / sample, requiring thousands of H100s for months of training
+- **Training FLOPs**: a 13B model's per-batch attention FLOPs ≈ $4 B N^2 d$ × layers ($B$ = batch size); applying that same formula with §10.1's largest-spec numbers ($N \approx 2.45 \times 10^5$, $N^2 \approx 6 \times 10^{10}$) gives an attention-FLOPs order of magnitude of tens of PFLOP/sample (varying with hidden dim and layer count), not several hundred to a thousand PFLOP — training still requires thousands of H100s for months
 
 ## §11 Relation to other generative models
 
@@ -866,7 +868,7 @@ Pitfall: treating "equivalent to 2D conv" as a physical weight merge — actuall
 - Factorized: first $\text{Attn}_S$ lets spatial tokens attend to each other (within each frame), then $\text{Attn}_T$ attends along the time dim
 - **Assumption**: spatiotemporal interactions are separable — the relation between any two spacetime positions $(t_1, s_1)$ and $(t_2, s_2)$ decomposes into "first $s_1 \leftrightarrow s_2$ at $t_1$" then "$t_1 \leftrightarrow t_2$ at $s_2$"
 - Full 3D makes no separability assumption: any two tokens attend directly; can learn **diagonal spatiotemporal patterns** (e.g. diagonal motion)
-- **Mathematically**: factorized is a **strict subset** of full 3D (a constrained parameterization)
+- **Intuitively**: factorized imposes a separability inductive bias on space⊗time — a more constrained, less expressive parameterization — but it is a sequential composition of two independent softmax attention operations (2-hop), not a strict function-class subset of a single full-3D attention layer's sparsely-masked form. The real difference is better described as "whether it can directly learn non-separable spatiotemporal patterns" rather than set-theoretic containment.
 - Empirically: full 3D is better at fast motion / complex spatiotemporal patterns
 
 Pitfall: saying only "full 3D is more accurate" without identifying what patterns it can learn (diagonal / non-separable motion).
@@ -878,7 +880,7 @@ Pitfall: saying only "full 3D is more accurate" without identifying what pattern
 <summary>Q13. Why are video VAEs mainstream-bounded in the $\downarrow 4{\sim}8 \times 8 \times 8$ range?</summary>
 
 - Voxel compression ratio $= 4 \cdot 8 \cdot 8 = 256$ ($1{:}256$); with $C=16$ latent channels, the net ratio is about $1{:}48$
-- **More aggressive (e.g. LTX-Video reports $1{:}8192$ overall) → fewer tokens but degraded reconstruction quality** (detail / sharpness loss)
+- **More aggressive (e.g. LTX-Video, which uses roughly 128 latent channels to compensate for its aggressive positional compression: the true overall (scalar) compression ratio = $3 \times 8192 / 128 \approx 1{:}192$, not the raw 8192 token/positional compression figure taken as the overall ratio) → fewer tokens but degraded reconstruction quality** (detail / sharpness loss)
 - DiT backbone attention is $O(N^2)$, so aggressive compression is engineering-friendly; but lost detail is hard to recover
 - $4{\times}$ temporal downsampling is empirically the upper bound where motion smoothness stays acceptable — higher temporal compression introduces jitter in fast-motion scenes
 - Each model is configured differently: CogVideoX uses $4{\times}8{\times}8$; Hunyuan-Video uses $4{\times}8{\times}8$; Mochi-1 is more aggressive on the temporal dim (about $6{\times}8{\times}8$, per the Mochi blog); LTX-Video goes for extreme high compression + real-time
@@ -1065,11 +1067,11 @@ Pitfall: saying only "AR drifts" — give a concrete mathematical explanation of
 
 <summary>Q25. Hunyuan-Video / Mochi-1 / Wan all use Rectified Flow; what's the advantage over DDPM ε-pred?</summary>
 
-- **Target is stationary**: RF's $u_t = x_1 - x_0$ is a constant given $(x_0, x_1)$; magnitude variation across $t$ is much smaller than ε-pred
+- **Target scale is $t$-independent (true for both RF and ε-pred)**: DDPM ε-pred's target $\epsilon \sim \mathcal{N}(0, I)$ is fixed in scale and independent of $t$ by construction; what actually varies with $t$ is the input $x_t$'s signal-to-noise ratio (SNR) and each $t$'s contribution weight to final sample quality, which is why standard $L_\text{simple}$ needs SNR-reweighting / EDM-preconditioning to train evenly across $t$. RF's $u_\tau = x_1 - x_0$ (also a constant given a sampled pair) shares this same "$t$-independent target" property with ε-pred. RF's real advantage is a straighter path (smaller few-step ODE error) plus logit-normal sampling naturally focusing on the hard-to-learn region — not a "more stationary target scale"
 - **Few-step sampling**: the path is a straight line (ideal), so few-step ODE has small error; after Reflow, 1-4 steps suffice
 - **Natural loss conditioning**: no need for explicit reweighting like SNR / VLB / EDM-preconditioning of DDPM
 - **Shared stack with SD3**: image / video use one recipe (v-pred + logit-normal $t$)
-- DDPM ε-pred needs careful noise schedule design + the target scale at different $t$ varies hugely, complicating training reweighting; RF "works once for all".
+- DDPM ε-pred needs careful noise schedule design, and the SNR varies hugely across $t$, so training needs explicit reweighting (SNR / VLB / EDM-preconditioning) to balance; RF's training objective is simple as-is and needs none of this explicit weighting, making it "work once for all" in practice.
 
 Pitfall: saying only "RF has a straighter path" — expand on training objective / numerical stability / sampler compatibility from multiple angles.
 
@@ -1120,7 +1122,7 @@ def video_gen_forward(model, video_clean, text, ref_image=None):
     mu, logvar = model.encoder(video_clean)
     z1 = model.encoder.reparameterize(mu, logvar)
     z0 = torch.randn_like(z1)
-    tau = torch.sigmoid(torch.randn(B, device=device))          # SD3 logit-normal
+    tau = torch.sigmoid(torch.randn(B, device=device))          # logit-normal tau sampling (same distribution shape as SD3, opposite time direction)
     tau_b = tau.view(-1, 1, 1, 1, 1)
     z_tau = (1 - tau_b) * z0 + tau_b * z1
     u_target = z1 - z0
@@ -1169,7 +1171,7 @@ def video_gen_sample(model, text, t_lat=12, h_lat=90, w_lat=160, steps=50,
 > ✅ **Sanity checks commonly done on video generation models** —
 
 - **Reconstruction-only**: VAE encode then decode, check PSNR / SSIM / LPIPS to verify the model can reconstruct the original
-- **Random latent decode**: sample latent from $\mathcal{N}(0, I)$ and decode, to see whether the VAE has degraded (should yield "natural-looking" videos whose semantics may not be coherent)
+- **Random latent decode** (interpret with caution): the first-stage VAE in video latent diffusion typically uses an extremely weak KL weight (close to a plain autoencoder, not a proper generative VAE), so the aggregate posterior is not guaranteed to match $\mathcal{N}(0, I)$; decoding a raw standard-Gaussian sample is likely to produce noise-like artifacts rather than a "natural-looking" frame. A more reliable sanity check is reconstruction PSNR/SSIM/LPIPS, plus whether each latent channel's empirical mean/variance falls in a reasonable range
 - **Class / prompt overfit**: train on a single prompt for 1000 steps to see if the model can memorize
 - **VBench partial dimensions**: mid-training, first evaluate Subject Consistency / Motion Smoothness to verify temporal stability
 - **CFG sweep**: scale = 0/1/3/6/10 to see the effect (too high → saturation / flicker)
@@ -1182,7 +1184,7 @@ def video_gen_sample(model, text, t_lat=12, h_lat=90, w_lat=160, steps=50,
 | Open-source I2V | Wan 2.2 I2V / Hunyuan-Video I2V | Friendly to Chinese prompts |
 | Best closed-source | Veo 2 / Sora / Kling | 4K / long duration |
 | Real-time | LTX-Video 2B | Real-time on RTX 4090 |
-| Video + audio | Movie Gen (closed) | 30B joint generation |
+| Video + audio | Movie Gen (closed) | Video 30B + Audio 13B, two separate foundation models |
 | Control | AnimateAnyone / MotionCtrl | Character / camera control |
 
 ---

@@ -1,78 +1,100 @@
 {
-  "skill": "interview-cheatsheet",
-  "source": "docs/tutorials/vae_vqvae_vqgan_tutorial.md",
-  "source_sha256": "516738c39ed47d9a19f540aee2ef8f3f6ce94258ed4d7995404364aac3a515b6",
-  "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
-  "output": "docs/tutorials/vae_vqvae_vqgan_tutorial.html",
-  "topic": "VAE / VQ-VAE / VQ-GAN / FSQ (latent variable models + discrete tokenizers)",
-  "effort": "max",
-  "byline": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
-  "reviewer": "codex gpt-5.5 xhigh, fresh thread per round",
-  "math_code_review": {
-    "verdict": "PASS (after main-session DIY substantive fixes)",
-    "rounds": [
-      {
-        "run": "0 (subagent)",
-        "verdict": "no fixes applied (subagent hung before first codex call returned, both first batch and retry)",
-        "notes": "Raw initial draft."
-      },
-      {
-        "run": 1,
-        "verdict": "FAIL → fixed",
-        "thread_id": "019e3fd7-c8fd-73e3-ae91-6cf9513d1a77",
-        "reviewer": "main-session DIY backfill",
-        "real_issues_caught": [
-          "§9.2 FSQ math wrong for even-level: tanh*L/2 + round gives only L-1 distinct values for even L (K=1000 claim invalid for (8,5,5,5))",
-          "§9.5 FSQ implementation: half_l=(L-1)/2 same bug for even L; even-L case produces wrong number of levels",
-          "§7.2 VQ-GAN generator loss mixed in discriminator minimax (line 570): `log D(x) + log(1-D(x_hat))` is the D-side adversarial; generator side should be `-log D(x_hat)` (non-saturating) or hinge",
-          "§7.2 lambda formula missing gradient norm `||·||` (should be ratio of gradient L2 norms, not raw gradients)",
-          "§7.4 typo: Isola pix2pix CVCV 2017 → CVPR 2017",
-          "7 callout-list spacing issues (callout immediately followed by list with no blank line)"
-        ],
-        "fixes_applied": [
-          "§9.2 rewrote FSQ formula with per-level shift s_i (0 for odd L, 0.5 for even L): produces exactly L_i levels both cases — odd: {-half,…,half} integers; even: {-half,…,half} half-integers",
-          "§9.5 FSQ code rewritten with proper shift handling per dim; round_ste before adding shift back; mixed-radix codes still work",
-          "§7.2 split GAN loss into generator-side L_GAN^(G) (-log D(x_hat) or hinge -E[D(x_hat)]) and discriminator-side L_GAN^(D) (hinge minimax); clarified separate update steps",
-          "§7.2 lambda formula corrected: `||∇_GL L_rec|| / (||∇_GL L_GAN^(G)|| + δ)` with Frobenius norm; added total generator loss equation",
-          "§7.4 CVCV → CVPR typo fixed",
-          "Inserted 7 blank lines after callouts to match style guide pattern",
-          "§9.2 heading `### 9.2　核心公式（**必推**）` → `### 9.2　核心公式（必推）` (TOC was leaking raw markdown)"
-        ],
-        "warnings_deferred": [
-          "Gumbel-Max notation: tutorial uses `logits π` then `log π`; FSQ paper uses raw logits l_k; minor notational nit, not blocking",
-          "FSQ prose overclaims 'all grid covered'; could soften to 'avoids learnable-codebook collapse but empirical usage depends on data/model'",
-          "Code lacks runtime smoke-test (env has no torch)"
-        ]
-      }
+ "skill": "interview-cheatsheet",
+ "source": "docs/tutorials/vae_vqvae_vqgan_tutorial.md",
+ "source_sha256": "3e90acdddc0df8d3176b1b54542468ddf81bae171f9170282dd4d4388932c4f4",
+ "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
+ "output": "docs/tutorials/vae_vqvae_vqgan_tutorial.html",
+ "topic": "VAE / VQ-VAE / VQ-GAN / FSQ (latent variable models + discrete tokenizers)",
+ "effort": "max",
+ "byline": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
+ "reviewer": "codex gpt-5.5 xhigh, fresh thread per round",
+ "math_code_review": {
+  "verdict": "PASS (after main-session DIY substantive fixes)",
+  "rounds": [
+   {
+    "run": "0 (subagent)",
+    "verdict": "no fixes applied (subagent hung before first codex call returned, both first batch and retry)",
+    "notes": "Raw initial draft."
+   },
+   {
+    "run": 1,
+    "verdict": "FAIL → fixed",
+    "thread_id": "019e3fd7-c8fd-73e3-ae91-6cf9513d1a77",
+    "reviewer": "main-session DIY backfill",
+    "real_issues_caught": [
+     "§9.2 FSQ math wrong for even-level: tanh*L/2 + round gives only L-1 distinct values for even L (K=1000 claim invalid for (8,5,5,5))",
+     "§9.5 FSQ implementation: half_l=(L-1)/2 same bug for even L; even-L case produces wrong number of levels",
+     "§7.2 VQ-GAN generator loss mixed in discriminator minimax (line 570): `log D(x) + log(1-D(x_hat))` is the D-side adversarial; generator side should be `-log D(x_hat)` (non-saturating) or hinge",
+     "§7.2 lambda formula missing gradient norm `||·||` (should be ratio of gradient L2 norms, not raw gradients)",
+     "§7.4 typo: Isola pix2pix CVCV 2017 → CVPR 2017",
+     "7 callout-list spacing issues (callout immediately followed by list with no blank line)"
+    ],
+    "fixes_applied": [
+     "§9.2 rewrote FSQ formula with per-level shift s_i (0 for odd L, 0.5 for even L): produces exactly L_i levels both cases — odd: {-half,…,half} integers; even: {-half,…,half} half-integers",
+     "§9.5 FSQ code rewritten with proper shift handling per dim; round_ste before adding shift back; mixed-radix codes still work",
+     "§7.2 split GAN loss into generator-side L_GAN^(G) (-log D(x_hat) or hinge -E[D(x_hat)]) and discriminator-side L_GAN^(D) (hinge minimax); clarified separate update steps",
+     "§7.2 lambda formula corrected: `||∇_GL L_rec|| / (||∇_GL L_GAN^(G)|| + δ)` with Frobenius norm; added total generator loss equation",
+     "§7.4 CVCV → CVPR typo fixed",
+     "Inserted 7 blank lines after callouts to match style guide pattern",
+     "§9.2 heading `### 9.2　核心公式（**必推**）` → `### 9.2　核心公式（必推）` (TOC was leaking raw markdown)"
+    ],
+    "warnings_deferred": [
+     "Gumbel-Max notation: tutorial uses `logits π` then `log π`; FSQ paper uses raw logits l_k; minor notational nit, not blocking",
+     "FSQ prose overclaims 'all grid covered'; could soften to 'avoids learnable-codebook collapse but empirical usage depends on data/model'",
+     "Code lacks runtime smoke-test (env has no torch)"
     ]
-  },
-  "render_review": {
-    "verdict": "PASS",
-    "rounds": [
-      {
-        "run": 1,
-        "verdict": "FAIL → re-rendered",
-        "thread_id": "019e3fdc-7425-7720-b0d7-3405ef0e9ebf",
-        "reviewer": "codex gpt-5.5 xhigh, fresh thread (main session)",
-        "real_issues_caught": [
-          "TOC sidebar leaks raw markdown: line 387 has `9.2　核心公式（**必推**）` (the renderer's TOC extraction doesn't strip inline markdown formatting)"
-        ],
-        "fixes_applied": [
-          "Removed `**` markers from heading; re-rendered. 11 other checks already pass; the 1 FAIL was just this heading."
-        ],
-        "post_fix_status": "Re-render produced clean TOC; all 13 checks now effectively PASS. (Did not re-invoke codex render review for time, since this fix was localized and the renderer's behavior is deterministic.)"
-      }
-    ]
-  },
-  "summary": "VAE tutorial: original draft (no subagent rounds — agent hung twice). Main-session DIY did 1 substantive round catching 6 real issues (FSQ even-level bug in both math + code, VQ-GAN generator vs discriminator loss separation, lambda gradient norm, CVCV→CVPR typo, 7 callout spacings). Render review caught 1 more (TOC markdown leak). All fixed. 1396 lines.",
-  "rendered_at": "2026-05-19",
-  "post_ship_review": [
-    {
-      "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
-      "verdict": "FIXED",
-      "date": "2026-06-29",
-      "fix": "Blau & Michaeli venue corrected ICML 2018 to CVPR 2018 (Perception-Distortion Tradeoff), x2; Gumbel-Max section 8.2 notation made self-consistent under the logits reading (dropped the spurious log on pi, matching the softmax(pi) result and the code).",
-      "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
-    }
+   }
   ]
+ },
+ "render_review": {
+  "verdict": "PASS",
+  "rounds": [
+   {
+    "run": 1,
+    "verdict": "FAIL → re-rendered",
+    "thread_id": "019e3fdc-7425-7720-b0d7-3405ef0e9ebf",
+    "reviewer": "codex gpt-5.5 xhigh, fresh thread (main session)",
+    "real_issues_caught": [
+     "TOC sidebar leaks raw markdown: line 387 has `9.2　核心公式（**必推**）` (the renderer's TOC extraction doesn't strip inline markdown formatting)"
+    ],
+    "fixes_applied": [
+     "Removed `**` markers from heading; re-rendered. 11 other checks already pass; the 1 FAIL was just this heading."
+    ],
+    "post_fix_status": "Re-render produced clean TOC; all 13 checks now effectively PASS. (Did not re-invoke codex render review for time, since this fix was localized and the renderer's behavior is deterministic.)"
+   }
+  ]
+ },
+ "summary": "VAE tutorial: original draft (no subagent rounds — agent hung twice). Main-session DIY did 1 substantive round catching 6 real issues (FSQ even-level bug in both math + code, VQ-GAN generator vs discriminator loss separation, lambda gradient norm, CVCV→CVPR typo, 7 callout spacings). Render review caught 1 more (TOC markdown leak). All fixed. 1396 lines.",
+ "rendered_at": "2026-05-19",
+ "post_ship_review": [
+  {
+   "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
+   "verdict": "FIXED",
+   "date": "2026-06-29",
+   "fix": "Blau & Michaeli venue corrected ICML 2018 to CVPR 2018 (Perception-Distortion Tradeoff), x2; Gumbel-Max section 8.2 notation made self-consistent under the logits reading (dropped the spurious log on pi, matching the softmax(pi) result and the code).",
+   "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+  },
+  {
+   "scope": "2026-07-13 full-collection re-sweep (diffusion cluster): Codex GPT-5.6-sol candidate-finding pass + independent Claude Sonnet 5 adversarial verification (attempted to refute every candidate; only load-bearing findings kept)",
+   "verdict": "FIXED",
+   "date": "2026-07-13",
+   "fix": "8 findings verified (8 CONFIRMED, 0 REFUTED) and precisely applied to the source MD.",
+   "fixes": [
+    "§0 TL;DR bullet 7: fixed self-contradiction between FSQ's stated {-L,...,L} (2L+1 levels) value set and the L^d codebook-size formula — now states each dim gets L_i fixed levels (matching §9.2), and clarified that 'no learnable codebook parameter' does not mean 'no STE' (round is still non-differentiable, needs a one-line STE)",
+    "§5.3 Free bits callout + Q12: corrected overclaim that the max(KL,λ) clamp 'guarantees λ bits per dim' — the clamp only zeroes the gradient below threshold (stop penalizing further collapse), it does not actively push raw KL back up to λ; true KL can still sit near 0",
+    "§7.5 LPIPS + Q18: corrected overclaim that LPIPS is 'standard for diffusion training' — it is standard for the VQ-GAN/SD-family VAE tokenizer (first-stage autoencoder) and most image GANs, but standard diffusion denoisers train with plain L2 regression on noise/velocity/flow and do not use LPIPS",
+    "§8.2: DALL·E 2 is unCLIP (CLIP embedding prior + diffusion decoder), not a VQ-GAN-leaning model as previously stated; corrected to note it does not use VQ-GAN discrete tokens at all",
+    "§9.3 + Q9: softened the overclaim that reconstruction pressure guarantees 100% grid coverage in FSQ — near-100% usage is an empirical regularity from the paper, not a structural/mathematical guarantee",
+    "§9.2 formula + §9.5 code: fixed the FSQ bounding implementation — real FSQ (Mentzer et al. 2024) adds the even-level parity shift on tanh's *input* side (with an atanh-derived shift) plus an eps safety margin, not a bare tanh(z)*half - offset with no eps; the tutorial's own code was internally inconsistent (docstring promised an eps parameter that the constructor never declared). Added `eps` param, precomputed `atanh_shift = atanh(offset/half)`, and changed the bound to `tanh(z + atanh_shift) * half - offset`",
+    "§11.2 ecosystem diagram: DALL·E 1 moved off the VQ-GAN row onto a new dVAE row (it uses a discrete VAE + Gumbel-softmax, not VQ-GAN's codebook + LPIPS + adversarial construction) — matches the tutorial's own correct §8.1 text",
+    "§11.2 ecosystem diagram: OpenMagViT2 moved from the FSQ row to the LFQ row — it is an LFQ-based (binary lookup-free) tokenizer, matching the tutorial's own §9.7 table, which already had this right",
+    "§9.6 LFQ entropy regularization prose + code: fixed the actual mechanism — real LFQ/MAGVIT-v2-style entropy regularization minimizes per-sample (per-token) entropy (confident per-bit decisions) while maximizing batch-aggregate (marginal) entropy (even code usage across the batch), plus a commitment term; the tutorial's code previously just maximized every sample's own entropy (pushing sigmoid(z) toward 0.5 — literally the opposite of a confident quantization decision) with no batch-usage term at all"
+   ],
+   "note": "Verification and fixes applied to vae_vqvae_vqgan_tutorial.md / _en.md in parallel (EN gets the same substantive correction as natural-language translation, no new content). FSQ bound math re-derived numerically (numpy tanh/atanh/round check) to confirm the corrected formula stays within grid bounds for both odd and even L, including extreme |z| (saturation) cases. Both HTMLs re-rendered, source_sha256 refreshed (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+  },
+  {
+   "date": "2026-07-13",
+   "note": "2026-07-13 follow-up: fixed a cross-file consistency flag left by the vae_vqvae_vqgan fix agent (OpenMagViT2 cited as an FSQ usage example at §9.3 — it's LFQ per this file's own §9.7 table and finding 59) — replaced with the FSQ paper's own ImageNet result + NVIDIA Cosmos's FSQ-family tokenizer."
+  }
+ ]
 }

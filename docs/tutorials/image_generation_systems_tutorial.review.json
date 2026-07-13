@@ -56,6 +56,27 @@
   "summary": "Image Gen Systems tutorial: subagent did 3 rounds, main-session DIY did 1 more round catching 2 substantive errors (Q4 resolution arithmetic + SD3-Turbo citation). Final 13/13 render PASS. 1446 lines content-dense (WARN).",
   "rendered_at": "2026-05-19",
   "notes": "Subagent was killed during continuation (codex MCP concurrency issue). Math/code review + fixes + render + render review all completed in main session DIY.",
-  "source_sha256": "bbcb7cbc5ecb26e04fec7c9336fc8f753e910a6786455e3fd3debf84ce991fb6",
-  "thread_id": "019e7c8b-52d1-7e43-9a67-1e6e6e34d4cc"
+  "source_sha256": "b3d691580595f59b21b8745738f6b50d2b97ef8eee5a624af27b16c7e4e7264c",
+  "thread_id": "019e7c8b-52d1-7e43-9a67-1e6e6e34d4cc",
+  "post_ship_review": [
+    {
+      "scope": "2026-07-13 full-collection re-sweep (diffusion cluster): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification (attempted to refute every candidate finding; only load-bearing ones kept)",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "summary": "10 findings verified (9 CONFIRMED + 1 NEEDS_NUANCE, 0 REFUTED) and precisely applied to the source MD (both zh and en editions).",
+      "fixes": [
+        "§3.3 SD3: RF equation's data/noise identity was backward and the 'opposite of DDPM' claim was wrong — SD3's t=0/data, t=1/noise convention runs in the SAME direction as DDPM, not opposite (CONFIRMED; also fixed the duplicate restatement in §13 Q15)",
+        "§3.4 FLUX.1 spec table: 'text tokens use absolute position encoding' corrected — FLUX text-token RoPE ids (txt_ids) are set to all zeros (no explicit positional encoding); ordering comes from T5's own relative-position mechanism (CONFIRMED)",
+        "§6.7 InstantID row: 'face embedding decoupled from ID embedding' was mischaracterized — InstantID injects the face embedding itself (ArcFace/insightface) as the identity embedding via decoupled cross-attention + IdentityNet (landmark ControlNet) (CONFIRMED)",
+        "§6.7 PhotoMaker row: mechanism was backward — PhotoMaker's 'Stacked ID Embedding' stacks per-photo ID embeddings (each fused with the class word first), not average-then-concat (CONFIRMED)",
+        "§7.7 Custom Diffusion: corrected from 'essentially a narrower LoRA-DreamBooth' to an independent selective full-parameter (non-low-rank) fine-tuning method (CONFIRMED)",
+        "§9.2 ADD: removed a fabricated third 'score loss' — ADD's total loss has only two terms (adversarial + a single score-distillation-style distillation loss); the tutorial had double-counted the distillation term as two (CONFIRMED; also fixed the duplicate '三件套/three-in-one' restatement in §13 Q19)",
+        "§13 Q4: SD/SDXL U-Net middle block was wrongly said to have 'no cross-attn' — it is a standard SpatialTransformer/UNetMidBlock2DCrossAttn with self-attn + cross-attn + FFN, consistent with §3.1's own correct description (CONFIRMED; this was an internal self-contradiction)",
+        "§0/§2.2/§13 Q1: 'f=8 downsample -> exactly 64x compute savings' softened to an order-of-magnitude estimate — latent channel width and the quadratic scaling of self-attention FLOPs with token count mean actual savings deviate from a precise 64x (NEEDS_NUANCE)",
+        "§13 Q7: LoRA parameter ratio formula corrected from the approximation r/min(d,k) to the exact r(d+k)/dk = r(1/d+1/k), which equals 2r/n (not r/n) in the common square-matrix case d=k=n (CONFIRMED)",
+        "§3.2/§13 Q11: SDXL size/crop conditioning corrected from 4 scalars to 6 — target_size (h_tgt, w_tgt) for multi-aspect-ratio training was missing alongside original_size and crop_top_left (CONFIRMED)"
+      ],
+      "note": "Verification and fixes applied to both image_generation_systems_tutorial.md and _en.md in parallel; both HTMLs re-rendered and source_sha256 refreshed (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ]
 }

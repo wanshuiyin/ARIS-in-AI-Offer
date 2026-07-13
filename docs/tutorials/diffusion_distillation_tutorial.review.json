@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/diffusion_distillation_tutorial.md",
-  "source_sha256": "5f06105db9ffe0e923b0da9b1193e64c35d1994bc5749e984f20b214a09e30f9",
+  "source_sha256": "6e511dfae25c47472b18d82f2e125d38651275cc217ea1265d38afe75c09d432",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-20); not a new codex review",
   "output": "docs/tutorials/diffusion_distillation_tutorial.html",
   "topic": "Diffusion / Flow Distillation (few-step inference) — CM/iCT/sCM/CTM/LCM/LCM-LoRA/TCD/rCM, DMD/DMD2, ADD/LADD/Lightning, Rectified Flow/InstaFlow, Guidance/Progressive distillation",
@@ -120,6 +120,23 @@
       "date": "2026-06-29",
       "fix": "iCT CIFAR-10 FID corrected: 2.51/2.24 are iCT-DEEP; plain iCT is 2.83/2.46 (resolves the self-contradiction with section 10 Q3).",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "2026-07-13 full-collection resweep (diffusion cluster): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification (attempted to refute every candidate finding; only load-bearing ones kept)",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "summary": "9 findings verified (5 CONFIRMED + 3 NEEDS_NUANCE + 1 REFUTED). 8 fixes precisely applied to the source MD (several spanning multiple occurrences); the REFUTED finding (FLUX.1-schnell attributed to LADD) was left untouched — BFL's own model card makes the same claim, so the tutorial's characterization is well-grounded.",
+      "fixes": [
+        "§2.2 (L115): the 'same theta on both branches makes loss degenerate to ||f_theta - f_theta|| = 0' argument was mathematically wrong — the two branches take different inputs (x_{t+1},t+1) vs (x_hat_t,t), so a shared theta with target-side stop-gradient (as iCT does, theta^- = theta) does not zero the loss; rewritten to explain the real collapse risk is dropping stop-gradient on the target branch TOO (BYOL/SimSiam-style collapse to a constant function), not parameter sharing itself (CONFIRMED)",
+        "§2.4/§7.3 (TrigFlow, prose + code): boundary noise z was written as standard N(0,I); corrected to N(0, sigma_d^2 I) so Var(x_t) stays equal to sigma_d^2 for all t (variance-preserving); trigflow_xt() docstring and scm_loss()'s z sampling line updated to scale by sigma_data; also added a caveat that the boxed 'PF-ODE' line is a conditional/pathwise path derivative, not the marginal PF-ODE itself (CONFIRMED)",
+        "§2.3/§7.2 (iCT code): pseudo_huber's c=0.00054 was missing the paper's sqrt(D) scaling (D=C*H*W); and the lognormal noise schedule was built by sampling N+1 lognormal draws and sorting them, not the paper's deterministic Karras/EDM grid + discretized lognormal index-weighting; code rewritten with a new karras_schedule() + lognormal_index_weights() helper and c = 0.00054*sqrt(D) (CONFIRMED)",
+        "§4.1/§4.2/§4.4/§7.6 + interview Q9/Q17/Q23 (ADD distillation loss, 7+ occurrences): repeatedly mischaracterized as a plain pixel MSE between the student's 1-step output and the teacher's independently multi-step-sampled image, contradicting the tutorial's own correct §4.1 callout (score-distillation style); all occurrences (prose, two comparison tables, the ADDTrainer.distill_loss() code, and Q9/Q23 answers) rewritten to match: re-noise the student output to a random higher noise level, denoise once with the frozen teacher, regress against that reconstruction; Q17 restructured around the corrected mechanism (CONFIRMED)",
+        "§4.4 (L367, production cheat sheet): DMD2 recommended as 'GAN-free + score-based', contradicting the tutorial's own TL;DR and §3.3 (DMD2's headline change is adding a GAN loss); corrected to point 'GAN-free' readers at DMD v1 instead (CONFIRMED)",
+        "§5.1/§5.2 + interview Q8/Q19 (Reflow, 4 occurrences): overstated Liu 2022 Theorem 3.6 as reaching 'optimal transport' / 'straight lines are the OT solution' rather than only proving transport cost is non-increasing across reflow rounds; also conflated 'velocity constant along one fixed trajectory' with 'the marginal velocity field v(x,t) has no t-dependence'; and softened '1-2 reflow rounds match 50-step quality' to note practical systems (InstaFlow) still stack extra distillation/adversarial fine-tuning on top (NEEDS_NUANCE)",
+        "§4.2/interview-Q9/Q23 (DINOv2 518 resolution, 2 occurrences): 'ADD is limited to <=518 by DINOv2 input resolution' presented as an architectural hard cap; corrected to note position-embedding interpolation (bicubic) or patching/downsampling can extend it, with quality/cost tradeoffs rather than an absolute limit; also flagged the discriminator-capacity argument (DINOv2 ViT-L ~0.3-1B params vs SD3/FLUX 8-12B) as plausible engineering intuition, not a verbatim ADD/LADD paper conclusion (NEEDS_NUANCE)",
+        "§2.9/§5.4 (rCM / Flow-OPD dates): both sections already hedge with 'verified'/'out-of-scope sidebar'/'see original paper' language appropriate given these are 2025-2026 papers outside reliable training-knowledge recall; added one more explicit caveat at each first occurrence pointing readers to double-check the exact arXiv id/numbers against the latest revision (NEEDS_NUANCE, light-touch)"
+      ],
+      "note": "REFUTED finding (FLUX.1-schnell attributed to LADD, several occurrences) intentionally left unmodified — Black Forest Labs' own FLUX.1-schnell model card states it was trained with latent adversarial diffusion distillation, and BFL's founders are the original ADD/LADD authors, so the tutorial's claim is well-grounded rather than an unconfirmed leap. EN edition (diffusion_distillation_tutorial_en.md) received the same substantive corrections in natural English (see its own sidecar). Both HTMLs re-rendered; source_sha256 refreshed to match this run. Gated via tools/verify_reviews.py --mode strict --reproduce."
     }
   ]
 }

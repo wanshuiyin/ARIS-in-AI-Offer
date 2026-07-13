@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/flow_matching_tutorial_en.md",
-  "source_sha256": "e65d265f3e0bcdd77a30652bf9a8a9ece0389280f2816fb04ee392332c19e7c6",
+  "source_sha256": "38ebee5ec073967790b5055f9cd3ddf2ff7fbfc6e8fcc2c37bf369d6abacd9cb",
   "output": "docs/tutorials/flow_matching_tutorial_en.html",
   "zh_source": "docs/tutorials/flow_matching_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -17,7 +17,7 @@
     ],
     "summary": "Fresh independent Codex (GPT-5.5 xhigh) translation-fidelity audit of the EN edition /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/flow_matching_tutorial_en.md against the ZH source of truth /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/flow_matching_tutorial.md (plus the rendered /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/flow_matching_tutorial_en.html). Verdict: WARN. The translation is faithful overall — sections are complete, and all numbers, formulas, tensor shapes, model names, and primary citations in the EN match the ZH; code-block logic is consistent; and the H"
   },
-  "rendered_at": "2026-05-31",
+  "rendered_at": "2026-07-13",
   "post_ship_review": [
     {
       "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
@@ -25,6 +25,12 @@
       "date": "2026-06-29",
       "fix": "Reflow / Rectified Flow venue corrected ICLR 2022 to ICLR 2023 (arXiv was 2022). (EN edition mirrors the ZH fix.)",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "2026-07-13 full-collection resweep (diffusion cluster): Codex GPT-5.6-sol candidate-finding pass → independent Claude adversarial verification (attempted to refute each) → 6 CONFIRMED, all fixed. EN edition mirrors the ZH fixes with natural English phrasing (no new content introduced).",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "fix": "Same 6 fixes as the ZH edition: (1) Lipman 2023 time-direction claim corrected (same noise/data direction as this doc and Liu 2022, not opposite; the real mismatch to disambiguate is vs. DDPM); (2) marginal vector field non-uniqueness condition corrected to p_t-weighted divergence-free; (3) Rectified Flow / OT-CFM naming disentangled (independent sampling vs. OT coupling); (4) VE prior corrected from an exact N(0,sigma_max^2 I) claim to a convolution p_data * N(0,sigma_max^2 I) with an approximation caveat; (5) §6/6.1/6.2: RF does have an SDE/score representation (just unnamed as a 'standard' process); the row mislabeled 'v-prediction (Salimans-Ho)' renamed to 'path velocity', with a note on how it differs from and is only proportional to the real Salimans-Ho v under the VP cosine schedule; VP-cosine correspondence table cos^2 to sin^2 fix; (6) conditional-chord straightness vs. marginal/generated-ODE-trajectory straightness distinction, and SD3-Turbo reattributed from reflow to LADD/adversarial diffusion distillation. code/flow_matching.py (shared with the ZH edition) implements only plain Rectified Flow and was not touched — none of the 6 fixes affect its logic."
     }
   ]
 }

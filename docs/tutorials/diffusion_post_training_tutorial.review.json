@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/diffusion_post_training_tutorial.md",
-  "source_sha256": "95b47c84420904cb38b68b156d25372d305084281e28fec71d19c405801efef8",
+  "source_sha256": "c005ed58067d968a9a96afabf372728dae76d95b9cc7a2f0a08fbd35fc752dec",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-20); not a new codex review",
   "output": "docs/tutorials/diffusion_post_training_tutorial.html",
   "topic": "Diffusion / Flow Post-Training — DDPO / DPOK / DRaFT / AlignProp / ReFL / Diffusion-DPO / D3PO / SPO / Diffusion-KTO / MaPO / Flow-GRPO",
@@ -61,5 +61,25 @@
     ]
   },
   "summary": "Diffusion Post-Training tutorial: solo subagent draft (1315 lines) → main-session DIY strict review caught 8 substantive issues (DRaFT-K gradient, SPO detach, Flow-GRPO drift, DPOK venue, AlignProp caveat, Q16 marginal, callout-list, lab names). All fixed. Render review 13/13 PASS.",
-  "rendered_at": "2026-05-20"
+  "rendered_at": "2026-05-20",
+  "post_ship_review": [
+    {
+      "scope": "2026-07-13 full-collection re-sweep (diffusion cluster): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification (attempted to refute every candidate finding; only load-bearing ones kept)",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "summary": "8 findings verified (6 CONFIRMED + 2 NEEDS_NUANCE, 0 REFUTED) and precisely applied to the source MD.",
+      "fixes": [
+        "§2.5 DPOK: KL identity '=' corrected to '<=' between per-step trajectory-KL sum and the endpoint marginal KL DPOK actually wants to regularize, with a data-processing-inequality caveat (CONFIRMED)",
+        "§4.1.1 ELBO surrogate + boxed Diffusion-DPO loss + Q3 + Q21: added the omega(lambda_t) SNR-weight caveat (L_simple sets omega(lambda_t)=1, a deliberate Ho 2020 reweighting, not a tight ELBO identity) and inserted omega(lambda_t) into the boxed loss formula (CONFIRMED)",
+        "§4.1.2 paired-noise warning box + code comment + Q10: softened 'must share epsilon or beta incomparable / variance explodes' to 'shared noise is a variance-reduction (common random numbers) technique, not a correctness requirement — independent noise gives a valid higher-variance unbiased estimator' (CONFIRMED)",
+        "§6.2 docstring + beta-magnitude warning box + Q5: rephrased 'beta*T is the true temperature' as implementation-dependent (mean vs sum MSE reduction; DDPM 1000-step training schedule vs the tutorial's own 20-50-step inference schedule), not a portable universal fact (NEEDS_NUANCE)",
+        "§6.1 DDPO code: fixed a real NaN/Inf bug — the deterministic t=0 terminal transition (std=0 by Ho et al. 2020 convention) was fed directly into a division and .log() in the policy-gradient recompute and KL terms; added std.clamp(min=1e-6) guards, and a matching prose note in the implementation-footguns box (CONFIRMED)",
+        "§6.1 footgun box + Q7: corrected 'DDIM-eta=0 -> policy gradient equals 0' to 'REINFORCE/score-function estimators degenerate under deterministic transitions, but the true gradient of E[R] is not zero — x_0 remains a differentiable function of theta, so DRaFT/AlignProp's pathwise gradient still exists' (CONFIRMED)",
+        "§6.5 Flow-GRPO code: the 'first-step divide-by-zero' sub-claim was refuted (the existing sigma+1e-6 guard plus sigma^2 cancellation already prevents NaN/Inf) so it was NOT changed as a bug; instead sharpened the existing placeholder disclaimer and added a new note that sigma_fn(t)=sqrt(1-t) gives zero noise at the trajectory start (t=1) and maximal noise at the end (t=0) — backwards from the usual explore-early intuition (NEEDS_NUANCE)",
+        "§8 production-landscape table + §8.2 bullet + Q24: corrected 'DALL-E 3 explicitly used caption-faithful RLHF' to 'DALL-E 3's public report (Betker et al. 2023) is centered on synthetic recaptioning (data augmentation), and does not describe an RLHF post-training mechanism' (CONFIRMED)",
+        "Appendix A.4 footgun checklist: two duplicate restatements of the paired-noise and DDIM-eta=0 overreaches (not in the original finding locations but the same substantive claims) softened for internal consistency with the fixes above"
+      ],
+      "note": "Also fixed the two real code-logic bugs flagged for extra scrutiny (DDPO NaN at deterministic terminal step; Flow-GRPO placeholder documentation) — the Flow-GRPO 'divide by zero' half of that concern was verified NOT to be an actual bug given the existing epsilon guard, so only the documentation/comment was sharpened, not the numerics. Re-rendered diffusion_post_training_tutorial.html and refreshed source_sha256 (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ]
 }

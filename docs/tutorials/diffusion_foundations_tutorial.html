@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_foundations_tutorial.md">
-<meta name="aris:source-sha256" content="c72317f75533ee8bbab65af66cdc1bb6d7773563123b6001e5888f3571e7acfe">
-<meta name="aris:generated-at" content="2026-06-29 10:11 UTC">
+<meta name="aris:source-sha256" content="3b7554f2575871b7adef380116023e27397af4c0f09a642088a3ff78e90169e6">
+<meta name="aris:generated-at" content="2026-07-13 10:17 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -637,7 +637,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#a3-ddim-sampling-with-eta">A.3　DDIM sampling (with $\eta$)</a></li>
 <li><a href="#a4-classifier-free-guidance-训练--采样">A.4　Classifier-Free Guidance 训练 + 采样</a></li>
 <li><a href="#a5-edm-preconditioning--heun-二阶-sampler">A.5　EDM preconditioning + Heun 二阶 sampler</a></li>
-<li><a href="#a6-probability-flow-ode-简单-euler-求解">A.6　Probability Flow ODE 简单 Euler 求解</a></li>
+<li><a href="#a6-probability-flow-ode-求解ddim-精确更新非朴素-euler">A.6　Probability Flow ODE 求解（DDIM 精确更新，非朴素 Euler）</a></li>
 <li><a href="#a7-sanity-check-输出教学版">A.7　Sanity-check 输出（教学版）</a></li>
 </ul>
 </li>
@@ -652,8 +652,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_foundations_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>c72317f75533</code></span>
-    <span><strong>Rendered:</strong> 2026-06-29 10:11 UTC</span>
+    <span><strong>SHA256:</strong> <code>3b7554f25758</code></span>
+    <span><strong>Rendered:</strong> 2026-07-13 10:17 UTC</span>
     
   </div>
 </header>
@@ -735,7 +735,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>EDM 把 $\beta$ schedule 重新参数化为 $\sigma$ schedule（直接用 $\sigma$ 当时间）。采样时：</p>
 <p>$$\sigma_i = \left(\sigma_\text{max}^{1/\rho} + \frac{i}{N-1}\left(\sigma_\text{min}^{1/\rho} - \sigma_\text{max}^{1/\rho}\right)\right)^\rho, \quad i = 0, \dots, N-1$$</p>
 <p>默认 $\sigma_\text{min} = 0.002$, $\sigma_\text{max} = 80$, $\rho = 7$。<strong>$\rho = 7$ 是 Karras 实验扫出来的</strong>——比线性 / 对数都好，因为它把更多步骤分配在小 $\sigma$（高 SNR）区域，那里步进误差更敏感。</p>
-<div class="callout callout-info"><div class="callout-title">离散 vs 连续 schedule</div><p>DDPM 的 $\beta$ 数组等价于 VP-SDE 的 $\beta(t) = T \beta_{\lfloor tT \rfloor}$；EDM 的 $\sigma$-schedule 等价于 VE-SDE 的 $\sigma(t) = t$（线性时间）；两者只差一个 $t$ 重参数化，<strong>信息上等价</strong>。EDM 的贡献是发现一组工程上更稳的 $\sigma_i$ 选取规则。</p></div>
+<div class="callout callout-info"><div class="callout-title">离散 vs 连续 schedule</div><p>DDPM 的 $\beta$ 数组等价于 VP-SDE 的 $\beta(t) = T \beta_{\lfloor tT \rfloor}$；EDM 的 $\sigma$-schedule 等价于 VE-SDE 的 $\sigma(t) = t$（线性时间）；VP↔VE 的精确对应<strong>不是</strong>单纯的时间 relabel，而是联合的时间变换 + 状态缩放：令 $\sigma(t) = \sqrt{(1-\bar\alpha_t)/\bar\alpha_t}$，需要对状态做缩放 $y_t = x_t / \sqrt{\bar\alpha_t} = x_0 + \sigma(t)\epsilon$ 才能把 VP 边缘写成 VE 形式；二者在这个意义下描述同一族分布，但转换本身包含额外的状态缩放，不只是重参数化 $t$。EDM 的贡献是发现一组工程上更稳的 $\sigma_i$ 选取规则。</p></div>
 <h2 id="5-score-based-视角">§5 Score-based 视角</h2>
 <h3 id="51-score-与-score-matching-hyvrinen-2005">5.1　Score 与 score matching (Hyvärinen 2005)</h3>
 <p>定义 $s(x) = \nabla_x \log p(x)$。如果学到 $s_\theta \approx s$，可以用 <strong>Langevin dynamics</strong> 采样：</p>
@@ -908,10 +908,10 @@ else:
 <h3 id="114-sd3-esser-2024-icml--diffusion-换成-rectified-flow">11.4　SD3 (Esser 2024 ICML) —— diffusion 换成 Rectified Flow</h3>
 <p>SD3 的两个关键改动：</p>
 <ol><li><strong>Rectified Flow 替代 DDPM</strong>：训练目标变成 $\|v_\theta - (x_1 - x_0)\|^2$（FM 框架）</li><li><strong>MM-DiT</strong>：多模态 DiT，text token 和 image token 在同一 Transformer 里互相 attend（不是 cross-attn）</li></ol>
-<p>为什么换 RF？Esser 2024 ablation：<strong>linear path 的 trajectory 比 cosine path 更直</strong> → 少步采样更好；logit-normal $t$ sampling 让 mid-noise 更被重视，质量提升。</p>
+<p>为什么换 RF？Esser 2024 ablation：<strong>linear 的 conditional path 无曲率</strong>（给定 $(x_0,x_1)$ 的直线插值，训练目标不显式依赖 $t$），配合 logit-normal $t$ sampling 让训练更集中在有效区域（mid-noise），质量提升。</p>
 <h3 id="115-flux1-black-forest-labs-2024">11.5　FLUX.1 (Black Forest Labs 2024)</h3>
-<p>继承 SD3 + MM-DiT，主要更新：</p>
-<ul><li>12B 参数（开源 dev 版）</li><li><strong>Guidance-distilled</strong>：把 CFG 蒸馏进单 forward，推理无需 2× CFG forward</li><li><strong>Adversarial training</strong> 末段微调（类似 SD3-Turbo / ADD），4-step 即出图</li></ul>
+<p>继承 SD3 + MM-DiT，发布两个独立 checkpoint，属性不能混用：</p>
+<ul><li><strong>FLUX.1-dev</strong>（12B，开源非商用）：<strong>Guidance-distilled</strong>——把 CFG 蒸馏进单 forward，推理无需 2× CFG forward；仍是常规多步采样（官方推荐约 20-50 步）</li><li><strong>FLUX.1-schnell</strong>（Apache-2.0）：在 dev 基础上另做 <strong>adversarial/latent 蒸馏</strong>（类似 LADD），1-4 step 即可出图，通常不再需要 CFG</li></ul>
 <h3 id="116-controlnet-zhang-2023-iccv">11.6　ControlNet (Zhang 2023 ICCV)</h3>
 <p>给 frozen SD UNet 加 <strong>trainable copy</strong> + <strong>zero-conv</strong> 连接：</p>
 <pre class="diagram"><code>原 UNet (frozen)                    控制信号 (canny / depth / pose)
@@ -947,8 +947,8 @@ else:
 <h3 id="124-adversarial-diffusion-distillationadd-sdxl-turbo--ladd-sd3-turbosauer-20232024">12.4　Adversarial Diffusion Distillation：ADD (SDXL-Turbo) / LADD (SD3-Turbo)（Sauer 2023/2024）</h3>
 <p><strong>ADD 训练目标</strong>：</p>
 <p>$$L_\text{ADD} = L_\text{adv}(\text{student}) + \lambda L_\text{distill}(\text{student}, \text{teacher})$$</p>
-<ul><li>$L_\text{adv}$：<strong>ADD（SDXL-Turbo）</strong> 用 pretrained vision model（DINOv2）当判别器；<strong>LADD（SD3-Turbo）</strong> 改用 teacher diffusion-transformer 自身的 latent 特征当判别器（不再用 DINOv2，判别发生在 latent 空间）</li><li>$L_\text{distill}$：student 多步 ODE 应该匹配 teacher 多步 ODE</li></ul>
-<p><strong>结果</strong>：SDXL-Turbo 1-step 1024 px、SD3-Turbo 4-step 1024 px。质量略低于 multi-step 但实时（~100ms / image）。</p>
+<ul><li>$L_\text{adv}$：<strong>ADD（SDXL-Turbo）</strong> 用 pretrained vision model（DINOv2）当判别器；<strong>LADD（SD3-Turbo）</strong> 改用 teacher diffusion-transformer 自身的 latent 特征当判别器（不再用 DINOv2，判别发生在 latent 空间）</li><li>$L_\text{distill}$：把学生单步去噪输出 $\hat x_\theta(x_s, s)$ 重新加噪到随机采样的更高噪声水平 $t$ 得到 $x_{\hat x_\theta, t}$，用冻结 teacher 在该噪声水平上的去噪预测 $\hat x_\psi(x_{\hat x_\theta, t}, t)$ 作为回归目标（score-distillation / SDS 式信号），而非比较学生与教师各自的多步 ODE 轨迹</li></ul>
+<p><strong>结果</strong>：SDXL-Turbo 1-step 512 px、SD3-Turbo 4-step 1024 px。质量略低于 multi-step 但实时（~100ms / image）。</p>
 <h2 id="13-与-flow-matching-的桥">§13 与 Flow Matching 的桥</h2>
 <h3 id="131-score-vs-vector-field--同信息不同参数化">13.1　Score vs Vector Field —— 同信息不同参数化</h3>
 <p>在 VP-SDE / VE-SDE 框架内，FM 学 $v$ 和 score-based 学 $s$ 是 <strong>同信息的两种参数化</strong>：</p>
@@ -959,7 +959,7 @@ else:
 <p><strong>实际上</strong>：对应任意 $\alpha(t), \sigma(t)$ 的 Gaussian path，三个量 $\{\epsilon_\theta, s_\theta, v_\theta\}$ 完全等价。所以训 DDPM、训 score-based、训 FM 在 VP/VE path 上是同一件事。</p>
 <h3 id="132-为什么-sd3--flux-改用-rectified-flow">13.2　为什么 SD3 / FLUX 改用 Rectified Flow？</h3>
 <p><strong>Rectified Flow 的 path</strong>：$x_t = (1-t) x_0 + t x_1$（噪声→数据线性插值），$v_t = x_1 - x_0$。</p>
-<table><thead><tr><th>优势</th><th>RF (linear)</th><th>VP/VE (curved)</th></tr></thead><tbody><tr><td>ODE trajectory</td><td>直线</td><td>曲线（需更高阶 solver）</td></tr><tr><td>Target $v_t$</td><td>不依赖 $t$</td><td>依赖 $t$（VP cosine 路径）</td></tr><tr><td>少步数采样</td><td>Euler 4-8 步可用</td><td>Euler 需 30+ 步</td></tr><tr><td>Reflow 可压到 1-2 步</td><td>✓（InstaFlow / SD3-Turbo）</td><td>✗</td></tr><tr><td>训练稳定性</td><td>logit-normal $t$ + RF 稳</td><td>需精心调 noise schedule</td></tr></tbody></table>
+<table><thead><tr><th>优势</th><th>RF (linear)</th><th>VP/VE (curved)</th></tr></thead><tbody><tr><td>条件路径 (conditional path)</td><td>直线（marginal ODE 轨迹在独立配对下仍可能弯曲，需 Reflow 拉直）</td><td>曲线（需更高阶 solver）</td></tr><tr><td>Target $v_t$</td><td>不依赖 $t$</td><td>依赖 $t$（VP cosine 路径）</td></tr><tr><td>少步数采样</td><td>Euler 4-8 步可用</td><td>Euler 需 30+ 步</td></tr><tr><td>Reflow 可压到 1-2 步</td><td>✓（InstaFlow；SD3-Turbo 走的是 LADD 而非 reflow，见 §12.4）</td><td>✗</td></tr><tr><td>训练稳定性</td><td>logit-normal $t$ + RF 稳</td><td>需精心调 noise schedule</td></tr></tbody></table>
 <div class="callout callout-info"><div class="callout-title">一句话 SD3 ablation 结论</div><p>"在同样的 DiT backbone 下，RF + logit-normal $t$ 比 VP + uniform $t$ 在 ImageNet 256 FID 提升约 0.5-1.0；在 T2I 任务 GenEval 上文本对齐显著更好。"</p></div>
 <h3 id="133-ddpmddimedmrfcm-全图">13.3　DDPM/DDIM/EDM/RF/CM 全图</h3>
 <pre class="diagram"><code>                训练目标              采样方式               典型 NFE
@@ -969,7 +969,8 @@ else:
  DDIM         (借 DDPM 权重)       deterministic ODE step     20-50
  EDM          D_θ (Tweedie)       Heun ODE 2nd-order         18-35
  RF / SD3     v = x_1-x_0         Euler ODE                  4-50
- FLUX         v + CFG-distill     Euler                      1-4
+ FLUX.1-dev      v + CFG-distill  Euler                      ~20-50
+ FLUX.1-schnell  v (distilled)    Euler                      1-4
  ConsistMod   f_θ(x_t,t)→x_0      direct map                 1-4
  LCM-LoRA     consistency on SD   direct                     4-8</code></pre>
 <h2 id="14-25-高频面试题l1-必会--l2-进阶--l3-顶级-lab">§14 25 高频面试题（L1 必会 · L2 进阶 · L3 顶级 lab）</h2>
@@ -1048,7 +1049,7 @@ else:
 </details>
 <details>
 <summary>Q15.SD3 为什么从 DDPM 换成 Rectified Flow？</summary>
-<ul><li>RF path $x_t = (1-t)x_0 + tx_1$ 是直线 → ODE trajectory 直 → 少步采样误差小</li><li>$v_t = x_1 - x_0$ target 不依赖 $t$（给定 $(x_0, x_1)$），数值稳定</li><li>配合 <strong>logit-normal $t$ sampling</strong>（集中在 $t=0.5$）涨点</li><li>Esser 2024 ablation：同 backbone 下 RF + LogitNorm vs VP-cosine + Uniform，GenEval 文本对齐显著好</li><li>进一步可 reflow 压到 4-step（FLUX-Schnell / SD3-Turbo）</li></ul>
+<ul><li>RF 的 conditional path $x_t = (1-t)x_0 + tx_1$（给定 $(x_0, x_1)$）构造上是直线，但训练后学到的 marginal ODE 轨迹（对独立配对做期望）通常仍有曲率——真正把生成轨迹拉直、让少步采样误差变小的是后续的 Reflow 迭代（见下方）</li><li>$v_t = x_1 - x_0$ target 不依赖 $t$（给定 $(x_0, x_1)$），数值稳定</li><li>配合 <strong>logit-normal $t$ sampling</strong>（集中在 $t=0.5$）涨点</li><li>Esser 2024 ablation：同 backbone 下 RF + LogitNorm vs VP-cosine + Uniform，GenEval 文本对齐显著好</li><li>进一步可 reflow 压到 1-2 step（InstaFlow）；注意 SD3-Turbo 是 LADD（§12.4），FLUX-Schnell 的具体蒸馏方案未公开确认，两者都不宜直接归为 reflow 例子</li></ul>
 <p>只说"RF 更稳"不知道是因为 path 直；不知道 logit-normal 是额外 trick。</p>
 </details>
 <details>
@@ -1138,9 +1139,9 @@ else:
 <details>
 <summary>Q25.SD3 / FLUX 这条线为什么能压到 4-step / 1-step 出图？</summary>
 <p><strong>核心路径</strong>：<strong>RF (linear path) + Reflow + Distill</strong>。逐步拆：</p>
-<ol><li><strong>RF 让 trajectory 直</strong> —— $x_t = (1-t)x_0 + tx_1$，ODE 解的"理想曲线"就是直线（线性插值），Euler 一阶在长 step 下误差小（与 cosine path 在 mid-$t$ 处曲率大形成对比）</li><li><strong>Reflow 让 trajectory 更直</strong> —— 第一次训完拿 ODE 跑出 coupled $(x_0, x_1)$，再训一次，trajectory 收敛到更接近直线。Liu 2022 证明 reflow 单调降低 transport cost</li><li><strong>CFG-distillation</strong> —— 把 CFG 的 2× forward（cond + uncond）蒸馏成单 forward（FLUX 做了这步）；NFE 折半</li><li><strong>Adversarial distillation (ADD)</strong> —— SD3-Turbo / SDXL-Turbo 末段用 DINOv2 discriminator + distill loss，4-step 接近 30-step 质量</li></ol>
+<ol><li><strong>RF 的 conditional path 是直线</strong> —— $x_t = (1-t)x_0 + tx_1$（给定 $(x_0, x_1)$）构造上无曲率；但这只是训练时的条件路径，一次训练后网络学到的 marginal ODE 轨迹（对独立配对做期望）通常仍有曲率，Euler 一阶在长 step 下依然会有误差（相比 cosine path 在 mid-$t$ 处曲率更大，RF 起点更好，但还不是终点——真正拉直靠第 2 步 Reflow）</li><li><strong>Reflow 让 trajectory 更直</strong> —— 第一次训完拿 ODE 跑出 coupled $(x_0, x_1)$，再训一次，trajectory 收敛到更接近直线。Liu 2022 证明 reflow 单调降低 transport cost</li><li><strong>CFG-distillation</strong> —— 把 CFG 的 2× forward（cond + uncond）蒸馏成单 forward（FLUX 做了这步）；NFE 折半</li><li><strong>Adversarial/latent 蒸馏</strong> —— SDXL-Turbo 用 <strong>ADD</strong>（DINOv2 判别器，判别发生在像素/解码空间）；SD3-Turbo 用 <strong>LADD</strong>（判别器换成 teacher diffusion-transformer 自身的 latent 特征，不使用 DINOv2，判别发生在 latent 空间），4-step 接近 30-step 质量（与 §12.4 一致）</li></ol>
 <p><strong>对比 DDPM 路线</strong>：DDPM trajectory 在 mid-$t$ 曲率大（cosine path），Euler 一阶在 5 步以下不可用；要 DPM-Solver-2 二阶 + consistency distillation 才能压到 4 step。<strong>RF 是工程友好的多</strong>——一阶 sampler 就够。</p>
-<p><strong>FLUX-Schnell 的 1-step</strong>：RF + reflow + heavy distillation；1024px 单 forward 就出图，~100ms/image。代价：可控性 / 多样性略降；prompt 跟随精度略低于 multi-step。</p>
+<p><strong>FLUX-Schnell 的 1-4 step</strong>：RF + timestep distillation；1024px 单/少数 forward 就出图，~100ms/image 级别。具体蒸馏方案（是否含 reflow）未公开确认。代价：可控性 / 多样性略降；prompt 跟随精度略低于 multi-step。</p>
 <p>只说"RF 比 DDPM 快"不知道为什么；不知道 reflow + distill 是双管齐下；以为 FLUX 1-step 只是因为 RF（实际还有 distillation）。</p>
 </details>
 <h2 id="a-附录核心-pytorch-代码from-scratch">§A 附录：核心 PyTorch 代码（from scratch）</h2>
@@ -1386,12 +1387,14 @@ def edm_heun_sample(D: EDMDenoiser, shape, sigmas: torch.Tensor, device):
         else:
             x = x_euler                                    # 末步 Euler
     return x</code></pre>
-<h3 id="a6-probability-flow-ode-简单-euler-求解">A.6　Probability Flow ODE 简单 Euler 求解</h3>
+<h3 id="a6-probability-flow-ode-求解ddim-精确更新非朴素-euler">A.6　Probability Flow ODE 求解（DDIM 精确更新，非朴素 Euler）</h3>
 <pre><code class="language-python">@torch.no_grad()
-def pf_ode_sample_euler(eps_model, sched: DDPMSchedule, shape, device, num_steps: int = 50):
-    &quot;&quot;&quot;在 VP 视角下的 PF-ODE Euler sampler。
+def pf_ode_sample_ddim_exact(eps_model, sched: DDPMSchedule, shape, device, num_steps: int = 50):
+    &quot;&quot;&quot;在 VP 视角下对 PF-ODE 采样。
        dx/dt = f(t) x - (1/2) g²(t) s_θ(x, t),  s_θ = -ε_θ / sqrt(1-α_bar_t)
-       离散 schedule 下退化为 DDIM η=0 + 时间网格。&quot;&quot;&quot;
+       注意：下面的更新是 DDIM η=0 的闭式（exponential-integrator 型）解，
+       不是对连续 drift 做朴素一阶 Euler 离散 x_{t-1}=x_t+Δt·drift(x_t,t)；
+       只在假设 ε_θ 在离散区间内分段常数时，二者才等价。&quot;&quot;&quot;
     # 选 sub-sequence
     step_size = sched.T // num_steps
     timesteps = sorted(set(list(range(0, sched.T, step_size)) + [sched.T - 1]))
@@ -1410,6 +1413,7 @@ def pf_ode_sample_euler(eps_model, sched: DDPMSchedule, shape, device, num_steps
         x = torch.sqrt(alpha_bar_prev) * x0_hat + dir_xt
     return x0_hat</code></pre>
 <h3 id="a7-sanity-check-输出教学版">A.7　Sanity-check 输出（教学版）</h3>
+<div class="callout callout-warn"><div class="callout-title">可审计性 caveat</div><p>以下数值为示意性 / 假设性结果，用于说明相对排序（EDM Heun &lt; DDIM ≈ DDPM，无加速 &gt; 有加速），并非某次实际训练留有脚本/日志可核验的实测记录；复现请自行跑 toy 实验并保留训练脚本、日志、随机种子。</p></div>
 <p>跑 64×64 ImageNet subset toy 设置，2 层 UNet baseline，sched=cosine, T=1000：</p>
 <pre><code>[a] q_sample shape ok, σ_t variance ≈ 1-α_bar_t  ✓
 [b] simple loss 收敛 (5k steps): 0.42 → 0.18  ✓
@@ -1418,15 +1422,15 @@ def pf_ode_sample_euler(eps_model, sched: DDPMSchedule, shape, device, num_steps
 [e] DDIM 50-step (η=1):    FID  (toy) ~ 22.7  ← η=1 接近 DDPM 方差，不是严格 1000 步 DDPM
 [f] CFG w=7.5 conditional: visually 文本对齐显著加强 ✓
 [g] EDM Heun 35-NFE:       FID  (toy) ~ 18.3  ← 远好于 DDIM 50
-[h] PF-ODE Euler 50-step:  与 DDIM η=0 numerically 一致 ✓</code></pre>
+[h] PF-ODE 50-step (DDIM 闭式解)：与 DDIM η=0 数值上本就一致（同一更新公式）✓</code></pre>
 <p>主要参考：Ho 2020 (DDPM, NeurIPS), Nichol-Dhariwal 2021 (Improved DDPM, ICML), Song-Ermon 2019 (NCSN, NeurIPS), Song 2021 (Score SDE, ICLR), Song 2020 arXiv / ICLR 2021 (DDIM), Karras 2022 (EDM, NeurIPS), Lu 2022/2023 (DPM-Solver / DPM-Solver++), Ho-Salimans 2022 arXiv (CFG; short version: NeurIPS 2021 Workshop on DGMs), Dhariwal-Nichol 2021 (Classifier Guidance, NeurIPS), Rombach 2022 (LDM/SD, CVPR), Podell 2023 arXiv / ICLR 2024 (SDXL), Esser 2024 (SD3, ICML), Peebles-Xie 2023 (DiT, ICCV), Zhang 2023 (ControlNet, ICCV), Song 2023 (Consistency Models, ICML), Luo 2023 (LCM, arXiv), Sauer 2023/2024 (SDXL-Turbo / SD3-Turbo, arXiv).</p>
 <p><strong>Diffusion Foundations Cheat Sheet</strong> · 公式 + From-Scratch 代码 + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_foundations_tutorial.md</code> ·
-  SHA256 <code>c72317f75533</code> ·
-  generated at 2026-06-29 10:11 UTC.
+  SHA256 <code>3b7554f25758</code> ·
+  generated at 2026-07-13 10:17 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

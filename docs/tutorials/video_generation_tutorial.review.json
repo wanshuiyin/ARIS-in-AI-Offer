@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/video_generation_tutorial.md",
-  "source_sha256_prefix": "bbbe603b2b44ec4b",
+  "source_sha256_prefix": "f25820ee39d99577",
   "output": "docs/tutorials/video_generation_tutorial.html",
   "topic": "Video Generation (Sora / Hunyuan-Video / Kling / Wan / Mochi / Movie Gen / OpenSora)",
   "effort": "max",
@@ -69,7 +69,7 @@
   },
   "summary": "5-round math/code review (4 FAIL → 1 PASS) + 2-round render review (1 FAIL → 1 PASS). Issues caught: I2V time-axis confusion, multiple arithmetic errors in attention/VAE complexity tables, Q11 causal Conv3d T=1 derivation, model-citation timeline corrections (Kling / CogVideoX / AnimateDiff / Wan 2.2), Sora/SD3-Video over-attribution, A.2/A.3 I2V noise/clamp trick, RoPE-3D block-diagonal vs matrix-product, Q12 summary raw-markdown leak.",
   "rendered_at": "2026-05-19",
-  "source_sha256": "bbbe603b2b44ec4b1e5e7bdbbec1967d0c0cad4b9654a6b87e664ecb9ed78bde",
+  "source_sha256": "f25820ee39d9957799b4fb358a1ffb7a3dcac6ae66e3979b34a77e3ea80735f9",
   "post_ship_review": [
     {
       "scope": "content-audit fix (holistic per-tutorial review + Codex adjudication)",
@@ -77,6 +77,13 @@
       "date": "2026-06-29",
       "fix": "CogVideoX open-source sizes corrected 5B/15B to 2B/5B (no 15B release exists).",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "2026-07-13 全集重扫复审（扩散簇）：Codex GPT-5.6-sol ultra find candidates → independent Claude adversarial verify (attempted to overturn each) → 9 CONFIRMED + 3 NEEDS_NUANCE fixed",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "fix": "12 precise edits: (1) §2.2 T=1 image/video-share-latent-space reasoning corrected (symmetric-pad VAE can mechanically run T=1 but falls outside the training distribution, not literally 'looks at the future'); (2) §3.3 added a caveat that Sora's RoPE-2D/RoPE-1D/aspect-ratio-token implementation details are community speculation, not disclosed fact — resolves the self-contradiction with §3.4/§4.1's own 'speculated' framing; (3) TL;DR item 5 — Wan 2.x uses conventional cross-attention to UMT5, not joint-stream MM-DiT like Hunyuan-Video/Mochi; (4) Movie Gen corrected from one 30B joint model to two separate models (Video 30B + Audio 13B) in both the timeline table and §A.4 SoTA table; (5) §6.1 SVD corrected from a mask-based (2C+1)-channel concat to its actual 4+4=8-channel latent concat + CLIP cross-attention (no mask channel); (6) §6.2 removed an incorrect AnimateDiff attribution to ref-image cross-attention (AnimateDiff has no ref-image conditioning); (7) Q12 'factorized is a strict subset of full 3D' softened from a set-theoretic claim to an inductive-bias / 2-hop-composition explanation; (8) Q13 LTX-Video compression recalculated from the tutorial's own formula: true scalar compression ≈1:192 (via ~128 latent channels), not 1:8192 (a token-count figure); (9) §5.5 + code comment: RF's τ=0=noise/τ=1=data convention relabeled as SD3-equivalent-via-time-reversal rather than 'consistent with SD3' (SD3 itself uses t=0=data / t=1=noise); (10) Random latent decode sanity check corrected — first-stage video VAEs use near-zero KL weight so N(0,I) decode is not a valid degeneration check; (11) Q25 DDPM ε-pred target-scale claim corrected (both the bullet and the closing summary line) — target ε~N(0,I) is t-independent by construction, matching RF's u_τ; the real t-dependence lives in SNR/reweighting, not target scale; (12) §10.2 Hunyuan-Video PFLOP/sample recomputed from the article's own §10.1 formula and largest-spec numbers: tens of PFLOP/sample, not 'several hundred to a thousand'.",
+      "note": "Two-stage cross-model audit: Codex GPT-5.6-sol (ultra reasoning) proposed 12 candidate findings from a fresh read; an independent Claude thread then adversarially attempted to refute every one (explicitly instructed to try to overturn each claim) before any fix was applied. Result: 9 CONFIRMED as-is, 3 upgraded to NEEDS_NUANCE (the underlying issue was real but the ledger's initial framing was too strong / imprecise) — all 12 applied with the nuanced fix text. No new content introduced beyond what the fix_text specified; math/code review and render review from prior rounds remain valid on top of these corrections."
     }
   ]
 }

@@ -8,7 +8,7 @@
 
 3. **Key theorem**: $\nabla_\theta \mathcal{L}_\text{FM} = \nabla_\theta \mathcal{L}_\text{CFM}$ — so learning the conditional vector field is equivalent to learning the marginal one (Lipman et al. 2023).
 
-4. **Simplest form (Rectified Flow / OT-CFM)**: $x_t = (1-t)x_0 + tx_1$, target $u_t = x_1 - x_0$. SD3 / FLUX / Lumina all use this.
+4. **Simplest form (Rectified Flow)**: $x_t = (1-t)x_0 + tx_1$, target $u_t = x_1 - x_0$ ($(x_0, x_1)$ sampled independently; only when the pairing itself comes from OT coupling is it strictly called "OT-CFM"). SD3 / FLUX / Lumina all use this (the independently-sampled version).
 
 5. **Sampling**: starting from $x_0 \sim p_0$, integrate with an ODE solver (Euler / Heun / RK4) until $t=1$.
 
@@ -24,7 +24,7 @@ Given a data distribution $p_1$ (the "target") and a simple prior $p_0$ (typical
 
 - Sampling direction: integrate from $t=0$ to $t=1$ (noise → data)
 
-- Note: different papers use different conventions — Lipman et al. 2023 uses $x_0$=data, $x_1$=noise; Liu et al. 2022 (Rectified Flow) uses $x_0$=noise, $x_1$=data (which we follow here). The SD3 paper is also noise→data but with slightly different notation. **In interviews, disambiguate in your first sentence**.
+- Note: this document's $t=0$ noise / $t=1$ data convention runs opposite to DDPM / Score-SDE's forward-noising convention ($t=0$ data → $t=T$ noise) — that is the direction that actually needs disambiguating. Lipman et al. 2023 (Flow Matching) and Liu et al. 2022 (Rectified Flow) in fact use the **same** direction: $x_0$=noise ($t=0$), $x_1$=data ($t=1$) (which we follow here), not opposite conventions. The SD3 paper's notation is also noise→data. **In interviews, the first thing to disambiguate is the time direction relative to the diffusion literature, not a disagreement between FM papers**.
 
 A family of **time-varying vector fields** $u_t : [0,1] \times \mathbb{R}^d \to \mathbb{R}^d$ pushes particles from $p_0$ to $p_1$ via the ODE $\dot{x}_t = u_t(x_t)$. By the **continuity equation**:
 
@@ -79,7 +79,7 @@ So **minimizing CFM ≡ minimizing FM**. The two losses differ by a $\theta$-ind
 
 **Proof sketch**: expand the L2 norm $\|v_\theta\|^2 - 2 v_\theta^\top u_t + \|u_t\|^2$; the first two terms are equal under either loss (using the definition of $u_t$ to write the marginal as a conditional-weighted expectation); the third term is $\theta$-independent and vanishes under the gradient.
 
-> 💡 **Interview bonus: marginal vector field is non-unique** — given $p_t$, the $u_t$ satisfying the continuity equation $\partial_t p_t + \nabla\cdot(p_t u_t) = 0$ is **not unique** — adding any divergence-free vector field still yields a valid choice. CFM automatically picks a "natural" $u_t$ via the conditional path (usually corresponding to the OT map or a score-based ODE). This is often a follow-up: "Is the marginal $u_t$ unique?"
+> 💡 **Interview bonus: marginal vector field is non-unique** — given $p_t$, the $u_t$ satisfying the continuity equation $\partial_t p_t + \nabla\cdot(p_t u_t) = 0$ is **not unique** — adding any vector field $w_t$ satisfying $\nabla\cdot(p_t w_t) = 0$ (i.e. $p_t$-weighted divergence-free, not plain $\nabla\cdot w_t = 0$) still yields a valid choice, since this leaves $\nabla\cdot(p_t u_t)$ unchanged and so does not break the continuity equation. CFM automatically picks a "natural" $u_t$ via the conditional path (usually corresponding to the OT map or a score-based ODE). This is often a follow-up: "Is the marginal $u_t$ unique?"
 
 ## §3 Three conditional path choices
 
@@ -87,7 +87,7 @@ Let $z = (x_0, x_1)$, $x_0 \sim p_0$, $x_1 \sim p_1$. The conditional path $p_t(
 
 | Path | $x_t = \psi_t(x_0, x_1)$ | Target $u_t$ | Used in |
 | --- | --- | --- | --- |
-| **Rectified Flow / OT-CFM** | $(1-t)x_0 + t\, x_1$ | $x_1 - x_0$ (constant) | SD3, FLUX, Lumina, MovieGen |
+| **Rectified Flow** (independently sampled; only called OT-CFM if $(x_0,x_1)$ is sampled via OT coupling) | $(1-t)x_0 + t\, x_1$ | $x_1 - x_0$ (constant) | SD3, FLUX, Lumina, MovieGen |
 | **VP cosine** | $\cos\!\left(\frac{\pi t}{2}\right) x_0 + \sin\!\left(\frac{\pi t}{2}\right) x_1$ | $-\frac{\pi}{2}\sin\!\frac{\pi t}{2}\, x_0 + \frac{\pi}{2}\cos\!\frac{\pi t}{2}\, x_1$ | Same family as DDPM cosine schedule (under restrictions) |
 | **VE** | $x_1 + \sigma(1{-}t)\, x_0$, $\sigma$ increasing | $-\sigma'(1{-}t)\, x_0$ | Same family as SMLD/EDM (prior variance must match $\sigma_{\max}^2$) |
 
@@ -125,7 +125,7 @@ $$x_t = x_1 + \sigma(1-t)\, x_0, \quad u_t = -\sigma'(1-t)\, x_0$$
 
 Boundaries: $x_t \approx x_1 + \sigma_\max\, x_0$ at $t=0$ (noise-dominated), $x_t \approx x_1 + \sigma_\min\, x_0 \approx x_1$ at $t=1$ (data).
 
-> ⚠️ **VE deployment note** — strictly, the prior $p_0$ should be $\mathcal{N}(0, \sigma_\max^2 I)$ (so the marginal variance at $t=0$ matches); when using $\mathcal{N}(0, I)$, scale accordingly (e.g. $x_0 \leftarrow \sigma_\max \cdot \tilde{x}_0$). The code examples here are pedagogical; **for production VE, use EDM preconditioning** for stability.
+> ⚠️ **VE deployment note** — strictly, the prior $p_0$ is $p_\text{data} * \mathcal{N}(0, \sigma_\max^2 I)$ (the data distribution convolved with a large-variance Gaussian kernel), which only approximates $\mathcal{N}(0, \sigma_\max^2 I)$ when $\sigma_\max$ is much larger than the spatial scale of the data distribution; when using $\mathcal{N}(0, I)$, scale accordingly (e.g. $x_0 \leftarrow \sigma_\max \cdot \tilde{x}_0$). The code examples here are pedagogical; **for production VE, use EDM preconditioning** for stability.
 
 ## §4 Training code framework (PyTorch)
 
@@ -389,17 +389,17 @@ This ODE has the same marginal distribution $p_t$ as the SDE at every time.
 
 > ✅ **FM ↔ Score Matching bridge (with caveats)** — when the FM probability path arises from a non-degenerate noising SDE ($g(t) > 0$), learning the score $s_\theta \approx \nabla \log p_t$ and learning the vector field $v_\theta \approx u_t$ are **two parameterizations of the same information**:
 $$v_\theta(t, x) = f(x, t) - \tfrac{1}{2} g^2(t)\, s_\theta(t, x)$$
-So under VP/VE paths, FM can be viewed as a score matching equivalent in the ODE viewpoint. **But this fails for Rectified Flow / OT-CFM** (no standard SDE correspondence), where FM is more general vector-field regression.
+So under VP/VE paths, FM can be viewed as a score matching equivalent in the ODE viewpoint. **Rectified Flow is likewise a special case of an affine Gaussian conditional path** ($\alpha(t)=t, \sigma(t)=1-t$), so it too admits an SDE / score representation with matching marginals — it does not lack an SDE correspondence, it simply isn't singled out and named as a "standard" diffusion process the way VP/VE are. Viewing FM as more general vector-field regression still holds, just not because RF lacks an SDE counterpart.
 
 ### 6.1　Velocity ↔ Score ↔ Noise prediction interconversion (must know)
 
-Under VP/VE paths, assuming $x_t = \alpha(t) x_1 + \sigma(t) x_0$ (with $x_0 \sim \mathcal{N}(0, I)$ as the noise direction), the three main prediction targets are linearly interconvertible:
+Under VP/VE paths, assuming $x_t = \alpha(t) x_1 + \sigma(t) x_0$ (with $x_0 \sim \mathcal{N}(0, I)$ as the noise direction), several main prediction targets are linearly interconvertible:
 
 $$
 \begin{aligned}
 \epsilon\text{-prediction} &:\quad \epsilon_\theta(t, x_t) \approx x_0 \\
 x_0\text{-prediction} &:\quad x^0_\theta(t, x_t) \approx x_1 \\
-v\text{-prediction (Salimans-Ho)} &:\quad v_\theta(t, x_t) \approx \alpha'(t) x_1 + \sigma'(t) x_0 \\
+\text{path velocity} &:\quad u_t = \dot{x}_t \approx \alpha'(t) x_1 + \sigma'(t) x_0 \\
 \text{score} &:\quad s_\theta(t, x_t) \approx -x_0 / \sigma(t)
 \end{aligned}
 $$
@@ -408,26 +408,28 @@ Given $x_t$ and any one prediction, the other three are algebraically recoverabl
 
 $$s_\theta(t, x_t) = -\epsilon_\theta(t, x_t) / \sigma(t)$$
 
-This is why DDPM (learning $\epsilon$) and score-based (learning $\nabla \log p_t$) are **equivalent parameterizations**. Flow matching learning $v = \alpha' x_1 + \sigma' x_0$ is one such choice, and under RF (linear) it degenerates to $v = x_1 - x_0$.
+This is why DDPM (learning $\epsilon$) and score-based (learning $\nabla \log p_t$) are **equivalent parameterizations**. Flow matching learning the path velocity $u_t = \alpha' x_1 + \sigma' x_0$ is one such choice, and under RF (linear) it degenerates to $u_t = x_1 - x_0$.
+
+> ⚠️ **Don't confuse this with Salimans-Ho v-prediction** — Salimans & Ho (2022)'s original $v$-prediction is an instantaneous linear combination $v \equiv \alpha(t) x_0 - \sigma(t) x_1$ (no time derivative involved), whereas the path velocity $u_t = \dot{x}_t$ here is the path's tangent vector obtained by differentiating with respect to $t$ — these are different objects. Substituting in shows they are only proportional under the VP cosine schedule ($u_t = -\frac{\pi}{2} v$); for a general path/schedule there is no such fixed ratio.
 
 ### 6.2　Correspondence between FM paths and diffusion
 
 | FM Path | Equivalent diffusion / SDE | Typical noise schedule |
 | --- | --- | --- |
-| VP cosine | DDPM (cosine) | $\bar\alpha_t = \cos^2(\pi t/2)$ |
+| VP cosine | DDPM (cosine) | $\bar\alpha_t = \sin^2(\pi t/2)$ (under this document's $t=0$ noise / $t=1$ data convention; switching back to DDPM's own $t'=1-t$ convention gives $\bar\alpha_{t'} = \cos^2(\pi t'/2)$) |
 | VP linear | DDPM (linear β) | $\beta_t = \beta_0 + t(\beta_1 - \beta_0)$ |
 | VE | SMLD / EDM | $\sigma_t \in [\sigma_\min, \sigma_\max]$ log-linear |
-| Rectified Flow | No standard non-zero-diffusion noising SDE (except degenerate cases) | Path is a straight line, the "shortest" path |
+| Rectified Flow | No standard non-zero-diffusion noising SDE (except degenerate cases) | The conditional path (chord) is a straight line; the generated ODE trajectory without reflow is typically still curved (see §6.3) |
 
 ### 6.3　Why Rectified Flow training / sampling is relatively "stable"
 
 - **Constant target**: $u_t = x_1 - x_0$ does not explicitly depend on $t$ (given $x_0, x_1$), making it numerically easy to fit
 
-- **Straight-line paths**: few-step ODE integration error is small
+- **The conditional path (chord) is a straight line**: this keeps the CFM training target from explicitly depending on $t$, which is numerically more stable — but that is not the same as the learned marginal / generation ODE trajectory being straight. Without reflow, a 1-RF generation trajectory is typically still curved (the marginal field is an expectation of the conditional velocity over different $(x_0, x_1)$ pairings), which is why ~50 Euler steps are still needed for good images without reflow (see §5); what actually straightens the generation trajectory and enables few-step sampling is reflow (see §7.1)
 
 - **Loss conditioning**: RF training is more balanced than native DDPM; but **that does not mean reweighting is unnecessary** — SD3 still applies logit-normal $t$ sampling and similar reweighting on top of RF, with ablated gains
 
-- **Reflow compresses NFE**: enables 1-step generation routes (InstaFlow / SD3-Turbo / Flux-Schnell)
+- **Reflow compresses NFE**: enables 1-step generation routes (e.g. InstaFlow, which genuinely builds on the reflow algorithm; SD3-Turbo actually uses LADD / adversarial diffusion distillation rather than reflow — a different mechanism that should not be lumped in here)
 
 ## §7 Advanced topics
 
@@ -443,7 +445,7 @@ The reason Rectified Flow enables few-step generation is the **reflow algorithm*
 
 4. Repeat — Liu et al. 2022 prove that under suitable assumptions, the **convex transport cost** of the coupling is non-increasing (each reflow does not worsen total transport cost)
 
-"Trajectories become straighter" is intuition + empirical observation; the rigorous theorem is monotonicity of transport cost. In practice 1-2 reflow passes make 4-step quality match 50-step (InstaFlow / SD3-Turbo / Flux-Schnell). The limit: completely straight → 1-step generation ($x_1 = x_0 + v_\theta(0, x_0)$).
+"Trajectories become straighter" is intuition + empirical observation; the rigorous theorem is monotonicity of transport cost. In practice 1-2 reflow passes make 4-step quality match 50-step (e.g. InstaFlow); SD3-Turbo uses LADD (latent adversarial diffusion distillation) rather than reflow — a different mechanism, and it should not be listed as a reflow example. The limit: completely straight → 1-step generation ($x_1 = x_0 + v_\theta(0, x_0)$).
 
 ### 7.2　Conditional Flow Matching (CFG)
 

@@ -8,7 +8,7 @@
 
 3. **关键定理**：$\nabla_\theta \mathcal{L}_\text{FM} = \nabla_\theta \mathcal{L}_\text{CFM}$——所以学 conditional vector field 等价于学 marginal 的（Lipman et al. 2023）。
 
-4. **最简版 (Rectified Flow / OT-CFM)**：$x_t = (1-t)x_0 + tx_1$，target $u_t = x_1 - x_0$。SD3 / FLUX / Lumina 都用这个。
+4. **最简版 (Rectified Flow)**：$x_t = (1-t)x_0 + tx_1$，target $u_t = x_1 - x_0$（$(x_0, x_1)$ 独立采样；只有配对本身来自 OT coupling 才严格称 "OT-CFM"）。SD3 / FLUX / Lumina 都用这个（独立采样版本）。
 
 5. **采样**：从 $x_0 \sim p_0$ 出发，用 ODE solver (Euler / Heun / RK4) 积分到 $t=1$。
 
@@ -24,7 +24,7 @@
 
 - 采样方向：从 $t=0$ 积分到 $t=1$（noise → data）
 
-- 注：不同论文 convention 不同——Lipman et al. 2023 用 $x_0$=data, $x_1$=noise；Liu et al. 2022 (Rectified Flow) 用 $x_0$=noise, $x_1$=data（本文采用）。SD3 论文也是 noise→data 但记号略有差异。**面试时第一句先 disambiguate**。
+- 注：本文的 $t=0$ 噪声 / $t=1$ 数据 convention，与 DDPM / Score-SDE 的 forward-noising convention（$t=0$ 数据 → $t=T$ 噪声）方向相反，这才是真正需要 disambiguate 的地方——Lipman et al. 2023 (Flow Matching) 与 Liu et al. 2022 (Rectified Flow) 实际上采用**同一方向**：$x_0$=noise ($t=0$)，$x_1$=data ($t=1$)（本文采用），并非二者相反。SD3 论文记号也是 noise→data。**面试时第一句先 disambiguate 的是与 diffusion 文献的时间方向，而不是 FM 论文之间的方向**。
 
 一族**时变 vector field** $u_t : [0,1] \times \mathbb{R}^d \to \mathbb{R}^d$ 通过 ODE $\dot{x}_t = u_t(x_t)$ 把粒子从 $p_0$ 推到 $p_1$。由**连续性方程**：
 
@@ -79,7 +79,7 @@ $$\nabla_\theta \mathcal{L}_\text{FM}(\theta) = \nabla_\theta \mathcal{L}_\text{
 
 **证明草图**：展开二范数 $\|v_\theta\|^2 - 2 v_\theta^\top u_t + \|u_t\|^2$，前两项在两种 loss 下相等（用 $u_t$ 的定义把 marginal 写成 conditional 的加权期望），第三项不依赖 $\theta$，求梯度时消掉。
 
-> 💡 **面试加分：marginal vector field 非唯一** — 给定 $p_t$，满足连续性方程 $\partial_t p_t + \nabla\cdot(p_t u_t) = 0$ 的 $u_t$ **不唯一**——任意 divergence-free 向量场加上去仍是合法的。CFM 通过 conditional path 自动选了一个"自然的" $u_t$（通常对应 OT map 或 score-based ODE）。这点常被追问 "marginal $u_t$ 唯一吗？"。
+> 💡 **面试加分：marginal vector field 非唯一** — 给定 $p_t$，满足连续性方程 $\partial_t p_t + \nabla\cdot(p_t u_t) = 0$ 的 $u_t$ **不唯一**——任意满足 $\nabla\cdot(p_t w_t) = 0$（即 $p_t$-weighted divergence-free，而非普通的 $\nabla\cdot w_t = 0$）的向量场 $w_t$ 加上去仍是合法的，因为这不改变 $\nabla\cdot(p_t u_t)$ 的值，从而不破坏连续性方程。CFM 通过 conditional path 自动选了一个"自然的" $u_t$（通常对应 OT map 或 score-based ODE）。这点常被追问 "marginal $u_t$ 唯一吗？"。
 
 ## §3 三种 Conditional Path 选择
 
@@ -87,7 +87,7 @@ conditioning 取 $z = (x_0, x_1)$，$x_0 \sim p_0$, $x_1 \sim p_1$。conditional
 
 | Path | $x_t = \psi_t(x_0, x_1)$ | Target $u_t$ | 用在哪 |
 | --- | --- | --- | --- |
-| **Rectified Flow / OT-CFM** | $(1-t)x_0 + t\, x_1$ | $x_1 - x_0$（常数） | SD3, FLUX, Lumina, MovieGen |
+| **Rectified Flow**（独立采样；若 $(x_0,x_1)$ 用 OT coupling 采样才称 OT-CFM） | $(1-t)x_0 + t\, x_1$ | $x_1 - x_0$（常数） | SD3, FLUX, Lumina, MovieGen |
 | **VP cosine** | $\cos\!\left(\frac{\pi t}{2}\right) x_0 + \sin\!\left(\frac{\pi t}{2}\right) x_1$ | $-\frac{\pi}{2}\sin\!\frac{\pi t}{2}\, x_0 + \frac{\pi}{2}\cos\!\frac{\pi t}{2}\, x_1$ | 与 DDPM cosine schedule 同族（在限制下） |
 | **VE** | $x_1 + \sigma(1{-}t)\, x_0$，$\sigma$ 递增 | $-\sigma'(1{-}t)\, x_0$ | 与 SMLD/EDM 同族（需 prior 方差匹配 $\sigma_{\max}^2$） |
 
@@ -125,7 +125,7 @@ $$x_t = x_1 + \sigma(1-t)\, x_0, \quad u_t = -\sigma'(1-t)\, x_0$$
 
 边界：$t=0$ 时 $x_t \approx x_1 + \sigma_\max\, x_0$（大噪声主导），$t=1$ 时 $x_t \approx x_1 + \sigma_\min\, x_0 \approx x_1$（数据）。
 
-> ⚠️ **VE 部署注意** — prior $p_0$ 严格意义上应是 $\mathcal{N}(0, \sigma_\max^2 I)$（让 $t=0$ 的边缘方差匹配）；用 $\mathcal{N}(0, I)$ 时要相应缩放（如 $x_0 \leftarrow \sigma_\max \cdot \tilde{x}_0$）。本文代码示例以教学为主，**实战 VE 用 EDM preconditioning** 更稳。
+> ⚠️ **VE 部署注意** — prior $p_0$ 严格来说是 $p_\text{data} * \mathcal{N}(0, \sigma_\max^2 I)$（数据分布与大方差高斯核的卷积），仅当 $\sigma_\max$ 远大于数据分布的空间尺度时才近似等于 $\mathcal{N}(0, \sigma_\max^2 I)$；用 $\mathcal{N}(0, I)$ 时要相应缩放（如 $x_0 \leftarrow \sigma_\max \cdot \tilde{x}_0$）。本文代码示例以教学为主，**实战 VE 用 EDM preconditioning** 更稳。
 
 ## §4 训练代码框架（PyTorch）
 
@@ -389,17 +389,17 @@ $$dx = \underbrace{\left[ f(x, t) - \frac{1}{2} g^2(t)\, \nabla_x \log p_t(x) \r
 
 > ✅ **FM ↔ Score Matching 的桥梁（带前提）** — 当 FM 的概率路径源自一个非退化的 noising SDE ($g(t) > 0$) 时，学 score $s_\theta \approx \nabla \log p_t$ 与学 vector field $v_\theta \approx u_t$ 是**同一信息的两种参数化**：
 $$v_\theta(t, x) = f(x, t) - \tfrac{1}{2} g^2(t)\, s_\theta(t, x)$$
-所以在 VP/VE path 下，FM 可被视为 score matching 在 ODE 视角下的等价参数化。**但对 Rectified Flow / OT-CFM 不成立**（没有标准 SDE 对应），那里 FM 是更一般的 vector-field regression。
+所以在 VP/VE path 下，FM 可被视为 score matching 在 ODE 视角下的等价参数化。**Rectified Flow 同样是仿射高斯条件路径的特例**（$\alpha(t)=t, \sigma(t)=1-t$），因此同样可以构造出边缘分布一致的 SDE / score 表示，并非"没有 SDE 对应"——只是没有像 VP/VE 那样被单独命名为"标准"扩散过程；把它看作更一般的 vector-field regression 依然成立，只是这个更一般视角并非因为 RF 缺乏 SDE 对应。
 
 ### 6.1　Velocity ↔ Score ↔ Noise prediction 互换（必考）
 
-VP/VE path 下，假设 $x_t = \alpha(t) x_1 + \sigma(t) x_0$（$x_0 \sim \mathcal{N}(0, I)$ 是噪声方向），三种主流 prediction target 之间是线性可逆转换：
+VP/VE path 下，假设 $x_t = \alpha(t) x_1 + \sigma(t) x_0$（$x_0 \sim \mathcal{N}(0, I)$ 是噪声方向），几种主流 prediction target 之间是线性可逆转换：
 
 $$
 \begin{aligned}
 \epsilon\text{-prediction} &:\quad \epsilon_\theta(t, x_t) \approx x_0 \\
 x_0\text{-prediction} &:\quad x^0_\theta(t, x_t) \approx x_1 \\
-v\text{-prediction (Salimans-Ho)} &:\quad v_\theta(t, x_t) \approx \alpha'(t) x_1 + \sigma'(t) x_0 \\
+\text{path velocity} &:\quad u_t = \dot{x}_t \approx \alpha'(t) x_1 + \sigma'(t) x_0 \\
 \text{score} &:\quad s_\theta(t, x_t) \approx -x_0 / \sigma(t)
 \end{aligned}
 $$
@@ -408,26 +408,28 @@ $$
 
 $$s_\theta(t, x_t) = -\epsilon_\theta(t, x_t) / \sigma(t)$$
 
-这就是为什么 DDPM (学 $\epsilon$) 与 score-based (学 $\nabla \log p_t$) 是**等价参数化**。Flow matching 学 $v = \alpha' x_1 + \sigma' x_0$ 也是其中一种，且在 RF (linear) 下退化为 $v = x_1 - x_0$。
+这就是为什么 DDPM (学 $\epsilon$) 与 score-based (学 $\nabla \log p_t$) 是**等价参数化**。Flow matching 学的 path velocity $u_t = \alpha' x_1 + \sigma' x_0$ 也是其中一种，且在 RF (linear) 下退化为 $u_t = x_1 - x_0$。
+
+> ⚠️ **不要与 Salimans-Ho v-prediction 混淆** — Salimans & Ho (2022) 原始定义的 $v$-prediction 是瞬时线性组合 $v \equiv \alpha(t) x_0 - \sigma(t) x_1$（不含时间导数），而这里的 path velocity $u_t = \dot{x}_t$ 是路径对 $t$ 求导得到的切向量，二者是不同对象。只有在 VP cosine schedule 下代入验证两者才成比例（$u_t = -\frac{\pi}{2} v$），一般 path / schedule 下没有这个固定比例关系。
 
 ### 6.2　几种 path 与 diffusion 的对应表
 
 | FM Path | 等价 Diffusion / SDE | 典型 noise schedule |
 | --- | --- | --- |
-| VP cosine | DDPM (cosine) | $\bar\alpha_t = \cos^2(\pi t/2)$ |
+| VP cosine | DDPM (cosine) | $\bar\alpha_t = \sin^2(\pi t/2)$（本文 $t=0$ 噪声/$t=1$ 数据 convention；若换回 DDPM 自身 $t'=1-t$ convention 则为 $\bar\alpha_{t'} = \cos^2(\pi t'/2)$） |
 | VP linear | DDPM (linear β) | $\beta_t = \beta_0 + t(\beta_1 - \beta_0)$ |
 | VE | SMLD / EDM | $\sigma_t \in [\sigma_\min, \sigma_\max]$ 对数线性 |
-| Rectified Flow | 没有标准非零扩散 noising SDE 对应（退化情形除外） | 路径本身是直线，"最短" path |
+| Rectified Flow | 没有标准非零扩散 noising SDE 对应（退化情形除外） | 条件路径 (chord) 是直线；未经 reflow 的生成 ODE 轨迹通常仍弯（见 §6.3） |
 
 ### 6.3　为什么 Rectified Flow 训练 / 采样相对"稳"
 
 - **常数 target**：$u_t = x_1 - x_0$ 不显式依赖 $t$（在给定 $x_0, x_1$ 后），数值上易拟合
 
-- **直线 path**：少步数 ODE 积分误差小
+- **条件路径 (chord) 是直线**：使 CFM 训练目标不显式依赖 $t$，数值上更稳定；但这不等于学到的 marginal / 生成 ODE 轨迹就是直线——未经 reflow 的 1-RF 生成轨迹一般仍是弯的（marginal 场是对不同 $(x_0, x_1)$ 配对条件速度的期望），因此未 reflow 时依然需要 ~50 步 Euler 才能出好图（见 §5）；真正让生成轨迹变直、支持少步采样的是 reflow（见 §7.1）
 
 - **Loss conditioning**：RF 本身比 native DDPM 训练更平衡；但**不是说不需要 reweighting**——SD3 在 RF 之上仍做 logit-normal $t$ sampling 等 reweighting 并 ablate 出涨点
 
-- **Reflow 可压缩 NFE**：1-step 生成路线（InstaFlow / SD3-Turbo / Flux-Schnell）
+- **Reflow 可压缩 NFE**：1-step 生成路线（如 InstaFlow，确实基于 reflow 算法；SD3-Turbo 实际走的是 LADD / 对抗扩散蒸馏路线而非 reflow，二者机制不同，不应并列）
 
 ## §7 高级话题
 
@@ -443,7 +445,7 @@ Rectified Flow 之所以能少步数生成，关键是 **reflow 算法**：
 
 4. 重复——Liu et al. 2022 证明在适当假设下，配对的 **convex transport cost** 非增（每次 reflow 不会让总传输成本变差）
 
-"trajectory 变直"是直觉与经验观察；具体严格定理是 transport cost 单调性。实际 1-2 次 reflow 就能做到 4-step 媲美 50-step（InstaFlow / SD3-Turbo / Flux-Schnell）。极限：完全直线 → 1-step 生成（$x_1 = x_0 + v_\theta(0, x_0)$）。
+"trajectory 变直"是直觉与经验观察；具体严格定理是 transport cost 单调性。实际 1-2 次 reflow 就能做到 4-step 媲美 50-step（如 InstaFlow）；SD3-Turbo 用的是 LADD（adversarial diffusion distillation）而非 reflow，机制不同，不应作为 reflow 的例子列出。极限：完全直线 → 1-step 生成（$x_1 = x_0 + v_\theta(0, x_0)$）。
 
 ### 7.2　Conditional Flow Matching (CFG)
 

@@ -112,7 +112,7 @@ $$\mathcal{L}_\text{cont} = \mathbb{E}\left\|\frac{d f_\theta}{dt}\right\|^2 = \
 
 $$\mathcal{L}_\text{CD} \approx \mathbb{E}\|f_\theta(x_{t_{n+1}}, t_{n+1}) - f_{\theta^-}(\hat x_{t_n}, t_n)\|^2$$
 
-> ⚠️ **Can't drop the EMA anchor** — if both sides use $\theta$, the loss degenerates to $\|f_\theta - f_\theta\| = 0$ and **the network gets no signal**. EMA provides a "past self" as supervision, similar to BYOL's collapse-prevention mechanism. The iCT paper (§2.3) proves you can **remove EMA** under suitable noise schedule + pseudo-Huber loss — this is one of iCT's core contributions.
+> ⚠️ **You can't also drop stop-gradient on the target branch** — if both sides use the current $\theta$ but the target branch still applies stop-gradient (as iCT does, setting $\theta^- = \theta$, see §2.3), the loss does **not** automatically equal 0: $(x_{t_{n+1}}, t_{n+1})$ and $(\hat x_{t_n}, t_n)$ are different inputs, so the same network generally produces different outputs at the two points, and gradient signal remains — this is exactly how iCT trains successfully (FID 2.83 on CIFAR-10). The real collapse risk is: if you **also** remove stop-gradient from the target branch (both sides backprop symmetrically), training can collapse to the trivial solution where $f_\theta$ becomes a constant function independent of its input (similar to the collapse seen in BYOL/SimSiam without stop-gradient) — that is a training-dynamics collapse, not "same parameters ⟹ mathematically identical to 0". The iCT paper (§2.3) proves you can **remove EMA (while keeping stop-gradient)** under suitable noise schedule + pseudo-Huber loss — this is one of iCT's core contributions.
 
 ### 2.3　iCT / Improved Techniques (Song-Dhariwal 2023, arXiv:2310.14189)
 
@@ -139,14 +139,14 @@ CT (Consistency Training) originally had quality far below CD. iCT improves four
 
 **TrigFlow parametrization**: write the forward path in trig form —
 
-$$\boxed{\;x_t = \cos(t)\, x_0 + \sin(t)\, z,\quad t \in [0, \pi/2],\; z \sim \mathcal{N}(0, I)\;}$$
+$$\boxed{\;x_t = \cos(t)\, x_0 + \sin(t)\, z,\quad t \in [0, \pi/2],\; z \sim \mathcal{N}(0, \sigma_d^2 I)\;}$$
 
-Boundaries: at $t = 0$, $x_t = x_0$ (data); at $t = \pi/2$, $x_t = z$ (standard Gaussian).
+Boundaries: at $t = 0$, $x_t = x_0$ (data); at $t = \pi/2$, $x_t = z$ — this is a Gaussian with variance $\sigma_d^2$ ($\sigma_d$ is the data std), **not a standard Gaussian**: only by scaling $z$ with $\sigma_d$ does $\mathrm{Var}(x_t) = \cos^2(t)\sigma_d^2 + \sin^2(t)\sigma_d^2 = \sigma_d^2$ hold for all $t$ (variance-preserving), matching EDM's $\sigma_\text{data}$-scaled preconditioning cleanly.
 
 **Why trig form?** It is the unique parametrization that **simultaneously simplifies** the following four things (Lu-Song 2024 Theorem 1):
 
 - EDM precond: $D_\theta(x_t, t) = \cos(t)\, x_t - \sin(t)\, F_\theta$, automatically satisfies the boundary
-- PF-ODE: $\frac{dx_t}{dt} = -\sin(t) x_0 + \cos(t) z$, clean expression
+- PF-ODE: $\frac{dx_t}{dt} = -\sin(t) x_0 + \cos(t) z$, clean expression — note this is the **conditional / pathwise path derivative** for a fixed pair $(x_0, z)$; using it directly as a training regression target is standard practice (the conditional-expectation identity guarantees it matches the true marginal PF-ODE velocity field in expectation), but strictly speaking it shouldn't be called "the PF-ODE" without qualification (the marginal PF-ODE is the field obtained after averaging over all pairs)
 - CM output: $f_\theta(x_t, t) = \cos(t) x_t - \sin(t) (\sigma_d F_\theta(x_t / \sigma_d, c_\text{noise}(t)))$ ($\sigma_d$ is data std)
 - Continuous-time consistency loss: gradient can be written closed-form directly
 
@@ -220,7 +220,7 @@ Only train $A, B$ (~22M params / SDXL); merge as $W' = W + \alpha B A$.
 
 ### 2.9　rCM / Score-Regularized Continuous-Time CM (2025, arXiv:2510.08431)
 
-> 📍 **One of the latest CM works at the time of writing (2025-2026)** — rCM = "Score-Regularized Continuous-Time Consistency Model", arXiv:2510.08431 verified.
+> 📍 **One of the latest CM works at the time of writing (2025-2026)** — rCM = "Score-Regularized Continuous-Time Consistency Model", arXiv:2510.08431 verified. Readers should double-check the exact arXiv id and reported numbers against the latest revision — this tutorial may have been written before or after that paper's most recent update.
 
 **Motivation**: sCM has a quality bottleneck on fine details — the authors attribute it to the **mode-covering nature of forward divergence** (KL(p_data ‖ p_student) tends to cover all modes, blurring details).
 
@@ -313,7 +313,7 @@ Treating the student as a particle, $s_\text{real} - s_\text{fake}$ is the "forc
 $$\boxed{\;\mathcal{L}_\text{ADD} = \mathcal{L}_\text{adv}^G(\theta, \psi) + \lambda \cdot \mathcal{L}_\text{distill}(\theta, \phi)\;}$$
 
 - **$\mathcal{L}_\text{adv}$**: hinge loss + **DINOv2 vision backbone as discriminator** (not training D from scratch; fix DINOv2 + multiple heads)
-- **$\mathcal{L}_\text{distill}$**: discrete form of "score distillation" — MSE between student 1-step output and teacher multi-step output
+- **$\mathcal{L}_\text{distill}$**: re-noise the student's 1-step output to a randomly sampled higher noise level, feed it to the frozen teacher denoiser for a one-step reconstruction, then take a (weighted) distance between the two — a score-distillation-style regression, **not** a pixel MSE between the student output and an independently-sampled teacher multi-step image (see the note at the end of §4.1 below)
 
 **The DINOv2 discriminator** is key to ADD:
 
@@ -334,7 +334,7 @@ $$\boxed{\;\mathcal{L}_\text{ADD} = \mathcal{L}_\text{adv}^G(\theta, \psi) + \la
 | | ADD | LADD |
 |---|---|---|
 | Discriminator backbone | DINOv2 (pixel) | **teacher diffusion's own intermediate layer features** (latent) |
-| Distillation | pixel MSE | latent-space distill |
+| Distillation | pixel-space score-distill (not MSE, see note at end of §4.1) | latent-space score-distill |
 | Resolution scale | limited by DINOv2 | latent any size |
 | Application models | SDXL | **SD3 (8B), FLUX (12B)** |
 
@@ -359,12 +359,12 @@ ByteDance's open-source SDXL distillation, with **progressive + adversarial** tw
 
 | Method | Discriminator | Distill loss | Application | 1-step quality |
 |---|---|---|---|---|
-| **ADD** | DINOv2 (pixel) | pixel MSE | SDXL | medium (512²) |
+| **ADD** | DINOv2 (pixel) | pixel-space score-distill | SDXL | medium (512²) |
 | **LADD** | teacher MM-DiT feat (latent) | latent score-distill | SD3, FLUX | high (1024²) |
 | **Lightning** | self-trained CNN | progressive MSE | SDXL | medium-high |
 | **DMD2** | self-trained + score gap | reverse-KL via score | SDXL | high (with diversity) |
 
-> 💡 **Production selection cheat sheet** — if base is SD 1.5 / SDXL use **LCM-LoRA** (largest ecosystem) or **SDXL-Lightning** (open-source stable); if base is SD3 / FLUX, **LADD** is the official route; for **GAN-free + score-based** pick **DMD2**; for academic SOTA chasing, pick **sCM / rCM**.
+> 💡 **Production selection cheat sheet** — if base is SD 1.5 / SDXL use **LCM-LoRA** (largest ecosystem) or **SDXL-Lightning** (open-source stable); if base is SD3 / FLUX, **LADD** is the official route; for a **purely score-based route with no discriminator**, pick **DMD** (v1, regression + distribution-matching KL only, no GAN); if you can accept an extra GAN component for higher quality/diversity, pick **DMD2** (DMD2 is not GAN-free — one of its core changes is precisely adding a GAN loss, see §3.3); for academic SOTA chasing, pick **sCM / rCM**.
 
 ## §5 Flow / Rectified Flow distillation
 
@@ -380,7 +380,7 @@ ByteDance's open-source SDXL distillation, with **progressive + adversarial** tw
 
 **Why does reflow make trajectories straight?**
 
-Consider the transport cost $\mathbb{E}[\|x_1 - x_0\|^2]$ as coupling. Independent pairs have large cost; after reflow $(x_0, x_1^{(1)})$ has already been naturally paired by the ODE — it is the "optimal transport" under the current $v_\theta^{(1)}$. Liu 2022 shows: after another round of training the total transport cost is non-increasing (in fact often strictly decreasing), and **"the curve being straight" is equivalent to the vector field not depending on $t$** — $v(t, x) = $ const along the trajectory → 1-step generation.
+Consider the transport cost $\mathbb{E}[\|x_1 - x_0\|^2]$ as coupling. Independent pairs have large cost; after reflow $(x_0, x_1^{(1)})$ has already been naturally paired by the ODE, giving a **new coupling with lower transport cost** — but Liu 2022 Theorem 3.6 only proves the total transport cost is **non-increasing** ($C^{(k+1)} \le C^{(k)}$, in fact often strictly decreasing), not that a single reflow round converges to the globally optimal transport (OT) coupling. Also, **"velocity along a fixed trajectory doesn't vary with $t$" (constant conditional velocity) is not equivalent to the marginal velocity field $v(x,t)$ having no $t$-dependence as a whole function** — the actual driver of quality gains at 1-step/few-step is that straighter trajectories incur smaller discretization error, not the stronger (and false) claim that "$v(t,x) = $ const".
 
 **InstaFlow (2023, arXiv:2309.06380)**: the first to apply reflow to SD, 1-step generation FID 23.3 (512²).
 
@@ -390,7 +390,7 @@ Consider the transport cost $\mathbb{E}[\|x_1 - x_0\|^2]$ as coupling. Independe
 
 $$x_1 = x_0 + 1 \cdot v_\theta(x_0)$$
 
-**In practice**: 1-2 rounds of reflow already make trajectories straight enough to support 4-step Euler matching 50-step quality; full 1-step requires more reflow + adversarial fine-tuning (like SD3-Turbo / FLUX-schnell).
+**In practice**: reflow substantially straightens the trajectory and lowers the required NFE, but to reach quality on par with a 50-step teacher, practical systems (e.g., InstaFlow) typically still stack extra distillation / adversarial fine-tuning on top of 1-2 reflow rounds rather than relying on reflow alone; full 1-step relies even more on this kind of extra adversarial fine-tuning (e.g., SD3-Turbo / FLUX-schnell, which use LADD, see §5.3, and are not pure reflow products).
 
 ### 5.3　SD3-Turbo / FLUX-schnell = RF + LADD
 
@@ -411,7 +411,7 @@ SD3-Turbo / FLUX-schnell (1-4 step 1024²)
 
 > 📍 **Scope clarification** — Flow-OPD's main contribution is **multi-reward RL alignment + on-policy specialist distillation**, **not** few-step inference distillation. It appears here because its name contains "Distillation" and it involves flow models; but the core thread of §2-§4 (CM/DMD/ADD compressing 50 steps to 1-4) differs from Flow-OPD's RL-alignment objective.
 >
-> The companion piece **`diffusion_post_training_tutorial.md`** has a full discussion of RL alignment (Flow-GRPO / Diffusion-DPO / DDPO etc.); Flow-OPD is more accurately placed there.
+> The companion piece **`diffusion_post_training_tutorial.md`** has a full discussion of RL alignment (Flow-GRPO / Diffusion-DPO / DDPO etc.); Flow-OPD is more accurately placed there. Readers should double-check the exact arXiv id and reported numbers against the latest revision — this tutorial may have been written before or after that paper's most recent update.
 
 **Brief idea (sidebar only, see post-training tutorial + original paper for depth)**: use multiple reward-specific teachers (each GRPO fine-tuned on a reward) for on-policy distillation supervision; the student remains few-step at inference while simultaneously gaining multi-reward alignment.
 
@@ -537,17 +537,35 @@ def update_ema(ema_model, model, decay=0.9999):
 ### 7.2　Code 2: iCT (no EMA + Pseudo-Huber + Lognormal + Curriculum)
 
 ```python
-def pseudo_huber(a, b, c=0.00054):
+import math
+
+def pseudo_huber(a, b, c):
     """Pseudo-Huber loss: sqrt(||a-b||^2 + c^2) - c
-    Small residual ≈ L2/2c, large residual ≈ L1. iCT paper c=0.00054 (CIFAR-10)"""
+    Small residual ≈ L2/2c, large residual ≈ L1. The iCT paper takes c = 0.00054 * sqrt(D),
+    where D = C×H×W is the data dimensionality (not a fixed constant 0.00054;
+    for CIFAR-10 32×32×3, D=3072 gives c ≈ 0.0299)"""
     return torch.sqrt((a - b).pow(2).sum(dim=(1, 2, 3)) + c**2).mean() - c
 
-def lognormal_sigma(B, P_mean=-1.1, P_std=2.0, sigma_min=0.002, sigma_max=80.0):
-    """iCT samples sigma from lognormal instead of uniform
-    log_sigma ~ N(P_mean, P_std)"""
-    log_sigma = torch.randn(B) * P_std + P_mean
-    sigma = torch.exp(log_sigma).clamp(sigma_min, sigma_max)
-    return sigma
+def karras_schedule(N, sigma_min=0.002, sigma_max=80.0, rho=7.0, device='cpu'):
+    """Deterministic Karras/EDM noise grid — each of iCT's curriculum stages N(k) builds its
+    schedule on a grid like this, rather than re-sampling sigma randomly and sorting every step:
+    t_i = (sigma_min^(1/rho) + i/(N-1) * (sigma_max^(1/rho) - sigma_min^(1/rho)))^rho, i=0..N-1"""
+    i = torch.arange(N, dtype=torch.float64, device=device)
+    min_inv_rho = sigma_min ** (1 / rho)
+    max_inv_rho = sigma_max ** (1 / rho)
+    sigmas = (min_inv_rho + i / (N - 1) * (max_inv_rho - min_inv_rho)) ** rho
+    return sigmas.float()
+
+def lognormal_index_weights(sigmas, P_mean=-1.1, P_std=2.0):
+    """iCT uses a lognormal density to assign sampling weight to the discrete intervals on the
+    Karras grid (a discretized erf-difference approximation of that density's mass per interval),
+    rather than sampling sigma directly and sorting to build the schedule itself — the schedule is
+    deterministic; only "which interval to train on" is random."""
+    log_sigmas = torch.log(sigmas)
+    z = (log_sigmas - P_mean) / P_std
+    cdf = 0.5 * (1 + torch.erf(z / math.sqrt(2)))
+    weights = (cdf[1:] - cdf[:-1]).clamp(min=1e-8)
+    return weights / weights.sum()
 
 def get_curriculum_N(step, total_steps, N_min=10, N_max=1280, schedule='exp'):
     """Step-count curriculum: N grows from 10 to 1280
@@ -564,14 +582,18 @@ def ict_loss(student, x_0, step, total_steps):
     consistency loss on (x_0 + sigma_n*eps, x_0 + sigma_{n+1}*eps) with SAME eps"""
     B = x_0.shape[0]
     device = x_0.device
+    D = x_0.shape[1] * x_0.shape[2] * x_0.shape[3]  # C×H×W; the Pseudo-Huber constant scales with data dimensionality
     
     # 1) curriculum N
     N = get_curriculum_N(step, total_steps)
     
-    # 2) Pick adjacent sigma_n, sigma_{n+1} (chosen from N+1 lognormal-discretized points)
-    # !!! convention: sigmas ascending, so sigmas[n+1] > sigmas[n] (consistent with §2.3 CD code)
-    sigmas = lognormal_sigma(N + 1).to(device).sort(descending=False).values
-    n_idx = torch.randint(0, N, (B,), device=device)
+    # 2) Deterministic Karras/EDM grid (N+1 boundaries, ascending) + lognormal-weighted sampling
+    #    of the training index
+    # !!! The grid itself is deterministic — we do NOT re-sample lognormal and sort every step;
+    #     convention: sigmas ascending, so sigmas[n+1] > sigmas[n] (consistent with §2.3 CD code)
+    sigmas = karras_schedule(N + 1, device=device)
+    idx_weights = lognormal_index_weights(sigmas).to(device)
+    n_idx = torch.multinomial(idx_weights, B, replacement=True)
     t_n1 = sigmas[n_idx + 1]  # higher noise
     t_n  = sigmas[n_idx]      # lower noise
     
@@ -585,8 +607,9 @@ def ict_loss(student, x_0, step, total_steps):
     with torch.no_grad():
         f_target = edm_precond(student, x_tn, t_n)
     
-    # 5) Pseudo-Huber
-    loss = pseudo_huber(f_online, f_target, c=0.00054)
+    # 5) Pseudo-Huber, c scaled by data dimensionality (paper: c = 0.00054 * sqrt(D))
+    c = 0.00054 * math.sqrt(D)
+    loss = pseudo_huber(f_online, f_target, c=c)
     return loss
 ```
 
@@ -596,7 +619,11 @@ def ict_loss(student, x_0, step, total_steps):
 import torch.func as tfunc
 
 def trigflow_xt(x_0, z, t):
-    """TrigFlow path: x_t = cos(t) x_0 + sin(t) z, t in [0, π/2]"""
+    """TrigFlow path: x_t = cos(t) x_0 + sin(t) z, t in [0, π/2]
+    !!! z must be N(0, σ_d^2 I) (scaled by sigma_data), not standard normal —
+        otherwise Var(x_t) no longer equals σ_d^2 for all t (variance-preserving
+        breaks). The caller must multiply z by sigma_data when sampling it,
+        see scm_loss."""
     cos_t = torch.cos(t).view(-1, 1, 1, 1)
     sin_t = torch.sin(t).view(-1, 1, 1, 1)
     return cos_t * x_0 + sin_t * z
@@ -615,8 +642,8 @@ def scm_loss(F_net, x_0, sigma_data=0.5, r_warmup=0.5):
     log_t = torch.randn(B, device=device) * 1.0 - 0.4  # σ ≈ 1, mean shift
     t = torch.sigmoid(log_t) * (math.pi / 2 - 0.001) + 0.001  # avoid boundary
 
-    # 2) Sample x_t
-    z = torch.randn_like(x_0)
+    # 2) Sample x_t (z ~ N(0, σ_d^2 I), scaled by sigma_data rather than standard normal — see trigflow_xt docstring)
+    z = torch.randn_like(x_0) * sigma_data
     x_t = trigflow_xt(x_0, z, t)
 
     # 3) PF-ODE tangent direction (TrigFlow: dx_t/dt = -sin(t) x_0 + cos(t) z)
@@ -866,6 +893,7 @@ class DMD2Trainer(DMDTrainer):
 ### 7.6　Code 6: ADD (Adversarial Diffusion Distillation, SDXL-Turbo style)
 
 ```python
+import math
 import torchvision  # for DINOv2 backbone
 
 class ADDTrainer:
@@ -915,18 +943,25 @@ class ADDTrainer:
             loss += F.relu(1 - d_r).mean() + F.relu(1 + d_f).mean()
         return loss / len(self.disc_heads)
 
-    def distill_loss(self, z, x_fake):
-        """teacher multi-step ODE output as supervision"""
+    def distill_loss(self, x_fake, sigma_min=0.002, sigma_max=80.0):
+        """Score-distillation style (not pixel MSE): re-noise the student's 1-step
+        output to a randomly sampled higher noise level t, feed it to the frozen
+        teacher denoiser for a one-step reconstruction, then take the distance
+        between the student output and that reconstruction — not an MSE against
+        an independently multi-step-sampled teacher image."""
+        B = x_fake.shape[0]
+        # 1) sample a random noise level t (log-uniform in [sigma_min, sigma_max])
+        log_t = torch.rand(B, device=x_fake.device) \
+            * (math.log(sigma_max) - math.log(sigma_min)) + math.log(sigma_min)
+        t = torch.exp(log_t)
+        # 2) re-noise the student's 1-step output
+        x_fake_t = x_fake + t.view(-1, 1, 1, 1) * torch.randn_like(x_fake)
+        # 3) frozen teacher denoises at that noise level to get the reconstruction target
+        #    (stop-gradient, no backprop through the teacher)
         with torch.no_grad():
-            x_teacher = self.teacher_ode_sample(z, steps=4)
-        # pixel-level MSE
-        return F.mse_loss(x_fake, x_teacher)
-
-    @torch.no_grad()
-    def teacher_ode_sample(self, z, steps=4):
-        """teacher runs K-step ODE to generate images as student's distillation target"""
-        # ... EDM Heun sampler, implementation omitted
-        return self.teacher.sample(z, num_steps=steps)
+            x_teacher_recon = self.teacher(x_fake_t, t)
+        # 4) score-distillation-style distance regression
+        return F.mse_loss(x_fake, x_teacher_recon)
 
     def step(self, z, x_real):
         # 1) G output (1-step)
@@ -940,7 +975,7 @@ class ADDTrainer:
         x_fake = self.G(z)  # recompute (D updated)
         self.opt_G.zero_grad()
         loss_adv = self.adv_loss_G(x_fake)
-        loss_dist = self.distill_loss(z, x_fake)
+        loss_dist = self.distill_loss(x_fake)
         loss_G = loss_adv + self.lambda_distill * loss_dist
         loss_G.backward()
         self.opt_G.step()
@@ -1251,7 +1286,7 @@ Confusing LCM with LCM-LoRA (the latter packages LCM as a LoRA adapter).
 
 - **Transport-cost-non-increasing theorem**: each reflow does not increase total transport cost
 
-- 1-2 rounds of reflow makes 1-step Euler comparable to 50-step
+- 1-2 rounds of reflow substantially straighten the trajectory and lower NFE, but to make 1-step Euler comparable to a 50-step teacher, practical systems (e.g., InstaFlow) typically still need extra distillation / adversarial fine-tuning on top, not reflow alone
 
 Saying only "reflow makes trajectories straight" without deriving the transport cost monotonicity; forgetting InstaFlow is reflow applied to SD.
 
@@ -1260,11 +1295,11 @@ Saying only "reflow makes trajectories straight" without deriving the transport 
 <details>
 <summary>Q9. Method differences between SDXL-Turbo and SD3-Turbo / FLUX-schnell?</summary>
 
-- **SDXL-Turbo (ADD)**: DINOv2 pixel-space discriminator + teacher MSE distillation
+- **SDXL-Turbo (ADD)**: DINOv2 pixel-space discriminator + pixel-space score-distillation (re-noising the student output and sending it back to the teacher for a reconstruction to regress against, not an MSE against the teacher's multi-step output)
 
 - **SD3-Turbo / FLUX-schnell (LADD)**: move D to latent space, use teacher MM-DiT intermediate-layer features as D backbone, **supports high resolution + high-param base**
 
-- ADD is limited by DINOv2 input resolution (≤ 518); LADD has no such limit
+- ADD is limited by DINOv2's native training resolution (518) — beyond that, position-embedding interpolation (bicubic) or patching/downsampling can be used; it's not an architectural hard cap, but there is quality degradation and extra compute cost; LADD has no such limit
 
 - FLUX-schnell is the RF version of LADD
 
@@ -1398,17 +1433,19 @@ Not knowing $c_\text{skip}(\sigma_\min) = 1$ is the key to boundary; confusing E
 </details>
 
 <details>
-<summary>Q17. If ADD's distillation loss uses pixel MSE rather than score gap, what's the problem?</summary>
+<summary>Q17. What is the fundamental difference between ADD's distillation loss and DMD's score gap? Why does ADD still need GAN?</summary>
 
-- Pixel MSE is **mode-covering** + **blurry**: student output = teacher mean, losing details
+- ADD's $\mathcal{L}_\text{distill}$ is **not** a pixel MSE against the teacher's multi-step output — it re-noises the student's 1-step output to a random noise level, sends it back through the frozen teacher, and regresses the student output against that teacher reconstruction's distance (score-distillation style, see §4.1)
 
-- Need to add GAN loss to compensate for high-freq → ADD must have GAN (unlike DMD which can be pure score gap)
+- But it is still fundamentally a **regression**: the teacher reconstruction is an (approximate) mean estimate of "plausible output" at that noise level, and regressing toward it is still **mode-covering** and **blurry**, losing high-frequency detail
 
-- That's why ADD's distill loss is only an "anchor" (preventing severe mode collapse); the main battle is GAN
+- Adding a GAN loss is still needed to compensate for high-freq → ADD still needs GAN (unlike DMD, which can run purely on score gap)
 
-- Compare DMD: score gap → dense per-pixel gradient, can generate without GAN (DMD2 adds GAN for further gains)
+- That's why ADD's distill loss is only an "anchor" (preventing the distillation from drifting badly / severe mode collapse); the main battle is still GAN
 
-Saying only "MSE is blurry" without why; thinking ADD doesn't need GAN to work.
+- Compare DMD: reverse-KL score gap → dense per-pixel gradient, can generate without GAN (DMD2 adds GAN purely for further quality gains, not out of necessity)
+
+Mistakenly thinking ADD's distill loss is a direct pixel MSE against the teacher's multi-step output; thinking ADD doesn't need GAN to work.
 
 </details>
 
@@ -1448,7 +1485,7 @@ Saying only "CTM is the trajectory version of CM" without why "any s" is useful;
 
 - Rigorous theorem (Liu 2022 Theorem 3.6): $C^{(k+1)} \le C^{(k)}$ (from the OT view, reflow does not increase transport cost)
 
-Intuition: **straight lines are OT solutions** ⇒ repeated reflow pushes toward the OT solution.
+Intuition: reflow monotonically decreases the transport cost (non-increasing, often strictly decreasing in practice), so the trajectory becomes progressively straighter — but this only guarantees "non-increasing", not that it converges to the globally optimal transport (OT) solution.
 
 Saying only "trajectories become straight" without writing transport cost; not knowing the Cauchy-Schwarz intuition.
 
@@ -1539,11 +1576,11 @@ Saying only "DMD uses score" without distinguishing the two roles; not knowing $
 
 **ADD bottlenecks**:
 
-1. **DINOv2 input resolution**: ADD uses DINOv2 base (518²) as D backbone; above this resolution requires patching / downsampling, limiting 1024² input
+1. **DINOv2 input resolution**: ADD uses DINOv2 base (518²) as D backbone; above this resolution, position-embedding interpolation (bicubic) or patching/downsampling can be used — it's not an absolute architectural cap of 518, but 1024² input incurs quality degradation and extra compute cost
 
-2. **Pixel-space distill**: `MSE(G(z), teacher_ode(z))` requires VAE decode, **back-prop through VAE is expensive and unstable**
+2. **Pixel-space distill**: score-distillation requires decoding the student output to pixel space, re-noising it, then sending it back through the teacher for a reconstruction to regress against ($d(G(z), \hat x_\phi(\text{noise}(G(z)), t))$, not an MSE against the teacher's independent multi-step output `teacher_ode(z)`), and **back-prop has to pass through the VAE decoder, which is expensive and unstable**
 
-3. **Discriminator capacity**: DINOv2 ViT-L 1B params is far less than SD3 8B / FLUX 12B's base, D expressiveness insufficient
+3. **Discriminator capacity** (a plausible engineering intuition, not a verbatim conclusion from the ADD/LADD papers): DINOv2 ViT-L's ~0.3-1B params is far less than SD3 8B / FLUX 12B's base, so D's expressiveness may be insufficient to match the large model's generative distribution
 
 **LADD's solutions**:
 

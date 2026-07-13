@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/diffusion_distillation_tutorial_en.md",
-  "source_sha256": "7972e2659c869cbaedfac76b38431acc65ed482b9d2f123301e4fd5a6315eff5",
+  "source_sha256": "dedba08e00e0c955147429c379a6a1902e4a8e7cb6363acdb66f6eb9e9c25ee1",
   "output": "docs/tutorials/diffusion_distillation_tutorial_en.html",
   "zh_source": "docs/tutorials/diffusion_distillation_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -23,6 +23,13 @@
       "date": "2026-06-29",
       "fix": "iCT CIFAR-10 FID corrected: 2.51/2.24 are iCT-DEEP; plain iCT is 2.83/2.46 (resolves the self-contradiction with section 10 Q3). (EN edition mirrors the ZH fix.)",
       "note": "Content-audit fix (2026-06-29): a full-collection per-tutorial content review (5 skeptical-expert subagents reading all 28 ZH tutorials) flagged this; Codex GPT-5.5 xhigh cross-model adjudication (threads 019f127e / 019f127f) confirmed it from training knowledge. Factual/citation/number correction — core math/derivations were verified CORRECT across the collection; original gating reviews remain valid; source re-rendered, sidecar hash refreshed."
+    },
+    {
+      "scope": "2026-07-13 full-collection resweep (diffusion cluster): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification against the ZH source, then mirrored to this EN edition as natural-English translations of the same substantive corrections",
+      "verdict": "FIXED",
+      "date": "2026-07-13",
+      "summary": "Mirrors the 8 fixes applied to the ZH source (diffusion_distillation_tutorial.md, see its sidecar for the full finding-by-finding rationale): the EMA-drop 'loss degenerates to 0' argument corrected to explain the real BYOL/SimSiam-style collapse risk (dropping stop-gradient on the target branch too, not parameter sharing itself); TrigFlow boundary noise corrected from standard N(0,I) to N(0, sigma_d^2 I) for variance-preservation, in both prose and the trigflow_xt()/scm_loss() code; iCT's pseudo-Huber constant given its missing sqrt(D) scaling and the lognormal schedule rebuilt as a deterministic Karras/EDM grid + discretized lognormal index-weighting; ADD's distillation loss un-mischaracterized from a plain teacher-multi-step pixel MSE to score-distillation (re-noise + one-shot teacher denoise) across prose, two comparison tables, the ADDTrainer code, and Q9/Q17/Q23; DMD2's 'GAN-free' cheat-sheet mislabel corrected to point at DMD v1 instead; Reflow's 'optimal transport' / 'straight lines are the OT solution' overreach softened to Theorem 3.6's actual non-increasing-cost guarantee, and 'v(x,t) has no t-dependence' un-conflated from 'constant velocity along one fixed trajectory' (Q8/Q19 included); DINOv2's 518-resolution limit for ADD un-hardened to an interpolatable soft limit, with the discriminator-capacity argument flagged as engineering intuition rather than a paper-verbatim conclusion (Q9/Q23 included); and a light-touch caveat added at rCM/Flow-OPD's first mentions to double-check exact arXiv ids/numbers against the latest revision. The REFUTED finding (FLUX.1-schnell attributed to LADD) was left untouched in both editions — Black Forest Labs' own model card makes the same claim.",
+      "note": "Re-rendered HTML and refreshed source_sha256 to match this run. Gated via tools/verify_reviews.py --mode strict --reproduce."
     }
   ]
 }

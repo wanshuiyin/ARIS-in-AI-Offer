@@ -10,7 +10,7 @@
 
 4. **时空 Attention 三大变体**：(a) **Factorized 2+1D**（Latte / OpenSora / AnimateDiff）：先 spatial-only，再 temporal-only，复杂度 $O(T \cdot S^2 + S \cdot T^2)$；(b) **Full 3D**（Sora / Hunyuan-Video / Mochi）：所有 token 互相 attend，复杂度 $O((ST)^2)$，最贵但效果最好；(c) **Window / 稀疏 ST**（Wan 2.x / CogVideoX 部分块）：滑窗 3D，折中。
 
-5. **MM-DiT for Video (Hunyuan-Video / Mochi)**：text token 与 video token **同序列**做 self-attention（不再用 cross-attn），两个 stream 各自的 QKV 投影 + AdaLN 调制；条件信息在 token-level 直接交互——Hunyuan/Mochi/Wan 把 SD3 image MM-DiT 思路扩展到视频。
+5. **MM-DiT for Video (Hunyuan-Video / Mochi)**：text token 与 video token **同序列**做 self-attention（不再用 cross-attn），两个 stream 各自的 QKV 投影 + AdaLN 调制；条件信息在 token-level 直接交互——Hunyuan-Video/Mochi 把 SD3 image MM-DiT 思路扩展到视频；Wan 2.x 采用的是对 UMT5 文本 embedding 的传统 cross-attention 注入，非 joint-stream MM-DiT。
 
 6. **Image-to-Video (I2V)**：主流三招——(i) **First-frame concat**：把 ref image 编码后沿 channel 拼到 latent；(ii) **Cross-attention 注入**：ref image token 作 K/V；(iii) **AnimateDiff** 风格：冻结 T2I 主干，只插入 temporal module。SVD / DynamiCrafter / I2VGen-XL / Wan-I2V 是代表。
 
@@ -39,7 +39,7 @@
 | 2024-05 | **Veo** | Google DeepMind | 闭源 1080p / 1 分钟 |
 | 2024-06 | **Kling** | Kuaishou | 国产闭源，时长 2 分钟 |
 | 2024-08 | **CogVideoX** (arXiv) | Zhipu/THU | 开源 2B/5B；Expert Transformer + 3D VAE |
-| 2024-10 | **Movie Gen** | Meta | 30B；视频 + 音频联合；DiT + FM |
+| 2024-10 | **Movie Gen** | Meta | Movie Gen Video 30B + Movie Gen Audio 13B（两个独立模型；音频模型依据生成视频做同步音效/配乐）；DiT + FM |
 | 2024-10 | **Mochi-1** | Genmo | 10B 开源；AsymmDiT 非对称 MM-DiT |
 | 2024-11 | **LTX-Video** | Lightricks | 实时（2B）；强压缩 VAE + DiT |
 | 2024-12 | **Hunyuan-Video** | Tencent | 13B 开源 SoTA；3D Causal VAE + MM-DiT + prompt rewriter |
@@ -83,7 +83,7 @@ $$E: \mathbb{R}^{3 \times T \times H \times W} \to \mathbb{R}^{C \times t \times
 
 - **流式 / 自回归推理**：因果保证当前帧 latent 只依赖历史帧，**长视频可分 chunk 处理**，无需一次性 decode 全部 $T$ 帧；与 LLM 的 KV cache 同源思路。
 
-- **训练数据 utilization**：图像 + 视频混合训练时，图像可视作 $T{=}1$ 视频；标准 3D VAE 在时间维 kernel 中心要看未来，不能这么做。
+- **训练数据 utilization**：图像 + 视频混合训练时，图像可视作 $T{=}1$ 视频；标准（对称 padding）3D VAE 在 $T{=}1$ 时也能机械跑通 forward（两侧补零），但训练时从未见过"两侧全零"这种模式（真正的视频边界帧只有一侧缺失历史/未来），因此单帧图像输入会落在训练分布之外，图像/视频共享 latent 空间的效果没有保证；而 causal 3D conv 的 $T{=}1$ 路径与训练时任意视频首帧（历史全零）的计算完全一致，故是唯一能保证一致行为的设计。
 
 ### 2.3 Causal Conv3d 的实现
 
@@ -211,6 +211,8 @@ Sora 不把每段视频 resize 到固定尺寸（如 $256 \times 256 \times 16$�
 - **位置编码用相对 / 解耦** ：space 用 RoPE-2D，time 用 RoPE-1D；不绑死最大长度。
 - **Attention mask**：同一 batch 内不同 sample 的 token 之间 mask 掉。
 - **target aspect ratio token**：作为额外条件让模型知道当前生成的是 16:9 还是 9:16。
+
+> ⚠️ 以上 RoPE-2D/RoPE-1D 与 aspect-ratio-token 的具体实现是社区基于 "spacetime patches" 描述做出的合理推测；OpenAI 官方 tech report 只确认了变分辨率/变时长/变长宽比能力与 packing 训练思路，未公开具体的位置编码或 conditioning 机制（与 §3.4、§4.1 的"推测"表述保持一致）。
 
 这一招让 Sora 可以训 / 生成任意比例的视频；后续 Wan-2.x、Hunyuan-Video 都借鉴。
 
@@ -510,7 +512,7 @@ class MMDiTVideoBlock(nn.Module):
 
 ### 5.5 训练目标
 
-主流 = **v-prediction 或 rectified flow vector**（与 SD3 一致）。给定 video latent $x_1$、噪声 $x_0$、随机 $\tau \in [0, 1]$（logit-normal 分布更常用）：
+主流 = **v-prediction 或 rectified flow vector**（与 SD3 同为直线 RF 范式，但时间方向约定相反：SD3 论文用 $t{=}0$ 为 data、$t{=}1$ 为 noise，即 $z_t = (1-t) x_\text{data} + t\epsilon$；本文为直觉方便用 $\tau{=}0{=}$noise、$\tau{=}1{=}$data，两者只差 $\tau \leftrightarrow 1-t$ 换元，数学等价）。给定 video latent $x_1$、噪声 $x_0$、随机 $\tau \in [0, 1]$（logit-normal 分布更常用）：
 
 $$x_\tau = (1 - \tau) x_0 + \tau\, x_1, \quad u_\tau = x_1 - x_0$$
 
@@ -530,7 +532,7 @@ $$\tilde{z}_\tau = \text{concat}_C\!\left(z_\tau, \, \tilde{z}_\text{ref}, \, m\
 
 **优点**：实现简单，与 T2V 主干完全兼容；改一层 conv 就行。**缺点**：参考信息混在 channel 里，模型要靠 conv 自己提取；远距离帧的引导能力弱。
 
-SVD (Stable Video Diffusion, Blattmann 2023) / DynamiCrafter / I2VGen-XL 都用这套。
+DynamiCrafter / I2VGen-XL 用类似 concat 思路；SVD (Blattmann 2023) 实际是把参考帧 latent 沿通道维直接复制拼接（SD 2.1 的 4 通道 latent → 4+4=8 通道，无额外 mask channel），并通过 CLIP 图像 embedding 做 cross-attention 注入语义信息——与本节 (2C+1) 的 mask-based 方案并不完全相同。
 
 ### 6.2 Cross-Attention 注入（细粒度控制）
 
@@ -538,7 +540,7 @@ SVD (Stable Video Diffusion, Blattmann 2023) / DynamiCrafter / I2VGen-XL 都用�
 
 $$\text{CrossAttn}: \quad Q = z_\text{video tokens}, \, K, V = [z_\text{text}, z_\text{ref tokens}]$$
 
-或更复杂——为 ref image 增加独立 cross-attention 层。AnimateDiff 风格的 LoRA tuning 也基本用这条路。
+或更复杂——为 ref image 增加独立 cross-attention 层（如 IP-Adapter 风格的 image-prompt adapter）。
 
 ### 6.3 AnimateDiff 风格 plug-in motion module
 
@@ -683,7 +685,7 @@ $$\text{FVD} = \|\mu_g - \mu_r\|^2 + \text{Tr}\!\left(\Sigma_g + \Sigma_r - 2\sq
 - **Score 矩阵显存**：vanilla 是 $O(L^2)$；FlashAttention 降到 $O(L)$ activation
 - **KV cache**：纯 diffusion 无 AR step，训练时无 KV cache 概念；activation checkpointing + ZeRO-3 是必备
 - **3D Causal VAE 推理**：可分 chunk，显存 $O(\text{chunk}_T \cdot h \cdot w \cdot C)$
-- **训练 FLOPs**：13B 模型 per-batch attention FLOPs ≈ $4 B N^2 d$ × layers（B = batch size）；Hunyuan-Video 全模型 ≈ 几百到上千 PFLOP / sample 量级，用数千 H100 数月级别训出
+- **训练 FLOPs**：13B 模型 per-batch attention FLOPs ≈ $4 B N^2 d$ × layers（B = batch size）；按 §10.1 同一公式与最大规格数字（$N \approx 2.45 \times 10^5$, $N^2 \approx 6 \times 10^{10}$）粗算，attention 部分 FLOPs 量级在数十 PFLOP/sample（具体随 hidden dim、layer 数体量浮动），而非几百到上千 PFLOP，用数千 H100 数月级别训出
 
 ## §11 与其他生成模型的关系
 
@@ -866,7 +868,7 @@ $$\text{FVD} = \|\mu_g - \mu_r\|^2 + \text{Tr}\!\left(\Sigma_g + \Sigma_r - 2\sq
 - Factorized：先 $\text{Attn}_S$ 把空间 token 互相 attend (在每帧内)，再 $\text{Attn}_T$ 在时间维做 attention
 - **假设**：时空交互是 separable——任意两个时空位置 $(t_1, s_1)$ 与 $(t_2, s_2)$ 的关系，可以分解为"先 $s_1 \leftrightarrow s_2$ 在 $t_1$"再"$t_1 \leftrightarrow t_2$ 在 $s_2$"两步
 - Full 3D 不假设可分：任意两 token 直接 attention；可学**斜向时空 pattern**（如 diagonal motion）
-- **数学上**：factorized 是 full 3D 的一个**严格子集**（参数化受限）
+- **直觉上**：factorized 对 space⊗time 施加了可分性（separability）归纳偏置，是表达力更弱的受限参数化；但它是两次独立 softmax attention 的顺序组合（2-hop），并非对单层 full 3D attention 的稀疏子集做严格函数类包含——两者的差异更准确地说是"能否直接学到 non-separable 时空 pattern"，而非集合论意义上的子集关系。
 - 实测：full 3D 在 fast motion / 复杂时空 pattern 上更好
 
 只说"full 3D 更准确"，不知具体能学到的 pattern 多在哪里（diagonal / non-separable motion）。
@@ -878,7 +880,7 @@ $$\text{FVD} = \|\mu_g - \mu_r\|^2 + \text{Tr}\!\left(\Sigma_g + \Sigma_r - 2\sq
 <summary>Q13. 为什么 video VAE 主流停在 $\downarrow 4{\sim}8 \times 8 \times 8$ 范围？</summary>
 
 - 体素级压缩比 $= 4 \cdot 8 \cdot 8 = 256$（$1{:}256$），$C=16$ latent channel 后净比约 $1{:}48$
-- **更激进（如 LTX-Video 报告的 $1{:}8192$ 总压缩）→ token 数变少但重建质量下降**（细节 / 锐度损失）
+- **更激进（如 LTX-Video，用约 128 通道 latent 补偿激进的位置压缩：真实总（标量）压缩比 = $3 \times 8192 / 128 \approx 1{:}192$，而非把 8192 的 token/位置压缩量直接当总压缩率）→ token 数变少但重建质量下降**（细节 / 锐度损失）
 - DiT 主干 attention $O(N^2)$，所以激进压缩工程友好；但 lost detail 难以恢复
 - 时间下采样 $4{\times}$ 是经验上 motion 平滑性可接受的上限——更高时间压缩在快动作场景会出抖动
 - 各家具体配置不同：CogVideoX 用 $4{\times}8{\times}8$；Hunyuan-Video 用 $4{\times}8{\times}8$；Mochi-1 在时间维更激进（约 $6{\times}8{\times}8$，见 Mochi blog）；LTX-Video 走极端高压缩 + 实时
@@ -1065,11 +1067,11 @@ $$\text{FVD} = \|\mu_g - \mu_r\|^2 + \text{Tr}\!\left(\Sigma_g + \Sigma_r - 2\sq
 
 <summary>Q25. Hunyuan-Video / Mochi-1 / Wan 都用 Rectified Flow，比 DDPM ε-pred 强在哪？</summary>
 
-- **Target 平稳**：RF 的 $u_t = x_1 - x_0$ 给定 $(x_0, x_1)$ 后是常数，跨 $t$ 量级变化比 $\epsilon$-pred 小
+- **目标尺度与 $t$ 无关（RF 与 ε-pred 其实相同）**：DDPM ε-pred 的目标 $\epsilon \sim \mathcal{N}(0, I)$ 本身尺度固定、与 $t$ 无关；真正随 $t$ 变化的是输入 $x_t$ 的信噪比（SNR）以及不同 $t$ 对最终样本质量的贡献权重，因此标准 $L_\text{simple}$ 需要配合 SNR-reweighting / EDM-preconditioning 才能各 $t$ 均衡训练。RF 的 $u_\tau = x_1 - x_0$（给定 pair 后同为常数）在"目标本身与 $t$ 无关"这点上其实与 ε-pred 类似，RF 真正的优势是路径更直（少步 ODE 误差小）+ logit-normal 采样天然聚焦难学区间，而非"目标尺度更平稳"
 - **少步采样**：path 是直线（理想），少步 ODE 误差小；Reflow 后 1-4 步可生成
 - **Loss conditioning 自然**：不像 DDPM 需 SNR / VLB / EDM-preconditioning 等显式 reweighting
 - **与 SD3 共享 stack**：image / video 同一套 recipe（v-pred + logit-normal $t$）
-- DDPM ε-pred 需 noise schedule 设计 + 不同 $t$ 处 target 尺度差大，训练 reweighting 复杂；RF 更"一招吃遍"
+- DDPM ε-pred 需 noise schedule 设计 + 不同 $t$ 处 SNR 差异大，训练需配合显式 reweighting（SNR / VLB / EDM-preconditioning）才均衡；RF 训练目标形式简单、无需这些显式加权，工程上更"一招吃遍"
 
 只说"RF 路径更直"——要展开训练目标 / 数值稳定性 / sampler 兼容多角度。
 
@@ -1120,7 +1122,7 @@ def video_gen_forward(model, video_clean, text, ref_image=None):
     mu, logvar = model.encoder(video_clean)
     z1 = model.encoder.reparameterize(mu, logvar)
     z0 = torch.randn_like(z1)
-    tau = torch.sigmoid(torch.randn(B, device=device))          # SD3 logit-normal
+    tau = torch.sigmoid(torch.randn(B, device=device))          # logit-normal tau 采样（分布形式同 SD3，时间方向相反）
     tau_b = tau.view(-1, 1, 1, 1, 1)
     z_tau = (1 - tau_b) * z0 + tau_b * z1
     u_target = z1 - z0
@@ -1168,7 +1170,7 @@ def video_gen_sample(model, text, t_lat=12, h_lat=90, w_lat=160, steps=50,
 > ✅ **Sanity checks 视频生成模型常做的** —
 
 - **Reconstruction-only**：先 VAE encode 后 decode，PSNR / SSIM / LPIPS 看是否能复原原视频
-- **Random latent decode**：从 $\mathcal{N}(0, I)$ 采 latent decode，看 VAE 是否退化（应该出"自然 looking" 但语义不一定连贯的视频）
+- **Random latent decode**（需谨慎解读）：video latent diffusion 的 first-stage VAE 通常只用极弱的 KL 权重（接近纯 autoencoder，非严格生成式 VAE），聚合后验不保证匹配 $\mathcal{N}(0, I)$；直接从标准高斯采样 decode 很可能得到噪声状伪影而非"自然 looking"画面。更可靠的 sanity check 是看重建 PSNR/SSIM/LPIPS，以及各 latent 通道的经验均值/方差是否在合理范围
 - **Class / prompt overfit**：单一 prompt 训练 1000 步看模型能不能 memorize
 - **VBench 局部维度**：训练中段先评 Subject Consistency / Motion Smoothness 看时序是否稳定
 - **CFG sweep**：scale = 0/1/3/6/10 看影响（过高会饱和 / 闪烁）
@@ -1181,7 +1183,7 @@ def video_gen_sample(model, text, t_lat=12, h_lat=90, w_lat=160, steps=50,
 | 开源 I2V | Wan 2.2 I2V / Hunyuan-Video I2V | 中文 prompt 友好 |
 | 闭源最强 | Veo 2 / Sora / Kling | 4K / 长时长 |
 | 实时 | LTX-Video 2B | RTX 4090 实时 |
-| 视频 + 音频 | Movie Gen (闭源) | 30B 联合生成 |
+| 视频 + 音频 | Movie Gen (闭源) | 视频 30B + 音频 13B，两个独立基础模型 |
 | 控制类 | AnimateAnyone / MotionCtrl | 人物 / 相机控制 |
 
 ---
