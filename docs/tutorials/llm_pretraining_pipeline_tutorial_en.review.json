@@ -1,0 +1,18 @@
+{
+ "skill": "interview-cheatsheet (EN translation-fidelity)",
+ "source": "docs/tutorials/llm_pretraining_pipeline_tutorial_en.md",
+ "source_sha256": "aafdaa3ef87d962780f8905bf1f20b21447d9a964e6aa8a0a410434525019381",
+ "output": "docs/tutorials/llm_pretraining_pipeline_tutorial_en.html",
+ "zh_source": "docs/tutorials/llm_pretraining_pipeline_tutorial.md",
+ "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
+ "verdict": "PASS (after fixes)",
+ "thread_id": "019f8899-77eb-75c1-acc1-62cc5966bdc9",
+ "translated_by": "subagent (general-purpose), incremental section-by-section Edit calls (21 edits) to avoid the output-token-limit stall",
+ "translation_fidelity_review": {
+  "verdict": "PASS (0 P0, 6 P1 fixed, several P2 style items fixed)",
+  "date": "2026-07-22",
+  "notes": "P1s fixed: 'extraction quality is often the highest-leverage step' over-strengthened '常常是' into a superlative, and conflicted with a nearby hedge — softened to 'often a high-leverage step'; a comparison-subject mis-scoping in §2's intro sentence rewritten to match the ZH's actual comparison (pipeline design vs architecture/hyperparameters); Q2's title term 'misaligned' could be misread as an error rather than the intentional shifted-label relationship — retitled; 'dividing it back out when gradients shrink' for loss-scaling unscaling reworded to name the mechanism precisely; a spurious causal 'so' in Q12's RoPE-vs-absolute-PE contrast rewritten as a parallel contrast; MinHash's 'take the minimum over multiple hash functions' clarified to per-hash-function minimum over the document's shingles. P2s fixed: repeated '...the deep water of this question' translationese (4 spots) unified to 'the crux of this question'; 'trainable to continue' (2 spots) unified to 'basic resumability'; a padding/EOS-masking sentence untangled; a couple of other literal-translation phrasings smoothed. Scaling-law numbers (Kaplan 0.73/0.27, Chinchilla's three estimation methods, α≈0.34/β≈0.28, the 8.0x/12.5x/1.56x figures) and document-packing/loss-masking causality all verified unchanged and correct."
+ },
+ "structural_parity": "## 45/45 · ### 35/35 · fences 10/10 · $$ 10/10 · table dividers 2/2 · <details>/<summary> 26/26/26 · 839/839 lines; 0 residual CJK characters",
+ "rendered_at": "2026-07-22"
+}

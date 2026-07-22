@@ -1,0 +1,54 @@
+{
+ "skill": "interview-cheatsheet",
+ "source": "docs/tutorials/llm_evaluation_benchmarking_tutorial.md",
+ "source_sha256": "1b719c0beedb1f0b6ff73edc9b14a875a045f8de41cc9f2ac5f6e16afa15494a",
+ "output": "docs/tutorials/llm_evaluation_benchmarking_tutorial.html",
+ "runnable_code": "docs/tutorials/code/llm_eval_metrics.py",
+ "topic": "LLM Evaluation & Benchmarking / 面试 Cheat Sheet — evaluation contract先于metric / evaluator ladder多轴决策表 / pass@k无偏组合数估计vs有偏plug-in(核心易错点) / benchmark construction与污染检测分层pipeline / human eval→LLM-as-judge / Bradley-Terry MLE与complete separation / bootstrap统计推断与cluster dependence / 25 高频题",
+ "effort": "max",
+ "reviewer": "codex gpt-5.6-sol (xhigh for 3 batches), fresh thread per batch",
+ "drafted_by": "subagent (general-purpose) drafting AGAINST a pre-draft cross-model design review (105 numbered claims by gpt-5.6-sol); fixed by two parallel fix subagents (md content / py code) against a consolidated ledger from 3 review batches",
+ "design_review": {
+  "verdict": "adopted",
+  "notes": "gpt-5.6-sol对提议大纲做详尽设计前置审(105条编号claim),最核心的纠偏:'只生成k个样本检查是否至少一个通过'是无偏但高方差的估计,不是有偏估计;真正常见的有偏估计是plug-in形式1-(1-c/n)^k。还纠正了evaluator ladder的成本/可信度伪全序、IRT与CTT概念混用、黑盒污染证明的边界等。起草时作为硬护栏。"
+ },
+ "math_code_review": {
+  "verdict": "PASS (after 3 review batches — math/facts+citations, code, structure+Q&A — + full fix pass, verified by re-running the fixed script)",
+  "rounds": [
+   {
+    "run": 1,
+    "scope": "math/facts + citations — ECE/Brier定义、evaluator ladder、pairwise O(M²)条件、IRT/CTT概念、黑盒污染证明的边界、VERIFY标记核实",
+    "verdict": "FAIL (若干精确性问题) -> all fixed",
+    "notes": "修正:ECE的acc/conf精确定义补齐;'proper'vs'strictly proper' scoring rule混用;evaluator ladder改多轴决策表;黑盒污染'只能怀疑不能证明'与文末Oren et al.引用的张力已调和。",
+    "thread_id": "019f8844-6eed-7943-a0c1-8441bd2ecfd0"
+   },
+   {
+    "run": 2,
+    "scope": "code — llm_eval_metrics.py全部函数(pass@k/bootstrap/Bradley-Terry/position bias)+断言强度",
+    "verdict": "FAIL (detect_complete_separation()数学范围错误+BT MLE静默不收敛+多处输入校验缺失) -> all fixed",
+    "notes": "核心修复:complete separation判定条件从'某一对只赢不输'(多人图下有假阳性)改为基于'胜者→败者'有向图的真正强连通检测,用独立脚本验证旧逻辑确实会在3人图A:B=10:0/A:C=5:5/B:C=5:5场景下误判,新逻辑正确放行。BT MLE补res.success/有限性检查;ridge防护条件从==0改为>0;pass@k补0<=c<=n等输入校验。",
+    "thread_id": "019f8846-438e-7a43-83b3-72a3c96d1e6c"
+   },
+   {
+    "run": 3,
+    "scope": "整体结构+25道Q&A(ultra reasoning)",
+    "verdict": "FAIL (Bradley-Terry separation条件错误被此批独立再次发现,与construct-before-metric顺序、Benchmark Construction节名不副实、缺统计功效规划节) -> all fixed",
+    "notes": "3批独立收敛到同一个separation判定bug(数学审核、代码审核、结构审核各自发现),是本轮质量信号最强的一处。§3扩展成真正的benchmark construction(补task/item specification、sampling frame、split/stratification);新增§5.8统计功效/样本量规划;evaluator ladder改多轴表;Q11修正0.75 vs 0.7778两种估计量混写;Q12修正'同分布≠不独立'的统计概念混淆。",
+    "thread_id": "019f8848-1863-7b11-a657-f84f9e25b00b"
+   }
+  ]
+ },
+ "runnable_code_check": {
+  "verdict": "PASS",
+  "notes": "docs/tutorials/code/llm_eval_metrics.py (pure Python + numpy/scipy) — D01-D04 all pass. detect_complete_separation()重写为基于强连通分量的真实检测,专门验证了旧逻辑会在多人图下误判、新逻辑正确放行的对照测试。新增pass@k/BT共18个负面测试(非法输入应抛异常)。",
+  "headline": "The Bradley-Terry separation-detection rewrite is independently verified with a scratch regression: reinstating the old pairwise-only logic against a 3-player non-separated graph reproduces the false positive, confirming the new strongly-connected-component check is a real fix, not just a renamed function."
+ },
+ "translation_fidelity_note": "N/A (this is the ZH source; see _en.review.json for the EN fidelity review)",
+ "summary": "LLM Evaluation & Benchmarking cheat sheet (effort=max, ~878 lines, bilingual). First tutorial in this batch to demonstrate triple-independent convergence on the same bug: the Bradley-Terry complete-separation misjudgment was caught separately by the math-review, code-review, AND structure-review passes, each from a different angle — strong evidence it was a real defect rather than reviewer noise. Also demonstrates cross-model self-correction on drafting: the drafting subagent itself caught and fixed an accidentally-transitive (mislabeled) cyclic Bradley-Terry test dataset before handing off. Final verdict: SHIP after full fix + re-verification.",
+ "rendered_at": "2026-07-22",
+ "render_review": {
+  "verdict": "PASS",
+  "thread_id": "019f88b9-973c-78a1-9fed-886a02e5ab57",
+  "notes": "6项渲染质量检查(表格列数/TOC条目数/公式逐式一致/details闭合数/无注入/无个人信息)全部通过;source SHA256与当前.md完全一致。"
+ }
+}

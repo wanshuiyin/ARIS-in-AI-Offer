@@ -1,0 +1,54 @@
+{
+ "skill": "interview-cheatsheet",
+ "source": "docs/tutorials/llm_pretraining_pipeline_tutorial.md",
+ "source_sha256": "d548de992e7b297c62e6764efe58e837e9449c494943ee4a0b50f1c348eacb22",
+ "output": "docs/tutorials/llm_pretraining_pipeline_tutorial.html",
+ "runnable_code": "docs/tutorials/code/pretraining_pipeline.py",
+ "topic": "LLM Pretraining Pipeline / 面试 Cheat Sheet — Kaplan vs Chinchilla scaling law精确指数区分(非同一组'0.5/0.5') / C≈6ND近似的适用边界 / corpus factory数据流水线(dedup先于split/MinHash-LSH/污染检测) / document packing与loss masking(跨文档attention语义选择) / training lifecycle与checkpoint resume的三层强度声明 / 26 高频题",
+ "effort": "max",
+ "reviewer": "codex gpt-5.6-sol (xhigh for 3 batches), fresh thread per batch",
+ "drafted_by": "subagent (general-purpose) drafting AGAINST a pre-draft cross-model design review (105 numbered claims by gpt-5.6-sol); fixed by two parallel fix subagents (md content / py code) against a consolidated ledger from 3 review batches",
+ "design_review": {
+  "verdict": "adopted",
+  "notes": "gpt-5.6-sol对提议大纲做详尽设计前置审(105条编号claim),核心纠偏:Kaplan(2020)给出N∝C^0.73,D∝C^0.27;Chinchilla(2022)没有唯一一组'精确指数'(不同方法给出~0.50/0.50、~0.49/0.51、~0.46/0.54);参数化损失模型L(N,D)=E+A/N^α+B/D^β拟合α≈0.34,β≈0.28;'超出Chinchilla token数就是过拟合'是错误说法;document packing里普通causal mask不阻断跨文档attention不是bug而是语义选择。起草时作为硬护栏。"
+ },
+ "math_code_review": {
+  "verdict": "PASS (after 3 review batches — math/facts+citations, code, structure+Q&A — + full fix pass, verified by re-running the fixed script)",
+  "rounds": [
+   {
+    "run": 1,
+    "scope": "math/facts + citations — scaling law指数、C≈6ND近似边界、document packing因果关系、13条VERIFY标记核实",
+    "verdict": "FAIL (若干精确性问题+RefinedWeb标题不全) -> all fixed",
+    "notes": "drafting subagent自己在design review字面结论之外做的$D_*/N_*\\propto(C/k)^{(\\alpha-\\beta)/(\\alpha+\\beta)}$延伸推导被独立验算确认数学完全正确(100倍算力下比值增约1.5615倍),只需加'固定A,B,α,β,k'限定词,是本教程最值得称道的一处原创补充。",
+    "thread_id": "019f8849-ed3b-7561-a669-9d0a2211a3b3"
+   },
+   {
+    "run": 2,
+    "scope": "code — pretraining_pipeline.py全部函数(dedup/packing/Chinchilla拟合/spike monitor)+断言强度",
+    "verdict": "FAIL (padding检测违反教程自己声明的'绝不用token ID判断padding'规则+LSH banding未真正实现) -> all fixed",
+    "notes": "核心修复:`tokens[i+1]==pad_id`改为`i+1<valid_len`纯位置判定(修复PAD==EOS场景下会误删真实EOS监督的bug),新增对抗测试验证;实现真实LSH band slicing替代手工union;Chinchilla拟合改用刚拟合出的a_hat/b_hat而非真值系数,真正串联fit→optimize。",
+    "thread_id": "019f884b-c205-79d0-aa1c-771a30926460"
+   },
+   {
+    "run": 3,
+    "scope": "整体结构+26道Q&A(ultra reasoning)",
+    "verdict": "7.5/10,缺训练状态机/data-sampler层/长文档chunking整段 -> 全部补齐",
+    "notes": "补完整训练update状态机(或诚实标注§6范围)、补data-stream/sampler层、补长文档chunking/truncation、补train/val-test分叉;修正token记账口径混淆(processed slots vs non-padding input vs valid target,三种口径此前被混成一个'tokens-per-update');checkpoint/resume'确定性'承诺按三层强度重新表述(可继续训练/样本序列一致/数值bitwise同轨迹)。",
+    "thread_id": "019f884d-96f8-7b20-8de6-64bb2eaca151"
+   }
+  ]
+ },
+ "runnable_code_check": {
+  "verdict": "PASS",
+  "notes": "docs/tutorials/code/pretraining_pipeline.py (pure Python + numpy) — D01-D07 all pass. 用两个针对性回归探针验证新测试确实在检验被修复的代码路径(把旧padding判定逻辑临时恢复、把doc_id校验临时去掉,确认对应新测试会失败)。",
+  "headline": "document packing的'交换某文档数值,另一文档输出完全不变'测试从单点(q=3)扩展到全部query位置的双向验证(交换doc0验证doc1不变,交换doc1验证doc0不变),比只查mask shape的弱断言强得多。"
+ },
+ "translation_fidelity_note": "N/A (this is the ZH source; see _en.review.json for the EN fidelity review)",
+ "summary": "LLM Pretraining Pipeline cheat sheet (effort=max, ~839 lines, bilingual). The design review here was the most mathematically dense of the four new tutorials (Kaplan vs Chinchilla scaling-law exponents, parametric loss-model derivation, document-packing loss-mask semantics). Code review caught a real padding-detection bug that directly contradicted a rule the tutorial's own prose asserted ('never judge padding by token ID'), which would have silently deleted real EOS supervision under PAD==EOS. Final verdict: SHIP after full fix + re-verification.",
+ "rendered_at": "2026-07-22",
+ "render_review": {
+  "verdict": "PASS",
+  "thread_id": "019f88bb-7765-7013-8702-3daafa3d5ef4",
+  "notes": "6项渲染质量检查(表格列数/TOC条目数/公式逐式一致/details闭合数/无注入/无个人信息)全部通过;source SHA256与当前.md完全一致。"
+ }
+}

@@ -1,0 +1,18 @@
+{
+ "skill": "interview-cheatsheet (EN translation-fidelity)",
+ "source": "docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md",
+ "source_sha256": "541b8d03507e302ad96ddf1f5fe918992ae1664c1ac547718add0850aa439c8e",
+ "output": "docs/tutorials/llm_evaluation_benchmarking_tutorial_en.html",
+ "zh_source": "docs/tutorials/llm_evaluation_benchmarking_tutorial.md",
+ "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
+ "verdict": "PASS (after fixes)",
+ "thread_id": "019f8897-ad48-7571-92b6-79bf495d095c",
+ "translated_by": "subagent (general-purpose), incremental section-by-section Edit calls (19 edits, none over ~200 lines) to avoid the output-token-limit stall",
+ "translation_fidelity_review": {
+  "verdict": "PASS (1 P0 fixed, 3 P1 fixed, ~9 P2 style items fixed)",
+  "date": "2026-07-22",
+  "notes": "P0 fixed: §5.6's disconnected-graph paragraph originally said 'everything inside A beats everything inside B', which is self-contradicting (a real cross-component win would create a graph edge, contradicting the disconnected premise) — corrected to the intended meaning (cannot infer A is globally stronger merely from within-component results). P1s fixed: 'AUROC is optimistically biased' over-strengthened a qualitative 'can look misleading' into a technical bias claim; 'statistically-grounded tests' under-delivered the ZH's '有统计保证的检验' (has guarantees); PRDS was expanded incorrectly as 'positive regression dependency' instead of the standard 'positive regression dependence on a subset'. P2s fixed: pass@k math-label LaTeX spacing, several literal-translation phrasings (Bradley-Terry cyclic-data comment, Q2 title, ECE binning clarification, i.i.d. draw phrasing, self-preference-bias Q&A wording, episode/task nesting clarification in §5.7). pass@k's core unbiased-vs-biased distinction, all math formulas, and all 18 arXiv citations verified correct with no negation flips."
+ },
+ "structural_parity": "## 11/11 · ### 32/32 · fences 10/10 · $$ 13/13 · table dividers 3/3 · <details>/<summary> 25/25/25 · 878/878 lines; 0 residual CJK characters",
+ "rendered_at": "2026-07-22"
+}

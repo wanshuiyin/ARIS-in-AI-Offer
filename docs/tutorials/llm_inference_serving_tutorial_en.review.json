@@ -1,0 +1,18 @@
+{
+ "skill": "interview-cheatsheet (EN translation-fidelity)",
+ "source": "docs/tutorials/llm_inference_serving_tutorial_en.md",
+ "source_sha256": "52d3fecbe451d1b3981c7ce94e20d7640a0980d9eba3af5e9e57d0dfff905200",
+ "output": "docs/tutorials/llm_inference_serving_tutorial_en.html",
+ "zh_source": "docs/tutorials/llm_inference_serving_tutorial.md",
+ "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
+ "verdict": "PASS (after fixes)",
+ "thread_id": "019f889b-4cbf-7ba1-90ad-cbf05984fb40",
+ "translated_by": "subagent (general-purpose), incremental section-by-section Edit calls (22 edits); self-caught and fixed two mid-translation line-count drifts (ASCII-diagram/comment re-wrapping) before handoff",
+ "translation_fidelity_review": {
+  "verdict": "PASS (0 P0, 6 P1 fixed, several P2 style items fixed)",
+  "date": "2026-07-22",
+  "notes": "P1s fixed: 'physical KV blocks are decremented by reference count' (2 spots) could be misread as decrementing the block itself rather than its refcount — reworded to 'decrement the reference count of each physical KV block'; top-p's boundary condition translated as 'first crosses the threshold' (4 spots) risks being read as strict '>' when the formula is '>=' — unified to 'first reaches or exceeds the threshold'; a subject-verb agreement error in the stop-string-streaming paragraph; a TP/PP/EP benefit sentence that read as 'measuring the latency target' rather than empirically evaluating it; best-of-n's KV-scaling sentence could be misread as each branch's own KV scaling with branch count rather than the aggregate; a capacity-estimation-error sentence with awkward grammar. P2s fixed: 'standing up the full path' -> 'building a mental model of the entire path'; 'common-pitfalls-covering checklist' reworded; 'frees up compute/scheduling share, not KV memory pressure' reworded to avoid parallel-noun awkwardness; a sentence-fragment paragraph opener fixed; 'the sibling known quantity' (2 spots) reworded to 'the quantity established in the companion tutorial'; 'verbatim-identical' reworded. Request-state-machine terminology, all sampling-operator formulas (top-p/min-p/typical), and all 15 arXiv citations verified correct with no negation flips or certainty-strength drift."
+ },
+ "structural_parity": "## 12/12 · ### 36/36 · fences 12/12 · $$ 15/15 · table dividers 3/3 · <details>/<summary> 25/25/25 · 871/871 lines; 0 residual CJK characters",
+ "rendered_at": "2026-07-22"
+}

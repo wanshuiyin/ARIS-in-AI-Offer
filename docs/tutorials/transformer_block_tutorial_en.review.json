@@ -1,0 +1,18 @@
+{
+ "skill": "interview-cheatsheet (EN translation-fidelity)",
+ "source": "docs/tutorials/transformer_block_tutorial_en.md",
+ "source_sha256": "d92395ec71d3c8acc751cdcf6e147bce3e3a1997edc0828df1801d41c38fffd4",
+ "output": "docs/tutorials/transformer_block_tutorial_en.html",
+ "zh_source": "docs/tutorials/transformer_block_tutorial.md",
+ "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
+ "verdict": "PASS (after fixes)",
+ "thread_id": "019f8895-ce55-79a0-8b6a-2f45cd35282c",
+ "translated_by": "subagent (general-purpose), using incremental section-by-section Edit calls (never a single full-file Write) specifically to avoid the output-token-limit stall that had previously hit hand-translation attempts on this collection; 18 Edit calls, no single edit over ~200 lines",
+ "translation_fidelity_review": {
+  "verdict": "PASS (0 P0, 3 P1 fixed, ~10 P2 style items fixed)",
+  "date": "2026-07-22",
+  "notes": "P1s fixed: a pronoun-antecedent ambiguity in §3 ('neither belongs to...') that could be read as contradicting the preceding sentence; KV heads mistranslated as 'copies' in 3 places (§7.2/Q12/Q24), which misleadingly implies duplicated content rather than distinct projections; 'an order of magnitude smaller' over-specified an asymptotic O(d) vs O(d²) comparison into a literal ~10x claim. P2s fixed: 'bit-identical' wording clarified to 'numerically equivalent, not necessarily bitwise identical'; several grammar issues; repeated 'closing off' translationese (5 spots) reworded to 'normalizing the accumulated residual stream' / 'normalizing/stabilizing the branch output'; a handful of other literal-translation phrasings ('engineering-feasible', 'reads literally as', 'top-lab deep-water territory', etc.) smoothed to natural technical English. Structural verification (headings/code-fences/$$-blocks/table-separators/details-tags) all matched 1:1 between ZH and EN both before and after these prose-only fixes."
+ },
+ "structural_parity": "## 11/11 · ### 19/19 · fences 10/10 · $$ 6/6 · table dividers 10/10 · <details>/<summary> 30/30/30 · 859/859 lines; 0 residual CJK characters",
+ "rendered_at": "2026-07-22"
+}

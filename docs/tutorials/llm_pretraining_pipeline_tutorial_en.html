@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Llm Pretraining Pipeline Tutorial En</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/llm_pretraining_pipeline_tutorial_en.md">
+<meta name="aris:source-sha256" content="aafdaa3ef87d962780f8905bf1f20b21447d9a964e6aa8a0a410434525019381">
+<meta name="aris:generated-at" content="2026-07-22 07:27 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-input-state-output-overview--tldr-cheat-sheet">§0 &quot;Input-State-Output&quot; Overview + TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-training-budget-and-scaling-laws">§1 Training Budget and Scaling Laws</a>
+<ul>
+<li><a href="#11-capprox-6nd-where-the-coefficient-comes-from-and-what-it-ignores">1.1　$C\approx 6ND$: Where the Coefficient Comes From, and What It Ignores</a></li>
+<li><a href="#12-moe-active-parameters-for-compute-total-parameters-for-memory">1.2　MoE: Active Parameters for Compute, Total Parameters for Memory</a></li>
+<li><a href="#13-kaplan-2020-vs-chinchilla-2022-the-exponents-are-not-interchangeable">1.3　Kaplan (2020) vs. Chinchilla (2022): the Exponents Are Not Interchangeable</a></li>
+<li><a href="#14-exceeding-the-chinchilla-ratio--overfitting-is-wrong">1.4　&quot;Exceeding the Chinchilla Ratio = Overfitting&quot; Is Wrong</a></li>
+<li><a href="#15-choosing-nd-for-a-given-budget-an-engineering-checklist">1.5　Choosing $N,D$ for a Given Budget: an Engineering Checklist</a></li>
+</ul>
+</li>
+<li><a href="#2-the-corpus-factory-from-web-snapshots-to-training-shards">§2 The Corpus Factory: from Web Snapshots to Training Shards</a>
+<ul>
+<li><a href="#21-the-eleven-step-pipeline-overview--lineage">2.1　The Eleven-Step Pipeline Overview + Lineage</a></li>
+<li><a href="#22-extraction-quality-often-high-leverage-not-rigorously-proven-more-important">2.2　Extraction Quality: Often High-Leverage, Not &quot;Rigorously Proven More Important&quot;</a></li>
+<li><a href="#23-exact-dedup-vs-near-dedup">2.3　Exact Dedup vs. Near-Dedup</a></li>
+<li><a href="#24-privacysafety-processing--benchmark-decontamination">2.4　Privacy/Safety Processing + Benchmark Decontamination</a></li>
+<li><a href="#25-dedup-before-split-cluster-level-split-critical">2.5　Dedup Before Split: Cluster-Level Split (Critical)</a></li>
+<li><a href="#26-three-kinds-of-leakage--must-be-discussed-separately">2.6　Three Kinds of &quot;Leakage&quot; — Must Be Discussed Separately</a></li>
+<li><a href="#27-mixture-sampling-domain-weight-doesnt-necessarily-equal-token-weight">2.7　Mixture Sampling: Domain Weight Doesn&#x27;t Necessarily Equal Token Weight</a></li>
+<li><a href="#28-deterministic-sharding--the-tokenizer-interface-contract">2.8　Deterministic Sharding + the Tokenizer Interface Contract</a></li>
+<li><a href="#29-long-document-chunking--truncation">2.9　Long-Document Chunking / Truncation</a></li>
+<li><a href="#210-the-data-stream--sampler-layer">2.10　The Data-Stream / Sampler Layer</a></li>
+<li><a href="#211-after-the-cluster-split-train-and-valtest-diverge">2.11　After the Cluster Split: Train and Val/Test Diverge</a></li>
+</ul>
+</li>
+<li><a href="#3-objective-to-tensor-how-a-token-stream-becomes-a-supervision-signal">§3 Objective-to-Tensor: How a Token Stream Becomes a Supervision Signal</a>
+<ul>
+<li><a href="#31-teacher-forcing--shifted-labels">3.1　Teacher Forcing + Shifted Labels</a></li>
+<li><a href="#32-causal-mask--eosbos-boundary-rules">3.2　Causal Mask + EOS/BOS Boundary Rules</a></li>
+<li><a href="#33-padding-the-loss-mask-is-mandatory-whether-the-key-mask-is-needed-depends-on-the-layout">3.3　Padding: the Loss Mask Is Mandatory; Whether the Key Mask Is Needed Depends on the Layout</a></li>
+<li><a href="#34-document-packing-cross-document-attention-is-not-a-bug">3.4　Document Packing: Cross-Document Attention Is Not a Bug</a></li>
+<li><a href="#35-loss-normalization-sum-divided-by-count-not-the-mean-of-means">3.5　Loss Normalization: Sum Divided by Count, Not the Mean of Means</a></li>
+<li><a href="#36-exact-pplbpb-formulas">3.6　Exact PPL/BPB Formulas</a></li>
+</ul>
+</li>
+<li><a href="#4-update-accounting-what-exactly-is-the-global-batch">§4 Update Accounting: What Exactly Is the Global Batch</a>
+<ul>
+<li><a href="#41-micro-batch--dp--gradient-accumulation-the-global-batch-formula-and-three-different-token-counting-conventions">4.1　Micro-batch / DP / Gradient Accumulation: the Global Batch Formula, and Three Different Token-Counting Conventions</a></li>
+<li><a href="#42-conditions-for-gradient-accumulation-to-be-strictly-equivalent-to-one-big-batch">4.2　Conditions for Gradient Accumulation to Be Strictly Equivalent to &quot;One Big Batch&quot;</a></li>
+<li><a href="#43-numerical-precision-operational-constraints-not-a-numeric-format-primer">4.3　Numerical Precision: Operational Constraints, Not a Numeric-Format Primer</a></li>
+<li><a href="#44-sibling-boundaries-strictly-enforced">4.4　Sibling Boundaries (Strictly Enforced)</a></li>
+</ul>
+</li>
+<li><a href="#5-lifecycle-from-warmup-to-deterministic-resume">§5 Lifecycle: from Warmup to Deterministic Resume</a>
+<ul>
+<li><a href="#51-warmupstabledecaycooldown--data-stage-changes">5.1　Warmup/Stable/Decay/Cooldown + Data-Stage Changes</a></li>
+<li><a href="#52-deterministic-resume-must-be-split-into-three-different-strength-tiers">5.2　&quot;Deterministic Resume&quot; Must Be Split into Three Different Strength Tiers</a></li>
+<li><a href="#53-monitoring-per-domain-validation-loss">5.3　Monitoring: Per-Domain Validation Loss</a></li>
+<li><a href="#54-loss-spike--nan-layered-triage">5.4　Loss Spike / NaN: Layered Triage</a></li>
+<li><a href="#55-checkpoint-selection">5.5　Checkpoint Selection</a></li>
+<li><a href="#56-sibling-boundaries">5.6　Sibling Boundaries</a></li>
+</ul>
+</li>
+<li><a href="#6-from-scratch-implementation-corpus--packing--key-invariant-sanity-checks-not-a-complete-training-loop">§6 From-Scratch Implementation: Corpus → Packing → Key-Invariant Sanity Checks (Not a Complete Training Loop)</a>
+</li>
+<li><a href="#7-26-high-frequency-interview-questions">§7 26 High-Frequency Interview Questions</a>
+<ul>
+<li><a href="#l1-must-know-questions">L1 Must-Know Questions</a></li>
+<li><a href="#l2-advanced-questions">L2 Advanced Questions</a></li>
+<li><a href="#l3-high-level-questions">L3 High-Level Questions</a></li>
+</ul>
+</li>
+<li><a href="#a-appendix-sanity-checks">§A Appendix: Sanity Checks</a>
+</li>
+<li><a href="#references">📚 References</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  
+  <h1>Llm Pretraining Pipeline Tutorial En</h1>
+  
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/llm_pretraining_pipeline_tutorial_en.md</code></span>
+    <span><strong>SHA256:</strong> <code>aafdaa3ef87d</code></span>
+    <span><strong>Rendered:</strong> 2026-07-22 07:27 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-input-state-output-overview--tldr-cheat-sheet">§0 "Input-State-Output" Overview + TL;DR Cheat Sheet</h2>
+<blockquote><p><strong>Scope statement</strong>: this tutorial only covers the <strong>decoder-only, causal language modeling (next-token prediction)</strong> pretraining objective — it does not cover encoder-decoder, masked language modeling (BERT-style token/span-masking reconstruction), or any of the span-corruption/denoising objectives (e.g., T5's span corruption). The shifted labels, mask construction, and loss normalization for those objectives differ from the §3 derivation here; wherever you see "teacher-forcing shifted labels" or "causal mask," assume the decoder-only causal LM context by default.</p></blockquote>
+<p><strong>Pretraining is not "feed in data, tune hyperparameters against loss" — it is a complete state machine running from raw documents to a checkpoint.</strong> A large share of interview points lost ("$6ND$ is an exact formula," "going past Chinchilla means overfitting," "the causal mask naturally isolates documents") comes from compressing this pipeline down into one or two isolated formulas. Let's first build the overall mental model:</p>
+<pre><code class="language-text">Raw web/book/code snapshots (with license records)
+  → ① corpus factory (raw-document stage): extraction/encoding normalization → language ID → basic quality filtering → exact dedup → near-dedup
+                      → privacy/safety processing → benchmark decontamination → cluster-level data split (dedup FIRST, split SECOND!)
+                      → document-level mixture quotas → deterministic sharding, writing out raw-document shards + full-chain lineage (§2.1-§2.6)
+  → ② tokenizer (a version-frozen contract; training details not re-derived here — see tokenization_tutorial.md)
+token stream
+  → ③ tokenized stage: token-level mixture sampling (corrects the gap between document-level quotas and actual token share, §2.7)
+                      → long-document chunk/truncate (§2.9) → write out tokenized training shards (§2.8)
+  → ④ data-stream/sampler layer: shard shuffle → domain-sampling RNG → with/without replacement
+                      → DP-rank-disjoint sharding → worker/prefetch queue → cursor position (§2.10)
+train token stream                                    val/test token stream (frozen version, independent scoring protocol, §2.11)
+  → ⑤ objective-to-tensor: teacher-forcing shifted labels → causal / block-diagonal mask
+                      → EOS/BOS boundary rules → dual padding mask → document packing (§3)
+packed batch (micro-batch × seq_len)
+  → ⑥ conceptual state machine for a single update: model/config contract → forward → loss (Σ NLL / Σ valid target tokens)
+                      → backward → gradient sync (DP all-reduce, mind the sum/mean reduction semantics, §4.2)
+                      → unscale (AMP) / gradient clipping (applied once to the final gradient after the accumulation window closes)
+                      → optimizer step (AdamW etc.; formulas pointed to optimizer_lr_schedule_tutorial.md)
+                      → scheduler / consumed-token counter advance → atomic checkpoint write (checkpoint boundary)
+  → ⑦ lifecycle: warmup/stable/decay (LR) vs. late-stage data reweighting (data side — two separate things, §5.1)
+                      → per-domain monitoring / spike-NaN triage (§5.4)
+                      → checkpoint (weights + optimizer + RNG + data cursor + …, three strength tiers in §5.2) → resume</code></pre>
+<blockquote><p>Step ⑥ above is the <strong>conceptual execution order</strong> of the stages within a single optimizer step, meant to make explicit a chain that is often glossed over — "model/config contract → forward → backward → gradient sync → unscale/clip → optimizer step → scheduler/token counter → checkpoint." The minimal implementation accompanying this tutorial (§6) covers <strong>sanity checks for a handful of key invariants</strong> (dedup / packing / Chinchilla fitting / spike monitoring); it does not include a runnable training loop or real checkpoint/resume code — the state machine here is a conceptual diagram for building a mental model, not a claim that the §6 code reproduces the whole chain.</p></blockquote>
+<p><strong>Notation conventions</strong>: $N$ = the compute-bearing parameter count participating in the main matmuls per token (dense models: total; MoE models: <strong>active</strong> — see §1.1 for whether embedding parameters count); $D$ = the number of tokens actually presented to the model and participating in supervision during training (not guaranteed to equal the corpus's "unique token" total — see §2.7; the precise accounting is $B_{target}$ in §4.1); $C$ = training compute (an approximate FLOPs count, not actual GPU wall-clock time); $B_{input}$ = the number of tokens fed into the model in one optimizer step (processed token slots, regardless of whether they participate in the loss); $B_{target}$ = the number of valid target tokens that actually participate in the loss for that same update — the exact formulas and the distinction between $B_{input}$ and $B_{target}$ are in §4.1; $L$ denotes the loss $L(N,D)$ in scaling-law contexts and context length in attention/sequence contexts — this tutorial disambiguates by context, writing $L_{\text{seq}}$ where needed.</p>
+<div class="callout callout-info"><div class="callout-title">The LLM pretraining pipeline in one sitting</div><p>everything you need on one page for interviews (full derivations in §1–§7 below).</p></div>
+<ol><li><strong>$C\approx 6ND$ is only an approximation</strong>: the coefficient $6$ comes from "forward ≈ $2ND$ + backward ≈ $4ND$" (one multiply-add = 2 FLOPs), and $N$ should be understood as compute-bearing/non-embedding parameter count (the counting convention varies across papers); it ignores the $L_{\text{seq}}^2$ term from long-context attention (with total token count $D$ fixed, total attention cost scales approximately with $D\times L_{\text{seq}}$, not $D\times L_{\text{seq}}^2$), vocabulary projection, norm/softmax, activation recomputation, and differing FLOP-counting conventions; it is an algorithm-level approximate training cost, not actual GPU FLOPs, and cannot be converted directly into wall-clock time.</li><li><strong>MoE bookkeeping splits into two separate lines</strong>: per-token compute is estimated with <strong>active</strong> parameters; memory/checkpoint size is computed with <strong>total</strong> parameters (details pointed to moe_tutorial.md).</li><li><strong>Kaplan (2020) and Chinchilla (2022) exponents are not the same thing</strong>: Kaplan gives $N_{opt}\propto C^{0.73}, D_{opt}\propto C^{0.27}$; Chinchilla has no single "exact exponent" — different estimation methods give roughly 0.50/0.50, 0.49/0.51, 0.46/0.54; the parametric loss model $L(N,D)=E+A/N^\alpha+B/D^\beta$ fits to about $\alpha\approx0.34,\beta\approx0.28$, and the analytic optimum gives $N_*\propto C^{0.452}, D_*\propto C^{0.548}$ (papers reporting full precision often quote roughly 0.46/0.54). The disagreement is not just "more data" — training-horizon design, whether the LR schedule matches the budget, and the fitting method all differ.</li><li><strong>"~20 tokens per parameter" is an empirical approximation, not a universal constant</strong>; merely training past this ratio <strong>cannot by itself be judged overfitting</strong> — feeding a fixed model new, non-duplicated, related-distribution data typically still lowers loss; what actually happens is that the configuration becomes "over-trained" relative to the compute-optimal frontier point for its resulting total compute $C=kND$; deliberately over-training a small model is done to cut deployment cost — training-compute-optimal $\ne$ lifecycle-cost-optimal.</li><li><strong>The corpus factory is the largest, most self-contained block in this tutorial</strong> (§2): upstream extraction errors easily produce systematic noise, so extraction quality is often a high-leverage step; MinHash estimates the <strong>Jaccard similarity</strong> of shingle sets, not semantic similarity; LSH only recalls candidates — candidates still need exact-Jaccard verification; <strong>dedup must happen before splitting</strong> — near-duplicate samples must be assigned to train/val/test as whole dedup clusters, or a rewritten copy of the same content crossing splits will make validation loss artificially low.</li><li><strong>The causal mask in document packing does not automatically isolate documents — this is not a bug</strong>: many systems treat the packed token stream as one continuous EOS-delimited stream and use a plain causal mask as a legitimate choice; if the semantics require documents to be independent, you need a block-diagonal mask <strong>plus</strong> a separate boundary loss mask — blocking attention does not automatically mask cross-document prediction labels.</li><li><strong>Loss normalization must be "sum divided by count"</strong>: first averaging within each micro-batch and then averaging those averages introduces bias whenever the number of valid tokens differs across batches.</li><li><strong>Global batch: distinguish "fed into the model" from "participates in loss"</strong>: with no padding and equal lengths, the number of tokens fed into the model is $B_{input}=B_{micro,seq}\times L_{seq}\times G_{acc}\times W_{DP}$ — only DP world size directly scales the number of independent samples; TP/PP must not be double-counted. The number of valid targets that actually participate in the loss, $B_{target}=\sum_i m_i$, is usually smaller (even with no padding, shifted labels leave only $L_{seq}-1$ valid targets per sequence — see §4.1).</li><li><strong>"Deterministic resume" must be examined in layers</strong>: weights + optimizer state + LR/consumed-token count is only enough for "basic resumability"; adding RNG state + data iterator position + shuffle epoch + sampler/worker state gets you "identical sample sequence"; adding a matching AMP scaler, in-flight gradients, deterministic kernels, and identical software version/communication topology (with unchanged world size) can approach "numerically bitwise-identical trajectory" — the three strength tiers must not be conflated (§5.2).</li><li><strong>Loss spike/NaN triage should follow a layered order</strong> (not the sole mandatory procedure): bad batch/data shard → LR and resume state → gradients and activations → mixed precision → cross-rank anomalies → hardware failure, keeping reproducible batch IDs/step numbers throughout.</li></ol>
+<h2 id="1-training-budget-and-scaling-laws">§1 Training Budget and Scaling Laws</h2>
+<h3 id="11-capprox-6nd-where-the-coefficient-comes-from-and-what-it-ignores">1.1　$C\approx 6ND$: Where the Coefficient Comes From, and What It Ignores</h3>
+<p>The training compute of a decoder-only dense Transformer is commonly approximated as</p>
+<p>$$C \approx 6ND$$</p>
+<p>Intuition: count one multiply-add as 2 FLOPs; for each token, the forward pass runs through all the main matrix multiplications (QKV projections, attention output projection, FFN up/down projections, etc.), costing approximately $2N$ FLOPs — here $N$ should be understood as <strong>compute-bearing / non-embedding parameter count</strong>: the embedding lookup itself is an indexing operation, not a matrix multiplication, and mechanically counting embedding parameters into $N$ systematically overestimates this piece of compute; whether the output vocabulary projection is counted separately, and how, is not fully consistent across papers/implementations, so before reading any specific FLOPs estimate you should first confirm which parameter-counting convention it uses — the forward pass over $D$ tokens totals $\approx 2ND$. The backward pass computes both activation gradients and weight gradients, roughly twice the forward cost, i.e., $\approx 4ND$. Forward + backward $\approx 6ND$ (the $6$ here is likewise an approximate coefficient; more precisely it should be written $k\approx 6$).</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>$6ND$ is an algorithm-level approximation, not an exact formula</strong> At minimum it ignores/simplifies: the $O(L_{\text{seq}}^2)$ term from long-context attention — this is the attention-score compute <strong>within a single sequence</strong> growing as $L_{\text{seq}}^2$ ($N$ itself does not change with sequence length); but with the total training token count $D$ held fixed, the number of sequences is approximately $D/L_{\text{seq}}$, and multiplying each sequence's $O(L_{\text{seq}}^2)$ by the sequence count means the <strong>total</strong> attention cost grows approximately as $D\times L_{\text{seq}}$, not $D\times L_{\text{seq}}^2$ — don't conflate "$L_{\text{seq}}^2$ within a single sequence" with "total cost growing linearly in $L_{\text{seq}}$ at fixed $D$"; these are different quantities, and the longer the sequence, the less this term can be neglected relative to the other linear terms in $6ND$; vocabulary projection (the output-layer matmul itself is non-trivial when $V$ is large); non-matmul operators such as norm/softmax; <strong>activation recomputation</strong> (activation checkpointing re-runs part of the forward pass to save memory, pushing the effective backward multiplier above 4); MoE's active-vs-total parameter accounting (§1.2); and differing <strong>counting conventions</strong> across communities on whether "1 FLOP" counts a multiply and an add separately or together. $6ND$ gives an algorithm-level approximate training cost — it is <strong>not equal to the FLOPs the GPU actually executes</strong>, and still less can it be used directly to predict wall-clock time (that also depends on MFU, communication overhead, memory swap-in/out, and other engineering factors) — a rough GPU-day estimate additionally needs the GPU count, peak FLOPs, and MFU: $t\approx C/(n_{GPU}\times\text{peak FLOPs}\times MFU)$, and communication overhead, recomputation, and data stalls mean this remains an estimate rather than an exact prediction.</p></div>
+<p>(This approximation was first systematically laid out by Kaplan et al. (2020); full citation in the references at the end.)</p>
+<h3 id="12-moe-active-parameters-for-compute-total-parameters-for-memory">1.2　MoE: Active Parameters for Compute, Total Parameters for Memory</h3>
+<p>The per-token compute estimate for an MoE model should plug in <strong>active parameters</strong> (the expert parameters that actually participate in that token's forward/backward computation), not total parameters; but model capacity, memory footprint, and checkpoint file size are still tied to <strong>total parameters</strong> — for a 671B/37B-style model (a DeepSeek-V3-like public configuration, see references), the $N$ in $6ND$ should use the ~37B scale to estimate compute budget, but the checkpoint still needs to be sized at 671B. The specific derivation of routing, load balancing, and aux loss is out of scope here; see <code>moe_tutorial.md</code>.</p>
+<h3 id="13-kaplan-2020-vs-chinchilla-2022-the-exponents-are-not-interchangeable">1.3　Kaplan (2020) vs. Chinchilla (2022): the Exponents Are Not Interchangeable</h3>
+<p>The two foundational papers give <strong>different</strong> optimal-configuration exponents; the common interview answer "not enough data, so the exponent is wrong" is incomplete.</p>
+<p><strong>Kaplan et al. (2020)</strong>:</p>
+<p>$$N_{opt}\propto C^{0.73},\qquad D_{opt}\propto C^{0.27}$$</p>
+<p>As compute budget grows, Kaplan's conclusion is to allocate <strong>more to parameters</strong> rather than data.</p>
+<p><strong>Hoffmann et al. (2022, "Chinchilla")</strong>: the paper cross-validates with multiple estimation methods and <strong>does not give a single "exact exponent"</strong> — different estimation methods yield roughly <strong>0.50/0.50</strong>, <strong>0.49/0.51</strong>, <strong>0.46/0.54</strong>, a family of close but not identical results. The most commonly cited among these is the <strong>parametric loss model</strong>, written as</p>
+<p>$$L(N,D) = E + \frac{A}{N^\alpha} + \frac{B}{D^\beta}$$</p>
+<p>which fits to about $\alpha\approx 0.34,\ \beta\approx 0.28$. $E$ is the <strong>asymptotic irreducible loss floor</strong> fit under this parametric form and this data distribution — the fit itself cannot uniquely decompose it into "data entropy lower bound" and "model family's expressiveness ceiling"; at most it roughly bundles together the data's own entropy and the model family's approximation error, and how much each contributes cannot be determined from this single fit alone. $A/N^\alpha$ is the cost paid for "not enough parameters," and $B/D^\beta$ is the cost paid for "not enough data."</p>
+<p>Doing constrained optimization of $L(N,D)$ under the compute-budget constraint $C=kND$ ($k=6$, see §1.1) and eliminating via Lagrange multipliers gives the analytic solution:</p>
+<p>$$N_* = \left(\frac{\alpha A}{\beta B}\right)^{\frac{1}{\alpha+\beta}}\left(\frac{C}{k}\right)^{\frac{\beta}{\alpha+\beta}},\qquad D_* = \left(\frac{\beta B}{\alpha A}\right)^{\frac{1}{\alpha+\beta}}\left(\frac{C}{k}\right)^{\frac{\alpha}{\alpha+\beta}}$$</p>
+<p>Plugging in the rounded $\alpha=0.34,\beta=0.28$: $\dfrac{\beta}{\alpha+\beta}=\dfrac{0.28}{0.62}\approx 0.452$, $\dfrac{\alpha}{\alpha+\beta}=\dfrac{0.34}{0.62}\approx 0.548$, i.e.,</p>
+<p>$$N_*\propto C^{0.452},\qquad D_*\propto C^{0.548}$$</p>
+<p>(computing with the paper's full-precision $\alpha,\beta$ is usually reported as roughly 0.46/0.54; [D06] in §6 turns this pair of exponents into an executable fitting unit test, including the numerical assertion that at 100x compute, $N_*$ grows by about $100^{0.452}\approx 8.0$x and $D_*$ by about $100^{0.548}\approx 12.5$x).</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Three common confusions, clarified one by one</strong></p>
+<ol><li><strong>"~0.50/0.50" and "~0.46/0.54" are not the same exact result</strong> — the former is the coarse-grained empirical takeaway that "parameters and tokens grow roughly proportionally," while the latter is the specific exponent fit by the parametric loss model; they are close but should not stand in for each other.</li><li><strong>"~20 tokens per parameter" is an empirical approximation</strong>, not a universal constant derivable solely from $\alpha,\beta$ — from the analytic forms of $N_*,D_*$ you can see that $D_*/N_*$ also depends on the constants $A,B$ (and $k$), and when $\alpha\ne\beta$, $D_*/N_*\propto (C/k)^{(\alpha-\beta)/(\alpha+\beta)}$ drifts slowly with $C$ rather than staying a strictly fixed ratio (<strong>this derivation is mathematically valid on its own terms</strong>: holding $A,B,\alpha,\beta,k$ fixed and continuing to use this fitted model, the ratio does grow by about 1.56x at 100x compute, per the exponent above). But this drift conclusion <strong>cannot be directly extrapolated into the empirical claim that "the true optimal ratio reliably grows 1.56x for every 100x increase in compute"</strong> — for three reasons: the Chinchilla paper's other two independent estimation methods (IsoFLOP curve fitting, parameter/data ratio fitting) give ratios close to 0.5/0.5, i.e., approximately constant, which doesn't fully match the direction and magnitude of drift seen here; when $\alpha,\beta$ are close to each other, fitting error itself can significantly affect the exponent $(\alpha-\beta)/(\alpha+\beta)$, amplifying the uncertainty in the drift estimate; and $A,B,k$, along with data distribution, model architecture, and training recipe, need not stay constant across many orders of magnitude of compute — yet the premise of this derivation is that they all remain fixed, and 100x compute is itself already a substantial extrapolation.</li><li><strong>The technical reason for the Kaplan/Chinchilla disagreement</strong> is not just "more data": the two differ in datasets used, experimental coverage, loss-fitting method, and training-horizon design — Kaplan heavily uses loss at midpoints of single training curves (the LR schedule endpoints corresponding to those midpoints were not specifically configured for that budget), while Chinchilla emphasizes configuring a separately matched training schedule for each predetermined token horizon (e.g., aligning cosine-decay length to the target token count) before comparing — this is an important technical factor in the disagreement, not simply "whose dataset is bigger."</li></ol></div>
+<h3 id="14-exceeding-the-chinchilla-ratio--overfitting-is-wrong">1.4　"Exceeding the Chinchilla Ratio = Overfitting" Is Wrong</h3>
+<p><strong>This is a common misconception that must be corrected</strong>: fixing a model size $N$ and continuing to feed it new (non-duplicated, same- or related-distribution) data typically <strong>still lowers the loss</strong> — this is not the definition of overfitting (overfitting should manifest as training loss dropping while validation loss rises). What actually happens is: as $D$ keeps growing with $N$ fixed, the resulting total compute $C=kND$ (§1.1) is itself growing in step — this is not "training a few extra steps under a fixed budget," it is arriving at a <strong>larger $C$</strong>; it's just that under this new, larger $C$, the configuration $(N,D)$ has a <strong>smaller $N$ and larger $D$</strong> relative to the compute-optimal frontier point $(N_*,D_*)$ (§1.3) for that $C$ — this configuration is called "<strong>over-trained</strong>" relative to the compute it actually consumes, which is an economic judgment relative to the compute-optimal frontier, not an error in training, and certainly not overfitting.</p>
+<p>Industry deliberately trains many small models far past the Chinchilla-optimal ratio (e.g., choosing a smaller model at equivalent capability and feeding it more tokens), for reasons of <strong>deployment-side inference cost</strong> (memory, latency, per-token serving cost) — trading a one-time extra training compute cost for cheaper inference over the model's whole lifecycle. This is a tradeoff between "training-compute-optimal" and "lifecycle-cost-optimal," not "the recipe is wrong."</p>
+<h3 id="15-choosing-nd-for-a-given-budget-an-engineering-checklist">1.5　Choosing $N,D$ for a Given Budget: an Engineering Checklist</h3>
+<ol><li>First pin down the optimization target: <strong>training-compute-optimal</strong> (use the $N_*,D_*$ analytic solution directly) or <strong>inference-aware-optimal</strong> (first pin down a smaller $N$ dictated by the deployment budget, letting $D$ grow correspondingly at fixed $C$ — i.e., deliberately "over-training" a small model);</li><li>Long-context training introduces the $L_{\text{seq}}^2$ attention term that $6ND$ ignores in §1.1; this needs to be budgeted separately rather than folding everything into $6ND$;</li><li>For MoE models, use active parameters to compute the budget (§1.2), and total parameters when reporting storage/memory budget;</li><li>Pin down what $D$ actually means — is it the token count "presented during training," or the "effective" data volume after deduplication (§2.7)? High corpus duplication makes the "effective data volume" lower than the nominal $D$, which is exactly the concern behind the line of "data-constrained scaling" work that followed Chinchilla.</li></ol>
+<h2 id="2-the-corpus-factory-from-web-snapshots-to-training-shards">§2 The Corpus Factory: from Web Snapshots to Training Shards</h2>
+<p><strong>This is the largest, most self-contained section of the tutorial</strong> — whether pretraining runs stably and correctly often depends more on the corpus-pipeline design than on model architecture or hyperparameter choices.</p>
+<h3 id="21-the-eleven-step-pipeline-overview--lineage">2.1　The Eleven-Step Pipeline Overview + Lineage</h3>
+<p>An auditable, recoverable data pipeline roughly comprises the following stages (order matters, especially "dedup before split"):</p>
+<table><thead><tr><th>Step</th><th>What it does</th><th>Key pitfall</th></tr></thead><tbody><tr><td>1. Raw snapshot + license record</td><td>Save crawl timestamp, source, license metadata</td><td>Copyright/license traceability</td></tr><tr><td>2. Extraction/encoding normalization</td><td>Web body-text extraction, strip nav/ads, Unicode normalization</td><td>Often matters more for quality than downstream classifiers (§2.2)</td></tr><tr><td>3. Language ID</td><td>Route by language</td><td>Code-mixed text, low confidence on short text</td></tr><tr><td>4. Basic quality filtering</td><td>Length/symbol-ratio/repeated n-gram/perplexity filters</td><td>Uniform thresholds wrongly drop long-tail but legitimate text</td></tr><tr><td>5. Exact dedup</td><td>Fully duplicate document/substring dedup</td><td>Only catches byte-level duplicates, misses near-duplicates</td></tr><tr><td>6. Near-dedup</td><td>MinHash/LSH to find near-duplicates</td><td>Similarity ≠ semantic similarity (§2.3)</td></tr><tr><td>7. Privacy/safety processing</td><td>PII redaction, illegal content filtering</td><td>Needs a dedicated pipeline, independent of quality filtering</td></tr><tr><td>8. Benchmark decontamination</td><td>n-gram overlap detection against eval sets</td><td>A different problem from train-val leakage (§2.6)</td></tr><tr><td>9. <strong>Cluster-level data split</strong></td><td><strong>Assign splits by the dedup clusters from step 6, as whole groups</strong></td><td><strong>Dedup must be complete before this step</strong> (§2.5)</td></tr><tr><td>10. Mixture sampling (document-level quota)</td><td>Domain weights decide how many documents each domain contributes</td><td>Document-level weight ≠ token-level weight (§2.7)</td></tr><tr><td>11. Deterministic sharding</td><td>Write out reproducible raw-document shard files</td><td>Must be versioned together with lineage (§2.8)</td></tr></tbody></table>
+<blockquote><p><strong>Two stages, not one line</strong>: the 11 steps above happen in the <strong>raw-document stage</strong> — "mixture sampling" in step 10 here refers to the <strong>document-level</strong> quota decision of "what proportion of documents each domain contributes"; "deterministic sharding" in step 11 produces the raw-document shards. <strong>The tokenizer runs after this</strong> (turning raw-document shards into a token stream — see the interface contract in §2.8), and there is then a separate flow occurring in the <strong>tokenized stage</strong>: the actual token-level share resulting from document-level quotas need not match the configured value (this is exactly the token-level sampling-unit issue discussed in §2.7); long documents still need chunking/truncation (§2.9); finally the tokenized training shards are written, feeding into the data-stream/sampler layer of §2.10, and after the split, train vs. val/test diverge into separate handling (§2.11). Reading "mixture sampling" as simply a single step in the table, missing that it happens once at the document level and once at the token level with different meanings, is the easiest place to misread the order of this pipeline.</p></blockquote>
+<p><strong>Data lineage</strong>: every training sample should ideally be traceable back to — its source dataset/URL, snapshot/crawl version, extraction and filtering pipeline version, which quality filters and thresholds it hit, its dedup cluster ID, its split assignment, and finally which shard file and byte offset it ended up at. This record is the only basis for investigating, months later, whether a given output "memorized" training data or whether a benchmark "got contaminated."</p>
+<h3 id="22-extraction-quality-often-high-leverage-not-rigorously-proven-more-important">2.2　Extraction Quality: Often High-Leverage, Not "Rigorously Proven More Important"</h3>
+<p>The <strong>most upstream</strong> steps — web body-text extraction (stripping nav bars, ads, footer boilerplate, comment-section noise) and encoding/Unicode normalization — often have quality issues that produce more systematic impact than fine-tuning downstream quality classifiers. This is indirectly supported by empirical observations from work such as the C4 corpus audit (Dodge et al.), RefinedWeb (Penedo et al.), and FineWeb (Penedo et al.), but none of these works rigorously prove a universal ordering that "extraction quality priority is always higher than the classifier's." A more accurate statement is: upstream extraction errors can systematically push large amounts of structural noise (nav text, repeated boilerplate, garbled characters) into every document, and this kind of noise is very "conspicuous" in the token distribution — so extraction quality is often a <strong>high-leverage step</strong> worth prioritizing, not an optional preprocessing detail. The normalization rules used on the training corpus must stay consistent with the rules used when training the tokenizer, or you get a "train/serve split mismatch" drift — the tokenizer's own training details, normalization options, and byte fallback are covered in <code>tokenization_tutorial.md</code> §3–§4; this section does not re-derive them.</p>
+<p>Language ID typically uses a lightweight classifier (e.g., a fastText-style n-gram model) to route by document; code-switched text and low-confidence language judgments on short text are common engineering edge cases. Basic quality filtering generally layers several heuristic rules (line-length distribution, symbol/letter ratio, repeated-n-gram share) and/or perplexity scoring from a small auxiliary language model — essentially "use cheap signals to filter out the worst tail," not fine-grained semantic judgment.</p>
+<h3 id="23-exact-dedup-vs-near-dedup">2.3　Exact Dedup vs. Near-Dedup</h3>
+<p><strong>Exact dedup</strong>: byte-level/hash-level exact matching (whole-document hash dedup, or suffix-array-based cross-document repeated-substring dedup) — this only catches content that is completely identical, and misses near-duplicates like "the title had one word changed."</p>
+<p><strong>Near-dedup</strong> (MinHash + LSH): represent documents as shingle (n-gram) sets, estimate Jaccard similarity between sets with MinHash (Broder, 1997, see references), then use LSH banding for candidate recall. Three boundaries that must be clarified:</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>MinHash estimates the Jaccard similarity of shingle sets, not semantic similarity</strong> Two documents discussing the same concept in completely different wording can have low Jaccard similarity; two documents full of boilerplate (nav bars, license notices, sample code) but unrelated in topic can conversely have high Jaccard similarity. MinHash/LSH catches <strong>surface-level duplication</strong> (mirror sites, near-verbatim copies, templated documents), not "means the same thing."</p></div>
+<ul><li><strong>LSH banding only does candidate recall</strong>: candidate pairs typically still need exact-Jaccard verification, because LSH banding by itself only guarantees that candidate probability rises monotonically with similarity (<strong>under the idealized assumption that MinHash rows/hash functions are approximately independent</strong>, $P=1-(1-s^r)^b$, with $b$ bands of $r$ rows each) — it does not guarantee a candidate is actually a true near-duplicate; treating candidates as the conclusion directly introduces false positives.</li><li><strong>Semantic dedup is not an unconditional upgrade over near-duplicate dedup</strong>: embedding-threshold-based semantic dedup can wrongly delete legitimate text that is "same topic, different phrasing," and this mis-deletion affects low-resource languages, dialects, and templated technical documents unevenly (these texts' own embedding distributions are more concentrated) — you cannot treat it as "a fancier MinHash" and swap it in directly; the two address different levels of duplication.</li></ul>
+<h3 id="24-privacysafety-processing--benchmark-decontamination">2.4　Privacy/Safety Processing + Benchmark Decontamination</h3>
+<p>Privacy/safety processing (PII redaction — emails, phone numbers, keys; illegal and harmful content filtering) is a pipeline independent of "quality," usually requiring its own dedicated detection rules and thresholds, and should not be tuned mixed in with quality filters.</p>
+<p><strong>Benchmark decontamination</strong>: detect n-gram overlap between the training corpus and target evaluation sets (e.g., common QA/reasoning benchmarks), and remove or flag overlapping documents. <strong>Exact matching at the 13-gram scale</strong> is the specific approach explicitly used by the GPT-3 paper (Brown et al., 2020, see references) to detect overlap between training corpus and evaluation sets — this is a widely referenced concrete precedent, but the n-gram length actually used differs across teams in practice and should not be treated as a unified industry standard. This guards against <strong>benchmark contamination</strong> — "having seen the eval answers during training" — which is a completely different problem from the train-val leakage discussed in §2.6 below; don't conflate the two.</p>
+<h3 id="25-dedup-before-split-cluster-level-split-critical">2.5　Dedup Before Split: Cluster-Level Split (Critical)</h3>
+<p>If you <strong>split first and dedup second</strong>: near-duplicate content (mirror sites, reprinted/rewritten articles, different instances of templated documents) can very plausibly end up with one copy in train and another in val — the model "has seen" a near-verbatim copy of a validation sample during training, so validation loss is <strong>artificially low</strong> — not because the model generalizes well, but because it has effectively memorized a rewritten version of the validation sample. This misleads early stopping, model selection, and any downstream quality reporting based on that validation loss (a systematic discussion of dedup's effect on downstream model quality, closely related to this phenomenon, is in Lee et al., 2021, see references).</p>
+<p><strong>Correct order</strong>: first run near-dedup to partition all documents into connected components (dedup clusters); then atomically assign <strong>whole clusters</strong> to train/val/test — documents in the same cluster must never be split across different sets. The key requirement is <strong>transitive closure</strong>: even if document A was only ever directly compared with B, and B only ever directly compared with C (A and C were never directly compared), as long as A~B and B~C, A and C must end up in the same split — [D01] in §6 turns this rule into an executable assertion using union-find.</p>
+<h3 id="26-three-kinds-of-leakage--must-be-discussed-separately">2.6　Three Kinds of "Leakage" — Must Be Discussed Separately</h3>
+<table><thead><tr><th>Type</th><th>Definition</th><th>Root cause</th><th>Mitigation</th></tr></thead><tbody><tr><td>Train-val leakage</td><td>Near-duplicate content crosses splits</td><td>Split before dedup</td><td>Cluster-level split (§2.5)</td></tr><tr><td>Benchmark contamination</td><td>Training corpus contains eval-set content</td><td>No decontamination check done</td><td>n-gram overlap detection (§2.4)</td></tr><tr><td>Packed-sequence cross-document historical context</td><td>After packing, document B can read document A's tokens</td><td>Causal mask permits reading cross-document history</td><td><strong>Usually not data leakage — it's a sequence-semantics choice</strong> (§3.4)</td></tr></tbody></table>
+<p>The third is the easiest to misjudge as a "leakage": a plain causal mask lets a later document read an earlier document's historical tokens, but this is merely "reading prior tokens," not "future-label leakage" in a causal sense — a more accurate term is <strong>"cross-sample context coupling"</strong>: the model, during training, concatenates two independent documents into the same sequence, and their representations end up influencing each other — this is a modeling choice at the level of training dynamics/statistical independence, not information leakage in the evaluation sense. Whether you need a block-diagonal mask to cut this off depends on whether you require the modeling assumption that "every document must be a statistically independent sample" — see §3.4 for details.</p>
+<h3 id="27-mixture-sampling-domain-weight-doesnt-necessarily-equal-token-weight">2.7　Mixture Sampling: Domain Weight Doesn't Necessarily Equal Token Weight</h3>
+<p>Mixture sampling has at least three different "sampling units," and the same "domain weight" configuration produces <strong>different</strong> final token distributions under each:</p>
+<ul><li><strong>Document-level sampling</strong>: first select a document pool by domain weight, then draw whole documents uniformly/weighted from within the pool;</li><li><strong>Token-level sampling</strong>: cut fixed-length chunks directly from the concatenated token stream, decoupled from document boundaries;</li><li><strong>Sample domain, then sample document</strong>: first select a domain by domain weight, then select a document within that domain.</li></ul>
+<p>The difference among the three: different domains have different <strong>average document lengths</strong> — a domain with longer average documents contributes more tokens even if its "document count" weight is configured the same as another domain's. So <strong>when "domain weight" is configured by document count/document weight and then directly used as token weight, the two are usually not equal</strong> — but if the configuration is itself defined as a token-level target share, they can be equal in expectation, so you cannot unconditionally assert "domain weight is always unequal to token weight." A systematic method for domain reweighting can be found in DoReMi (Xie et al., 2023, see references). Whichever sampling unit is used, the "actual token share" must be measured and reported separately after sampling, rather than only reporting the configured value.</p>
+<p>This also ties back to what $D$ means in §1: the $D$ in scaling laws usually refers to the number of tokens <strong>presented</strong> to the model during training (the number of times total tokens flow through the optimizer), which is <strong>not guaranteed to equal the corpus's unique-token total</strong> — if some domain is repeatedly oversampled (multiple epochs), or the corpus still retains a large amount of near-duplicate content, the nominal $D$ will be inflated relative to the "effective" data volume, and the extra portion does not carry the same statistical information as genuinely new data; the systematic effect of duplicate data on effective $D$ in such "data-constrained" settings is discussed in Muennighoff et al. (2023, see references) — this section only states the qualitative conclusion, without plugging in its specific numbers.</p>
+<h3 id="28-deterministic-sharding--the-tokenizer-interface-contract">2.8　Deterministic Sharding + the Tokenizer Interface Contract</h3>
+<p><strong>Deterministic sharding</strong>: given the same corpus + the same mixture configuration + the same random seed, "which document goes into which shard file, at what position" must be reproducible — this directly underpins deterministic resume in §5.2 (after a restart you must be able to pinpoint exactly where consumption stopped) and also underpins the spike triage in §5.4 (reproducing "the specific batch that caused this spike" depends on being able to precisely reconstruct the data consumed at that time).</p>
+<p><strong>Tokenizer interface contract</strong> (pointer only, not re-derived): the output interface from the corpus factory toward the tokenizer should be a small, frozen contract — a version-locked tokenizer artifact (with its hash), fixed BOS/EOS/PAD IDs, fixed normalization rules, byte-fallback behavior, and the bytes/token ratio needed for budget estimation. How the tokenizer itself is trained (BPE/WordPiece/Unigram) and SentencePiece framework details are covered in <code>tokenization_tutorial.md</code> §2–§5; this tutorial only consumes that contract without re-deriving it.</p>
+<h3 id="29-long-document-chunking--truncation">2.9　Long-Document Chunking / Truncation</h3>
+<p>A single document's raw length frequently exceeds the training context length (sometimes by a large multiple — a book or a large code repository can easily exceed a window of a few thousand to tens of thousands of tokens). Such documents need to be <strong>chunked</strong> before entering packing, with several decision points that must be made explicit:</p>
+<ul><li><strong>Whether to overlap</strong>: non-overlapping chunking is simplest but hard-cuts the context at each chunk boundary; overlapping chunking (e.g., keeping tens to hundreds of tokens of overlap between adjacent chunks) mitigates the loss of context at boundaries, at the cost of the same original text being shared across multiple chunks;</li><li><strong>Whether the overlap region double-counts loss</strong>: if two adjacent chunks share an overlapping span of tokens, you need to decide explicitly whether that content contributes target loss in only one of the chunks, or in both — counting it in both effectively "oversamples" that content, distorting its true weight within total $D$ (§1, and $B_{target}$ in §4.1); usually the loss for that span should be kept only in the chunk that sees the longer preceding context, and marked as pure context (no loss) in the other chunk;</li><li><strong>Whether to insert EOS at manual chunk boundaries</strong>: this is a semantic choice, not a standard answer — if you want each chunk treated as an independent sample (echoing the packing semantics of §3.4), the chunk boundary should insert an EOS/BOS boundary and assign a new doc-id, so that the downstream block-diagonal mask and boundary loss-mask rules can correctly recognize "this is actually two artificially split pieces of the same document"; if no boundary marker is inserted, multiple chunks get treated as "a continuous continuation of the same document";</li><li><strong>How position id / doc-id continue</strong>: if you choose "treat each chunk as an independent sample," each chunk should have its own doc-id (and whether to reset the position id follows the discussion in §3.4); if you choose "chunking is just a split, logically still a continuation of the same document," the doc-id should stay consistent across the chunks, and the position id should also be numbered continuously rather than restarting at 0 for each chunk — this choice must stay consistent with how "document" is defined at training vs. inference time, or you get inconsistencies like "treated as an independent sample during training but assumed to have continuous position at inference."</li></ul>
+<p>These decisions have no one-size-fits-all default, but they must be recorded explicitly in the lineage (§2.1): if a piece of training data has been chunked, its lineage should be traceable to "which chunk number of which original document it came from, whether it overlaps with an adjacent chunk, and whether the overlap region counts toward loss" — otherwise, after the fact, you cannot determine whether some observed issue (e.g., an anomalous loss weight for some span) was caused by the chunking strategy.</p>
+<h3 id="210-the-data-stream--sampler-layer">2.10　The Data-Stream / Sampler Layer</h3>
+<p>Once tokenized training shards are written to disk, the layer that actually reads these shards during training is a <strong>data-stream / sampler layer</strong> that is often skipped over in discussion, but whose state definitions §4 (gradient accumulation) and §5.2 (deterministic resume) repeatedly depend on:</p>
+<ul><li><strong>Shard shuffle</strong>: whether the read order of shard files is shuffled before each epoch (or each pass), and the random seed/state used for shuffling;</li><li><strong>Domain-sampling RNG</strong>: if the mixture is sampled dynamically during training (rather than mixed offline ahead of time at fixed ratios), you need a domain-selection random number generator independent of other sources of randomness (dropout, data shuffling), and its state must also be captured by checkpointing;</li><li><strong>With replacement / without replacement</strong>: whether documents/shards within a domain may be resampled — multi-epoch training, or a data volume insufficient to support compute-optimal $D$ (§1.5), usually requires sampling with replacement, and in that case the "repetition" itself must be recorded, since it directly affects the "nominal $D$ vs. effective data volume" accounting discussed in §2.7;</li><li><strong>DP-rank-disjoint sharding</strong>: the set of shards/samples read by each DP rank must be pairwise disjoint from every other rank's, or the same piece of data gets counted by multiple ranks simultaneously, equivalent to implicitly double-counting $D$ (§4.4 also mentions this constraint);</li><li><strong>Worker/prefetch state</strong>: multi-process/multi-thread dataloaders typically prefetch several batches ahead into a queue; the state of this queue itself (what has been prefetched, what has not yet been consumed) is also part of the training state — if resume only restores the cursor for "which sample number we've read up to" but doesn't correctly handle data already pulled out of the prefetch queue but not yet consumed, that data may get skipped or consumed twice;</li><li><strong>Cursor position</strong>: all of the randomness and ordering decisions above must ultimately converge onto a "cursor" that can be precisely saved and restored — usually "which byte/sample offset of which shard file" — and the precision of this cursor itself determines how precisely the "identical sample sequence" tier in §5.2 can be achieved.</li></ul>
+<p>This layer's state is often glossed over as a single phrase, "data iterator position," when discussing deterministic resume (§5.2), but in practice it comprises at least the five independent categories of state above — failing to save any one of them discounts the "identical sample sequence" guarantee of resume.</p>
+<h3 id="211-after-the-cluster-split-train-and-valtest-diverge">2.11　After the Cluster Split: Train and Val/Test Diverge</h3>
+<p>The cluster-level split in §2.5 only settles one thing — which dedup clusters belong to which split; once the split is done, train and val/test follow two completely different subsequent flows and cannot be vaguely handled by "reusing the same training mixture":</p>
+<ul><li><strong>Train</strong>: continues through the full flow of §2.7-§2.10 — mixture sampling (possibly dynamically adjusting domain weights, echoing the late-stage data reweighting of §5.1), shuffling, (if needed) resampling with replacement, and all the state of the data-stream/sampler layer;</li><li><strong>Val/test</strong>: must be <strong>version-frozen</strong> — once fixed, the same val/test set should keep its sample content, count, and scoring protocol unchanged for the entire training lifecycle (and even across multiple training runs when making fair comparisons); it should not be affected by a dynamically adjusted mixture the way train is, nor should it be "diluted" or "reweighted" by resampling — the per-domain reporting required in §5.3 needs a validation set that is independently comparable per domain, not a subset that follows the train mixture;</li><li>If val/test also needs to cover multiple domains, the sampling within each domain should be determined once and fixed at split time, rather than dynamically resampled every epoch/every run the way train is — otherwise validation loss across different checkpoints is no longer measured on the same yardstick.</li></ul>
+<p>Treating val/test as "a scaled-down version of the train mixture" and handling it in passing is the step in this pipeline most easily overlooked — and it directly contaminates the conclusions of the per-domain monitoring in §5.3 and the checkpoint selection in §5.5.</p>
+<h2 id="3-objective-to-tensor-how-a-token-stream-becomes-a-supervision-signal">§3 Objective-to-Tensor: How a Token Stream Becomes a Supervision Signal</h2>
+<h3 id="31-teacher-forcing--shifted-labels">3.1　Teacher Forcing + Shifted Labels</h3>
+<p>Standard next-token training uses teacher forcing: given a token sequence $x_1,\dots,x_T$, the <strong>label</strong> at position $i$ is $x_{i+1}$ (shifted right by one), the model outputs the predicted distribution $p(x_{i+1}\mid x_{\le i})$ at position $i$, and the loss is the NLL over all <strong>valid</strong> target positions (§3.5 gives the precise normalization formula). There is no next token at the end of the sequence, so the corresponding position's label is marked <code>IGNORE</code> (this tutorial follows PyTorch convention and uses the sentinel value $-100$).</p>
+<h3 id="32-causal-mask--eosbos-boundary-rules">3.2　Causal Mask + EOS/BOS Boundary Rules</h3>
+<p>The plain causal mask $M[q,k]=\mathbb{1}[k\le q]$ only guarantees "can't see the future." Around document boundaries there is one more supervision rule that is frequently implemented incorrectly:</p>
+<ul><li><strong>Keep</strong> the supervision "last content token of a document → EOS" — this is the direct signal that teaches the model when to stop;</li><li><strong>Mask (per configuration)</strong> the supervision "EOS of the previous document → first token (or BOS) of the next document" — the "label" at this position is merely an artifact of concatenation, not any meaningful generative continuation.</li></ul>
+<p>Both rules can be produced automatically by <strong>the same</strong> document-boundary-based rule: treat EOS as the last token belonging to its own document (sharing the same id as the rest of that document in the doc-id array), and construct labels using the single rule "a label is valid iff the current position and the next position belong to the same document" — the last content token to EOS naturally belongs to the same document (the rule marks it valid), and EOS to the next document's first token naturally crosses documents (the rule marks it invalid). No special-cased logic for EOS is needed; [D04] in §6 demonstrates this.</p>
+<p>One more pointer: when assembling a chat template, if you use both the template's own built-in BOS and the tokenizer's <code>add_special_tokens</code>, you can easily insert BOS twice — this is a tokenizer/inference-side correctness issue; details are in <code>tokenization_tutorial.md</code> §5.5. This section only flags that it pollutes the supervision signal, without re-deriving it.</p>
+<h3 id="33-padding-the-loss-mask-is-mandatory-whether-the-key-mask-is-needed-depends-on-the-layout">3.3　Padding: the Loss Mask Is Mandatory; Whether the Key Mask Is Needed Depends on the Layout</h3>
+<p>Padding needs to address two different things:</p>
+<ol><li><strong>Key padding mask</strong>: prevents query positions from attending to padding keys;</li><li><strong>Loss mask</strong>: excludes positions whose target is padding from the loss (otherwise gradients get computed against meaningless filler targets).</li></ol>
+<p><strong>The loss mask is non-negotiable</strong> — without it, the loss will inevitably be polluted by padding targets. <strong>Whether the key mask is required depends on the sequence layout</strong>: in the common special case of <strong>strict causal + right-side padding</strong>, real queries are naturally positioned before where padding starts, and the causal mask ($k\le q$) already blocks these future padding keys by itself — the key mask is redundant for real queries here, and omitting it does not change real tokens' outputs. But under <strong>left padding, holes within the sequence, or any layout other than "pure causal + right padding,"</strong> the causal condition alone is insufficient to exclude padding keys, and real queries can very well read meaningless content — in that case the key mask cannot be omitted. <strong>A general-purpose implementation should construct both</strong> — omitting the key mask can only be argued for once you've confirmed you are strictly in the right-padding + causal special case and are willing to maintain that implicit assumption long-term; this special case must not be treated as a license to skip the general handling unconditionally.</p>
+<div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>The classic accident when PAD shares the same token ID as EOS</strong> Many tokenizers have no dedicated PAD token and simply set <code>pad_id</code> to <code>eos_id</code> itself — this is <strong>not necessarily wrong</strong>. The real accident happens when downstream code indiscriminately constructs a mask via <code>input_ids == pad_id</code>: this masks out <strong>every real EOS position</strong> in the corpus along with actual padding, systematically removing the training signal for "where a document should end," and significantly weakening the model's ability to stop (especially fatal when training from scratch). The correct approach is to construct the mask from <strong>actual padding positions</strong> (each sequence's valid length <code>valid_len</code>, or an explicit padding flag carried alongside the batch), never by testing "equal to some token ID." [D05] in §6 turns this mask construction into an executable assertion.</p></div>
+<h3 id="34-document-packing-cross-document-attention-is-not-a-bug">3.4　Document Packing: Cross-Document Attention Is Not a Bug</h3>
+<p>Concatenating multiple documents into the same training sequence (packing) is a common way to improve effective batch utilization. Core facts:</p>
+<ul><li>A plain causal mask only prevents "reading the future"; it <strong>does not automatically prevent a later document from reading an earlier document's historical tokens</strong> — this is not an implementation flaw; many systems deliberately treat the packed token stream as one continuous <strong>EOS-delimited stream</strong> and use a plain causal mask (as noted in §2.6, this is a sequence-semantics choice, not data leakage);</li><li>If the semantics require "every document is an independent sample," you need a <strong>block-diagonal causal mask</strong>:</li></ul>
+<p>$$M[q,k] = (k\le q)\ \wedge\ (\text{docid}[q]=\text{docid}[k])$$</p>
+<p>Whether to reset the position ID within each document depends on the positional encoding scheme and the training semantics — it is not an unconditional hard requirement: under <strong>absolute positional embeddings</strong>, not resetting causes later documents to start from a huge position number that doesn't belong to them, so resetting is usually appropriate; <strong>standard RoPE</strong> depends only on the relative position difference between query and key, and once the block-diagonal mask has already confined each document's attention to within that document, adding the same overall offset to all positions within one document does not, under idealized math, change the relative phase within the document — it will not pollute the document's internal attention computation merely for "not starting numbering from 0." Still, some RoPE length-extrapolation/scaling variants, numerical behavior at finite precision, and the engineering desire for every document to strictly start training at position 0 (e.g., to align with the position distribution at inference) lead most implementations to reset anyway;</p>
+<ul><li><strong>Blocking attention does not automatically mask cross-document prediction labels</strong> — this is the most common bug in packing implementations: a team adds a block-diagonal mask and assumes "documents are now fully independent," but if the labels aren't handled separately, document A's last position still defaults to being required to predict document B's first token (an unambiguous cross-document target) unless it is separately excluded with the boundary loss mask from §3.2.</li></ul>
+<p><strong>Numerical example</strong> (tokens = <code>[11,12,13,21,22]</code>, doc IDs = <code>[0,0,0,1,1]</code>): under independent-document semantics, the shifted labels are <code>[12,13,IGNORE,22,IGNORE]</code>; the block mask asserts <code>M[3,2]=False</code> (position 3 belongs to document 1, position 2 to document 0, so it's blocked for crossing documents even though $k\le q$), <code>M[4,0]=False</code>, <code>M[4,3]=True</code>; under continuous-stream semantics the same position <code>M[3,2]=True</code> — this is a legitimate configuration choice, not an implementation failure.</p>
+<div class="callout callout-good"><div class="callout-title">OK</div><p><strong>A stronger functional test than "just checking mask shape"</strong> Construct $QK^\top=0$ (softmax degenerates to uniformly distributing attention over the allowed keys), set document 0's three positions' values to <code>[100,100,100]</code>, and document 1's two positions' values to <code>[0,0]</code>. Under a plain causal mask, position 3's output (document 1's first token) is the mean over allowed keys <code>[0,1,2,3]</code> $= (100+100+100+0)/4=75$; under the block mask, only key <code>3</code> itself is available, so the output $=0$. Now change document 0's values from 100 to 1000: <strong>under block mode, document 1's output stays completely unchanged (still 0)</strong> — this is exactly the property "document independence" should have; under continuous-stream mode the same output changes from 75 to 750, because it was never decoupled from document 0. Merely checking the mask's shape or whether each row normalizes to 1 will not catch this kind of bug, where the boundary logic is wrong but the shape still "looks right"; this "change a value, recompute, and check whether the other document doesn't budge" test is the assertion that actually locks down independence. [D03] in §6 is the executable version of this test.</p></div>
+<h3 id="35-loss-normalization-sum-divided-by-count-not-the-mean-of-means">3.5　Loss Normalization: Sum Divided by Count, Not the Mean of Means</h3>
+<p>The correct training loss is</p>
+<p>$$\mathcal{L} = \frac{\sum_i \mathrm{NLL}_i}{\#\{\text{valid target tokens}\}}$$</p>
+<p>Sum the NLL over all valid target tokens in the <strong>global batch</strong>, and divide by the total count of valid tokens. A common but subtle bug: first computing "the mean loss within this micro-batch" separately for each micro-batch, then averaging those means (e.g., across the multiple micro-batches of gradient accumulation, or across multiple DP ranks). When micro-batches have different numbers of valid tokens (different padding ratios, different packing efficiency, or an ongoing short-to-long context-length transition), this "mean of means" implicitly overweights micro-batches with fewer tokens and underweights those with more, deviating from a loss that is genuinely weighted per token. A correct implementation must separately accumulate the two quantities "sum of NLL" and "total count of valid tokens" across the entire gradient accumulation window (and even across DP-rank communication), and only divide once at the very end.</p>
+<p>If the model is MoE, the total loss usually also needs a router auxiliary loss term added per configuration (router aux loss, typically much smaller in magnitude than the main loss) — the specific mechanism here is out of scope for this tutorial; see <code>moe_tutorial.md</code>.</p>
+<h3 id="36-exact-pplbpb-formulas">3.6　Exact PPL/BPB Formulas</h3>
+<p>$$\mathrm{PPL} = \exp\left(\frac{\sum_i \mathrm{NLL}_i}{\#\text{valid target tokens}}\right),\qquad \mathrm{BPB} = \frac{\sum_i \mathrm{NLL}_i}{\#\text{bytes}\cdot\ln 2}$$</p>
+<p>PPL is only suitable for direct comparison when tokenizer, normalization, and eval text are all fully consistent — the denominator (token count) itself depends on the tokenizer, so even with the same total NLL, a tokenizer that splits more finely will pull loss/token lower. BPB replaces the denominator with the UTF-8 byte count of the same text, making it more robust to tokenizer differences, but it is still affected by whether encoding/preprocessing is consistent. The full derivation and a numerical example of "loss/token differs by 2x while BPB is the same" are in <code>tokenization_tutorial.md</code> §1.3 and §7 [D07]; this section does not repeat them, and only emphasizes the exact form of these two formulas.</p>
+<h2 id="4-update-accounting-what-exactly-is-the-global-batch">§4 Update Accounting: What Exactly Is the Global Batch</h2>
+<h3 id="41-micro-batch--dp--gradient-accumulation-the-global-batch-formula-and-three-different-token-counting-conventions">4.1　Micro-batch / DP / Gradient Accumulation: the Global Batch Formula, and Three Different Token-Counting Conventions</h3>
+<p>Let's pin down notation first: $B_{micro,seq}$ is the number of sequences per micro-batch <strong>per DP replica</strong> (not "per GPU" — when TP/PP &gt; 1, a single DP replica itself spans multiple GPUs, so "per GPU" and "per DP replica" are not the same thing), $L_{seq}$ is the sequence length, $G_{acc}$ is the number of gradient accumulation steps, and $W_{DP}$ is the data-parallel world size.</p>
+<p><strong>Number of tokens fed into the model</strong> (processed token slots, regardless of whether they participate in the loss):</p>
+<p>$$B_{input} = B_{micro,seq}\times L_{seq}\times G_{acc}\times W_{DP}$$</p>
+<p><strong>Only $W_{DP}$ directly scales the number of independent samples</strong> — tensor parallelism (TP) and pipeline parallelism (PP) split the computation for <strong>the same</strong> sample (splitting a matmul's dimensions, or splitting layers across a pipeline), and must not be double-counted into the independent-sample count; multiplying TP/PP world size into $B_{input}$ is the most common source of global-batch miscalculation. (The communication primitives and splitting mechanisms of TP/PP/CP/ZeRO/FSDP are out of scope here; see <code>distributed_training_tutorial.md</code>.)</p>
+<p><strong>Number of valid targets that actually participate in the loss</strong>:</p>
+<p>$$B_{target} = \sum_i m_i$$</p>
+<p>where $m_i$ is the valid-target mask count for the $i$-th sequence (the sum of the loss mask from §3.5). $B_{input}$ and $B_{target}$ are generally not equal, even with <strong>absolutely no padding</strong>: under teacher-forcing shifted labels, the last position of every length-$L_{seq}$ sequence has no next token and is marked <code>IGNORE</code> (§3.1), so with no padding and no document-boundary masking, the number of valid targets per sequence is $L_{seq}-1$, not $L_{seq}$; layering on padding (§3.3) or packing's document-boundary loss mask (§3.2, §3.4) further shrinks $B_{target}$ below $B_{input}$.</p>
+<p><strong>Which quantity each of the three accounting conventions corresponds to — do not mix them up</strong>:</p>
+<ul><li><strong>Processed token slots</strong> (i.e., $B_{input}$, "how many token positions were passed through") — this is usually the convention used to advance the consumed-token counter in §5.1 and when "aligning the scheduler by token";</li><li><strong>Non-padding input tokens</strong> ($B_{input}$ minus padding positions) — this convention is used to estimate actual effective GPU throughput and evaluate packing/padding efficiency;</li><li><strong>Valid target tokens</strong> (i.e., $B_{target}$) — this is the denominator for §3.5's loss normalization, and the $D$ in the §1 scaling law (the number of tokens presented to the model and participating in supervision during training) should track this convention more closely than the blanket $B_{input}$ whenever there is padding/document-boundary masking.</li></ul>
+<p>Once these three get mixed up, the question "how many tokens did this training run feed in total" ends up with several mutually inconsistent numbers appearing in reports.</p>
+<h3 id="42-conditions-for-gradient-accumulation-to-be-strictly-equivalent-to-one-big-batch">4.2　Conditions for Gradient Accumulation to Be Strictly Equivalent to "One Big Batch"</h3>
+<p>For gradient accumulation to be <strong>strictly equivalent</strong> to directly running one big batch, all of the following must hold simultaneously:</p>
+<ol><li><strong>Identical samples</strong> — the data consumed within the accumulation window must exactly match what the big batch would consume in one shot; sharding differences must not cause missed or duplicated samples;</li><li><strong>Normalization over all valid tokens</strong> (§3.5) — not the mean of each micro-batch's mean;</li><li><strong>Only one optimizer step executed</strong> — gradients are only summed/averaged within the accumulation window, and the weight update happens exactly once, at the end of the window;</li><li><strong>Correct handling of randomness and state</strong> — gradient clipping must act on the <strong>final gradient</strong> after accumulation completes (not applied separately to each micro-batch's local gradient); dropout and other sources of randomness, as well as any running statistics computed across samples, must behave as though computed in one shot on the full big batch;</li><li><strong>Matching the communication library's reduction semantics</strong> — frameworks like DDP/FSDP by default <strong>average</strong> gradients across ranks rather than summing them; if local code has already computed a normalized loss as "sum of NLL / this rank's valid-token count," the default "averaging" during all-reduce implicitly divides by world size one more time — this must be explicitly changed to sum-reduce, or conversely the local normalization must premultiply by $W_{DP}$ to compensate; the two must be matched, or equivalence breaks at this very step.</li></ol>
+<p>The points above guarantee <strong>mathematical equivalence</strong> — under exact real-number arithmetic, the gradient obtained via accumulation is the same quantity as the gradient computed from a one-shot big batch; it does <strong>not</strong> guarantee <strong>bitwise-identical floating-point values</strong> — the order of summation, the reduction-tree structure of all-reduce, and so on will still introduce differences in the last few significant digits (this distinction is consistent with the three-tier strength framework for deterministic resume in §5.2).</p>
+<h3 id="43-numerical-precision-operational-constraints-not-a-numeric-format-primer">4.3　Numerical Precision: Operational Constraints, Not a Numeric-Format Primer</h3>
+<p>BF16 has the same exponent width as FP32 (similar dynamic range), and in pretraining is generally less prone to overflow than FP16; FP16 has a narrower dynamic range and relies more on loss scaling to prevent small gradients from underflowing to zero. This section only gives the operational constraints relevant to triaging spikes/NaN in §5.4, without expanding on the derivation of floating-point formats themselves.</p>
+<h3 id="44-sibling-boundaries-strictly-enforced">4.4　Sibling Boundaries (Strictly Enforced)</h3>
+<ul><li><strong>optimizer_lr_schedule_tutorial.md</strong> owns the derivation of the AdamW update formula and the warmup/cosine/WSD scheduling math. This tutorial only cares about: why optimizer state (Adam's $m,v$) must be saved together with the checkpoint for correct resume (§5.2), whether the schedule advances by step or by token count, how the schedule/LR configuration must be co-adjusted when batch size changes, and what role each of the warmup/stable/cooldown phases plays across the whole lifecycle (§5.1) — the concrete formulas are always pointed to that tutorial.</li><li><strong>distributed_training_tutorial.md</strong> owns the communication primitives and splitting mechanisms of ZeRO/FSDP/TP/PP/CP. This tutorial only cares about: the global-batch accounting in §4.1, and that the data consumed by each DP rank must not overlap with any other's (or $D$ gets double-counted). <strong>Exactly how a checkpoint gets re-sharded when world size changes, and whether the resulting training trajectory can be guaranteed to match the trajectory at unchanged world size, is a question neither this tutorial nor that sibling gives a systematic answer to</strong> — this document only states, in §5.2, the weaker qualitative conclusion that "a world-size change usually cannot guarantee a bitwise-identical trajectory"; the derivation of the specific communication/splitting mechanism is always pointed to that tutorial, but readers should not assume it has already systematically covered this specific question of "determinism guarantees after re-sharding."</li></ul>
+<h2 id="5-lifecycle-from-warmup-to-deterministic-resume">§5 Lifecycle: from Warmup to Deterministic Resume</h2>
+<h3 id="51-warmupstabledecaycooldown--data-stage-changes">5.1　Warmup/Stable/Decay/Cooldown + Data-Stage Changes</h3>
+<p>The lifecycle divides roughly into several phases along the LR schedule (this only discusses each phase's <strong>role</strong> — the concrete math is in <code>optimizer_lr_schedule_tutorial.md</code>): warmup suppresses early-training instability; stable/plateau occupies the bulk of training; <strong>decay/cooldown is an LR-side concept</strong> — the learning rate decreases per schedule down to a very small value, with the formula and schedule shape pointed to <code>optimizer_lr_schedule_tutorial.md</code>. <strong>Data annealing/late-stage reweighting is an independent, data-side concept</strong> — many modern training recipes increase the weight of high-quality/curated data within the mixture toward the end of training (this practice is described in public training reports such as Llama 3's — see references). These two things <strong>often happen simultaneously during the same late stage of training</strong>, but they are controlled by two independent mechanisms — the LR schedule and the data-mixture configuration — respectively, and "LR is decaying" and "data is being reweighted" should not be treated as two ways of saying the same thing: a training recipe can perfectly well do LR decay without adjusting data weights, and vice versa.</p>
+<p>Another lifecycle axis is the <strong>context-length curriculum</strong>: most of the training budget uses shorter sequences, switching to long context later. This changes $L_{seq}$, meaning both the global-batch accounting in §4.1 and the consumed-token counter must be recomputed consistently at the switch point, rather than silently carrying over the pre-switch assumptions.</p>
+<h3 id="52-deterministic-resume-must-be-split-into-three-different-strength-tiers">5.2　"Deterministic Resume" Must Be Split into Three Different Strength Tiers</h3>
+<p>The phrase "the training trajectory after resume is exactly the same as if it had never been interrupted" is itself ambiguous — different engineering goals need very different necessary conditions, and it's best split into three increasingly strong tiers discussed separately:</p>
+<ol><li><strong>Trainable to continue</strong> (weakest): the model can restore weights and optimizer state from a checkpoint and continue lowering the loss, without requiring the data order or numerical values to match exactly. Only model weights, optimizer state, and the LR schedule/consumed-token count are needed.</li><li><strong>Identical sample sequence</strong>: after restart, the order of data the model sees (which sample at which step) exactly matches the uninterrupted run, without requiring bitwise-identical numerics. Beyond tier 1's content, you must also have: RNG state (generators across Python/framework/CUDA, etc.), data iterator position, shuffle epoch, sampler state, and the state of the data-loading worker/prefetch queue (§2.10 — otherwise the multi-worker prefetch order is itself a source of nondeterminism); multi-rank training also needs each rank's checkpoint metadata.</li><li><strong>Numerically/bitwise identical trajectory</strong> (strongest, usually not fully achievable): on top of tier 2, you additionally need the AMP loss-scaler's state (otherwise resume starts from a different dynamic loss-scale value, and the gradient-scaling path diverges in the first few steps), any gradient still "in flight" within an incomplete gradient-accumulation window (pending gradients — avoidable if checkpoints are only taken at accumulation boundaries), deterministic kernels (non-deterministic operators like cuDNN/cuBLAS must be explicitly disabled), and an identical software version and communication topology (different GPU counts or different collective-communication implementations reduce floating-point sums in different orders, accumulating ULP-level differences). <strong>When world size changes</strong>, no matter how carefully the re-sharding semantics are written, it usually still cannot guarantee a bitwise-identical trajectory relative to unchanged world size — the data-splitting scheme and the gradient-reduction tree structure both change.</li></ol>
+<p>Missing the state required by any tier downgrades the guarantee to a weaker tier: missing the data iterator position immediately invalidates tier 2 (after restart, either already-trained data gets consumed again, or a segment gets skipped); missing RNG state means dropout/data shuffling diverges from the original trajectory immediately; missing the AMP scaler/pending gradients/deterministic-kernel settings means tier 3 is unreachable even if the first two tiers are satisfied. Details of how re-sharding works when world size changes are pointed to <code>distributed_training_tutorial.md</code> (that sibling currently does not systematically cover the stronger guarantee of "still bitwise-reproducible after re-sharding" — it only covers the mechanism of sharding itself, §4.4).</p>
+<h3 id="53-monitoring-per-domain-validation-loss">5.3　Monitoring: Per-Domain Validation Loss</h3>
+<p>Validation loss should be reported <strong>per domain</strong> (code/math/low-resource languages/long context, etc.) separately, not just as one aggregate loss — the aggregate loss is easily dominated by the domain with the highest token weight (e.g., if web text is 80% of the mixture, the aggregate loss curve basically only reflects web-text quality), which can mask a lower-weight but strategically important capability (code correctness, math reasoning, some low-resource language, long-context retrieval) degrading — by the time it's noticed, it's often already deeply entrenched.</p>
+<h3 id="54-loss-spike--nan-layered-triage">5.4　Loss Spike / NaN: Layered Triage</h3>
+<p>The recommended triage order (not a one-shot guess, but working down a hierarchy of "cheapest to check first"):</p>
+<ol><li><strong>Bad batch / data shard</strong> — first check whether this spike can be reproduced in isolation on the same batch/shard (this depends on the deterministic sharding of §2.8, the sampler/cursor state of §2.10, and lineage — without them you can't even pin down "which batch it was");</li><li><strong>LR and resume state</strong> — a misconfigured LR schedule, or an LR-schedule counter accidentally reset after a resume, can both produce an anomalous update whose actual step count doesn't match expectations;</li><li><strong>Gradients and activations</strong> — anomalous gradient norms, exploding activation norms, a layer's logit magnitude going out of control — why these quantities go out of control, and how norm/residual/initialization mechanistically suppress this kind of blowup, is pointed to <code>normalization_init_tutorial.md</code> (that sibling covers <strong>the stability mechanisms themselves</strong>, not a ready-made monitoring-threshold/diagnostic-metric operations manual; what thresholds to use to trigger alerts in your own training still needs to be calibrated by you). This section only lists these quantities as things to check, without re-deriving the formulas;</li><li><strong>Mixed precision</strong> — BF16/FP16 overflow/underflow (§4.3);</li><li><strong>Cross-rank anomalies</strong> — some DP/TP/PP rank silently diverging (e.g., a hardware issue on one card) while the rest of the ranks appear normal on the surface — this is only visible if per-rank loss/gradient statistics are recorded separately;</li><li><strong>Hardware failure</strong> — ECC errors, single-card failure, collective-communication jitter.</li></ol>
+<p>Keeping reproducible batch IDs / step numbers / shard assignments (§2.8, §2.10) is what allows after-the-fact replay-based triage, rather than guessing from memory. [D07] in §6 is the automated first line of defense — a detector based on rolling median/MAD, whose job is to flag "when this triage should begin," not to determine the root cause.</p>
+<h3 id="55-checkpoint-selection">5.5　Checkpoint Selection</h3>
+<p>Checkpoint selection for downstream deployment should be based on the per-domain validation sets / dedicated evaluation-set combination from §5.3, not just training loss — under a fixed data mixture, training loss mainly reflects fitting progress, and does not directly correspond to generalization ability or the specific capability profile you actually care about.</p>
+<h3 id="56-sibling-boundaries">5.6　Sibling Boundaries</h3>
+<ul><li><strong>normalization_init_tutorial.md</strong> owns the complete formula derivations for norm/residual/initialization and the <strong>stability mechanisms</strong> themselves; this tutorial only references the <strong>names of the diagnostic quantities</strong> — activation norm / gradient norm / logit magnitude / residual instability — in NaN diagnosis (§5.4), without re-deriving them. That sibling explains "why these mechanisms make training more stable," not a monitoring-metrics manual you can copy directly; specific monitoring thresholds still need to be engineered on your own.</li><li><strong>moe_tutorial.md</strong> owns the complete mechanism derivation for routing and load-balancing; this tutorial only cares about the router aux loss term that may appear in the total loss (§3.5), and the two bookkeeping rules of using active parameters for compute budget and total parameters for storage/memory (§1.2) — the routing mechanism is always pointed to that tutorial.</li></ul>
+<h2 id="6-from-scratch-implementation-corpus--packing--key-invariant-sanity-checks-not-a-complete-training-loop">§6 From-Scratch Implementation: Corpus → Packing → Key-Invariant Sanity Checks (Not a Complete Training Loop)</h2>
+<p>See <a href="code/pretraining_pipeline.py"><code>code/pretraining_pipeline.py</code></a> for the complete runnable script (pure Python standard library, zero third-party dependencies, runs all of [D01]–[D07] sanity checks in seconds on CPU). Four demo groups are chained into a mini pipeline: text → dedup → pack + loss mask → synthetic budget planner → spike monitor — this covers a handful of the <strong>key invariants</strong> most prone to being implemented wrong and most worth backstopping with executable assertions; it is not an end-to-end runnable training loop: the script contains no real forward/backward/optimizer step, and no real checkpoint writing and resume (that conceptual state machine is in the §0 overview and the three-tier strength framework of §5.2). The main text only shows the three most essential code blocks; the full functional test for document packing, the EOS boundary (§3.2), and padding (§3.3) are folded into the same script as short test functions and are not pasted line by line here.</p>
+<p><strong>[D01] MinHash / LSH / cluster-split transitive closure</strong> (the executable version of §2.3 and §2.5):</p>
+<pre><code class="language-python">doc_a = set(range(1, 11))                 # {1,...,10}
+doc_b = set(range(1, 9)) | {11, 12}        # {1,...,8,11,12}
+j_exact = exact_jaccard(doc_a, doc_b)
+assert abs(j_exact - 2 / 3) &lt; 1e-12        # |A∩B|=8, |A∪B|=12 -&gt; 8/12
+
+sig_a = minhash_signature(doc_a, num_perm=1024, seed=12345)
+sig_b = minhash_signature(doc_b, num_perm=1024, seed=12345)
+j_est = minhash_estimate(sig_a, sig_b)     # MinHash ESTIMATE, not exact
+tol = 6 * math.sqrt((2 / 3) * (1 / 3) / 1024)   # principled sampling tolerance
+assert abs(j_est - 2 / 3) &lt; tol             # close, not asserted exactly equal
+
+p_high = lsh_candidate_probability(2 / 3, b=128, r=8)   # P = 1-(1-s^r)^b
+p_low = lsh_candidate_probability(0.05, b=128, r=8)
+assert p_high &gt; 0.9 and p_low &lt; 0.1         # high-similarity candidates recalled far more often
+
+uf = UnionFind(4)               # docs: 0=A, 1=B, 2=C, 3=D(unrelated)
+uf.union(0, 1); uf.union(1, 2)  # A~B found, B~C found (A,C never directly compared)
+assert uf.find(0) == uf.find(2) # transitive closure still merges them into one cluster
+# -&gt; every doc in this cluster MUST receive the same train/val/test split label</code></pre>
+<p><strong>[D02]/[D03] document packing: shifted labels + block-diagonal mask + functional test</strong> (the executable version of §3.4 — the most essential and most error-prone segment in the whole codebase):</p>
+<pre><code class="language-python">tokens = [11, 12, 13, 21, 22]
+doc_ids = [0, 0, 0, 1, 1]
+
+labels_indep = shifted_labels_independent_docs(tokens, doc_ids)
+assert labels_indep == [12, 13, IGNORE, 22, IGNORE]      # doc boundary at index 2 masked
+labels_cont = shifted_labels_continuous(tokens)
+assert labels_cont == [12, 13, 21, 22, IGNORE]           # continuous stream: no boundary masking
+
+m_block = block_diagonal_causal_mask(doc_ids)
+m_cont = continuous_causal_mask(len(tokens))
+assert m_block[3][2] is False and m_block[4][0] is False and m_block[4][3] is True
+assert m_cont[3][2] is True          # SAME (q,k); continuous mode allows it -- a config choice
+
+values = [100, 100, 100, 0, 0]       # doc0=100s, doc1=0s
+assert masked_uniform_attention_output(m_cont[3], values) == 75.0    # (100+100+100+0)/4
+assert masked_uniform_attention_output(m_block[3], values) == 0.0    # only key=3 allowed
+
+values2 = [1000, 1000, 1000, 0, 0]   # bump doc0&#x27;s values 10x
+assert masked_uniform_attention_output(m_block[3], values2) == 0.0   # doc1&#x27;s output: UNCHANGED
+assert masked_uniform_attention_output(m_cont[3], values2) == 750.0  # continuous: DOES change</code></pre>
+<p><strong>[D06] synthetic Chinchilla curve fitting</strong> (the executable version of §1.3; <strong>this is a fitting unit test, not a validation of the empirical law</strong>):</p>
+<pre><code class="language-python">alpha, beta, k_flops = 0.34, 0.28, 6            # exponents straight from §1.3&#x27;s CORRECTIONS
+e_true, a_true, b_true = 1.5, 400.0, 400.0      # SYNTHETIC ground truth, not the paper&#x27;s fitted values
+points = [(n, d, loss_surface(n, d, e_true, a_true, b_true, alpha, beta))
+          for n in logspace(1e7, 1e12, 6) for d in logspace(1e8, 1e13, 6)]
+
+e_hat, a_hat, b_hat = fit_e_a_b(points, alpha, beta)    # linear least squares (alpha,beta fixed)
+assert abs(e_hat - e_true) &lt; 1e-6 and abs(a_hat - a_true) &lt; 1e-3 and abs(b_hat - b_true) &lt; 1e-3
+assert e_hat &lt; min(loss for _, _, loss in points)       # irreducible loss floor
+assert a_hat &gt; 0 and b_hat &gt; 0
+
+c_budget = 6e21
+n_star, d_star = analytic_optimum(c_budget, k_flops, alpha, beta, a_true, b_true)
+n_star_100x, d_star_100x = analytic_optimum(100 * c_budget, k_flops, alpha, beta, a_true, b_true)
+assert abs(n_star_100x / n_star - 100 ** (beta / (alpha + beta))) &lt; 1e-6   # ~8.0x
+assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) &lt; 1e-6  # ~12.5x</code></pre>
+<p>[D04] (EOS boundary, reusing [D02]'s same doc-id rule), [D05] (padding's dual mask + no-empty-row check), and [D07] (rolling median/MAD spike detection + unconditional NaN/Inf alerting + spike/sustained-shift event classification) are folded into <code>main()</code> as independent groups of assertions; their logic is already covered clearly in §3.2, §3.3, and §5.4 respectively, so the code is not repeated here.</p>
+<h2 id="7-26-high-frequency-interview-questions">§7 26 High-Frequency Interview Questions</h2>
+<p>Split into three difficulty tiers; expand to see the answer's key points + common pitfalls. When answering, <strong>don't re-derive the main text</strong> — organize by "framework → key formula → common mistakes."</p>
+<h3 id="l1-must-know-questions">L1 Must-Know Questions</h3>
+<details>
+
+<summary>Q1. What are $N$, $D$, $C$? Where does the "6" in $C\approx 6ND$ come from, and why is it only an approximation?</summary>
+<ul><li>$N$ = the compute-bearing parameter count per token in the main matmuls (MoE uses active; embedding lookups are usually excluded — see §1.1); $D$ = the number of tokens presented to the model during training; $C$ = approximate training FLOPs</li><li>One multiply-add counts as 2 FLOPs (one multiply, one add): the forward pass runs each token through the main matmuls, totaling about $2N$/token, or $2ND$ for $D$ tokens; the backward pass computes both activation gradients and weight gradients, roughly twice the forward cost, i.e., $4ND$; forward + backward $\approx 6ND$ — this is itself a counting convention (some tools count a multiply-add as 1 FLOP), not a physical constant</li><li>It ignores the $L_{seq}^2$ term from long-context attention (total cost scales approximately with $D\times L_{seq}$ at fixed $D$), vocabulary projection, norm/softmax, activation recomputation, and differing FLOP-counting conventions; it is not an exact formula and cannot be directly converted into wall-clock time — a rough GPU-day estimate additionally needs GPU count, peak FLOPs, and MFU: $t\approx C/(n_{GPU}\times\text{peak FLOPs}\times MFU)$, and communication overhead, recomputation, and data stalls mean this remains an estimate, not an exact prediction (§1.1)</li></ul>
+<p>Treating $6ND$ as an exact formula, indiscriminately folding embedding parameters into $N$, or dividing $C$ by peak FLOPs directly as training time (ignoring MFU) are the three most common ways to lose points on this question.</p>
+</details>
+<details>
+
+<summary>Q2. How are inputs and labels shifted relative to each other in a causal LM? Why is the loss of a randomly initialized model usually close to $\ln V$?</summary>
+<ul><li>Under teacher forcing, the label at position $i$ is $x_{i+1}$ (shifted right by one); the last position of the sequence has no next token and is marked <code>IGNORE</code> ($-100$ in this tutorial, §3.1)</li><li>In packing/document-boundary settings, the rule "a label is valid iff the current position and the next position belong to the same document" uniformly handles both sources of IGNORE — sequence-end and document boundary (§3.2)</li><li>A randomly initialized model assigns approximately uniform probability to the next token, so the NLL at each valid position is approximately $\ln V$ ($V$ is vocabulary size) — the loss observed at the very start of training should be close to this value; a noticeable deviation (much higher, or an anomalously low value) usually points to a problem with initialization, label alignment, or the data itself</li></ul>
+<p>Assuming "IGNORE only occurs at the end of a batch," missing that document boundaries also produce IGNORE, or being unable to explain where the $\ln V$ initial-loss magnitude comes from, are the common incomplete answers to this question.</p>
+</details>
+<details>
+
+<summary>Q3. What's the difference in dynamic range between BF16 and FP16? When is loss scaling needed?</summary>
+<ul><li>BF16 has the same exponent width as FP32, so its dynamic range is similar and it's generally less prone to overflow than FP16 in pretraining; the cost is fewer mantissa bits, so the relative precision of a single value is lower than FP16's</li><li>FP16's exponent width is narrower than BF16/FP32's, so its dynamic range is smaller — small gradients easily underflow to zero in FP16, and large values also overflow to Inf more easily</li><li><strong>Loss scaling</strong> (multiplying the loss by a large factor before backprop, then unscaling the gradients by the same factor before clipping or the optimizer step) is the standard practice in FP16 training used to "lift" small gradients into FP16's representable range; since BF16's dynamic range is already close to FP32's, this kind of loss scaling is usually unnecessary (§4.3)</li><li>This is also one of the things checked under the "mixed precision" layer when triaging loss spikes/NaN in §5.4 — the scaler's state itself is also part of the state that deterministic resume in §5.2 needs to consider</li></ul>
+<p>Equating "mixed-precision training" with "both BF16 and FP16 need loss scaling," without being able to explain the different engineering needs that follow from their different dynamic ranges, is the common wrong answer to this question.</p>
+</details>
+<details>
+
+<summary>Q4. If the number of training tokens exceeds the Chinchilla-recommended ratio, is that overfitting?</summary>
+<ul><li>Not necessarily. "Exceeding the Chinchilla-recommended ratio" alone cannot by itself be judged as overfitting — if the additional data being fed is <strong>new, non-duplicated, same- or related-distribution</strong> data, a fixed model size can typically still lower the loss, which does not satisfy the overfitting definition of "training loss drops while validation loss rises"</li><li>What actually happens: as $D$ keeps growing, the resulting compute $C=kND$ itself grows too; under this larger $C$, the configuration has a smaller $N$ and larger $D$ relative to the compute-optimal frontier point for its own resulting compute — this is called "over-trained," an economic judgment relative to the compute-optimal frontier, not an error in training (§1.4)</li><li>Deliberately over-training a small model is done to reduce deployment-side memory/latency/inference cost — training-compute-optimal $\ne$ lifecycle-cost-optimal</li></ul>
+<p>Conflating "over-trained" (an economic concept relative to budget) with "overfitting" (a generalization failure), or asserting "definitely not overfitting" while ignoring the "new data/non-duplicated" precondition, is the number-one way to lose points on this question.</p>
+</details>
+<details>
+
+<summary>Q5. What is document packing? Why doesn't a plain causal mask automatically isolate documents?</summary>
+<ul><li>Packing: concatenating multiple documents into one training sequence to improve utilization</li><li>The causal mask only guarantees "can't see the future" — it doesn't check whether tokens belong to the same document; a later document can by default read an earlier document's historical tokens. This is the continuous EOS-delimited stream semantics that <strong>many systems deliberately adopt</strong>, not a bug</li><li>If "document independence" is required, you need a block-diagonal mask $M[q,k]=(k\le q)\wedge(\text{docid}[q]=\text{docid}[k])$ (§3.4)</li></ul>
+<p>Directly judging "being able to attend cross-document" as an implementation error, without being able to explain that this is a legitimate semantic choice, is the pitfall here.</p>
+</details>
+<details>
+
+<summary>Q6. What's the difference between the attention mask and the loss mask? When are both required, and when might one be redundant?</summary>
+<ul><li>The attention mask (key padding / block-diagonal) controls "who can see whom" and operates within the attention computation; the loss mask controls "which positions' predictions participate in the gradient" and operates within the loss computation — the two are independent, and blocking attention does not automatically mask the corresponding label</li><li><strong>In block-diagonal settings, both are mandatory</strong>: even if document B can't read document A, document A's last position can still be required to predict document B's first token, unless separately excluded with the boundary loss mask (§3.2, §3.4)</li><li><strong>In padding settings, it depends on the layout</strong>: the loss mask is mandatory; but with strict causal + right-side padding, the causal mask itself already blocks future padding keys, so the key mask may be redundant for real queries — under left padding or other layouts it cannot be omitted (§3.3)</li></ul>
+<p>Assuming "both masks are always equally required," or the opposite, "the key mask can always be omitted unconditionally," are both pitfalls here; the correct answer must be discussed case by case according to the specific layout.</p>
+</details>
+<details>
+
+<summary>Q7. How exactly is global batch size / tokens-per-update computed? Distinguish the different conventions</summary>
+<ul><li>Tokens fed into the model: $B_{input}=B_{micro,seq}\times L_{seq}\times G_{acc}\times W_{DP}$ ($B_{micro,seq}$ is the number of sequences per DP replica, not "per GPU"); only DP world size directly scales the number of independent samples — TP/PP split the computation of the same sample and must not be double-counted</li><li>Valid targets actually participating in the loss: $B_{target}=\sum_i m_i$ ($m_i$ is each sequence's valid-target mask count) — even with absolutely no padding, because the label at each sequence's last position is <code>IGNORE</code>, $B_{target}$ is $L_{seq}-1$ per sequence rather than $L_{seq}$; with padding/packing boundary masking it shrinks further below $B_{input}$</li><li>The three accounting conventions must not be mixed: advancing the consumed-token counter/aligning the scheduler usually uses $B_{input}$; the loss-normalization denominator and the $D$ in the scaling law should track $B_{target}$ more closely (§4.1)</li></ul>
+<p>Multiplying TP/PP world size into the batch-size formula as well, or treating $B_{input}$ and $B_{target}$ as the same number and swapping them freely, are the two most common types of computational error here.</p>
+</details>
+<details>
+
+<summary>Q8. Why can't PPL from different tokenizers be compared directly?</summary>
+<ul><li>PPL's denominator is token count, which itself depends on the tokenizer — for the same total NLL, a tokenizer that splits more finely yields a lower loss/token</li><li>BPB replaces the denominator with the byte count of the same text, making it more robust to tokenizer differences, but it still requires both sides to be evaluated on the same normalized byte stream</li><li>Exact formulas: $\mathrm{PPL}=\exp(\sum \mathrm{NLL}_i/\#\text{valid tokens})$, $\mathrm{BPB}=\sum \mathrm{NLL}_i/(\#\text{bytes}\cdot\ln 2)$ (§3.6; full derivation in tokenization_tutorial.md §1.3)</li></ul>
+<p>Only knowing "lower PPL is better," without being able to state the precondition that it depends on the tokenizer, is the incomplete answer here.</p>
+</details>
+<h3 id="l2-advanced-questions">L2 Advanced Questions</h3>
+<details>
+
+<summary>Q9. What's different between the Kaplan (2020) and Chinchilla (2022) scaling-law conclusions?</summary>
+<ul><li>Kaplan: $N_{opt}\propto C^{0.73}, D_{opt}\propto C^{0.27}$ — as compute budget grows, more goes to parameters</li><li>Chinchilla: no single "exact exponent" — different methods give roughly 0.50/0.50, 0.49/0.51, 0.46/0.54; the parametric model $L=E+A/N^\alpha+B/D^\beta$ fits to $\alpha\approx0.34,\beta\approx0.28$, with analytic optimum $N_*\propto C^{0.452}, D_*\propto C^{0.548}$</li><li>The disagreement is not just "more data": training-horizon design, whether the LR schedule matches the budget, and the fitting method all differ (§1.3)</li></ul>
+<p>Answering only "Chinchilla says you need more data," without being able to state the three specific sets of exponents or the key technical disagreement around training horizon/LR schedule — this question requires remembering all three estimation methods and their applicable scenarios simultaneously, which goes beyond an L1-level shallow answer and is the crux of this question.</p>
+</details>
+<details>
+
+<summary>Q10. Derive the analytic solution $N_*,D_*$ under Chinchilla's constrained optimization.</summary>
+<ul><li>Objective: $\min L(N,D)=E+A/N^\alpha+B/D^\beta$ s.t. $C=kND$</li><li>Substitute the constraint to eliminate one variable, then use Lagrange multipliers or directly differentiate with respect to $\log N$ to find the stationary point, giving $N_*=(\alpha A/\beta B)^{1/(\alpha+\beta)}(C/k)^{\beta/(\alpha+\beta)}$, $D_*=(\beta B/\alpha A)^{1/(\alpha+\beta)}(C/k)^{\alpha/(\alpha+\beta)}$</li><li>Plugging in $\alpha=0.34,\beta=0.28$ gives exponents 0.452/0.548; at 100x compute budget, $N_*$ grows by about $100^{0.452}\approx 8.0$x and $D_*$ by about $100^{0.548}\approx 12.5$x — this derivation is mathematically valid when $A,B,\alpha,\beta,k$ are held fixed, but it cannot be directly extrapolated into the empirical claim that "the true optimal ratio must grow 1.56x for every 100x increase in compute" (§1.3, [D06])</li></ul>
+<p>Failing to derive that the exponents take the cross form $\beta/(\alpha+\beta)$ and $\alpha/(\alpha+\beta)$ (easy to misremember as $\alpha/(\alpha+\beta)$ corresponding to $N_*$), or mistaking this mathematical derivation for an empirical rule that can be extrapolated unconditionally, are the pitfalls here.</p>
+</details>
+<details>
+
+<summary>Q11. Given a compute budget, how do you decide model parameter count and training token count?</summary>
+<ul><li>First separate the goals: training-compute-optimal (directly plug into $N_*,D_*$) vs. inference-aware-optimal (first pin down a small $N$ dictated by the deployment budget, letting $D$ grow correspondingly at fixed $C$ — i.e., deliberately over-training)</li><li>For MoE, use active parameters for compute budget, total parameters for memory/checkpoint (§1.2)</li><li>Long context introduces the $L_{seq}^2$ term that $6ND$ ignores, requiring a separately reserved budget (§1.5)</li></ul>
+<p>Only being able to recite the $N_*,D_*$ formulas, without being able to state the "training-optimal ≠ inference-aware-optimal" fork (this is also a frequently cited hotspot in design reviews).</p>
+</details>
+<details>
+
+<summary>Q12. How should the three knobs — attention mask, loss mask, position id — be designed independently within packing?</summary>
+<ul><li><p>This is not a choice between two pre-packaged recipes, "continuous stream" vs. "independent documents" — <strong>the attention boundary, the target boundary, and the position id are three knobs that can be combined independently</strong>, not necessarily bundled together:</p>
+<ul><li><strong>Attention boundary</strong>: plain causal ($k\le q$, allows reading history across documents) or block-diagonal ($k\le q \wedge \text{docid}[q]=\text{docid}[k]$, documents mutually invisible);</li><li><strong>Target boundary</strong>: even when using plain causal attention (documents can "see" each other), you can still separately use the document-boundary rule to mask the cross-document label "previous document's EOS → next document's first token" (§3.2) — attention allowing cross-document history reads does not mean this target must be kept;</li><li><strong>Position id</strong>: whether to reset it is a choice determined by the positional-encoding scheme, not a mathematical necessity — standard RoPE is insensitive under idealized math to an overall position shift within one document; by contrast, absolute positional embeddings should usually be reset, and the specific tradeoff is discussed in §3.4</li></ul></li><li>The two most common combinations are "continuous stream = causal attention + no position-id reset + no extra target masking" and "independent documents = block-diagonal attention + position-id reset + cross-document target masking," but in engineering there are also intermediate configurations like "causal attention but still masking cross-document targets" — the two extremes should not be treated as the only two options</li><li>Both must retain the supervision "last content token of a document → EOS"; only the handling of the "cross-document" portion differs (§3.2, §3.4)</li></ul>
+<p>Treating this question as "memorize two fixed recipes," without being able to state that these three knobs can be combined independently, and without being able to state that resetting the position id for RoPE is not mathematically necessary, is the crux of this question.</p>
+</details>
+<details>
+
+<summary>Q13. What conditions must gradient accumulation satisfy to be equivalent to one big batch? Be clear about which tier of "equivalent" you mean</summary>
+<ul><li>Identical samples (the data consumed within the accumulation window must exactly match what the big batch would consume in one shot)</li><li>Normalized over all valid tokens, not the mean of each micro-batch's mean averaged again</li><li>Only one optimizer step executed; gradient clipping acts on the final gradient after accumulation completes, not applied separately per micro-batch</li><li>This only guarantees <strong>mathematical equivalence</strong> (under exact real-number arithmetic, the gradient obtained via accumulation is the same formula as the gradient from a one-shot big batch). To go further, you also need: DDP by default <strong>averages</strong> gradients rather than summing them, so you must explicitly compensate with the global valid-token denominator, or it's equivalent to dividing by world size one extra time (Q16); dropout/RNG state and any batch-related running statistics must follow exactly the same random-number sequence under both settings for the comparison to even be meaningful; AMP's loss-scaler state and the scheduler's update count (each "big batch" should trigger exactly one scheduler.step, not one per micro-batch) must also be aligned</li><li>Even with all of the above aligned, differences in the <strong>order of floating-point reduction</strong> (the order of summation across micro-batches, the reduction-tree structure of all-reduce across DP ranks) will still cause the last few significant digits to differ — this can only reach "mathematical equivalence," not unconditional <strong>numerical bitwise equivalence</strong> (the three-tier strength framework of §4.2 and §5.2 applies here as well)</li></ul>
+<p>Missing "clipping must be done once after accumulation," substituting the mean of means for sum-divided-by-count, or mistaking "mathematical equivalence" for "numerically bitwise identical," are the three most common pitfalls here.</p>
+</details>
+<details>
+
+<summary>Q14. How do you design a near-dedup (MinHash+LSH) pipeline? What's the LSH candidate-probability formula?</summary>
+<ul><li>Document → shingle set → MinHash signature (for each of multiple hash functions, take the minimum hash value over the document's shingles) → estimate Jaccard similarity</li><li>LSH splits the signature into $b$ bands of $r$ rows each; under the idealized assumption that MinHash rows/hash functions are approximately independent, the candidate probability is $P=1-(1-s^r)^b$, doing only candidate recall</li><li>Candidate pairs usually still need exact-Jaccard verification, and MinHash estimates set overlap, not semantic similarity (§2.3, [D01])</li></ul>
+<p>Treating LSH candidates directly as "confirmed near-duplicates," skipping the exact-Jaccard verification step, or ignoring that the candidate-probability formula itself relies on the idealized assumption of "approximately independent hash rows," are the pitfalls here.</p>
+</details>
+<details>
+
+<summary>Q15. Why must you "dedup before splitting"?</summary>
+<ul><li>If you split first and dedup second, near-duplicate content (mirror sites, rewritten reposts) may end up with one copy in train and one in val</li><li>The model "memorizes" a near-verbatim copy of a validation sample during training, making validation loss artificially low, misleading early stopping and model selection</li><li>Correct approach: first run near-dedup to get connected components (dedup clusters), then atomically assign whole clusters to a split; even if A and C were never directly compared, as long as they're transitively connected through B, they must still be in the same split (§2.5, [D01])</li></ul>
+<p>Only knowing "you need to dedup," without being able to state that "the order" is the real point of this question, and without being able to state the hidden requirement of transitive closure, are the pitfalls here.</p>
+</details>
+<details>
+
+<summary>Q16. What's the easiest pitfall in loss normalization?</summary>
+<ul><li>Correct formula: $\sum \mathrm{NLL}_i / \#\text{valid targets}$, normalized once over the global batch</li><li>Common mistake: averaging within each micro-batch first, then averaging those averages — this introduces weighting bias whenever micro-batches have different numbers of valid tokens (padding/packing/variable length)</li><li>There's also a variant mistake in multi-rank settings: DDP by default <strong>averages</strong> gradients; if the local code has already computed a normalized loss as "sum of NLL / this rank's valid-token count," and then all-reduce averages over rank count, that's equivalent to erroneously scaling the denominator by world size one extra time; the correct approach is either to compute only the "sum" locally and divide by the <strong>global</strong> valid-token total after all-reduce, or to explicitly switch to sum-reduce and control the normalization timing yourself (§3.5, §4.2)</li><li>A correct implementation must separately accumulate "sum of NLL" and "count of valid tokens" across micro-batches/ranks, and divide only once at the end</li></ul>
+<p>Writing a "mean of means" implementation, or letting all-reduce's default averaging semantics clash with the local normalization logic, will silently distort the loss in variable-length-batch/multi-rank settings without raising an error — this is the most easily overlooked hazard in this question.</p>
+</details>
+<details>
+
+<summary>Q17. What are the supervision rules for EOS/BOS at packing boundaries?</summary>
+<ul><li>Keep: the loss for "last content token of a document → EOS" (teaches the model when to stop)</li><li>Mask (per configuration): the loss for "previous document's EOS → next document's first token/BOS" (this label is just an artifact of concatenation)</li><li>Both rules can be automatically produced by the same rule, "a label is valid iff the current position and the next position are in the same document" — no need to write special-cased logic for EOS (§3.2, [D04])</li></ul>
+<p>Assuming extra special-case logic is needed for EOS, without realizing it can be uniformly handled by the same doc-id boundary rule, is the pitfall here.</p>
+</details>
+<details>
+
+<summary>Q18. When PAD and EOS share the same token ID, what should you be careful of when constructing masks? Separate the two causal chains</summary>
+<ul><li>PAD=EOS is not necessarily wrong by itself; many tokenizers have no dedicated PAD token</li><li><strong>If the loss mask is constructed via <code>target==pad_id</code></strong>: this would mistake the genuine content-token → EOS target for padding and mask it out, directly deleting the model's signal for learning "where to stop" — this is the most severe accident chain</li><li><strong>If the key mask is constructed via <code>key==pad_id</code></strong>: the consequence is different — it wrongly hides real EOS positions as if they were padding keys (real queries can't read that EOS's context representation), but it doesn't automatically delete any loss, since the loss mask is computed separately by target position — this is an error of "hiding context," not "deleting loss"</li><li>The correct, unified approach: construct the mask from each sequence's actual valid length <code>valid_len</code> (or an explicit padding flag), never by testing equality with a token ID (§3.3, [D05])</li></ul>
+<p>Only being able to recite the absolute conclusion "PAD=EOS is just wrong," without being able to state the different kinds of errors caused by constructing the loss mask vs. the key mask by ID, is the pitfall here.</p>
+</details>
+<h3 id="l3-high-level-questions">L3 High-Level Questions</h3>
+<details>
+
+<summary>Q19. Design a complete data pipeline from web crawling to training shards.</summary>
+<ul><li>The eleven steps in §2.1 present a <strong>common, order-sensitive reference flow</strong>, not the one fixed order — the real hard constraint is essentially just one: <strong>dedup clusters must be formed before splitting</strong> (cluster-level split depends on already-computed connected components, §2.5); privacy/safety processing and quality filtering are often moved earlier in engineering practice, or run in multiple passes across the pipeline — they don't have to be pinned to the fixed positions in the table</li><li>After the raw-document stage there is a commonly missed <strong>tokenized stage</strong>: tokenizer materialization (actually running raw-document shards through the tokenizer to produce a token stream, §2.8), token-level mixture sampling (correcting the gap between document-level quotas and actual token share, §2.7), long-document chunking/truncation (§2.9), and the data-stream/sampler layer that decides how these tokenized shards are read during training (shard shuffle, domain-sampling RNG, DP-rank-disjoint sharding, worker/prefetch state, cursor position, §2.10)</li><li>Every step must retain lineage: source/snapshot version/filter version/dedup cluster ID/split assignment/chunk assignment/final shard position (§2.1, §2.9)</li><li>Benchmark decontamination targets evaluation sets and is a different matter from the train-val split (§2.4, §2.6)</li></ul>
+<p>Only memorizing the eleven steps' names and order, treating it as the one correct answer, without being able to state that "dedup before split" is the sole hard constraint, and missing the tokenizer/chunking/sampler pieces of the tokenized stage, is the deep water of this system-design question.</p>
+</details>
+<details>
+
+<summary>Q20. To achieve "deterministic resume," what state does the checkpoint need to save? What specific kind of "determinism" is meant?</summary>
+<ul><li>First distinguish which tier you need (§5.2): <strong>basic resumability</strong> only needs model weights + optimizer state (Adam's $m,v$) + LR schedule/consumed-token count; <strong>identical sample sequence</strong> additionally needs RNG state, data iterator position, shuffle epoch, sampler state, dataloader worker/prefetch state, and, for multi-rank training, each rank's checkpoint metadata</li><li>The strongest tier, <strong>numerically/bitwise identical trajectory</strong>, additionally needs the AMP loss-scaler state, in-flight (incomplete-accumulation-window) pending gradients, deterministic kernels, and an identical software version/communication topology — even then, a world-size change usually still cannot guarantee a bitwise-identical trajectory (re-sharding semantics pointed to <code>distributed_training_tutorial.md</code>, which currently does not systematically cover this stronger guarantee of "still bitwise-reproducible after re-sharding")</li><li>Missing the data iterator position or RNG state immediately falls out of the "identical sample sequence" tier; satisfying only the first two tiers while missing the AMP scaler/pending gradients/deterministic kernels lets you "resume training" with "identical order," but falls short of full numerical reproduction</li></ul>
+<p>Treating "deterministic resume" as a single black-or-white guarantee, without being able to state what necessary state each of the three strength tiers corresponds to, is the real crux of this question.</p>
+</details>
+<details>
+
+<summary>Q21. Pretraining suddenly has a loss spike or NaN — how do you triage in layers?</summary>
+<ul><li>This is a <strong>recommended heuristic triage order</strong> (arranged by "cheapest to check first"), not a universally mandatory procedure that must be strictly followed — if a specific project already has stronger priors (e.g., last time this kind of spike was a hardware issue), the order can absolutely be adjusted: bad batch/data shard (whether it's reproducible on the same batch, depending on deterministic sharding + lineage) → LR and resume state → gradients and activations (diagnostic quantities pointed to normalization_init_tutorial.md) → mixed-precision overflow/underflow → cross-rank anomalies (requires per-rank recorded statistics) → hardware failure</li><li>Keep reproducible batch IDs/step numbers for after-the-fact replay-based localization</li><li>The automated first line of defense: a rolling median/MAD detector, whose job is to flag "when triage should begin," not to determine the root cause (§5.4, [D07])</li></ul>
+<p>Jumping straight to guessing "it must be the learning rate is too high," skipping the cheapest and most appropriate first step of "can it be reproduced," or treating this triage order as a mandatory procedure that must be followed layer by layer without adjustment, are the pitfalls here.</p>
+</details>
+<details>
+
+<summary>Q22. Why report validation loss separately per domain?</summary>
+<ul><li>The aggregate loss is easily dominated by the domain with the highest token weight (e.g., web text being a large share), masking degradation in low-weight but important capabilities like code/math/low-resource languages/long context</li><li>Per-domain monitoring is what allows problems to be caught while there's still time to adjust the mixture/checkpoint selection</li><li>Checkpoint selection should also be based on the per-domain validation set/evaluation-set combination, not just training loss (§5.3, §5.5)</li></ul>
+<p>Looking at only one aggregate loss curve and concluding "the model trained fine," missing the local degradation that got diluted away.</p>
+</details>
+<details>
+
+<summary>Q23. For mixture sampling's "domain weight" vs. the token weight actually seen by the model — when are they equal, and when aren't they?</summary>
+<ul><li>Not always unequal — <strong>if the configured domain weight is itself defined as a token-level target share</strong> (i.e., the config literally specifies "what proportion of tokens this domain should contribute"), then the two can be equal in expectation; what actually decouples is the case where weights are configured <strong>by document count/document weight</strong> but then used directly as token weight — that's when a discrepancy arises from different domains having different average document lengths (§2.7)</li><li><p><strong>Distinguish two different sampling units</strong> (the main text can easily conflate these as the same thing):</p>
+<ul><li><strong>Document-level sampling</strong>: doesn't distinguish domains — directly draws whole documents from a document pool with equal/weighted probability;</li><li><strong>Sample domain, then sample document</strong>: first selects a domain by domain weight, then selects a document within that domain — this is a distinct two-stage process, and it's here that the first-stage "domain weight" has a clear meaning;</li></ul>
+<p>together with "token-level sampling" (cutting chunks directly from the concatenated token stream, decoupled from document boundaries), these form three distinct sampling units</p></li><li>Mitigation: separately measure and report the "actual token-level share" after sampling, rather than only reporting the configured value; this also connects to what $D$ means in the scaling law — resampling/residual near-duplicates make the "effective data volume" lower than the nominal $D$</li></ul>
+<p>Unconditionally asserting "domain weight is definitely not equal to token weight," or conflating "document-level sampling" with "sample domain, then sample document" as the same concept, are the two pitfalls most easily hit here.</p>
+</details>
+<details>
+
+<summary>Q24. What are the "three kinds of leakage" (train-val leakage / benchmark contamination / packed cross-document context) and how do you address each?</summary>
+<ul><li><strong>Train-val leakage</strong>: splitting before deduping causes near-duplicate content to cross splits → <strong>mitigated</strong> with cluster-level split (§2.5) — but MinHash/LSH+n-gram detection itself can miss heavily rewritten paraphrases, cross-lingual translated versions, or semantically identical but surface-completely-different "answer variants"; cluster split should not be considered to have "solved" leakage, only to have significantly reduced the probability of leakage caused by surface-level duplication</li><li><strong>Benchmark contamination</strong>: training corpus contains eval-set content → <strong>mitigated</strong> with n-gram overlap decontamination detection (§2.4) — the same miss-detection problem is even more severe here (benchmarks are often manually rewritten to evade detection), and it can produce false positives on templated/boilerplate text (e.g., common code snippets, legal templates), wrongly flagging unrelated content as "contamination"</li><li><strong>Packed cross-document historical context</strong>: a plain causal mask lets a later document read an earlier document's history → <strong>this is usually not data leakage — it's the sequence-semantics choice of "cross-sample context coupling"</strong>; whether it needs to be cut off with a block-diagonal mask depends on whether the modeling assumption of "document independence" is required (§2.6, §3.4)</li></ul>
+<p>Claiming the first two kinds of leakage detection "completely solve" the problem, not knowing that n-gram methods themselves have clear miss-detection and false-positive boundaries, or treating the third kind as "leakage" too and unconditionally requiring it to be cut off, are the common incomplete answers to this question.</p>
+</details>
+<details>
+
+<summary>Q25. How are the compute budget and memory budget computed separately for an MoE model?</summary>
+<ul><li>Compute budget (the $N$ in $6ND$) is estimated with <strong>active</strong> parameters — the expert parameters that actually participate in that token's forward/backward computation; but this $6N_{active}D$ is itself still an approximation, excluding MoE-specific all-to-all communication overhead, load imbalance across experts, and the extra compute from capacity padding (tokens exceeding routing capacity need to be dropped or handled specially) — these details are pointed to <code>moe_tutorial.md</code></li><li><strong>Memory budget cannot simply be said to be "computed with total parameters"</strong>: the model's <strong>aggregate</strong> checkpoint/model-state size does grow with total parameters (all expert weights need to be fully storable), but the memory actually occupied on a single card also depends on the sharding scheme such as EP (expert parallelism)/FSDP, parameter dtype, optimizer state (Adam's $m,v$ usually also needs to be computed at the sharded scale), gradients, and activation memory — for the same total parameter count, different sharding strategies can lead to very different per-card memory usage</li><li>If there's a router aux loss in the total loss, its magnitude is usually much smaller than the main loss; the routing/load-balancing mechanism itself is pointed to moe_tutorial.md (§1.2, §3.5, §5.6)</li></ul>
+<p>Mixing up active and total parameters — using total parameters to estimate $6ND$ training compute significantly overestimates it; conversely, estimating per-card memory by simply dividing total parameters by card count, ignoring the sharding scheme and optimizer/activation memory, is another common oversimplification here.</p>
+</details>
+<details>
+
+<summary>Q26. Design a data lineage scheme that supports "auditing the provenance of a piece of training data six months later."</summary>
+<ul><li>Basic traceability chain: source dataset/URL → snapshot/crawl version → extraction and filtering pipeline version (including thresholds) → dedup cluster ID → split assignment → final shard file + offset — this is a <strong>qualifying minimal lineage</strong>, but not yet enough to support a genuinely rigorous audit</li><li>Supporting a strong audit additionally requires recording: <strong>sample/content hash</strong> (a hash of the sample content itself, confirming that "the content now" exactly matches "the content when it was originally written"), <strong>raw snapshot hash</strong> (rather than just a version number), <strong>tokenizer/normalizer hash</strong> (confirming the specific artifact used at tokenization time, rather than just a version string), <strong>code/container version</strong> (the executable environment of the processing pipeline itself), <strong>the random seed used for mixture sampling</strong>, <strong>shard checksum</strong> (integrity verification of the whole shard file), <strong>the precise document→segment/token mapping</strong> (which token range a document corresponds to, especially with chunking involved, §2.9), and <strong>license and takedown-request status</strong></li><li>This more complete record simultaneously serves four scenarios: benchmark contamination investigation, loss-spike reproduction and localization, tracing the origin when a model's output looks suspicious, and responding to takedown requests in a compliance sense (§2.1, §2.8, §2.9, §5.4)</li></ul>
+<p>Storing just a "source URL + version number" and thinking that's enough, without being able to state that content hash, tokenizer hash, mixture seed, and document→token mapping are equally important pieces of intermediate state for "what this sample looks like now," and without being able to state the compliance dimension of license/takedown requests, is the crux of this question.</p>
+</details>
+<h2 id="a-appendix-sanity-checks">§A Appendix: Sanity Checks</h2>
+<p>The from-scratch implementation in this tutorial should satisfy the following key invariants (pure Python standard library, no third-party dependencies, seconds on CPU; script at <a href="code/pretraining_pipeline.py"><code>code/pretraining_pipeline.py</code></a>):</p>
+<ol><li><strong>[D01] dedup</strong>: exact Jaccard $J(A,B)=8/12=2/3$ ($A=\{1..10\}$, $B=\{1..8,11,12\}$); the MinHash estimate with a fixed seed + 1024 permutations falls within the tolerance set by sampling theory (exact equality is not asserted); LSH ($b=128,r=8$) candidate probability is far higher for a high-similarity pair ($s=2/3$) than a low-similarity pair ($s=0.05$); union-find verifies that the transitive closure of A~B, B~C places A and C into the same dedup cluster, which must be assigned the same split.</li><li><strong>[D02] packing shifted labels</strong>: with <code>tokens=[11,12,13,21,22]</code>, <code>doc_ids=[0,0,0,1,1]</code>, the independent-document semantics label is <code>[12,13,IGNORE,22,IGNORE]</code>; the continuous-stream semantics label is <code>[12,13,21,22,IGNORE]</code> (the same token stream, two legitimate configurations giving different labels).</li><li><strong>[D03] block-diagonal mask + functional test</strong>: <code>M[3,2]=False</code>, <code>M[4,0]=False</code>, <code>M[4,3]=True</code> (block mode); the same coordinates under continuous-stream mode give <code>M[3,2]=True</code>. Under $QK^\top=0$, when doc0's values change from 100 to 1000, block mode's document-1 output stays unchanged at $0$, while continuous-stream mode's output changes from $75$ to $750$.</li><li><strong>[D04] EOS boundary</strong>: on <code>[11,12,13,EOS,21,22,EOS]</code> / <code>doc_ids=[0,0,0,0,1,1,1]</code>, the label for the last content token (13) → EOS is kept (=EOS), and the label for EOS → the next document's first token (21) is masked (IGNORE) — both are produced automatically by the same doc-id boundary rule.</li><li><strong>[D05] padding</strong>: with <code>valid_len=3</code>, the loss mask is <code>[1,1,0,0,0]</code>; real queries cannot attend to padding keys; no attention row is ever empty (no all-<code>-inf</code> row causing softmax NaN).</li><li><strong>[D06] Chinchilla fitting</strong>: from a log-spaced grid ($N\in[10^7,10^{12}]$, $D\in[10^8,10^{13}]$, 6 points each) with no noise, $E,A,B$ are recovered with error $&lt;10^{-3}$ from the synthetic ground truth; the recovered $E$ is less than all finite observed losses; the analytic $N_*,D_*$ differ from the fine-grid search minimum by no more than one grid step; at 100x compute budget, $N_*$ grows by about $100^{0.452}\approx 8.0$x and $D_*$ by about $100^{0.548}\approx 12.5$x.</li><li><strong>[D07] spike monitoring</strong>: in the sequence <code>[2.00,2.02,1.98,2.01,1.99,2.00,2.03,1.97,3.00]</code> only the last point is flagged; a smoothly declining sequence produces no false positives throughout; single-point jumps of the same magnitude are flagged as two distinct event types, <code>spike</code> (subsequent drop-back) vs. <code>sustained_shift</code> (subsequently stays elevated); NaN/Inf are unconditionally and immediately flagged as <code>non_finite</code>.</li></ol>
+<p><strong>Actual output</strong> of running <code>python3 code/pretraining_pipeline.py</code>:</p>
+<pre><code class="language-text">[D01] dedup: exact J(A,B)=0.6667, MinHash est=0.6250 (tol 0.0884), LSH P_high=0.9939 vs P_low=0.0000; real banding candidates=[(0, 1), (1, 2)], confirmed edges=[(0, 1), (1, 2)], cluster split={0: &#x27;test&#x27;, 1: &#x27;test&#x27;, 2: &#x27;test&#x27;, 3: &#x27;train&#x27;}  PASS
+[D02] packing labels: independent-doc=[12, 13, -100, 22, -100], continuous=[12, 13, 21, 22, -100]  PASS
+[D03] block mask: doc1 out unaffected by doc0 values changing (q3: 10.0-&gt;10.0, q4: 15.0-&gt;15.0); doc0 out unaffected by doc1 values changing (q0/q1/q2: 1.0/1.5/2.0); continuous mode DOES change (q3: 4.0-&gt;1502.5)  PASS
+[D04] EOS boundary: labels=[12, 13, 999, -100, 22, 999, -100] (content-end-&gt;EOS kept, EOS-&gt;next-doc masked)  PASS
+[D05] padding: loss_mask=[1, 1, 0, 0, 0], no attention row is empty, PAD==EOS adversarial loss_mask=[1, 1, 0, 0, 0] (real EOS target NOT masked)  PASS
+[D06] Chinchilla fit: E=1.5000 A=400.00 B=400.00 (true 1.5/400.0/400.0); N*(from fitted A_hat/B_hat)=4.167e+09 matches grid (4.112e+09) and true-coefficient optimum (4.167e+09); 100x compute -&gt; N* x8.003, D* x12.496  PASS
+[D07] spike monitor: main seq flags=[8], decline seq flags=0, spike-&gt;spike vs shift-&gt;sustained_shift, NaN/Inf-&gt; non_finite  PASS
+
+all pretraining pipeline sanity checks passed</code></pre>
+<h2 id="references">📚 References</h2>
+<ul><li><strong>Scaling Laws (Kaplan)</strong> — Kaplan et al. (OpenAI), <em>Scaling Laws for Neural Language Models</em>, arXiv 2001.08361 (2020).</li><li><strong>Chinchilla (Hoffmann)</strong> — Hoffmann et al. (DeepMind), <em>Training Compute-Optimal Large Language Models</em>, arXiv 2203.15556 (2022).</li><li><strong>GPT-3</strong> — Brown et al. (OpenAI), <em>Language Models are Few-Shot Learners</em>, arXiv 2005.14165 (2020), NeurIPS 2020.</li><li><strong>Gopher</strong> — Rae et al. (DeepMind), <em>Scaling Language Models: Methods, Analysis &amp; Insights from Training Gopher</em>, arXiv 2112.11446 (2021).</li><li><strong>OPT (training logs and instability records)</strong> — Zhang et al. (Meta), <em>OPT: Open Pre-trained Transformer Language Models</em>, arXiv 2205.01068 (2022).</li><li><strong>PaLM (includes loss spike / checkpoint restart practices)</strong> — Chowdhery et al. (Google), <em>PaLM: Scaling Language Modeling with Pathways</em>, arXiv 2204.02311 (2022).</li><li><strong>Mixed-precision training</strong> — Micikevicius et al. (NVIDIA/Baidu), <em>Mixed Precision Training</em>, arXiv 1710.03740 (2017), ICLR 2018.</li><li><strong>The Pile (data pipeline design reference)</strong> — Gao et al. (EleutherAI), <em>The Pile: An 800GB Dataset of Diverse Text for Language Modeling</em>, arXiv 2101.00027 (2020).</li><li><strong>C4 corpus audit (extraction quality issues)</strong> — Dodge et al., <em>Documenting Large Webtext Corpora: A Case Study on the Colossal Clean Crawled Corpus</em>, arXiv 2104.08758 (2021).</li><li><strong>RefinedWeb (web-corpus extraction/filtering pipeline)</strong> — Penedo et al., <em>The RefinedWeb Dataset for Falcon LLM: Outperforming Curated Corpora with Web Data, and Web Data Only</em>, arXiv 2306.01116 (2023).</li><li><strong>FineWeb (large-scale web corpus + ablations)</strong> — Penedo et al. (Hugging Face), <em>The FineWeb Datasets: Decanting the Web for the Finest Text Data at Scale</em>, arXiv 2406.17557 (2024).</li><li><strong>Training data dedup (near-duplicate effects on downstream models)</strong> — Lee et al. (Google), <em>Deduplicating Training Data Makes Language Models Better</em>, arXiv 2107.06499 (2021), ACL 2022.</li><li><strong>Original source of MinHash / Jaccard estimation</strong> — Broder, <em>On the Resemblance and Containment of Documents</em>, Proceedings of Compression and Complexity of Sequences (1997) (no arXiv id).</li><li><strong>Data mixture / domain reweighting</strong> — Xie et al., <em>DoReMi: Optimizing Data Mixtures Speeds Up Language Model Pretraining</em>, arXiv 2305.10429 (2023), NeurIPS 2023.</li><li><strong>Data-constrained scaling (effect of duplicate data on effective D)</strong> — Muennighoff et al., <em>Scaling Data-Constrained Language Models</em>, arXiv 2305.16264 (2023), NeurIPS 2023.</li><li><strong>Llama 2 (includes pretraining data/training recipe description)</strong> — Touvron et al. (Meta), <em>Llama 2: Open Foundation and Fine-Tuned Chat Models</em>, arXiv 2307.09288 (2023).</li><li><strong>Llama 3 (includes data pipeline/training recipe description)</strong> — Grattafiori et al. (Meta), <em>The Llama 3 Herd of Models</em>, arXiv 2407.21783 (2024).</li><li><strong>DeepSeek-V3 (active/total parameters and MoE training practice)</strong> — DeepSeek-AI, <em>DeepSeek-V3 Technical Report</em>, arXiv 2412.19437 (2024).</li><li><strong>C4 / T5 (classic reference for tokenizer and corpus preprocessing)</strong> — Raffel et al., <em>Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer</em>, arXiv 1910.10683 (2019), JMLR 2020.</li></ul>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/llm_pretraining_pipeline_tutorial_en.md</code> ·
+  SHA256 <code>aafdaa3ef87d</code> ·
+  generated at 2026-07-22 07:27 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

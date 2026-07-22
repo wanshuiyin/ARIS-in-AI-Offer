@@ -1,0 +1,54 @@
+{
+ "skill": "interview-cheatsheet",
+ "source": "docs/tutorials/llm_inference_serving_tutorial.md",
+ "source_sha256": "334075a91038cc2b979588940d9917833b17d24cdcaa0b96ca7d9e9c0cf511e1",
+ "output": "docs/tutorials/llm_inference_serving_tutorial.html",
+ "runnable_code": "docs/tutorials/code/inference_serving.py",
+ "topic": "LLM Inference & Serving Stack / 面试 Cheat Sheet — 请求状态机主线(admission两阶段/QUEUED-PREEMPTED-BACKPRESSURED等14态/cleanup invariant) / 采样算子精确支持集定义(top-k/top-p/min-p/typical) / PagedAttention与KV生命周期(非磁盘换页) / static vs continuous batching与chunked prefill / prefill-decode disaggregation条件性收益 / 25 高频题",
+ "effort": "max",
+ "reviewer": "codex gpt-5.6-sol (xhigh for 2 batches, ultra for structure), fresh thread per batch",
+ "drafted_by": "subagent (general-purpose) drafting AGAINST a pre-draft cross-model design review by gpt-5.6-sol; overall-structure批次判定'不建议原样定稿'后,由两个并行fix subagent(内容/代码分工)按3批审核汇总的ledger逐条修复,内容修复subagent还主动重跑py脚本回填了输出一致性",
+ "design_review": {
+  "verdict": "adopted",
+  "notes": "gpt-5.6-sol对提议大纲做详尽设计前置审,核心判断:主线应从'优化技术清单'改为'请求状态机'。精确纠偏:top-p不是'保留所有p_i≥p_0'也不是'累计概率严格小于p_0';PagedAttention不等于磁盘换页;static batching的关键限制不是'必须等齐'而是batch slot不回填;disaggregation不是无条件加速。起草时作为硬护栏。"
+ },
+ "math_code_review": {
+  "verdict": "PASS (after 3 review batches — math/facts+citations, code, structure+Q&A — + full fix pass, verified by re-running the fixed script)",
+  "rounds": [
+   {
+    "run": 1,
+    "scope": "math/facts + citations — KV-cache字节数公式核实、goodput定义、temperature tie-break、TP/PP/EP过强表述、Orca引用",
+    "verdict": "FAIL (若干精确性问题) -> all fixed",
+    "notes": "**验证起草subagent自己发现的设计审内部矛盾**:设计审给的KV示例数字(128 bytes)与其自己给的公式(2×2×2×4×2)算出的64不一致——独立复算100%确认64是对的,128是设计审的笔误,起草subagent当时正确选择相信公式而非盲从设计审数字,这个判断被审核完全confirm。goodput被误译成'比例'修正为速率;temperature趋零的并列项tie-break修正为均匀分布。",
+    "thread_id": "019f884f-6bc3-7c23-b6ce-9e4d53b7a27f"
+   },
+   {
+    "run": 2,
+    "scope": "code — inference_serving.py全部函数(采样算子/continuous batching/KV calculator)+断言强度",
+    "verdict": "FAIL (epsilon改变精确支持集判断+抽样可能选中零概率token+参数域未封闭+调度对非法输入可能不终止) -> all fixed",
+    "notes": "核心修复:top-p/min-p/typical的支持集判断从`cum>=p0-1e-12`改为精确`cum>=p0`;`sample()`从`u<=cum`改为`u<cum`避免选中零概率token;continuous batching模拟补齐参数校验避免非法输入下死循环。",
+    "thread_id": "019f8851-409b-7aa1-bf3e-b2ab0bf09feb"
+   },
+   {
+    "run": 3,
+    "scope": "整体结构(ultra reasoning)+25道Q&A",
+    "verdict": "不建议原样定稿(画了流程图但没建起真正状态机,§3采样章节比§1请求状态机还长) -> 全面结构重写后SHIP",
+    "notes": "**三批独立收敛到同一个bug**:best-of-n的KV占用公式'近似n倍'忽略共享prompt KV,被数学审核、代码审核、结构审核三批各自独立发现,是本轮质量信号最强的一处。补齐真正的请求状态机(14态+transition guard+resource ownership+cleanup invariant)、两阶段admission、§8整合engine-tick demo、三个缺失整段(scheduler iteration解剖/可信benchmark/终止清理协议)。消除KV公式与sibling教程的重复(改引用外部参数)。",
+    "thread_id": "019f8853-157c-7503-b408-4cbb893ec3b6"
+   }
+  ]
+ },
+ "runnable_code_check": {
+  "verdict": "PASS",
+  "notes": "docs/tutorials/code/inference_serving.py (pure Python + math) — D01-D09 all pass, including python -O compatibility check. 用StubRNG做确定性边界测试(u=0/恰好累计边界/接近1)作为主要验证手段,经验频率测试作为补充。新增延迟到达workload直接检查每条服务记录满足arrival<=tick<completion。",
+  "headline": "prefix-sharing从硬编码的shared_blocks=1改为真实的token序列比较实现,新增sub-block-overlap反例(0共享block)和3请求场景验证(n-1)*B_shared的缩放规律。"
+ },
+ "translation_fidelity_note": "N/A (this is the ZH source; see _en.review.json for the EN fidelity review)",
+ "summary": "LLM Inference & Serving Stack cheat sheet (effort=max, ~871 lines, bilingual). Overall-structure-ultra review returned '不建议原样定稿' — the design review's core mandate ('request state machine as the spine, not a technique list') had only partially landed in the first draft, with the sampling section literally longer than the state-machine section. Triple-independent convergence on the best-of-n KV-formula bug (math/code/structure reviews each caught it separately) is the strongest quality signal in this batch. The drafting subagent's own catch of a design-review internal inconsistency (KV byte-count formula vs. its own worked example) was independently re-verified and confirmed correct. Final verdict: SHIP after full fix + re-verification.",
+ "rendered_at": "2026-07-22",
+ "render_review": {
+  "verdict": "PASS",
+  "thread_id": "019f88bb-7765-7013-8702-3daafa3d5ef4",
+  "notes": "6项渲染质量检查(表格列数/TOC条目数/公式逐式一致/details闭合数/无注入/无个人信息)全部通过;source SHA256与当前.md完全一致。"
+ }
+}

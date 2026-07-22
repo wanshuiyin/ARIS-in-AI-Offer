@@ -156,6 +156,30 @@
     "md": "docs/tutorials/linear_sparse_attention_tutorial_en.md",
     "title": "Linear Sparse Attention Tutorial En"
   },
+  "docs/tutorials/llm_evaluation_benchmarking_tutorial.html": {
+    "eyebrow": "Interview Prep · LLM Evaluation & Benchmarking",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/llm_evaluation_benchmarking_tutorial.md",
+    "subtitle": "pass@k 无偏估计 vs 有偏 plug-in · evaluator ladder · benchmark 污染检测 · human eval → LLM-as-judge · Bradley-Terry/Elo · bootstrap 统计推断 · 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "title": "LLM Evaluation & Benchmarking 面试 Cheat Sheet"
+  },
+  "docs/tutorials/llm_evaluation_benchmarking_tutorial_en.html": {
+    "lang": "en",
+    "md": "docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md",
+    "title": "Llm Evaluation Benchmarking Tutorial En"
+  },
+  "docs/tutorials/llm_inference_serving_tutorial.html": {
+    "eyebrow": "Interview Prep · LLM Inference & Serving Stack",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/llm_inference_serving_tutorial.md",
+    "subtitle": "请求状态机 · 采样算子精确支持集定义 · PagedAttention/KV 生命周期 · continuous batching/chunked prefill · prefill-decode disaggregation · 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "title": "LLM Inference & Serving Stack 面试 Cheat Sheet"
+  },
+  "docs/tutorials/llm_inference_serving_tutorial_en.html": {
+    "lang": "en",
+    "md": "docs/tutorials/llm_inference_serving_tutorial_en.md",
+    "title": "Llm Inference Serving Tutorial En"
+  },
   "docs/tutorials/llm_opd_tutorial.html": {
     "lang": "zh-CN",
     "md": "docs/tutorials/llm_opd_tutorial.md",
@@ -165,6 +189,18 @@
     "lang": "en",
     "md": "docs/tutorials/llm_opd_tutorial_en.md",
     "title": "Llm Opd Tutorial En"
+  },
+  "docs/tutorials/llm_pretraining_pipeline_tutorial.html": {
+    "eyebrow": "Interview Prep · LLM Pretraining Pipeline",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/llm_pretraining_pipeline_tutorial.md",
+    "subtitle": "Kaplan vs Chinchilla scaling law · corpus factory 数据流水线（dedup/去污染/mixture）· document packing·loss masking · training lifecycle & checkpoint resume · 26 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "title": "LLM Pretraining Pipeline 面试 Cheat Sheet"
+  },
+  "docs/tutorials/llm_pretraining_pipeline_tutorial_en.html": {
+    "lang": "en",
+    "md": "docs/tutorials/llm_pretraining_pipeline_tutorial_en.md",
+    "title": "Llm Pretraining Pipeline Tutorial En"
   },
   "docs/tutorials/long_context_rope_yarn_mla_tutorial.html": {
     "eyebrow": "Interview Prep · Long Context / Position Encoding",
@@ -309,6 +345,18 @@
     "lang": "en",
     "md": "docs/tutorials/tokenization_tutorial_en.md",
     "title": "Tokenization Tutorial En"
+  },
+  "docs/tutorials/transformer_block_tutorial.html": {
+    "eyebrow": "Interview Prep · Transformer Block",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/transformer_block_tutorial.md",
+    "subtitle": "Post-LN / Pre-LN / branch pre+post 残差拓扑 · MHA/MQA/GQA/MLA 独立设计轴 · Dense FFN vs MoE 容量轴 · GPT-2→Llama-style 演进 · 30 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "title": "Transformer Block 面试 Cheat Sheet"
+  },
+  "docs/tutorials/transformer_block_tutorial_en.html": {
+    "lang": "en",
+    "md": "docs/tutorials/transformer_block_tutorial_en.md",
+    "title": "Transformer Block Tutorial En"
   },
   "docs/tutorials/vae_vqvae_vqgan_tutorial.html": {
     "eyebrow": "Interview Prep · Latent Variable Models & Discrete Tokenizers",
