@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/optimizer_lr_schedule_tutorial.md">
 <meta name="aris:source-sha256" content="c134fc37eb009cfa6165349968007a20ab56d57a8869f4c687a09e613bac6bc8">
-<meta name="aris:generated-at" content="2026-07-12 04:08 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -615,7 +622,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/optimizer_lr_schedule_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>c134fc37eb00</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:08 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -737,7 +744,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>为什么稳：偶发的超大梯度被钳到阈值内，单步更新幅度有界 → 不会因一个坏 batch 把训练带崩。LLM 预训练几乎都用 <strong>global-norm clip，阈值 1.0</strong>。</p>
 <h3 id="92-llm-训练的-adam-超参默认">9.2　LLM 训练的 Adam 超参默认</h3>
 <p>LLM 预训练的 Adam/AdamW 配方和"教科书默认"有几处关键不同：</p>
-<table><thead><tr><th>超参</th><th>教科书默认</th><th><strong>LLM 预训练常用</strong></th><th>为什么</th></tr></thead><tbody><tr><td>$\beta_1$</td><td>0.9</td><td>0.9</td><td>动量窗口 ~10 步，够用</td></tr><tr><td>$\beta_2$</td><td>0.999</td><td><strong>0.95</strong>（或 0.99）</td><td>0.999 记忆窗口 ~1000 步<strong>太长</strong>，对 loss spike / 非平稳反应迟钝、易在尖峰后失稳；0.95（窗口 ~20 步）反应更快更稳</td></tr><tr><td>$\epsilon$</td><td>1e-8</td><td>1e-8（有时 1e-15）</td><td>防分母为 0；过大会削弱自适应</td></tr><tr><td>weight decay</td><td>0 ~ 1e-2</td><td><strong>0.1</strong></td><td>解耦 wd（AdamW），较强</td></tr><tr><td>grad clip</td><td>无</td><td><strong>1.0</strong>（global norm）</td><td>压 loss 尖峰</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>超参</th><th>教科书默认</th><th><strong>LLM 预训练常用</strong></th><th>为什么</th></tr></thead><tbody><tr><td>$\beta_1$</td><td>0.9</td><td>0.9</td><td>动量窗口 ~10 步，够用</td></tr><tr><td>$\beta_2$</td><td>0.999</td><td><strong>0.95</strong>（或 0.99）</td><td>0.999 记忆窗口 ~1000 步<strong>太长</strong>，对 loss spike / 非平稳反应迟钝、易在尖峰后失稳；0.95（窗口 ~20 步）反应更快更稳</td></tr><tr><td>$\epsilon$</td><td>1e-8</td><td>1e-8（有时 1e-15）</td><td>防分母为 0；过大会削弱自适应</td></tr><tr><td>weight decay</td><td>0 ~ 1e-2</td><td><strong>0.1</strong></td><td>解耦 wd（AdamW），较强</td></tr><tr><td>grad clip</td><td>无</td><td><strong>1.0</strong>（global norm）</td><td>压 loss 尖峰</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>$\beta_2=0.999$ 搬到 LLM 上是经典坑</strong> 视觉/小模型上 0.999 没问题；但 LLM 大规模预训练里梯度统计非平稳、偶有尖峰，0.999 的长记忆让 $\hat v$ 更新太慢，遇到 loss spike 难以快速回稳，常见做法是降到 <strong>$\beta_2=0.95$</strong>。这是面试里"你怎么调 LLM 的 Adam"的标准得分点。</p></div>
 <h2 id="10-选优化器--显存账">§10 选优化器 + 显存账</h2>
 <h3 id="101-优化器状态的显存">10.1　优化器状态的显存</h3>
@@ -750,7 +757,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <ul><li><strong>Transformer / LLM 微调或预训练</strong>：<strong>AdamW</strong>（安全默认，$\beta_2=0.95$、wd 0.1、grad-clip 1.0、配 warmup+cosine/WSD）。</li><li><strong>经典视觉（ResNet 等）</strong>：<strong>SGD+momentum</strong> 常<strong>泛化更好</strong>、且省显存——CV 里仍有大量 SOTA 用它。</li><li><strong>想要额外训练加速 / 大规模</strong>：<strong>Muon</strong>（2D 隐藏层）、<strong>Shampoo/SOAP</strong>（全矩阵预条件，肯花每步算力）。</li><li><strong>显存受限</strong>：<strong>8-bit Adam</strong> / <strong>Adafactor</strong> / <strong>Lion</strong>。</li><li><strong>超大 batch</strong>：<strong>LAMB / LARS</strong>（逐层 trust ratio）。</li></ul></blockquote>
 <h2 id="11-工程对比--常见误区">§11 工程对比 + 常见误区</h2>
 <h3 id="111-优化器对比表">11.1　优化器对比表</h3>
-<table><thead><tr><th>优化器</th><th>优化器状态（× 参数）</th><th>额外计算</th><th>核心 idea</th><th>典型用途</th></tr></thead><tbody><tr><td><strong>SGD+Momentum</strong></td><td>1×（动量）</td><td>极低</td><td>heavy-ball 速度 EMA</td><td>经典视觉、追泛化</td></tr><tr><td><strong>Adam / AdamW</strong></td><td>2×（$m,v$）</td><td>低（逐元素）</td><td>动量 + 对角自适应（+ 解耦 wd）</td><td>Transformer / LLM 默认</td></tr><tr><td><strong>Lion</strong></td><td>1×（动量）</td><td>低（取 sign）</td><td>符号动量、单状态</td><td>省显存 / 大 batch</td></tr><tr><td><strong>Muon</strong></td><td>1×（动量）+ NS 迭代</td><td>中（几次小 matmul）</td><td>动量正交化（Newton-Schulz）</td><td>LLM 隐藏 2D 层提速</td></tr><tr><td><strong>Shampoo</strong></td><td>预条件子 $L,R$（较大）</td><td>高（矩阵逆根）</td><td>Kronecker 全矩阵预条件</td><td>大规模训练提速</td></tr><tr><td><strong>Adafactor</strong></td><td>亚线性（因子化 $v$）</td><td>低</td><td>行/列因子化二阶矩</td><td>显存受限 / T5</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>优化器</th><th>优化器状态（× 参数）</th><th>额外计算</th><th>核心 idea</th><th>典型用途</th></tr></thead><tbody><tr><td><strong>SGD+Momentum</strong></td><td>1×（动量）</td><td>极低</td><td>heavy-ball 速度 EMA</td><td>经典视觉、追泛化</td></tr><tr><td><strong>Adam / AdamW</strong></td><td>2×（$m,v$）</td><td>低（逐元素）</td><td>动量 + 对角自适应（+ 解耦 wd）</td><td>Transformer / LLM 默认</td></tr><tr><td><strong>Lion</strong></td><td>1×（动量）</td><td>低（取 sign）</td><td>符号动量、单状态</td><td>省显存 / 大 batch</td></tr><tr><td><strong>Muon</strong></td><td>1×（动量）+ NS 迭代</td><td>中（几次小 matmul）</td><td>动量正交化（Newton-Schulz）</td><td>LLM 隐藏 2D 层提速</td></tr><tr><td><strong>Shampoo</strong></td><td>预条件子 $L,R$（较大）</td><td>高（矩阵逆根）</td><td>Kronecker 全矩阵预条件</td><td>大规模训练提速</td></tr><tr><td><strong>Adafactor</strong></td><td>亚线性（因子化 $v$）</td><td>低</td><td>行/列因子化二阶矩</td><td>显存受限 / T5</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">读表</div><p>横看显存（SGD/Lion/Muon 1 状态、Adam 2 状态、Adafactor 亚线性、Shampoo 最重），竖看代价（对角自适应便宜、全矩阵预条件贵）。没有"最优优化器"，只有"对当前 模型 × 显存 × 算力 预算最合适的"。</p></div>
 <h3 id="112-常见误区footguns">11.2　常见误区（footguns）</h3>
 <div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>误区 1：Adam 的 L2 当成 AdamW 的解耦衰减</strong> <code>Adam(weight_decay=λ)</code> 是耦合 L2（经 $1/\sqrt{\hat v}$ 缩放），<code>AdamW</code> 才是解耦衰减。相同 $\lambda$ 下两者更新<strong>不同</strong>（§5、§A [c]）。</p></div>
@@ -1041,7 +1048,7 @@ all optimizer / LR-schedule sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/optimizer_lr_schedule_tutorial.md</code> ·
   SHA256 <code>c134fc37eb00</code> ·
-  generated at 2026-07-12 04:08 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

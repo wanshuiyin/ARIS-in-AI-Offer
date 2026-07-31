@@ -1,7 +1,7 @@
 {
  "skill": "interview-cheatsheet",
  "source": "docs/tutorials/transformer_block_tutorial.md",
- "source_sha256": "889169f1a09a59ac766f404bf1862e64faddcd1f9de7a862a82d36ecec4216a1",
+ "source_sha256": "ba008ed3335233845480930af6b0395f4fe5e2f5320fb63b4f3cd35c9c8c4693",
  "output": "docs/tutorials/transformer_block_tutorial.html",
  "runnable_code": "docs/tutorials/code/transformer_block.py",
  "topic": "Transformer Block / 面试 Cheat Sheet — 三种残差拓扑(Post-LN/Pre-LN/branch pre+post)统一公式 / MHA→MQA→GQA→MLA 独立设计轴(历史顺序 vs 压缩强度) / Dense FFN vs MoE 独立容量轴 / GPT-2-style→Llama-style 演进(RMSNorm/RoPE/SwiGLU/bias-dropout) / 三大家族地图(encoder-only/decoder-only/encoder-decoder) / 现代decoder-only block完整forward walkthrough / 30 高频题",
@@ -13,7 +13,7 @@
   "notes": "gpt-5.6-sol对提议大纲做详尽设计前置审(90条编号claim):三种残差拓扑精确公式区分、GPT-2已是Pre-LN(非'现代LLM才改')、GLU参数匹配h=8d/3非硬性架构定律、MQA早于GQA的历史顺序、MLA是独立低秩压缩设计轴非GQA的'再下一步'、MoE是独立容量轴非'下一代必然替代dense FFN'、GPT-J/PaLM并行残差精确公式、'sandwich norm'改名'branch pre+post norm'消歧。起草时作为硬护栏。"
  },
  "math_code_review": {
-  "verdict": "PASS (after 5 review batches — math/facts, citations, code, Q&A, overall-structure-ultra — + full fix pass on both md and py, verified by re-running the fixed script)",
+  "verdict": "PASS (after 5 review batches — math/facts, citations, code, Q&A, overall-structure-ultra — + full fix pass on both md and py, verified by re-running the fixed script; + 1 scannability de-hedge round, expression-only, no factual changes)",
   "rounds": [
    {
     "run": 1,
@@ -49,6 +49,13 @@
     "verdict": "不建议原样定稿 -> 全面结构重写后SHIP",
     "notes": "核心诊断:'正交槽位/任意组合'框架过强,正文自己多处反例;残差拓扑图与三公式粒度不统一;block/stack/模型外壳边界前后不一致;缺三大家族地图;§7-9结构需重组。fix subagent按5层设计维度地图重写§0,补三大家族地图+现代decoder-only完整forward walkthrough,重组§7-9,853→行数增至最终版本。",
     "thread_id": "019f8838-89cd-74d1-a362-122a6ab512a1"
+   },
+   {
+    "run": 6,
+    "scope": "结构重排 + 可扫读性去冗余(owner反馈'过度防御冗杂'触发的专项pass)",
+    "verdict": "中度冗杂(§0/§9局部重度) -> 全部修复",
+    "thread_id": "019fb3ee-1e00-7c93-9862-a6955a314c84",
+    "notes": "结构重排:原§7 Capstone(具体Llama-3-like block组装+端到端数据流+可运行代码)提前为§1,历史/设计轴细节后移为§2-§7,约90处内部交叉引用两阶段占位符改号,26处外部教程引用保护未动。去冗余:'非严格正交'主题7处收敛为2处(§0总规则+§7.2尺度约束);Q27答案中泄漏的修订历史元话语清零;19段'易踩坑'否定镜像删除(仅保留10题有判别动作的);§9按审核骨架逐题改写15题。累计-17.2%字节。表达重排不改事实结论。"
    }
   ]
  },
@@ -59,10 +66,10 @@
   "headline": "GQA/MQA correctness pinned against an independently-computed repeat_interleave reference, not just full-vs-cached self-consistency; D08 hooks both attention and FFN inputs live during the real forward call rather than asserting output inequality."
  },
  "summary": "Transformer Block cheat sheet (effort=max, ~853 lines, bilingual): third tutorial in this collection with a pre-draft cross-model design review (90 numbered claims). Overall-structure-ultra review initially returned '不建议原样定稿' — the proposed 'orthogonal design axes' framing had internal contradictions the draft itself exposed — driving a substantial restructure (5-layer hierarchical map, 3-family map, full modern-block forward walkthrough) rather than just point-fixes. Code review caught 7 real silent bugs (default non-causal mask, unchecked d_model divisibility, mask-broadcast collisions, KV-cache/start_pos inconsistency, unsafe cross-attention+RoPE+cache combination, NaN on fully-masked rows, RoPE cache device/dtype). Q&A review caught a genuine self-contradicting argument in the original Q23 draft. Final verdict: SHIP after full fix + re-verification.",
- "rendered_at": "2026-07-22",
+ "rendered_at": "2026-07-31",
  "render_review": {
   "verdict": "PASS",
   "thread_id": "019f88b9-973c-78a1-9fed-886a02e5ab57",
-  "notes": "6项渲染质量检查(表格列数/TOC条目数/公式逐式一致/details闭合数/无注入/无个人信息)全部通过;source SHA256与当前.md完全一致。"
+  "notes": "初版渲染审PASS(6项检查);去冗余后用升级版渲染器(table-wrap横向滚动修复)全库统一重渲染,源hash同步刷新。"
  }
 }

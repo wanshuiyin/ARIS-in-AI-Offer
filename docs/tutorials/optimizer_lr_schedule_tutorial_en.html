@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/optimizer_lr_schedule_tutorial_en.md">
 <meta name="aris:source-sha256" content="beb3d4efdbddea7867535d114ed40dbb173c1e39aea9ac1129293bfa23a1b07c">
-<meta name="aris:generated-at" content="2026-07-12 04:08 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -615,7 +622,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/optimizer_lr_schedule_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>beb3d4efdbdd</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:08 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -737,7 +744,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Why it stabilizes: occasional huge gradients are clamped within the threshold, the single-step update magnitude is bounded → one bad batch can't crash training. LLM pretraining almost always uses <strong>global-norm clip with threshold 1.0</strong>.</p>
 <h3 id="92-adam-hyperparameter-defaults-for-llm-training">9.2　Adam hyperparameter defaults for LLM training</h3>
 <p>The Adam/AdamW recipe for LLM pretraining differs from the "textbook defaults" in a few key places:</p>
-<table><thead><tr><th>Hyperparameter</th><th>Textbook default</th><th><strong>LLM pretraining common</strong></th><th>Why</th></tr></thead><tbody><tr><td>$\beta_1$</td><td>0.9</td><td>0.9</td><td>momentum window ~10 steps, enough</td></tr><tr><td>$\beta_2$</td><td>0.999</td><td><strong>0.95</strong> (or 0.99)</td><td>0.999's memory window ~1000 steps is <strong>too long</strong>, sluggish to loss spikes / non-stationarity, easily destabilized after a spike; 0.95 (window ~20 steps) reacts faster and more stably</td></tr><tr><td>$\epsilon$</td><td>1e-8</td><td>1e-8 (sometimes 1e-15)</td><td>prevents a zero denominator; too large weakens adaptivity</td></tr><tr><td>weight decay</td><td>0 ~ 1e-2</td><td><strong>0.1</strong></td><td>decoupled wd (AdamW), fairly strong</td></tr><tr><td>grad clip</td><td>none</td><td><strong>1.0</strong> (global norm)</td><td>suppress loss spikes</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Hyperparameter</th><th>Textbook default</th><th><strong>LLM pretraining common</strong></th><th>Why</th></tr></thead><tbody><tr><td>$\beta_1$</td><td>0.9</td><td>0.9</td><td>momentum window ~10 steps, enough</td></tr><tr><td>$\beta_2$</td><td>0.999</td><td><strong>0.95</strong> (or 0.99)</td><td>0.999's memory window ~1000 steps is <strong>too long</strong>, sluggish to loss spikes / non-stationarity, easily destabilized after a spike; 0.95 (window ~20 steps) reacts faster and more stably</td></tr><tr><td>$\epsilon$</td><td>1e-8</td><td>1e-8 (sometimes 1e-15)</td><td>prevents a zero denominator; too large weakens adaptivity</td></tr><tr><td>weight decay</td><td>0 ~ 1e-2</td><td><strong>0.1</strong></td><td>decoupled wd (AdamW), fairly strong</td></tr><tr><td>grad clip</td><td>none</td><td><strong>1.0</strong> (global norm)</td><td>suppress loss spikes</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>Carrying $\beta_2=0.999$ over to LLMs is a classic trap</strong> 0.999 is fine on vision / small models; but in large-scale LLM pretraining the gradient statistics are non-stationary with occasional spikes, and 0.999's long memory makes $\hat v$ update too slowly to recover quickly after a loss spike, so the common practice is to drop to <strong>$\beta_2=0.95$</strong>. This is the standard scoring point for "how do you tune Adam for LLMs" in interviews.</p></div>
 <h2 id="10-picking-an-optimizer--the-memory-bill">§10 Picking an optimizer + the memory bill</h2>
 <h3 id="101-optimizer-state-memory">10.1　Optimizer-state memory</h3>
@@ -750,7 +757,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <ul><li><strong>Transformer / LLM fine-tuning or pretraining</strong>: <strong>AdamW</strong> (safe default, $\beta_2=0.95$, wd 0.1, grad-clip 1.0, with warmup+cosine/WSD).</li><li><strong>Classic vision (ResNet, etc.)</strong>: <strong>SGD+momentum</strong> often <strong>generalizes better</strong> and saves memory — much CV SOTA still uses it.</li><li><strong>Want extra training speedup / large scale</strong>: <strong>Muon</strong> (2D hidden layers), <strong>Shampoo/SOAP</strong> (full-matrix preconditioning, if you'll pay the per-step compute).</li><li><strong>Memory-constrained</strong>: <strong>8-bit Adam</strong> / <strong>Adafactor</strong> / <strong>Lion</strong>.</li><li><strong>Very large batch</strong>: <strong>LAMB / LARS</strong> (per-layer trust ratio).</li></ul></blockquote>
 <h2 id="11-engineering-comparison--common-misconceptions">§11 Engineering comparison + common misconceptions</h2>
 <h3 id="111-optimizer-comparison-table">11.1　Optimizer comparison table</h3>
-<table><thead><tr><th>Optimizer</th><th>Optimizer state (× params)</th><th>Extra compute</th><th>Core idea</th><th>Typical use</th></tr></thead><tbody><tr><td><strong>SGD+Momentum</strong></td><td>1× (momentum)</td><td>minimal</td><td>heavy-ball velocity EMA</td><td>classic vision, chasing generalization</td></tr><tr><td><strong>Adam / AdamW</strong></td><td>2× ($m,v$)</td><td>low (elementwise)</td><td>momentum + diagonal adaptive (+ decoupled wd)</td><td>Transformer / LLM default</td></tr><tr><td><strong>Lion</strong></td><td>1× (momentum)</td><td>low (take sign)</td><td>sign momentum, single state</td><td>memory-saving / large batch</td></tr><tr><td><strong>Muon</strong></td><td>1× (momentum) + NS iters</td><td>medium (a few small matmuls)</td><td>orthogonalize the momentum (Newton-Schulz)</td><td>LLM hidden 2D layer speedup</td></tr><tr><td><strong>Shampoo</strong></td><td>preconditioners $L,R$ (large)</td><td>high (matrix inverse-roots)</td><td>Kronecker full-matrix preconditioning</td><td>large-scale training speedup</td></tr><tr><td><strong>Adafactor</strong></td><td>sublinear (factorized $v$)</td><td>low</td><td>row/column-factorized second moment</td><td>memory-constrained / T5</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Optimizer</th><th>Optimizer state (× params)</th><th>Extra compute</th><th>Core idea</th><th>Typical use</th></tr></thead><tbody><tr><td><strong>SGD+Momentum</strong></td><td>1× (momentum)</td><td>minimal</td><td>heavy-ball velocity EMA</td><td>classic vision, chasing generalization</td></tr><tr><td><strong>Adam / AdamW</strong></td><td>2× ($m,v$)</td><td>low (elementwise)</td><td>momentum + diagonal adaptive (+ decoupled wd)</td><td>Transformer / LLM default</td></tr><tr><td><strong>Lion</strong></td><td>1× (momentum)</td><td>low (take sign)</td><td>sign momentum, single state</td><td>memory-saving / large batch</td></tr><tr><td><strong>Muon</strong></td><td>1× (momentum) + NS iters</td><td>medium (a few small matmuls)</td><td>orthogonalize the momentum (Newton-Schulz)</td><td>LLM hidden 2D layer speedup</td></tr><tr><td><strong>Shampoo</strong></td><td>preconditioners $L,R$ (large)</td><td>high (matrix inverse-roots)</td><td>Kronecker full-matrix preconditioning</td><td>large-scale training speedup</td></tr><tr><td><strong>Adafactor</strong></td><td>sublinear (factorized $v$)</td><td>low</td><td>row/column-factorized second moment</td><td>memory-constrained / T5</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">Reading the table</div><p>across the memory axis (SGD/Lion/Muon 1 state, Adam 2 states, Adafactor sublinear, Shampoo heaviest), and the cost axis (diagonal adaptive cheap, full-matrix preconditioning expensive). There is no "optimal optimizer," only "the most suitable for the current model × memory × compute budget."</p></div>
 <h3 id="112-common-footguns">11.2　Common footguns</h3>
 <div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>Footgun 1: treating Adam's L2 as AdamW's decoupled decay</strong> <code>Adam(weight_decay=λ)</code> is coupled L2 (scaled by $1/\sqrt{\hat v}$), <code>AdamW</code> is decoupled decay. The two give <strong>different</strong> updates at the same $\lambda$ (§5, §A [c]).</p></div>
@@ -1041,7 +1048,7 @@ all optimizer / LR-schedule sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/optimizer_lr_schedule_tutorial_en.md</code> ·
   SHA256 <code>beb3d4efdbdd</code> ·
-  generated at 2026-07-12 04:08 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

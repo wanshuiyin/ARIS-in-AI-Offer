@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/kv_cache_speculative_decoding_tutorial.md">
 <meta name="aris:source-sha256" content="dfc991aee17b26645d77c91bf8ad19c419174ce29711562bde7e93fc14081381">
-<meta name="aris:generated-at" content="2026-07-12 04:22 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -619,7 +626,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/kv_cache_speculative_decoding_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>dfc991aee17b</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:22 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -637,7 +644,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>但代价是：<strong>每生成一个 token，整条 KV cache 都要从 HBM 读到 SRAM</strong>——这就是为什么 8 张 H100 + LLaMA-3-70B 跑 batch=1 的 decode 远低于理论 FLOPs 利用率（往往 1-5%）。</p>
 <p>Speculative decoding 攻击的正是这个不对称：既然 decode 是 bandwidth-bound 而 GPU 上还有富余算力，<strong>何不一次 forward 算 $K$ 个候选 token，反正 weight 只读一次？</strong></p>
 <h3 id="12-与训练时-attention-的区别">1.2　与训练时 attention 的区别</h3>
-<table><thead><tr><th>阶段</th><th>输入</th><th>KV cache 行为</th><th>瓶颈</th></tr></thead><tbody><tr><td><strong>Training</strong></td><td>$[B, L, D]$ 全序列</td><td>不需要——所有位置同时算</td><td>FLOPs (compute)</td></tr><tr><td><strong>Prefill (inference)</strong></td><td>$[B, L_\text{prompt}, D]$ 整段 prompt</td><td><strong>写</strong>入 cache，覆盖 $L_\text{prompt}$ 个位置</td><td>FLOPs（$L^2$ attention）</td></tr><tr><td><strong>Decode (inference)</strong></td><td>$[B, 1, D]$ 单 token</td><td><strong>读</strong> + append 1 个位置</td><td><strong>HBM 带宽</strong>（每 step 必须读全部 cache + weights）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>阶段</th><th>输入</th><th>KV cache 行为</th><th>瓶颈</th></tr></thead><tbody><tr><td><strong>Training</strong></td><td>$[B, L, D]$ 全序列</td><td>不需要——所有位置同时算</td><td>FLOPs (compute)</td></tr><tr><td><strong>Prefill (inference)</strong></td><td>$[B, L_\text{prompt}, D]$ 整段 prompt</td><td><strong>写</strong>入 cache，覆盖 $L_\text{prompt}$ 个位置</td><td>FLOPs（$L^2$ attention）</td></tr><tr><td><strong>Decode (inference)</strong></td><td>$[B, 1, D]$ 单 token</td><td><strong>读</strong> + append 1 个位置</td><td><strong>HBM 带宽</strong>（每 step 必须读全部 cache + weights）</td></tr></tbody></table></div>
 <p>面试常被反问"训练能不能用 KV cache"——<strong>不能</strong>：训练时所有位置一次性算，没有"已有 K/V 等着 append"这件事。把 KV cache 用在训练上是新手错误。</p>
 <h2 id="2-kv-cache-显存核算">§2 KV Cache 显存核算</h2>
 <h3 id="21-精确公式">2.1　精确公式</h3>
@@ -648,7 +655,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="callout callout-warn"><div class="callout-title">常踩坑：不要乘 $H$（Q heads 数量）</div><p>KV cache 只跟 K/V heads 走，<strong>不跟 Q heads 走</strong>。MQA 把 K/V heads 砍成 1 时，Q 仍是 $H$ 个 head，所以 Q projection 计算量不变。</p></div>
 <h3 id="22-几个具体模型的-cache-大小fp16-ltextctx4096">2.2　几个具体模型的 cache 大小（fp16, $L_\text{ctx}=4096$）</h3>
 <p>代入 §2.1 公式 $2 \cdot L_\text{ctx} \cdot N_\text{layers} \cdot N_\text{kv\_heads} \cdot d_\text{head} \cdot 2\text{B}$ 直接算：</p>
-<table><thead><tr><th>模型</th><th>$N_\text{layers}$</th><th>$N_\text{kv\_heads}$</th><th>$d_\text{head}$</th><th>cache/sample</th><th>备注</th></tr></thead><tbody><tr><td>LLaMA-2-7B (MHA)</td><td>32</td><td>32</td><td>128</td><td><strong>2.0 GB</strong></td><td>全 MHA，cache 大</td></tr><tr><td>LLaMA-2-70B (假设 MHA)</td><td>80</td><td>64</td><td>128</td><td><strong>10.0 GB</strong></td><td>这就是为什么 70B 用 GQA</td></tr><tr><td>LLaMA-2-70B (GQA)</td><td>80</td><td>8</td><td>128</td><td><strong>1.25 GB</strong></td><td>GQA 把 $H$=64 砍成 $G$=8</td></tr><tr><td>LLaMA-3-70B (GQA)</td><td>80</td><td>8</td><td>128</td><td><strong>1.25 GB</strong></td><td>同 LLaMA-2-70B</td></tr><tr><td>DeepSeek-V2 (MLA)</td><td>60</td><td>—</td><td>$d_c$=512 + $d_r$=64</td><td><strong>~0.27 GB</strong></td><td>MLA 公式：$N_\text{layers} \cdot L_\text{ctx} \cdot (d_c+d_r) \cdot 2\text{B}$</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模型</th><th>$N_\text{layers}$</th><th>$N_\text{kv\_heads}$</th><th>$d_\text{head}$</th><th>cache/sample</th><th>备注</th></tr></thead><tbody><tr><td>LLaMA-2-7B (MHA)</td><td>32</td><td>32</td><td>128</td><td><strong>2.0 GB</strong></td><td>全 MHA，cache 大</td></tr><tr><td>LLaMA-2-70B (假设 MHA)</td><td>80</td><td>64</td><td>128</td><td><strong>10.0 GB</strong></td><td>这就是为什么 70B 用 GQA</td></tr><tr><td>LLaMA-2-70B (GQA)</td><td>80</td><td>8</td><td>128</td><td><strong>1.25 GB</strong></td><td>GQA 把 $H$=64 砍成 $G$=8</td></tr><tr><td>LLaMA-3-70B (GQA)</td><td>80</td><td>8</td><td>128</td><td><strong>1.25 GB</strong></td><td>同 LLaMA-2-70B</td></tr><tr><td>DeepSeek-V2 (MLA)</td><td>60</td><td>—</td><td>$d_c$=512 + $d_r$=64</td><td><strong>~0.27 GB</strong></td><td>MLA 公式：$N_\text{layers} \cdot L_\text{ctx} \cdot (d_c+d_r) \cdot 2\text{B}$</td></tr></tbody></table></div>
 <p>DeepSeek-V2 cache 用 $d_c=512$（latent dim, K/V 共享同一个 latent 向量）+ decoupled RoPE 分量 $d_r=64$（所有 head 共享），按 $N_\text{layers} \cdot L_\text{ctx} \cdot (d_c + d_r) \cdot \text{bytes}$（<strong>没有那个 "$\times 2$"</strong>，因为 K/V 不再各存一份），fp16 下 $60 \cdot 4096 \cdot 576 \cdot 2 \approx$ <strong>0.27 GB / sample</strong>——相比同规模 MHA 缩减一个数量级。</p>
 <h3 id="23-batch-维度">2.3　Batch 维度</h3>
 <p>实际服务里，KV cache 还要乘 <strong>active batch size</strong>。一个 70B + 4K context + GQA 部署在 8×A100 80GB 上：</p>
@@ -675,7 +682,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <ul><li>vLLM 的 prefix caching：用 hash(prompt prefix) 索引 cache page，命中则跳过 prefill</li><li>ChatGPT 这种 prompt-heavy 服务，prefix cache hit rate 可达 90%+，大幅减 prefill 开销</li><li>实现关键：page-level 共享 + COW（copy-on-write），分支的请求只对自己的 page 写</li></ul>
 <h2 id="4-kv-cache-优化路线">§4 KV Cache 优化路线</h2>
 <h3 id="41-路线总览">4.1　路线总览</h3>
-<table><thead><tr><th>路线</th><th>核心 idea</th><th>减少了什么</th><th>代表</th></tr></thead><tbody><tr><td><strong>共享 head</strong>（MQA/GQA）</td><td>多个 Q head 共享一组 K/V</td><td>KV head 数 $H \to G$ 或 1</td><td>LLaMA-2/3, Mistral, PaLM</td></tr><tr><td><strong>低秩压缩</strong>（MLA）</td><td>投影到低维 latent，cache latent 而非 K/V</td><td>head 维度有效减小 $d_\text{head} \to d_c/H$</td><td>DeepSeek-V2/V3</td></tr><tr><td><strong>量化</strong>（KIVI/KVQuant）</td><td>把 cache 元素 fp16 → int4/int2</td><td>bytes per element</td><td>KIVI, KVQuant, FP8 KV</td></tr><tr><td><strong>稀疏化 / eviction</strong></td><td>只保留"重要"位置的 K/V</td><td>$L_\text{ctx}$ 有效缩短</td><td>H2O, StreamingLLM, TriForce</td></tr><tr><td><strong>内存管理</strong>（PagedAttention）</td><td>不减小总量，但消除碎片</td><td>fragmentation overhead</td><td>vLLM</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>路线</th><th>核心 idea</th><th>减少了什么</th><th>代表</th></tr></thead><tbody><tr><td><strong>共享 head</strong>（MQA/GQA）</td><td>多个 Q head 共享一组 K/V</td><td>KV head 数 $H \to G$ 或 1</td><td>LLaMA-2/3, Mistral, PaLM</td></tr><tr><td><strong>低秩压缩</strong>（MLA）</td><td>投影到低维 latent，cache latent 而非 K/V</td><td>head 维度有效减小 $d_\text{head} \to d_c/H$</td><td>DeepSeek-V2/V3</td></tr><tr><td><strong>量化</strong>（KIVI/KVQuant）</td><td>把 cache 元素 fp16 → int4/int2</td><td>bytes per element</td><td>KIVI, KVQuant, FP8 KV</td></tr><tr><td><strong>稀疏化 / eviction</strong></td><td>只保留"重要"位置的 K/V</td><td>$L_\text{ctx}$ 有效缩短</td><td>H2O, StreamingLLM, TriForce</td></tr><tr><td><strong>内存管理</strong>（PagedAttention）</td><td>不减小总量，但消除碎片</td><td>fragmentation overhead</td><td>vLLM</td></tr></tbody></table></div>
 <h3 id="42-mqa--gqa-公式回顾">4.2　MQA / GQA 公式回顾</h3>
 <p>MHA：每个 head 独立 $W_k^{(h)}, W_v^{(h)} \in \mathbb{R}^{D \times d_\text{head}}$；共 $H \cdot 2 \cdot D \cdot d_\text{head} = 2 D^2$ 参数（K+V）。</p>
 <p>MQA（Shazeer 2019）：$H$ 个 Q head 共享 <strong>1</strong> 组 K/V。$W_k, W_v \in \mathbb{R}^{D \times d_\text{head}}$，K+V 参数 $= 2 D d_\text{head}$，<strong>减小 $H$ 倍</strong>。前向时 K, V 各 broadcast 到 $H$ 个 head 上做 attention。</p>
@@ -692,7 +699,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>类似地，Q 也低秩压缩（这步可选，主要为减训练显存而非 inference）：</p>
 <p>$$c_t^Q = W^{DQ} h_t, \quad q_t^{C, (i)} = W^{UQ, (i)} c_t^Q$$</p>
 <h4 id="432-cache-size-对比">4.3.2　Cache size 对比</h4>
-<table><thead><tr><th>方案</th><th>cache 每 token 的元素数</th></tr></thead><tbody><tr><td>MHA</td><td>$2 \cdot H \cdot d_\text{head}$</td></tr><tr><td>GQA</td><td>$2 \cdot G \cdot d_\text{head}$</td></tr><tr><td>MQA</td><td>$2 \cdot d_\text{head}$</td></tr><tr><td>MLA（裸 latent 部分）</td><td>$d_c$（<strong>单个 vector，不乘 2</strong>——因为 K 和 V 共享同一个 latent）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方案</th><th>cache 每 token 的元素数</th></tr></thead><tbody><tr><td>MHA</td><td>$2 \cdot H \cdot d_\text{head}$</td></tr><tr><td>GQA</td><td>$2 \cdot G \cdot d_\text{head}$</td></tr><tr><td>MQA</td><td>$2 \cdot d_\text{head}$</td></tr><tr><td>MLA（裸 latent 部分）</td><td>$d_c$（<strong>单个 vector，不乘 2</strong>——因为 K 和 V 共享同一个 latent）</td></tr></tbody></table></div>
 <p>DeepSeek-V2 取 $d_c = 4 d_\text{head}$，<strong>裸 latent</strong> 相比 MHA（$2 H d_\text{head}$）压缩约 $H/2$ 倍（$H=128$ 时约 64×）。但 MLA 实际 cache 还要带一段解耦-RoPE 分量 $d_r$（DeepSeek-V2 $d_r = 64$），<strong>完整 cache $=d_c+d_r=576$，相对 MHA 压缩约 57×</strong>（与长上下文篇 §9 的 57× 一致；只数 latent 会高估成 64×）。</p>
 <h4 id="433-inference-等价变换absorb-trick">4.3.3　Inference 等价变换（absorb trick）</h4>
 <p>朴素实现里，每 step 要先把 $c_t^{KV}$ 升回 $k_t, v_t$ 再算 attention，那"省 cache"的意义就没了（还得做升投影）。MLA 的妙处在<strong>矩阵吸收</strong>：</p>
@@ -727,7 +734,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="callout callout-bad"><div class="callout-title">面试常犯错</div><p>说"MLA 就是 GQA 的极端版"：错。GQA 仍然 cache 完整 K 和 V，只是 head 数变少；MLA cache 的是 latent，K/V 是 inference 时从 latent 还原出来的。两者数学上不同（MLA 改了 attention 结构，GQA 没改）。</p></div>
 <h3 id="45-kv-量化kivi--kvquant--fp8">4.5　KV 量化（KIVI / KVQuant / FP8）</h3>
 <p>KV cache 量化路线把每个 cache element 从 fp16（2 bytes）压到更少：</p>
-<table><thead><tr><th>方法</th><th>量化粒度</th><th>精度损失</th><th>备注</th></tr></thead><tbody><tr><td><strong>FP8 KV</strong></td><td>per-tensor / per-channel FP8</td><td>几乎无损</td><td>H100 原生支持，工业级常用</td></tr><tr><td><strong>KIVI</strong> (Liu et al., ICML 2024)</td><td><strong>K per-channel, V per-token</strong> 2-bit</td><td>&lt;1 PPL</td><td>tuning-free，asymmetric quant</td></tr><tr><td><strong>KVQuant</strong> (Hooper et al., NeurIPS 2024)</td><td>per-channel 4-bit + outlier 处理</td><td>极小</td><td>论文显示 10M context 可行</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>量化粒度</th><th>精度损失</th><th>备注</th></tr></thead><tbody><tr><td><strong>FP8 KV</strong></td><td>per-tensor / per-channel FP8</td><td>几乎无损</td><td>H100 原生支持，工业级常用</td></tr><tr><td><strong>KIVI</strong> (Liu et al., ICML 2024)</td><td><strong>K per-channel, V per-token</strong> 2-bit</td><td>&lt;1 PPL</td><td>tuning-free，asymmetric quant</td></tr><tr><td><strong>KVQuant</strong> (Hooper et al., NeurIPS 2024)</td><td>per-channel 4-bit + outlier 处理</td><td>极小</td><td>论文显示 10M context 可行</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">KIVI 的关键洞察</div><p>K 和 V 的 outlier 分布<strong>不一样</strong>。K 在 channel 维有显著 outlier（少数 channel 数值大），用 per-channel quant 能吸掉；V 没有 channel-level outlier 但有 token-level 异质，用 per-token quant 更合适。Asymmetric scheme 把这俩别开来处理是 KIVI 的核心贡献。</p></div>
 <h2 id="5-pagedattentionvllm-内存管理">§5 PagedAttention（vLLM 内存管理）</h2>
 <h3 id="51-问题kv-cache-的-fragmentation">5.1　问题：KV cache 的 fragmentation</h3>
@@ -1084,7 +1091,7 @@ def speculative_decode(target, draft, prompt_ids, max_new_tokens, K=4, temperatu
 <div class="callout callout-warn"><div class="callout-title">生产实现要点</div><p>(1) <strong>Cache rollback</strong> 必须真正回退 KV cache 写入位置；vLLM 用 PagedAttention 的 block table 改指针实现 $O(1)$。(2) <strong>数值稳定</strong>：$r=p/q$ 在 $q \to 0$ 时爆炸，用 fp32 计算并 clamp。(3) <strong>不变式</strong>：每轮开始时 cache 含 seq 除最后 1 个 token 之外的所有 prefix——所有 rollback / 补喂逻辑都为维护这一条。</p></div>
 <h2 id="8-speculative-decoding-主要变体">§8 Speculative Decoding 主要变体</h2>
 <h3 id="81-变体总览">8.1　变体总览</h3>
-<table><thead><tr><th>方法</th><th>Draft 来源</th><th>多 token 结构</th><th>是否需 draft 模型训练</th><th>代表论文</th></tr></thead><tbody><tr><td><strong>Vanilla SD</strong></td><td>独立小模型</td><td>线性 chain</td><td>否（用现成小 LM）</td><td>Leviathan 2023, Chen 2023</td></tr><tr><td><strong>SpecInfer</strong></td><td>多个 draft 一起</td><td><strong>静态 tree</strong></td><td>否</td><td>Miao 2024 (ASPLOS)</td></tr><tr><td><strong>Medusa</strong></td><td>在 target 上加 N 个 head</td><td>静态 tree</td><td>是（finetune heads）</td><td>Cai 2024 (ICML)</td></tr><tr><td><strong>EAGLE-1</strong></td><td>feature-level autoregression + 小 model</td><td>tree</td><td>是（draft 头小）</td><td>Li 2024 (ICML)</td></tr><tr><td><strong>EAGLE-2</strong></td><td>同 EAGLE-1</td><td><strong>dynamic tree</strong></td><td>是</td><td>Li 2024</td></tr><tr><td><strong>EAGLE-3</strong></td><td>多层 feature fusion + training-time test</td><td>动态 tree</td><td>是</td><td>Li 2025</td></tr><tr><td><strong>Hydra</strong></td><td>sequential draft heads</td><td>静态 tree</td><td>是</td><td>Ankner 2024</td></tr><tr><td><strong>Lookahead Decoding</strong></td><td><strong>Jacobi 迭代</strong> + n-gram pool</td><td>自己 verify</td><td>否</td><td>Fu 2024 (ICML)</td></tr><tr><td><strong>REST</strong></td><td>retrieval (datastore)</td><td>静态 tree</td><td>否</td><td>He 2024 (NAACL)</td></tr><tr><td><strong>Self-Speculative</strong></td><td>target 自己跳层</td><td>线性</td><td>否（用 target 部分层）</td><td>Zhang 2024</td></tr><tr><td><strong>TriForce</strong></td><td>分层（small LM + sparse target）</td><td>hierarchical</td><td>否</td><td>Sun 2024</td></tr><tr><td><strong>MagicDec</strong></td><td>small draft + sparse KV</td><td>线性</td><td>否</td><td>Sadhukhan 2024</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>Draft 来源</th><th>多 token 结构</th><th>是否需 draft 模型训练</th><th>代表论文</th></tr></thead><tbody><tr><td><strong>Vanilla SD</strong></td><td>独立小模型</td><td>线性 chain</td><td>否（用现成小 LM）</td><td>Leviathan 2023, Chen 2023</td></tr><tr><td><strong>SpecInfer</strong></td><td>多个 draft 一起</td><td><strong>静态 tree</strong></td><td>否</td><td>Miao 2024 (ASPLOS)</td></tr><tr><td><strong>Medusa</strong></td><td>在 target 上加 N 个 head</td><td>静态 tree</td><td>是（finetune heads）</td><td>Cai 2024 (ICML)</td></tr><tr><td><strong>EAGLE-1</strong></td><td>feature-level autoregression + 小 model</td><td>tree</td><td>是（draft 头小）</td><td>Li 2024 (ICML)</td></tr><tr><td><strong>EAGLE-2</strong></td><td>同 EAGLE-1</td><td><strong>dynamic tree</strong></td><td>是</td><td>Li 2024</td></tr><tr><td><strong>EAGLE-3</strong></td><td>多层 feature fusion + training-time test</td><td>动态 tree</td><td>是</td><td>Li 2025</td></tr><tr><td><strong>Hydra</strong></td><td>sequential draft heads</td><td>静态 tree</td><td>是</td><td>Ankner 2024</td></tr><tr><td><strong>Lookahead Decoding</strong></td><td><strong>Jacobi 迭代</strong> + n-gram pool</td><td>自己 verify</td><td>否</td><td>Fu 2024 (ICML)</td></tr><tr><td><strong>REST</strong></td><td>retrieval (datastore)</td><td>静态 tree</td><td>否</td><td>He 2024 (NAACL)</td></tr><tr><td><strong>Self-Speculative</strong></td><td>target 自己跳层</td><td>线性</td><td>否（用 target 部分层）</td><td>Zhang 2024</td></tr><tr><td><strong>TriForce</strong></td><td>分层（small LM + sparse target）</td><td>hierarchical</td><td>否</td><td>Sun 2024</td></tr><tr><td><strong>MagicDec</strong></td><td>small draft + sparse KV</td><td>线性</td><td>否</td><td>Sadhukhan 2024</td></tr></tbody></table></div>
 <h3 id="82-medusa多头并行">8.2　Medusa：多头并行</h3>
 <p>Medusa（Cai et al., ICML 2024）的核心：<strong>在 target 模型的最后 hidden state 上加 $N$ 个并行的 prediction heads</strong>，第 $k$ 个 head 直接预测"未来第 $k+1$ 个 token"。</p>
 <ul><li>不需要单独 draft 模型；只 finetune 这几个 head（参数量小）</li><li>$N$ 个 head 的 top-$K$ 候选组合成一棵 <strong>静态 tree</strong>（如每 head 取 top-5，理论上 $5^N$ 条路径；实际部署时用<strong>离线设计好的固定稀疏 tree 结构</strong>，只保留统计上常见的几十/几百条候选路径——这个筛选发生在 tree 结构设计阶段，与 typical acceptance 无关）</li><li>Tree attention：把 tree 里所有节点拍平输入 target 一次 forward，每节点的 attention mask 只看其祖先（causal in the tree）</li></ul>
@@ -1118,14 +1125,14 @@ Step 2:  x = x&#x27;，再来一轮
 <h2 id="9-复杂度--资源核算">§9 复杂度 / 资源核算</h2>
 <h3 id="91-kv-cache-显存汇总">9.1　KV cache 显存（汇总）</h3>
 <p>以 LLaMA-2/3-70B 架构（$N_\text{layers}=80, d_\text{head}=128$, MHA $H=64$）为基准，$L_\text{ctx}=4096$, fp16：</p>
-<table><thead><tr><th>方案</th><th>per-token-per-layer bytes</th><th>70B / 4K context (全模型)</th></tr></thead><tbody><tr><td>MHA ($H_\text{kv}=64$)</td><td>$2 \cdot 2 \cdot 64 \cdot 128 = 32768$</td><td>10.0 GB</td></tr><tr><td>GQA ($H_\text{kv}=8$)</td><td>$2 \cdot 2 \cdot 8 \cdot 128 = 4096$</td><td>1.25 GB</td></tr><tr><td>MQA ($H_\text{kv}=1$)</td><td>$2 \cdot 2 \cdot 1 \cdot 128 = 512$</td><td>0.16 GB</td></tr><tr><td>MLA ($d_c=512, d_r=64$, 60 layers)</td><td>$2 \cdot (512+64) = 1152$</td><td>~0.27 GB</td></tr><tr><td>MHA + INT4 KV</td><td>$32768 / 4 = 8192$</td><td>2.5 GB</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方案</th><th>per-token-per-layer bytes</th><th>70B / 4K context (全模型)</th></tr></thead><tbody><tr><td>MHA ($H_\text{kv}=64$)</td><td>$2 \cdot 2 \cdot 64 \cdot 128 = 32768$</td><td>10.0 GB</td></tr><tr><td>GQA ($H_\text{kv}=8$)</td><td>$2 \cdot 2 \cdot 8 \cdot 128 = 4096$</td><td>1.25 GB</td></tr><tr><td>MQA ($H_\text{kv}=1$)</td><td>$2 \cdot 2 \cdot 1 \cdot 128 = 512$</td><td>0.16 GB</td></tr><tr><td>MLA ($d_c=512, d_r=64$, 60 layers)</td><td>$2 \cdot (512+64) = 1152$</td><td>~0.27 GB</td></tr><tr><td>MHA + INT4 KV</td><td>$32768 / 4 = 8192$</td><td>2.5 GB</td></tr></tbody></table></div>
 <h3 id="92-speculative-decoding-期望吞吐">9.2　Speculative decoding 期望吞吐</h3>
 <p>$$\text{tokens / sec}_\text{SD} = \frac{\text{tokens / sec}_\text{baseline} \cdot E[\tau]}{1 + Kc}$$</p>
 <p>经验数字（A100, LLaMA-2-7B target + 68M draft）：</p>
 <ul><li>vanilla SD: 1.6-2.2×</li><li>Medusa-2: 2.5-3.0×</li><li>EAGLE-2: 3.0-3.5×</li><li>EAGLE-3: ~4.0×（短 context）</li></ul>
 <p>长 context（128K+）regime：vanilla SD 加速降到 1.1-1.3×；TriForce / MagicDec 仍能保 2-2.5×。</p>
 <h3 id="93-预算粗算70b--4k-context--gqa">9.3　预算粗算（70B + 4K context + GQA）</h3>
-<table><thead><tr><th>项</th><th>显存</th></tr></thead><tbody><tr><td>weights (fp16)</td><td>140 GB</td></tr><tr><td>KV cache @ batch 8</td><td>$8 \times 1.25$ GB $= 10$ GB</td></tr><tr><td>activation peak (decode, batch 8)</td><td>~2 GB</td></tr><tr><td>总</td><td>~152 GB → 2×80GB A100 紧；通常 4×80GB</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>项</th><th>显存</th></tr></thead><tbody><tr><td>weights (fp16)</td><td>140 GB</td></tr><tr><td>KV cache @ batch 8</td><td>$8 \times 1.25$ GB $= 10$ GB</td></tr><tr><td>activation peak (decode, batch 8)</td><td>~2 GB</td></tr><tr><td>总</td><td>~152 GB → 2×80GB A100 紧；通常 4×80GB</td></tr></tbody></table></div>
 <p>如果用 vanilla SD，draft model（7B fp16）+14 GB；EAGLE 的 draft head 大小随 target hidden dim 缩放，不是固定值：论文报告 7B target（如 Vicuna-7B）对应 draft 约 0.24B 参数（fp16 ≈0.5 GB），70B target（如 LLaMA-2-70B-Chat）对应 draft 约 0.99-1B 参数（fp16 ≈2 GB）——都远小于 vanilla SD 的完整 7B draft，但并非固定 ~200 MB。</p>
 <h2 id="10-25-高频面试题">§10 25 高频面试题</h2>
 <p>按难度分 L1（必会）/ L2（进阶）/ L3（顶级 lab）。所有题点开看答案 + 易踩坑。</p>
@@ -1305,7 +1312,7 @@ Step 2:  x = x&#x27;，再来一轮
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/kv_cache_speculative_decoding_tutorial.md</code> ·
   SHA256 <code>dfc991aee17b</code> ·
-  generated at 2026-07-12 04:22 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

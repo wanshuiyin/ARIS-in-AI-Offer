@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/self_evolving_agents_tutorial.md">
 <meta name="aris:source-sha256" content="360387887f1378c62182607b31e492a4bb3c23f8160f22e30a3b6a0f23ee518f">
-<meta name="aris:generated-at" content="2026-07-12 04:22 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -640,7 +647,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/self_evolving_agents_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>360387887f13</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:22 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -654,7 +661,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>"Self-evolution" 就是定义一个更新算子 $\mathcal{T}$：</p>
 <p>$$\big(\pi_t, \mathcal{K}_t, \mathcal{S}_t\big) \xrightarrow{\mathcal{T}(E, \text{trajectories})} \big(\pi_{t+1}, \mathcal{K}_{t+1}, \mathcal{S}_{t+1}\big)$$</p>
 <p>按照 $\mathcal{T}$ 更新的对象，2024-2026 大致可以分四个"层"：</p>
-<table><thead><tr><th>层</th><th>更新对象</th><th>更新方式</th><th>代表作</th></tr></thead><tbody><tr><td>L1 参数层</td><td>$\pi$ (model weights)</td><td>SFT / RFT / RL</td><td>AgentTuning、Native Evolution</td></tr><tr><td>L2 能力层</td><td>$\mathcal{S}$ (skills markdown)</td><td>self-play + replay</td><td>Voyager、Ctx2Skill、CoEvoSkills</td></tr><tr><td>L3 记忆层</td><td>$\mathcal{K}$ (world knowledge markdown)</td><td>exploration + summarize</td><td>MemGPT、MVMem、Native Evolution</td></tr><tr><td>L4 系统层</td><td>workflow orchestration</td><td>inference-time only</td><td>Anthropic Skills、ARIS-style harness</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>层</th><th>更新对象</th><th>更新方式</th><th>代表作</th></tr></thead><tbody><tr><td>L1 参数层</td><td>$\pi$ (model weights)</td><td>SFT / RFT / RL</td><td>AgentTuning、Native Evolution</td></tr><tr><td>L2 能力层</td><td>$\mathcal{S}$ (skills markdown)</td><td>self-play + replay</td><td>Voyager、Ctx2Skill、CoEvoSkills</td></tr><tr><td>L3 记忆层</td><td>$\mathcal{K}$ (world knowledge markdown)</td><td>exploration + summarize</td><td>MemGPT、MVMem、Native Evolution</td></tr><tr><td>L4 系统层</td><td>workflow orchestration</td><td>inference-time only</td><td>Anthropic Skills、ARIS-style harness</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">重要直觉</div><p>L1 是"训出本能"；L2/L3 是"长出工具箱 + 笔记本"；L4 是"工作流编排"。<strong>2025-2026 主流是 L2 + L3，L1 主要做训练—测试解耦的预备工作</strong>。</p></div>
 <p>面试常错的两个直觉：</p>
 <ul><li>❌ "self-evolving = 自动训出新模型权重"——错，<strong>绝大多数 work 不更新参数</strong>（Voyager、Ctx2Skill、Generative Agents、A²RD 全是 training-free / inference-time）。</li><li>❌ "self-evolving = agent 想干什么就干什么"——错，2026 主流是<strong>严格 grounding</strong> 的 self-improvement：要么 code executor（Absolute Zero），要么真答案比对 + rationalization（STaR），要么 rubric judge（Ctx2Skill），要么 outcome utility（Native Evolution）。</li></ul>
@@ -682,12 +689,12 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p><strong>优点</strong>：完全 task-free / reward-free at inference；<strong>缺点</strong>：训练成本高（rejection sampling RFT × 2 iteration），且 $\mathcal{T}_E$ 在训练时仍需 labeled data。</p>
 <div class="callout callout-warn"><div class="callout-title">常错点：reward-free at inference ≠ reward-free 训练</div><p>Native Evolution evolution phase <strong>推理时</strong>确实无 reward / 无 task；但<strong>训练</strong>时仍然需要 600 deep search questions × 20 websites 的 labeled set 来算 $R_\text{evolve}$。这是面试加分点：要主动 disambiguate。</p></div>
 <h3 id="24-三范式对比必背">2.4　三范式对比（必背）</h3>
-<table><thead><tr><th>维度</th><th>Experience-Driven</th><th>Adversarial</th><th>Meta-Learning</th></tr></thead><tbody><tr><td>训练时 task 来源</td><td>人</td><td>Challenger agent</td><td>内生探索 + labeled downstream</td></tr><tr><td>训练时 reward</td><td>人</td><td>verifier</td><td>outcome utility</td></tr><tr><td>推理时 task</td><td>人给</td><td>人给 / agent 自己</td><td>人给</td></tr><tr><td>推理时 reward</td><td>不需要</td><td>不需要</td><td><strong>不需要</strong> ✓</td></tr><tr><td>推理时 workflow</td><td>人编排</td><td>人编排</td><td><strong>agent 自驱</strong>（先 evolve 再 execute）✓</td></tr><tr><td>代表作</td><td>AgentTuning、ToolLLM</td><td>AZR、R-Zero、Ctx2Skill</td><td>Native Evolution</td></tr><tr><td>工程成本</td><td>高（reward eng.）</td><td>中（verifier 编排）</td><td>高（rejection sampling）</td></tr><tr><td>arXiv</td><td>2310.12823</td><td>2505.03335 / 2604.27660</td><td>2604.18131</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>Experience-Driven</th><th>Adversarial</th><th>Meta-Learning</th></tr></thead><tbody><tr><td>训练时 task 来源</td><td>人</td><td>Challenger agent</td><td>内生探索 + labeled downstream</td></tr><tr><td>训练时 reward</td><td>人</td><td>verifier</td><td>outcome utility</td></tr><tr><td>推理时 task</td><td>人给</td><td>人给 / agent 自己</td><td>人给</td></tr><tr><td>推理时 reward</td><td>不需要</td><td>不需要</td><td><strong>不需要</strong> ✓</td></tr><tr><td>推理时 workflow</td><td>人编排</td><td>人编排</td><td><strong>agent 自驱</strong>（先 evolve 再 execute）✓</td></tr><tr><td>代表作</td><td>AgentTuning、ToolLLM</td><td>AZR、R-Zero、Ctx2Skill</td><td>Native Evolution</td></tr><tr><td>工程成本</td><td>高（reward eng.）</td><td>中（verifier 编排）</td><td>高（rejection sampling）</td></tr><tr><td>arXiv</td><td>2310.12823</td><td>2505.03335 / 2604.27660</td><td>2604.18131</td></tr></tbody></table></div>
 <h2 id="3-skill--knowledge-的-markdown-化最重要的工程转移">§3 Skill / Knowledge 的 Markdown 化（最重要的工程转移）</h2>
 <p>2024 年最重要的一个范式转移是：<strong>长期记忆和能力扩展不通过权重更新，而是通过外部 markdown 文档</strong>。</p>
 <h3 id="31-anthropic-skills--native-evolution-的趋同">3.1　Anthropic Skills + Native Evolution 的趋同</h3>
 <p>Anthropic 在 2025 年公开了 <code>skills/</code> 范式（每个 skill 是一个独立 markdown 文件，agent 按需 load 到 system prompt）。Native Evolution 在论文里<strong>明确引用了 Anthropic skills</strong>作为 K 的实现 reference（论文 §3，footnote 1 指向 <code>github.com/anthropics/skills/tree/main/skills</code>）。</p>
-<table><thead><tr><th>维度</th><th>Anthropic Skills</th><th>Native Evolution K</th></tr></thead><tbody><tr><td>表示</td><td>markdown</td><td>markdown</td></tr><tr><td>加载</td><td>按 task 选择 skill 注入 system prompt</td><td>按 environment 加载 K 注入 system prompt</td></tr><tr><td>粒度</td><td>"如何做 PDF / Excel / git commit"</td><td>"ACL2025 网站结构 / 某 code repo 拓扑"</td></tr><tr><td>监督</td><td>人写</td><td>agent 自动 distill</td></tr><tr><td>来源</td><td>静态人造</td><td>训练后内生</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>Anthropic Skills</th><th>Native Evolution K</th></tr></thead><tbody><tr><td>表示</td><td>markdown</td><td>markdown</td></tr><tr><td>加载</td><td>按 task 选择 skill 注入 system prompt</td><td>按 environment 加载 K 注入 system prompt</td></tr><tr><td>粒度</td><td>"如何做 PDF / Excel / git commit"</td><td>"ACL2025 网站结构 / 某 code repo 拓扑"</td></tr><tr><td>监督</td><td>人写</td><td>agent 自动 distill</td></tr><tr><td>来源</td><td>静态人造</td><td>训练后内生</td></tr></tbody></table></div>
 <p>→ 趋同结论：<strong>system prompt 是新的 model weights，markdown 文档是新的 fine-tuning data</strong>。</p>
 <h3 id="32-skill--k-文件的典型-schema">3.2　Skill / K 文件的典型 schema</h3>
 <pre><code># skill_name
@@ -744,7 +751,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$a_j \sim \pi(\,\cdot\mid \mathcal{S}^R, C, t_j) \quad \text{maximizes}\ \mathbb{E}_j y_j$$</p>
 <p>且<strong>不更新 $\pi$ 的参数</strong>——只更新 $\mathcal{S}^R$。</p>
 <h3 id="52-5-个-frozen-lm-角色">5.2　5 个 frozen LM 角色</h3>
-<table><thead><tr><th>角色</th><th>输入</th><th>输出</th><th>直觉</th></tr></thead><tbody><tr><td><strong>Challenger</strong></td><td>$C$, $\mathcal{S}^C_{i-1}$</td><td>一批 $(t_m, \mathcal{R}_m)$</td><td>出 probing 任务</td></tr><tr><td><strong>Reasoner</strong></td><td>$C$, $\mathcal{S}^R_{i-1}$, $t_m$</td><td>$a_m$</td><td>用 skill 解题</td></tr><tr><td><strong>Judge</strong></td><td>$a_m$, $\mathcal{R}_m$</td><td>binary $y_m$</td><td>严格按 rubric 验</td></tr><tr><td><strong>Proposer (per side)</strong></td><td>failed/solved batch + 当前 skill set</td><td>自然语言 diagnosis</td><td>找根因，不写 skill</td></tr><tr><td><strong>Generator (per side)</strong></td><td>proposer diagnosis + 当前 skill set</td><td>新 skill set</td><td>materialize 修改</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>角色</th><th>输入</th><th>输出</th><th>直觉</th></tr></thead><tbody><tr><td><strong>Challenger</strong></td><td>$C$, $\mathcal{S}^C_{i-1}$</td><td>一批 $(t_m, \mathcal{R}_m)$</td><td>出 probing 任务</td></tr><tr><td><strong>Reasoner</strong></td><td>$C$, $\mathcal{S}^R_{i-1}$, $t_m$</td><td>$a_m$</td><td>用 skill 解题</td></tr><tr><td><strong>Judge</strong></td><td>$a_m$, $\mathcal{R}_m$</td><td>binary $y_m$</td><td>严格按 rubric 验</td></tr><tr><td><strong>Proposer (per side)</strong></td><td>failed/solved batch + 当前 skill set</td><td>自然语言 diagnosis</td><td>找根因，不写 skill</td></tr><tr><td><strong>Generator (per side)</strong></td><td>proposer diagnosis + 当前 skill set</td><td>新 skill set</td><td>materialize 修改</td></tr></tbody></table></div>
 <p>注意<strong>两路独立 evolve</strong>：</p>
 <ul><li><strong>Reasoner side</strong>：失败案例 → Reasoner Proposer 诊断"缺什么 contextual knowledge" → Reasoner Generator 写新 $\mathcal{S}^R_i$</li><li><strong>Challenger side</strong>：被太容易解的案例 → Challenger Proposer 诊断"为什么 challenger 出题太弱" → Challenger Generator 强化 $\mathcal{S}^C_i$</li></ul>
 <p>→ 这两路<strong>永远不交换 skill set</strong>——保持严格对抗。</p>
@@ -846,10 +853,10 @@ def laplace_smoothed_rate(probe, skill_set, llm, context):
     return (num_pass + 1) / (len(probe) + 2)</code></pre>
 <h3 id="55-ctx2skill-实验结果必记">5.5　Ctx2Skill 实验结果（必记）</h3>
 <p>CL-bench 上，<strong>没有任何参数更新</strong>：</p>
-<table><thead><tr><th>backbone</th><th>w/o skills</th><th>Ctx2Skill</th><th>Δ</th></tr></thead><tbody><tr><td>GPT-4.1</td><td>11.1%</td><td><strong>16.5%</strong></td><td><strong>+5.4</strong></td></tr><tr><td>GPT-5.1</td><td>21.2%</td><td><strong>25.8%</strong></td><td><strong>+4.6</strong></td></tr><tr><td>GPT-5.2</td><td>18.2%</td><td><strong>21.4%</strong></td><td><strong>+3.2</strong></td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>backbone</th><th>w/o skills</th><th>Ctx2Skill</th><th>Δ</th></tr></thead><tbody><tr><td>GPT-4.1</td><td>11.1%</td><td><strong>16.5%</strong></td><td><strong>+5.4</strong></td></tr><tr><td>GPT-5.1</td><td>21.2%</td><td><strong>25.8%</strong></td><td><strong>+4.6</strong></td></tr><tr><td>GPT-5.2</td><td>18.2%</td><td><strong>21.4%</strong></td><td><strong>+3.2</strong></td></tr></tbody></table></div>
 <p>→ 用 GPT-4.1 + Ctx2Skill (16.5%) <strong>超过</strong> 无 skill 的 Gemini 3 Pro (15.8%)——印证"high-quality skill 可弥补 model 差距"。</p>
 <h3 id="56-ctx2skill-ablation面试加分">5.6　Ctx2Skill ablation（面试加分）</h3>
-<table><thead><tr><th>去掉的部件</th><th>GPT-4.1 Δ from 16.5</th><th>GPT-5.1 Δ from 25.8</th></tr></thead><tbody><tr><td>Cross-Time Replay</td><td>−1.8 (→14.7)</td><td>−2.8 (→23.0)</td></tr><tr><td>decoupling Proposer + Generator</td><td>−0.6</td><td>−0.7</td></tr><tr><td>Challenger evolving</td><td><strong>−2.6 (→13.9)</strong> ← 最大</td><td>−3.3 ← 最大</td></tr><tr><td>Easy probe set</td><td>−0.8</td><td>−1.6</td></tr><tr><td>Hard probe set</td><td>−1.3</td><td>−1.1</td></tr><tr><td>Laplace smoothing</td><td>−1.0</td><td>−0.6</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>去掉的部件</th><th>GPT-4.1 Δ from 16.5</th><th>GPT-5.1 Δ from 25.8</th></tr></thead><tbody><tr><td>Cross-Time Replay</td><td>−1.8 (→14.7)</td><td>−2.8 (→23.0)</td></tr><tr><td>decoupling Proposer + Generator</td><td>−0.6</td><td>−0.7</td></tr><tr><td>Challenger evolving</td><td><strong>−2.6 (→13.9)</strong> ← 最大</td><td>−3.3 ← 最大</td></tr><tr><td>Easy probe set</td><td>−0.8</td><td>−1.6</td></tr><tr><td>Hard probe set</td><td>−1.3</td><td>−1.1</td></tr><tr><td>Laplace smoothing</td><td>−1.0</td><td>−0.6</td></tr></tbody></table></div>
 <p><strong>Challenger evolving 的下降最大</strong>——证明"持续 adversarial pressure"是 Reasoner 进步的真正动力。</p>
 <h2 id="6-native-evolutionreward-free-meta-learning重点-2">§6 Native Evolution：Reward-Free Meta-Learning（重点 2）</h2>
 <blockquote><p>全部对应 arXiv 2604.18131。Tencent + HKUST(GZ)，2026-04-20。</p></blockquote>
@@ -871,7 +878,7 @@ def laplace_smoothed_rate(probe, skill_set, llm, context):
 <p>$$\boxed{\;R_\text{evolve}(\mathcal{K}) = \underbrace{\text{Success}(\mathcal{T}_E\mid \mathcal{K})}_{\text{有 K 时下游成功率}} - \underbrace{\text{Success}(\mathcal{T}_E\mid \varnothing)}_{\text{无 K baseline}}\;}$$</p>
 <p>其中 $\text{Success}(\mathcal{T}_E\mid \mathcal{K}) = \frac{1}{M}\sum_{j=1}^M \mathbb{I}\big[f(Q_j, \mathcal{K}) = A_j\big]$。</p>
 <p><strong>为什么 outcome-based 而不是 step-level？</strong></p>
-<table><thead><tr><th>维度</th><th>step-level</th><th>outcome-based</th></tr></thead><tbody><tr><td>监督密度</td><td>高</td><td>低</td></tr><tr><td>信号噪声</td><td>中（中间状态难评估）</td><td>低（end-task 答案是 ground truth）</td></tr><tr><td>reward hacking 风险</td><td>高（agent 学到 short-cut 拿中间分）</td><td>低（只能靠真正提高 task 成功）</td></tr><tr><td>工程复杂度</td><td>高（需 PRM）</td><td>低</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>step-level</th><th>outcome-based</th></tr></thead><tbody><tr><td>监督密度</td><td>高</td><td>低</td></tr><tr><td>信号噪声</td><td>中（中间状态难评估）</td><td>低（end-task 答案是 ground truth）</td></tr><tr><td>reward hacking 风险</td><td>高（agent 学到 short-cut 拿中间分）</td><td>低（只能靠真正提高 task 成功）</td></tr><tr><td>工程复杂度</td><td>高（需 PRM）</td><td>低</td></tr></tbody></table></div>
 <p>Native Evolution 选 outcome-based 还有一个特殊原因：<strong>$\mathcal{K}$ 是整段 markdown（374.8 步 × 3322.4 tokens/step），step-level reward 在如此长 horizon 上几乎无意义</strong>。</p>
 <h3 id="63-两阶段训练sft--rft">6.3　两阶段训练：SFT → RFT</h3>
 <p><strong>Stage 1 (SFT)</strong>：</p>
@@ -936,10 +943,10 @@ def native_evolution_inference(pi_star, new_env, task):
     return answer</code></pre>
 <h3 id="65-native-evolution-实验结果">6.5　Native Evolution 实验结果</h3>
 <p>WebVoyager + WebWalker，Qwen3-30B / Seed-OSS-36B（主表）；14B Qwen3 迁移结果见下方单独说明：</p>
-<table><thead><tr><th>backbone</th><th>w/o K</th><th>Native Evolution (RFT)</th><th>Δ</th></tr></thead><tbody><tr><td>Qwen3-30B (WebWalker)</td><td>22.04</td><td><strong>40.91</strong></td><td><strong>+18.9</strong></td></tr><tr><td>Qwen3-30B (WebVoyager)</td><td>41.08</td><td><strong>57.44</strong></td><td><strong>+16.4</strong></td></tr><tr><td>Seed-OSS-36B (WebWalker)</td><td>19.50</td><td>36.72</td><td>+17.2</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>backbone</th><th>w/o K</th><th>Native Evolution (RFT)</th><th>Δ</th></tr></thead><tbody><tr><td>Qwen3-30B (WebWalker)</td><td>22.04</td><td><strong>40.91</strong></td><td><strong>+18.9</strong></td></tr><tr><td>Qwen3-30B (WebVoyager)</td><td>41.08</td><td><strong>57.44</strong></td><td><strong>+16.4</strong></td></tr><tr><td>Seed-OSS-36B (WebWalker)</td><td>19.50</td><td>36.72</td><td>+17.2</td></tr></tbody></table></div>
 <p><strong>最 striking</strong>：14B Qwen3 + transferred K from 36B → 35.6% conference accuracy；<strong>unassisted Gemini-2.5-Flash 只有 31.3%</strong>——证明 high-quality K 可超过纯参数缩放。</p>
 <h3 id="66-native-evolution-vs-ctx2skill-对比">6.6　Native Evolution vs Ctx2Skill 对比</h3>
-<table><thead><tr><th>维度</th><th>Native Evolution</th><th>Ctx2Skill</th></tr></thead><tbody><tr><td>是否更新参数</td><td>是（SFT + RFT × 2 iter）</td><td>否（frozen LM, 只更新 skill）</td></tr><tr><td>推理时是否需 task</td><td>否（先 evolve 再 execute）</td><td>是（task-driven）</td></tr><tr><td>Knowledge 容器</td><td>$\mathcal{K}$（markdown 环境 map）</td><td>$\mathcal{S}^R$（markdown skills）</td></tr><tr><td>Reward 设计</td><td>outcome-based downstream utility</td><td>binary rubric judge</td></tr><tr><td>反 collapse 机制</td><td>rejection sampling (filter)</td><td>Cross-Time Replay</td></tr><tr><td>训练成本</td><td>高</td><td>低</td></tr><tr><td>推理成本</td><td>较低</td><td>中</td></tr><tr><td>适用任务</td><td>new environment 探索</td><td>dense context task</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>Native Evolution</th><th>Ctx2Skill</th></tr></thead><tbody><tr><td>是否更新参数</td><td>是（SFT + RFT × 2 iter）</td><td>否（frozen LM, 只更新 skill）</td></tr><tr><td>推理时是否需 task</td><td>否（先 evolve 再 execute）</td><td>是（task-driven）</td></tr><tr><td>Knowledge 容器</td><td>$\mathcal{K}$（markdown 环境 map）</td><td>$\mathcal{S}^R$（markdown skills）</td></tr><tr><td>Reward 设计</td><td>outcome-based downstream utility</td><td>binary rubric judge</td></tr><tr><td>反 collapse 机制</td><td>rejection sampling (filter)</td><td>Cross-Time Replay</td></tr><tr><td>训练成本</td><td>高</td><td>低</td></tr><tr><td>推理成本</td><td>较低</td><td>中</td></tr><tr><td>适用任务</td><td>new environment 探索</td><td>dense context task</td></tr></tbody></table></div>
 <p>→ <strong>它们是互补的</strong>：Native Evolution 让 backbone 学会<strong>怎么探索</strong>；Ctx2Skill 让冻结 backbone<strong>怎么把 context 蒸馏成可复用 skill</strong>。可以叠加。</p>
 <h2 id="7-ard-与-long-horizon-memory-architecture重点-3">§7 A²RD 与 Long-Horizon Memory Architecture（重点 3）</h2>
 <blockquote><p>arXiv 2605.06924，Google Cloud AI + NUS，2026-05-07。虽然是 video，但 memory schema 直接迁移到所有 long-horizon agent。</p></blockquote>
@@ -1049,7 +1056,7 @@ def long_horizon_agent_with_hits(memory, segments_to_generate, llm, verifier):
 <ul><li>跨模型 reviewer（如 ARIS 用 Codex 5.5 review Claude）天然制造 verifier-solver gap → 加速 self-improvement</li><li>同模型 self-review 几乎无 gap → 收敛慢甚至无效</li></ul>
 <div class="callout callout-good"><div class="callout-title">这是支撑&quot;executor != reviewer family&quot;协议的最佳理论 motivation</div><p>但请记住这是 <strong>modeling + empirical fit，不是现成定理</strong>。</p></div>
 <h3 id="83-两篇论文的实际含义">8.3　两篇论文的实际含义</h3>
-<table><thead><tr><th>论文</th><th>主张</th><th>工程 takeaway</th></tr></thead><tbody><tr><td>2601.05280</td><td>无 grounding 时 closed-loop self-training 退化</td><td>必须有外源 verifier（executor / judge / rubric）</td></tr><tr><td>2507.00075</td><td>solver-verifier gap 与 improvement 速率正相关（建模 + 经验）</td><td>用跨模型 reviewer 提高 gap</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>论文</th><th>主张</th><th>工程 takeaway</th></tr></thead><tbody><tr><td>2601.05280</td><td>无 grounding 时 closed-loop self-training 退化</td><td>必须有外源 verifier（executor / judge / rubric）</td></tr><tr><td>2507.00075</td><td>solver-verifier gap 与 improvement 速率正相关（建模 + 经验）</td><td>用跨模型 reviewer 提高 gap</td></tr></tbody></table></div>
 <p>→ 二者结合：<strong>reward-free at inference + grounded at training</strong> 是 Native Evolution 等 work 能 work 的根本原因；<strong>ARIS-style 跨模型 audit</strong> 是 system-level 加速 self-improvement 的工程选择。</p>
 <h2 id="9-memory-driven-self-evolution">§9 Memory-Driven Self-Evolution</h2>
 <h3 id="91-generative-agentspark-2023-uist-stanford">9.1　Generative Agents（Park 2023 UIST, Stanford）</h3>
@@ -1064,7 +1071,7 @@ def long_horizon_agent_with_hits(memory, segments_to_generate, llm, verifier):
 <ul><li><strong>Main context</strong>（LLM token budget）= "RAM"</li><li><strong>External archival</strong>（disk）= "HDD"</li><li>LLM 学会 paging：<code>memgpt_function_call(load, save, summarize)</code></li></ul>
 <p><strong>核心 trick</strong>：让 LLM 在自己 context 内观察到 token usage，主动决定换页——这是把 OS 抽象搬到 LLM agent。</p>
 <h3 id="93-这一层与-ctx2skill--native-evolution-关系">9.3　这一层与 Ctx2Skill / Native Evolution 关系</h3>
-<table><thead><tr><th>维度</th><th>Generative Agents</th><th>MemGPT</th><th>Ctx2Skill</th><th>Native Evolution</th></tr></thead><tbody><tr><td>进化对象</td><td>reflection / plan</td><td>paging policy</td><td>skill</td><td>K (world map)</td></tr><tr><td>是否更新参数</td><td>否</td><td>否</td><td>否</td><td>是</td></tr><tr><td>触发频率</td><td>per observation</td><td>per context overflow</td><td>per failure batch</td><td>per training epoch</td></tr><tr><td>是否 task-driven</td><td>是</td><td>是</td><td>是</td><td>否（evolution 阶段）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>Generative Agents</th><th>MemGPT</th><th>Ctx2Skill</th><th>Native Evolution</th></tr></thead><tbody><tr><td>进化对象</td><td>reflection / plan</td><td>paging policy</td><td>skill</td><td>K (world map)</td></tr><tr><td>是否更新参数</td><td>否</td><td>否</td><td>否</td><td>是</td></tr><tr><td>触发频率</td><td>per observation</td><td>per context overflow</td><td>per failure batch</td><td>per training epoch</td></tr><tr><td>是否 task-driven</td><td>是</td><td>是</td><td>是</td><td>否（evolution 阶段）</td></tr></tbody></table></div>
 <p>→ memory-driven 这条线 2024-2026 演化方向：<strong>从 episodic（GA）→ hierarchical (MemGPT) → typed + DAG (MVMem)</strong>。</p>
 <h2 id="10-skill--k-检索与排序工程实践">§10 Skill / K 检索与排序（工程实践）</h2>
 <p>实际部署时，skill library 几十到几百条，必须<strong>按需 load</strong>——否则 token 爆炸。</p>
@@ -1108,7 +1115,7 @@ def long_horizon_agent_with_hits(memory, segments_to_generate, llm, verifier):
 <h2 id="11-inference-time-orchestration如-arisvs-training-time-meta-learning如-native-evolution">§11 Inference-Time Orchestration（如 ARIS）vs Training-Time Meta-Learning（如 Native Evolution）</h2>
 <blockquote><p>顶级 lab 面试 L3 必问：把握 inference-time orchestration 和 training-time meta-learning 的根本数学区别。</p></blockquote>
 <h3 id="111-数学-formulation-对比">11.1　数学 formulation 对比</h3>
-<table><thead><tr><th>维度</th><th>Inference-Time Orchestration</th><th>Training-Time Meta-Learning</th></tr></thead><tbody><tr><td>优化对象</td><td>system prompt $\mathcal{K}, \mathcal{S}$</td><td>model params $\theta$</td></tr><tr><td>形式</td><td>$\pi_{\theta}(\,\cdot\mid \mathcal{S}\oplus \text{ctx})$</td><td>$\theta_{t+1} = \theta_t - \eta\,\nabla \mathcal{L}$</td></tr><tr><td>反馈来源</td><td>外部 verifier（cross-model）</td><td>outcome reward + RFT</td></tr><tr><td>持久化形式</td><td>markdown files on disk</td><td>模型权重</td></tr><tr><td>测试时是否 update</td><td>是（每次任务都可更新 file）</td><td>否（参数 frozen）</td></tr><tr><td>收敛 dynamics</td><td>文档语言 diff，非梯度</td><td>gradient flow</td></tr><tr><td>理论工具</td><td>bandit / online learning / sequential decision</td><td>RL theory, meta-learning theory</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>Inference-Time Orchestration</th><th>Training-Time Meta-Learning</th></tr></thead><tbody><tr><td>优化对象</td><td>system prompt $\mathcal{K}, \mathcal{S}$</td><td>model params $\theta$</td></tr><tr><td>形式</td><td>$\pi_{\theta}(\,\cdot\mid \mathcal{S}\oplus \text{ctx})$</td><td>$\theta_{t+1} = \theta_t - \eta\,\nabla \mathcal{L}$</td></tr><tr><td>反馈来源</td><td>外部 verifier（cross-model）</td><td>outcome reward + RFT</td></tr><tr><td>持久化形式</td><td>markdown files on disk</td><td>模型权重</td></tr><tr><td>测试时是否 update</td><td>是（每次任务都可更新 file）</td><td>否（参数 frozen）</td></tr><tr><td>收敛 dynamics</td><td>文档语言 diff，非梯度</td><td>gradient flow</td></tr><tr><td>理论工具</td><td>bandit / online learning / sequential decision</td><td>RL theory, meta-learning theory</td></tr></tbody></table></div>
 <h3 id="112-各自局限">11.2　各自局限</h3>
 <p><strong>Inference-time orchestration</strong>：</p>
 <ul><li>❌ 不能内化 skill 进 weights → 每次需 load token</li><li>❌ Context 长度上限会成瓶颈</li><li>❌ 难以学习 low-level subtoken pattern</li><li>✅ 立刻可解释，可审计</li><li>✅ 不需要 GPU</li></ul>
@@ -1372,7 +1379,7 @@ def long_horizon_agent_with_hits(memory, segments_to_generate, llm, verifier):
 <p>理论工具：online learning（regret bound）、sequential decision making（bandit）、textual KL or edit-distance bound。</p>
 <p>收敛分析需要新工具——传统 SGD 不适用。</p>
 <p><strong>核心区别 list</strong>：</p>
-<table><thead><tr><th>维度</th><th>training-time</th><th>inference-time</th></tr></thead><tbody><tr><td>状态空间</td><td>$\mathbb{R}^d$</td><td>text strings $\Sigma^\star$</td></tr><tr><td>更新算子</td><td>gradient</td><td>LLM-generated edit</td></tr><tr><td>持久化</td><td>weights</td><td>markdown files</td></tr><tr><td>测试时 update 频率</td><td>不 update</td><td>every task</td></tr><tr><td>跨 backbone 移植</td><td>难</td><td>易（文件直接 copy）</td></tr><tr><td>可解释性</td><td>低</td><td>高</td></tr><tr><td>GPU 需求</td><td>高</td><td>低</td></tr><tr><td>理论工具</td><td>RL theory</td><td>online / bandit / regret</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>training-time</th><th>inference-time</th></tr></thead><tbody><tr><td>状态空间</td><td>$\mathbb{R}^d$</td><td>text strings $\Sigma^\star$</td></tr><tr><td>更新算子</td><td>gradient</td><td>LLM-generated edit</td></tr><tr><td>持久化</td><td>weights</td><td>markdown files</td></tr><tr><td>测试时 update 频率</td><td>不 update</td><td>every task</td></tr><tr><td>跨 backbone 移植</td><td>难</td><td>易（文件直接 copy）</td></tr><tr><td>可解释性</td><td>低</td><td>高</td></tr><tr><td>GPU 需求</td><td>高</td><td>低</td></tr><tr><td>理论工具</td><td>RL theory</td><td>online / bandit / regret</td></tr></tbody></table></div>
 <p>→ <strong>二者其实是互补层</strong>：底层用 training-time 让 backbone 学会 generic skill following，上层用 inference-time 编排具体 task。</p>
 <div class="callout callout-warn"><div class="callout-title">常被混淆的 framing</div><p>不要把 ARIS 说成 "reward-free self-evolution"——它是 <strong>inference-time, non-parametric, system-level adaptation</strong>，与 Native Evolution 的 training-time meta-learning 是不同 mathematical regime。这是 cross-paper 阅读的 sanity check。</p></div>
 </details>
@@ -1540,7 +1547,7 @@ class ReflexionMemory:
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/self_evolving_agents_tutorial.md</code> ·
   SHA256 <code>360387887f13</code> ·
-  generated at 2026-07-12 04:22 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

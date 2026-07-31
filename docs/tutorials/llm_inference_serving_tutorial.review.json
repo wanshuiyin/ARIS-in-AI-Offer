@@ -1,7 +1,7 @@
 {
  "skill": "interview-cheatsheet",
  "source": "docs/tutorials/llm_inference_serving_tutorial.md",
- "source_sha256": "334075a91038cc2b979588940d9917833b17d24cdcaa0b96ca7d9e9c0cf511e1",
+ "source_sha256": "b8534a9e5b0f0a6f80f5a4fb4ef58441b2b9b534ad5f36994552910aa44567fd",
  "output": "docs/tutorials/llm_inference_serving_tutorial.html",
  "runnable_code": "docs/tutorials/code/inference_serving.py",
  "topic": "LLM Inference & Serving Stack / 面试 Cheat Sheet — 请求状态机主线(admission两阶段/QUEUED-PREEMPTED-BACKPRESSURED等14态/cleanup invariant) / 采样算子精确支持集定义(top-k/top-p/min-p/typical) / PagedAttention与KV生命周期(非磁盘换页) / static vs continuous batching与chunked prefill / prefill-decode disaggregation条件性收益 / 25 高频题",
@@ -13,7 +13,7 @@
   "notes": "gpt-5.6-sol对提议大纲做详尽设计前置审,核心判断:主线应从'优化技术清单'改为'请求状态机'。精确纠偏:top-p不是'保留所有p_i≥p_0'也不是'累计概率严格小于p_0';PagedAttention不等于磁盘换页;static batching的关键限制不是'必须等齐'而是batch slot不回填;disaggregation不是无条件加速。起草时作为硬护栏。"
  },
  "math_code_review": {
-  "verdict": "PASS (after 3 review batches — math/facts+citations, code, structure+Q&A — + full fix pass, verified by re-running the fixed script)",
+  "verdict": "PASS (after 3 review batches — math/facts+citations, code, structure+Q&A — + full fix pass, verified by re-running the fixed script; + 1 scannability de-hedge round, expression-only, no factual changes)",
   "rounds": [
    {
     "run": 1,
@@ -35,6 +35,13 @@
     "verdict": "不建议原样定稿(画了流程图但没建起真正状态机,§3采样章节比§1请求状态机还长) -> 全面结构重写后SHIP",
     "notes": "**三批独立收敛到同一个bug**:best-of-n的KV占用公式'近似n倍'忽略共享prompt KV,被数学审核、代码审核、结构审核三批各自独立发现,是本轮质量信号最强的一处。补齐真正的请求状态机(14态+transition guard+resource ownership+cleanup invariant)、两阶段admission、§8整合engine-tick demo、三个缺失整段(scheduler iteration解剖/可信benchmark/终止清理协议)。消除KV公式与sibling教程的重复(改引用外部参数)。",
     "thread_id": "019f8853-157c-7503-b408-4cbb893ec3b6"
+   },
+   {
+    "run": 4,
+    "scope": "结构性去冗余(重度判定,owner反馈触发)",
+    "verdict": "重度冗杂(入口顺序反/同一防线重复4-5次/§3采样压过主线) -> 全部修复",
+    "thread_id": "019fb3dd-4b0d-7c22-98a9-f9e444eb661a",
+    "notes": "37条清单全部执行:8条新TL;DR移到§0最前(此前在14态表之后);14态完整表折叠进<details>正文只留聚合视图;§3采样86行压成速记表+折叠;admission唯一归宿§1.2、cleanup唯一归宿§1.7;§8改demo索引表;Q&A统一'≤3 bullet+1行误区'。可见正文609→405行(-33.5%),<details> 25→33组。§A脚本输出diff逐字一致。表达重排不改事实结论。"
    }
   ]
  },
@@ -45,10 +52,10 @@
  },
  "translation_fidelity_note": "N/A (this is the ZH source; see _en.review.json for the EN fidelity review)",
  "summary": "LLM Inference & Serving Stack cheat sheet (effort=max, ~871 lines, bilingual). Overall-structure-ultra review returned '不建议原样定稿' — the design review's core mandate ('request state machine as the spine, not a technique list') had only partially landed in the first draft, with the sampling section literally longer than the state-machine section. Triple-independent convergence on the best-of-n KV-formula bug (math/code/structure reviews each caught it separately) is the strongest quality signal in this batch. The drafting subagent's own catch of a design-review internal inconsistency (KV byte-count formula vs. its own worked example) was independently re-verified and confirmed correct. Final verdict: SHIP after full fix + re-verification.",
- "rendered_at": "2026-07-22",
+ "rendered_at": "2026-07-31",
  "render_review": {
   "verdict": "PASS",
   "thread_id": "019f88bb-7765-7013-8702-3daafa3d5ef4",
-  "notes": "6项渲染质量检查(表格列数/TOC条目数/公式逐式一致/details闭合数/无注入/无个人信息)全部通过;source SHA256与当前.md完全一致。"
+  "notes": "初版渲染审PASS(6项检查);去冗余后用升级版渲染器(table-wrap横向滚动修复)全库统一重渲染,源hash同步刷新。"
  }
 }

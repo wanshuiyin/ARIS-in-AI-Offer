@@ -1,18 +1,19 @@
 {
  "skill": "interview-cheatsheet (EN translation-fidelity)",
  "source": "docs/tutorials/llm_pretraining_pipeline_tutorial_en.md",
- "source_sha256": "aafdaa3ef87d962780f8905bf1f20b21447d9a964e6aa8a0a410434525019381",
+ "source_sha256": "b4b62b43241a2396290c01eeace31a1e7ae5b82ae53a0fb67953cca38a4c2348",
  "output": "docs/tutorials/llm_pretraining_pipeline_tutorial_en.html",
  "zh_source": "docs/tutorials/llm_pretraining_pipeline_tutorial.md",
  "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
- "verdict": "PASS (after fixes)",
- "thread_id": "019f8899-77eb-75c1-acc1-62cc5966bdc9",
- "translated_by": "subagent (general-purpose), incremental section-by-section Edit calls (21 edits) to avoid the output-token-limit stall",
+ "verdict": "PASS",
+ "thread_id": "019fb61c-e705-7720-b657-b392e616e719",
+ "translated_by": "subagent, incremental section-by-section Edits (48 edits); U+3000 heading separators restored to collection convention by orchestrator",
  "translation_fidelity_review": {
-  "verdict": "PASS (0 P0, 6 P1 fixed, several P2 style items fixed)",
-  "date": "2026-07-22",
-  "notes": "P1s fixed: 'extraction quality is often the highest-leverage step' over-strengthened '常常是' into a superlative, and conflicted with a nearby hedge — softened to 'often a high-leverage step'; a comparison-subject mis-scoping in §2's intro sentence rewritten to match the ZH's actual comparison (pipeline design vs architecture/hyperparameters); Q2's title term 'misaligned' could be misread as an error rather than the intentional shifted-label relationship — retitled; 'dividing it back out when gradients shrink' for loss-scaling unscaling reworded to name the mechanism precisely; a spurious causal 'so' in Q12's RoPE-vs-absolute-PE contrast rewritten as a parallel contrast; MinHash's 'take the minimum over multiple hash functions' clarified to per-hash-function minimum over the document's shingles. P2s fixed: repeated '...the deep water of this question' translationese (4 spots) unified to 'the crux of this question'; 'trainable to continue' (2 spots) unified to 'basic resumability'; a padding/EOS-masking sentence untangled; a couple of other literal-translation phrasings smoothed. Scaling-law numbers (Kaplan 0.73/0.27, Chinchilla's three estimation methods, α≈0.34/β≈0.28, the 8.0x/12.5x/1.56x figures) and document-packing/loss-masking causality all verified unchanged and correct."
+  "verdict": "PASS",
+  "date": "2026-07-31",
+  "thread_id": "019fb61c-e705-7720-b657-b392e616e719",
+  "notes": "去冗余后全量重翻(48次逐节Edit+U+3000标题分隔恢复)。保真审PASS,0 P0/P1:全部指定scaling-law指数与8.0×/12.5×/1.56×数值一致,漂移推导限定条件完整保留,四张新表格表头/单元格准确,代码注释一致。"
  },
- "structural_parity": "## 45/45 · ### 35/35 · fences 10/10 · $$ 10/10 · table dividers 2/2 · <details>/<summary> 26/26/26 · 839/839 lines; 0 residual CJK characters",
- "rendered_at": "2026-07-22"
+ "structural_parity": "## 10/10 · ### 35/35 · fences 10/10 · $$ 10/10 · table dividers 5/5 · <details> 26/26 · 887/887 lines; 0 residual CJK characters",
+ "rendered_at": "2026-07-31"
 }

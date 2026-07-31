@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/quantization_tutorial.md">
 <meta name="aris:source-sha256" content="ec55cbec4018dcb5c321ae1d5e883e42fc95c6172ebfef382685ab16ae3d7488">
-<meta name="aris:generated-at" content="2026-07-12 04:12 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -634,7 +641,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/quantization_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>ec55cbec4018</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:12 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -651,7 +658,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>CNN 时代的 INT8 PTQ（NVIDIA TensorRT 2017 那一套）几乎免费：CNN activation 分布近似 Gaussian，per-tensor calibration 即可。LLM 上同样的方法用到 OPT-66B / LLaMA-70B 直接掉 5-10 个 PPL 点。原因：</p>
 <ul><li><strong>Outlier scaling 现象</strong>（Dettmers 2022, LLM.int8()）：模型 ≥ 6.7B 之后，少数 channel（约 0.1%-1%）的 activation 量级显著高于其他（$50\text{-}100\times$），且<strong>这些 channel 在不同 token / sample 上稳定地是同一批</strong>。</li><li><strong>Outlier 抢走 scale</strong>：per-tensor scale 由 max 决定。少数 outlier 把 scale 顶得很大，大部分 "normal" channel 量化后落入很窄的整数区间（INT8 下只用 ±10 / ±127），有效 bit width 大幅缩减。</li><li><strong>Per-channel weight 易、per-channel activation 难</strong>：activation 的 channel 维（hidden dim, $D$）是矩阵乘的内积维（K 维），per-channel scale 沿 K 维变化意味着不能直接在 GEMM 上 fuse；weight 的 output-channel 维（N 维）天然 per-channel 可行（output dim 之间无相互内积）。</li></ul>
 <h3 id="13-三类主流方案">1.3 三类主流方案</h3>
-<table><thead><tr><th>方案</th><th>量化谁</th><th>代表方法</th><th>核心 trick</th></tr></thead><tbody><tr><td><strong>Weight-only PTQ</strong></td><td>W4/W8, A 保持 FP16</td><td>GPTQ, AWQ, QuIP, GGUF Q4_K</td><td>weight 易量化；用 calibration data 找最优量化误差补偿</td></tr><tr><td><strong>Weight + Activation PTQ</strong></td><td>W8A8</td><td>SmoothQuant, ZeroQuant, FP8</td><td>必须处理 activation outlier（迁移 / 旋转）</td></tr><tr><td><strong>Weight + Act + KV (低 bit)</strong></td><td>W4A8KV4 / W4A4</td><td>QuaRot, QServe, SpinQuant</td><td>Hadamard / 学习旋转把所有方向上的 outlier 打平</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方案</th><th>量化谁</th><th>代表方法</th><th>核心 trick</th></tr></thead><tbody><tr><td><strong>Weight-only PTQ</strong></td><td>W4/W8, A 保持 FP16</td><td>GPTQ, AWQ, QuIP, GGUF Q4_K</td><td>weight 易量化；用 calibration data 找最优量化误差补偿</td></tr><tr><td><strong>Weight + Activation PTQ</strong></td><td>W8A8</td><td>SmoothQuant, ZeroQuant, FP8</td><td>必须处理 activation outlier（迁移 / 旋转）</td></tr><tr><td><strong>Weight + Act + KV (低 bit)</strong></td><td>W4A8KV4 / W4A4</td><td>QuaRot, QServe, SpinQuant</td><td>Hadamard / 学习旋转把所有方向上的 outlier 打平</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">decode 与 prefill 区别</div><p>Decode 是 memory-bound（KV cache + weight 读取量主导），低 bit weight + KV 直接降延迟。Prefill 是 compute-bound（$L^2$ 的 attention + 大 batch GEMM），W4A4 / FP8 才有意义；纯 weight-only 量化在 prefill 上几乎不省时间（甚至因 dequant overhead 反而变慢）。</p></div>
 <h2 id="2-量化数学基础">§2 量化数学基础</h2>
 <h3 id="21-affine-quantizationuniform--linear-量化">2.1 Affine quantization（uniform / linear 量化）</h3>
@@ -663,7 +670,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\mathrm{SNR} = 10 \log_{10} \frac{\sigma^2}{s^2/12} = 10 \log_{10}(12) + 20 \log_{10}\frac{\sigma}{s}$$</p>
 <p>INT8 对 $\mathcal{N}(0, 1)$ 用 $\beta = 3\sigma$ 截断时，每减 1 bit SNR 降约 6 dB（每 bit 增加 1 倍量化 step → SNR 下降 $20\log_{10} 2 \approx 6$ dB）。但 LLM 实际衡量是 PPL / 任务指标，远比 SNR 复杂。</p>
 <h3 id="23-粒度granularity">2.3 粒度（granularity）</h3>
-<table><thead><tr><th>粒度</th><th>Scale 共享范围</th><th>显存开销</th><th>精度</th></tr></thead><tbody><tr><td><strong>per-tensor</strong></td><td>整个张量一个 $s$</td><td>$O(1)$</td><td>最差（outlier 一坏全坏）</td></tr><tr><td><strong>per-channel</strong></td><td>weight 沿 output channel（行） / activation 沿 hidden（列）</td><td>$O(N)$</td><td>中等</td></tr><tr><td><strong>per-group</strong></td><td>每 $g$ 个元素共享一个 $s$（一般沿 input/K 维分组）</td><td>$O(NK/g)$</td><td>高（$g = 32 / 64 / 128$）</td></tr><tr><td><strong>per-token (act only)</strong></td><td>activation 每个 token (一行) 一个 $s$</td><td>$O(L)$</td><td>高，但每 step 算一次</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>粒度</th><th>Scale 共享范围</th><th>显存开销</th><th>精度</th></tr></thead><tbody><tr><td><strong>per-tensor</strong></td><td>整个张量一个 $s$</td><td>$O(1)$</td><td>最差（outlier 一坏全坏）</td></tr><tr><td><strong>per-channel</strong></td><td>weight 沿 output channel（行） / activation 沿 hidden（列）</td><td>$O(N)$</td><td>中等</td></tr><tr><td><strong>per-group</strong></td><td>每 $g$ 个元素共享一个 $s$（一般沿 input/K 维分组）</td><td>$O(NK/g)$</td><td>高（$g = 32 / 64 / 128$）</td></tr><tr><td><strong>per-token (act only)</strong></td><td>activation 每个 token (一行) 一个 $s$</td><td>$O(L)$</td><td>高，但每 step 算一次</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">Per-group 是 W4 量化的工业标准</div><p>GPTQ / AWQ / GGUF Q4_K 默认 group_size = 128：在 input dim 上每 128 个 weight 共享一个 scale。Storage 开销（对称量化，无 zero-point）：W4 + group128（INT4 quant + FP16 scale per 128 weights）≈ $4 + 16/128 = 4.125$ bits/weight；group32 ≈ $4 + 16/32 = 4.5$ bits/weight，精度更高。若是非对称量化（每组还需存一个 INT4 zero-point），公式应为 $4 + (16+4)/g$：group128 ≈ 4.156 bits/weight，group32 ≈ 4.625 bits/weight。</p></div>
 <h3 id="24-rounding-模式">2.4 Rounding 模式</h3>
 <ul><li><strong>Round-to-nearest, ties to even</strong> (RNE)：IEEE 754 默认，无偏。LLM 量化一般默认用。</li><li><strong>Stochastic rounding</strong>：$\mathrm{round}(x/s + u)$，$u \sim \mathcal{U}[-0.5, 0.5)$。期望无偏，适合 QAT 反向传播。</li><li><strong>AdaRound</strong> (Nagel 2020 ICML)：把舍入决策当作 $\{0, 1\}$ 二值优化变量，逐 layer 用代理 loss 学习（"应该 round up 还是 down"），比 RTN 显著提升 PTQ。</li></ul>
@@ -726,7 +733,7 @@ if __name__ == &quot;__main__&quot;:
 <p>$$Y = X W = \underbrace{X_O W_O}_{\text{FP16, outlier 列}} + \underbrace{X_N W_N}_{\text{INT8, 其余}}$$</p>
 <p>效果：OPT-175B INT8 推理几乎零 PPL 损失，但 outlier path 的 FP16 GEMM 是 throughput 瓶颈（~10-15% 延迟），且 outlier mask 在每个 forward step 都要 detect。这促使后续工作（SmoothQuant / AWQ）转向"把 outlier 干掉而不是绕开"的思路。</p>
 <h3 id="33-不同-outlier-形态gptq--awq--smoothquant-攻击的对象">3.3 不同 outlier 形态（GPTQ / AWQ / SmoothQuant 攻击的对象）</h3>
-<table><thead><tr><th>Outlier 类型</th><th>沿哪一维稳定</th><th>谁能解决</th></tr></thead><tbody><tr><td><strong>Activation channel outlier</strong>（hidden dim 维）</td><td>input channel（K 维）</td><td>SmoothQuant（迁移到 weight）, AWQ（per-channel scale 保护）</td></tr><tr><td><strong>Token outlier</strong>（少数 token 整行偏大）</td><td>sequence 维（L 维）</td><td>per-token activation quant（zeroquant / SmoothQuant 默认）</td></tr><tr><td><strong>Weight outlier</strong>（少数 weight 偏大）</td><td>output dim（N 维）</td><td>per-channel weight quant 即可吸收</td></tr><tr><td><strong>KV cache K-channel outlier</strong></td><td>K 的 head_dim 维</td><td>per-channel K quant（KIVI / KVQuant）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Outlier 类型</th><th>沿哪一维稳定</th><th>谁能解决</th></tr></thead><tbody><tr><td><strong>Activation channel outlier</strong>（hidden dim 维）</td><td>input channel（K 维）</td><td>SmoothQuant（迁移到 weight）, AWQ（per-channel scale 保护）</td></tr><tr><td><strong>Token outlier</strong>（少数 token 整行偏大）</td><td>sequence 维（L 维）</td><td>per-token activation quant（zeroquant / SmoothQuant 默认）</td></tr><tr><td><strong>Weight outlier</strong>（少数 weight 偏大）</td><td>output dim（N 维）</td><td>per-channel weight quant 即可吸收</td></tr><tr><td><strong>KV cache K-channel outlier</strong></td><td>K 的 head_dim 维</td><td>per-channel K quant（KIVI / KVQuant）</td></tr></tbody></table></div>
 <h2 id="4-gptq基于-obs-的最优-weight-量化必考推导">§4 GPTQ：基于 OBS 的最优 weight 量化（必考推导）</h2>
 <p>GPTQ (Frantar, Ashkboos, Hoefler, Alistarh, ICLR 2023) 是 weight-only PTQ 的工业标准。其数学基础是 <strong>Optimal Brain Surgeon (OBS)</strong>（Hassibi &amp; Stork, NeurIPS 1992），把"删除/修改一个 weight 后如何最小化 loss 增量"推广到"量化一个 weight 后如何更新剩余 weight 以补偿"。</p>
 <h3 id="41-问题设定">4.1 问题设定</h3>
@@ -826,7 +833,7 @@ def gptq_quantize_layer(
     return Q</code></pre>
 <div class="callout callout-warn"><div class="callout-title">GPTQ 工程坑</div><p>(1) Calibration data 量：典型 128 samples × 2048 tokens，太少 Hessian 病态；(2) Damp 不能省，$H$ 经常有 zero diag（某些 input channel 在 calib set 上恒为 0）；(3) Activation reorder（<code>act_order=True</code>，按 $\mathrm{diag}(H)$ 降序量化）显著提升 W3 / W2 精度但增加 inference dequant 索引开销，AutoGPTQ 默认关。</p></div>
 <h3 id="46-gptq-vs-早期-round-to-nearest-rtn">4.6 GPTQ vs 早期 round-to-nearest (RTN)</h3>
-<table><thead><tr><th></th><th>RTN</th><th>GPTQ</th></tr></thead><tbody><tr><td>误差补偿</td><td>无（每个 weight 独立 round）</td><td>有（OBS 公式向后传播误差）</td></tr><tr><td>Calibration</td><td>不需要</td><td>需要 128-512 samples</td></tr><tr><td>4-bit on LLaMA-7B</td><td>PPL +1.5</td><td>PPL +0.1</td></tr><tr><td>3-bit on LLaMA-7B</td><td>PPL +14 (崩)</td><td>PPL +0.7</td></tr><tr><td>时间</td><td>秒级</td><td>单卡 30-60 分钟（7B）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th></th><th>RTN</th><th>GPTQ</th></tr></thead><tbody><tr><td>误差补偿</td><td>无（每个 weight 独立 round）</td><td>有（OBS 公式向后传播误差）</td></tr><tr><td>Calibration</td><td>不需要</td><td>需要 128-512 samples</td></tr><tr><td>4-bit on LLaMA-7B</td><td>PPL +1.5</td><td>PPL +0.1</td></tr><tr><td>3-bit on LLaMA-7B</td><td>PPL +14 (崩)</td><td>PPL +0.7</td></tr><tr><td>时间</td><td>秒级</td><td>单卡 30-60 分钟（7B）</td></tr></tbody></table></div>
 <h2 id="5-awqactivation-aware-weight-quantization">§5 AWQ：Activation-Aware Weight Quantization</h2>
 <p>AWQ (Lin, Tang, Tang, Yang, Chen, Wang, Xiao, Dang, Gan, Han, MLSys 2024) 的核心洞察：<strong>1% 的 "salient" weights 决定了几乎全部的量化损失</strong>——这些 salient weight 的输入 activation 幅值大。所以<strong>不应该独立量化所有 weight</strong>；要先把 salient channel 放大（量化前），等价地把对应 input scale 缩小，最终量化误差降低。</p>
 <h3 id="51-salient-channel-的识别">5.1 Salient channel 的识别</h3>
@@ -842,7 +849,7 @@ def gptq_quantize_layer(
 <p>$$s_c = \mathrm{mean}(|x_c|)^\alpha,\quad \alpha \in \{0.0, 0.1, \ldots, 1.0\}$$</p>
 <p>对每层独立 grid search $\alpha$，最小化 layer-wise MSE $\|Y_{\mathrm{fp}} - Y_{\mathrm{quant}}\|^2$。$\alpha = 0$ 退化为 RTN（无 scale）；$\alpha = 1$ 直接用 mean act 做 scale；典型最优 $\alpha \in [0.4, 0.7]$。</p>
 <h3 id="53-与-gptq-的区别">5.3 与 GPTQ 的区别</h3>
-<table><thead><tr><th>项</th><th>GPTQ</th><th>AWQ</th></tr></thead><tbody><tr><td>数据依赖</td><td>Hessian $X^\top X$（需 calibration）</td><td>$\text{mean}(\lvert x \rvert)$ per channel（也需 calibration）</td></tr><tr><td>优化对象</td><td>所有 weight 的最优误差补偿</td><td>salient channel 的 scale</td></tr><tr><td>量化流程</td><td>iterative, columnwise + OBS update</td><td>one-shot scaling + RTN</td></tr><tr><td>时间</td><td>30-60 min (7B)</td><td>5-15 min (7B)</td></tr><tr><td>推理 dequant</td><td>可能需要 act reordering</td><td>无额外开销（scale 可吸收进 LayerNorm / W）</td></tr><tr><td>与 W 重排兼容</td><td>较弱</td><td>强（scale 是 elementwise，不破坏 GEMM 结构）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>项</th><th>GPTQ</th><th>AWQ</th></tr></thead><tbody><tr><td>数据依赖</td><td>Hessian $X^\top X$（需 calibration）</td><td>$\text{mean}(\lvert x \rvert)$ per channel（也需 calibration）</td></tr><tr><td>优化对象</td><td>所有 weight 的最优误差补偿</td><td>salient channel 的 scale</td></tr><tr><td>量化流程</td><td>iterative, columnwise + OBS update</td><td>one-shot scaling + RTN</td></tr><tr><td>时间</td><td>30-60 min (7B)</td><td>5-15 min (7B)</td></tr><tr><td>推理 dequant</td><td>可能需要 act reordering</td><td>无额外开销（scale 可吸收进 LayerNorm / W）</td></tr><tr><td>与 W 重排兼容</td><td>较弱</td><td>强（scale 是 elementwise，不破坏 GEMM 结构）</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">AWQ 的工程亲和性</div><p>Per-channel $s_c$ 可以<strong>预 merge 进上游 LayerNorm / RMSNorm 的 weight</strong>：$\mathrm{LN}(x) \cdot \gamma$ 中 $\gamma \leftarrow \gamma / s$，下游 $w \leftarrow s \cdot w$，运行时<strong>完全没有额外 elementwise 操作</strong>。这是 AWQ 比 SmoothQuant 更易部署的原因之一（SmoothQuant 也能 merge，但若 LN 后接 cat / residual 则不能）。<strong>注意</strong>：这个等价变换要求 LN 无 bias（或 bias 同步除以 $s$）——带 bias 的标准 LayerNorm（$\mathrm{LN}(x)=\gamma\odot\mathrm{norm}(x)+\beta$，OPT/BLOOM 用）只除 $\gamma$ 不够，须同时 $\beta \leftarrow \beta / s$ 才能保持等价；RMSNorm 因无 $\beta$ 不受影响。</p></div>
 <h3 id="54-awq-style-per-channel-scale-搜索代码">5.4 AWQ-style per-channel scale 搜索代码</h3>
 <pre><code class="language-python">import torch
@@ -981,7 +988,7 @@ def apply_smoothing(
 <p>低精度浮点不是新事物（FP16 / BF16 已普遍），新的是 <strong>FP8 (E4M3 / E5M2)</strong> 在 Hopper 上原生 tensor core 支持，以及 <strong>MX / NVFP4</strong> 在 Blackwell 上的 block-scaled 浮点。</p>
 <h3 id="81-ieee-754-style-浮点编码">8.1 IEEE 754-style 浮点编码</h3>
 <p>一个浮点数 $x = (-1)^s \cdot (1 + m) \cdot 2^{e - \text{bias}}$（normal）或 $x = (-1)^s \cdot m \cdot 2^{1 - \text{bias}}$（subnormal）。</p>
-<table><thead><tr><th>格式</th><th>Sign</th><th>Exp bits</th><th>Mantissa bits</th><th>Bias</th><th>Max</th><th>Min normal</th></tr></thead><tbody><tr><td>FP32</td><td>1</td><td>8</td><td>23</td><td>127</td><td>$\sim 3.4\times 10^{38}$</td><td>$\sim 1.2\times 10^{-38}$</td></tr><tr><td>FP16</td><td>1</td><td>5</td><td>10</td><td>15</td><td>65504</td><td>$\sim 6.1\times 10^{-5}$</td></tr><tr><td>BF16</td><td>1</td><td>8</td><td>7</td><td>127</td><td>$\sim 3.4\times 10^{38}$</td><td>$\sim 1.2\times 10^{-38}$</td></tr><tr><td><strong>FP8 E4M3</strong></td><td>1</td><td>4</td><td>3</td><td>7</td><td>448 (no Inf)</td><td>$\sim 1.5\times 10^{-2}$</td></tr><tr><td><strong>FP8 E5M2</strong></td><td>1</td><td>5</td><td>2</td><td>15</td><td>57344</td><td>$\sim 6.1\times 10^{-5}$</td></tr><tr><td><strong>FP4 E2M1</strong></td><td>1</td><td>2</td><td>1</td><td>1</td><td>6</td><td>1</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>格式</th><th>Sign</th><th>Exp bits</th><th>Mantissa bits</th><th>Bias</th><th>Max</th><th>Min normal</th></tr></thead><tbody><tr><td>FP32</td><td>1</td><td>8</td><td>23</td><td>127</td><td>$\sim 3.4\times 10^{38}$</td><td>$\sim 1.2\times 10^{-38}$</td></tr><tr><td>FP16</td><td>1</td><td>5</td><td>10</td><td>15</td><td>65504</td><td>$\sim 6.1\times 10^{-5}$</td></tr><tr><td>BF16</td><td>1</td><td>8</td><td>7</td><td>127</td><td>$\sim 3.4\times 10^{38}$</td><td>$\sim 1.2\times 10^{-38}$</td></tr><tr><td><strong>FP8 E4M3</strong></td><td>1</td><td>4</td><td>3</td><td>7</td><td>448 (no Inf)</td><td>$\sim 1.5\times 10^{-2}$</td></tr><tr><td><strong>FP8 E5M2</strong></td><td>1</td><td>5</td><td>2</td><td>15</td><td>57344</td><td>$\sim 6.1\times 10^{-5}$</td></tr><tr><td><strong>FP4 E2M1</strong></td><td>1</td><td>2</td><td>1</td><td>1</td><td>6</td><td>1</td></tr></tbody></table></div>
 <div class="callout callout-good"><div class="callout-title">E4M3 vs E5M2 forward/backward 选择</div><p>NVIDIA Transformer Engine 默认：</p></div>
 <ul><li><strong>Forward (activation, weight)</strong>：用 <strong>E4M3</strong>——dynamic range 小但分辨率高 (mantissa 3 bit)。Activation 经 layer-wise scale 后落在 $[-448, 448]$ 内，mantissa 精度更重要。</li><li><strong>Backward (gradient)</strong>：用 <strong>E5M2</strong>——dynamic range 大但分辨率低 (mantissa 2 bit, 形态接近 FP16)。Gradient 量级跨越多个数量级，需要大动态范围。</li></ul>
 <p>注意 E4M3 没有 Inf，只有 NaN（最大 normal 即 448）；E5M2 有 Inf 和 NaN（与 FP16 类似）。这点 hardware 设计上有意区分。</p>
@@ -1045,7 +1052,7 @@ def fp8_e4m3_decode(b: int) -&gt; float:
 assert abs(fp8_e4m3_decode(fp8_e4m3_encode(448.0)) - 448.0) &lt; 1e-6</code></pre>
 <h3 id="83-mx-格式ocp--microsoft-2023">8.3 MX 格式（OCP / Microsoft 2023）</h3>
 <p>OCP (Open Compute Project) MX (Microscaling) 规范：把 32 个元素组成一个 block，共享一个 <strong>8-bit shared scale</strong>（E8M0 格式，即 power-of-two scale）；block 内每个元素用 FP4/FP6/FP8 编码。</p>
-<table><thead><tr><th>MX 格式</th><th>Element type</th><th>Block size</th><th>Shared scale</th><th>总 bits/element</th></tr></thead><tbody><tr><td>MXFP8</td><td>FP8 (E5M2 or E4M3)</td><td>32</td><td>E8M0</td><td>$8 + 8/32 = 8.25$</td></tr><tr><td>MXFP6</td><td>FP6 (E3M2 or E2M3)</td><td>32</td><td>E8M0</td><td>$6 + 8/32 = 6.25$</td></tr><tr><td>MXFP4</td><td>FP4 (E2M1)</td><td>32</td><td>E8M0</td><td>$4 + 8/32 = 4.25$</td></tr><tr><td>MXINT8</td><td>INT8</td><td>32</td><td>E8M0</td><td>$8.25$</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>MX 格式</th><th>Element type</th><th>Block size</th><th>Shared scale</th><th>总 bits/element</th></tr></thead><tbody><tr><td>MXFP8</td><td>FP8 (E5M2 or E4M3)</td><td>32</td><td>E8M0</td><td>$8 + 8/32 = 8.25$</td></tr><tr><td>MXFP6</td><td>FP6 (E3M2 or E2M3)</td><td>32</td><td>E8M0</td><td>$6 + 8/32 = 6.25$</td></tr><tr><td>MXFP4</td><td>FP4 (E2M1)</td><td>32</td><td>E8M0</td><td>$4 + 8/32 = 4.25$</td></tr><tr><td>MXINT8</td><td>INT8</td><td>32</td><td>E8M0</td><td>$8.25$</td></tr></tbody></table></div>
 <p>E8M0 是 1 字节、纯指数（无 mantissa、无 sign）的 power-of-two scale：$s = 2^{e - 127}$，$e \in [0, 254]$（255 = 0xFF 保留给 NaN，故 E8M0 无法表示 NaN 以外的 255 号码点，也没有精确的 zero scale）。这种 scale 在 dequant 时是 bit shift（最便宜的硬件操作）。</p>
 <h3 id="84-nvfp4blackwell-2025-nvidia">8.4 NVFP4（Blackwell 2025 NVIDIA）</h3>
 <p>NVFP4 是 NVIDIA 在 Blackwell（B100 / B200 / GB200）上推的 FP4 格式，与 OCP MXFP4 区别：</p>
@@ -1129,7 +1136,7 @@ def dequantize_kv(K_q, s_K, V_q, s_V, dtype=torch.float16):
 <h3 id="104-bitnet-b158--b2">10.4 BitNet b1.58 / b2</h3>
 <p>最近 (Ma et al. 2024) 微软推 <strong>BitNet b1.58</strong>：weight 是 ternary $\{-1, 0, +1\}$（$\log_2 3 \approx 1.58$ bits），activation INT8。需要 from-scratch QAT 训练（不能 PTQ 转换），3B 规模与 FP16 LLaMA 持平。这是当前最低 bit 的 production-ready LLM 量化方案。</p>
 <h2 id="11-框架与生态对照">§11 框架与生态对照</h2>
-<table><thead><tr><th>框架</th><th>量化方法支持</th><th>推理后端</th><th>典型用例</th></tr></thead><tbody><tr><td><strong>bitsandbytes</strong></td><td>LLM.int8(), NF4, FP4</td><td>PyTorch + Triton</td><td>HuggingFace transformers 集成；QLoRA finetune 必备</td></tr><tr><td><strong>AutoGPTQ</strong></td><td>GPTQ (W4, W3, W2)</td><td>ExLlama / Marlin kernels</td><td>4-bit 推理 ~2× FP16 throughput</td></tr><tr><td><strong>AutoAWQ</strong></td><td>AWQ (W4)</td><td>GEMM kernel</td><td>比 GPTQ 略快、精度相当</td></tr><tr><td><strong>llama.cpp / GGUF</strong></td><td>Q4_K, Q5_K, Q6_K, Q8_0, Q3_K, IQ2_XXS...</td><td>CPU + GPU + Metal + ROCm</td><td>端侧推理首选</td></tr><tr><td><strong>TensorRT-LLM</strong></td><td>INT8 SmoothQuant, FP8, W4A8, NVFP4</td><td>NVIDIA fused kernel</td><td>生产服务首选（Hopper / Blackwell）</td></tr><tr><td><strong>vLLM</strong></td><td>GPTQ, AWQ, FP8, INT8 SmoothQuant</td><td>PagedAttention + 自定义 kernel</td><td>多用户 serving 首选</td></tr><tr><td><strong>SGLang</strong></td><td>GPTQ, AWQ, FP8, W4A8 KV</td><td>radix-tree + 自定义 kernel</td><td>latency-sensitive serving</td></tr><tr><td><strong>Transformer Engine</strong></td><td>FP8 training + inference</td><td>H100 / B100 cuBLAS</td><td>FP8 训练首选</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>框架</th><th>量化方法支持</th><th>推理后端</th><th>典型用例</th></tr></thead><tbody><tr><td><strong>bitsandbytes</strong></td><td>LLM.int8(), NF4, FP4</td><td>PyTorch + Triton</td><td>HuggingFace transformers 集成；QLoRA finetune 必备</td></tr><tr><td><strong>AutoGPTQ</strong></td><td>GPTQ (W4, W3, W2)</td><td>ExLlama / Marlin kernels</td><td>4-bit 推理 ~2× FP16 throughput</td></tr><tr><td><strong>AutoAWQ</strong></td><td>AWQ (W4)</td><td>GEMM kernel</td><td>比 GPTQ 略快、精度相当</td></tr><tr><td><strong>llama.cpp / GGUF</strong></td><td>Q4_K, Q5_K, Q6_K, Q8_0, Q3_K, IQ2_XXS...</td><td>CPU + GPU + Metal + ROCm</td><td>端侧推理首选</td></tr><tr><td><strong>TensorRT-LLM</strong></td><td>INT8 SmoothQuant, FP8, W4A8, NVFP4</td><td>NVIDIA fused kernel</td><td>生产服务首选（Hopper / Blackwell）</td></tr><tr><td><strong>vLLM</strong></td><td>GPTQ, AWQ, FP8, INT8 SmoothQuant</td><td>PagedAttention + 自定义 kernel</td><td>多用户 serving 首选</td></tr><tr><td><strong>SGLang</strong></td><td>GPTQ, AWQ, FP8, W4A8 KV</td><td>radix-tree + 自定义 kernel</td><td>latency-sensitive serving</td></tr><tr><td><strong>Transformer Engine</strong></td><td>FP8 training + inference</td><td>H100 / B100 cuBLAS</td><td>FP8 训练首选</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">Marlin kernel</div><p>Frantar 2024 的 W4A16 GEMM kernel，针对 Ampere / Ada / Hopper 设计，4-bit weight + FP16 activation 在 batch 1-32 上比 FP16 cuBLAS 快 1.5-2$\times$。vLLM / SGLang 默认 W4 路径。</p></div>
 <h2 id="12-25-高频面试题">§12 25 高频面试题</h2>
 <p>codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。每题点开看答案要点 + 易踩坑。</p>
@@ -1291,7 +1298,7 @@ def dequantize_kv(K_q, s_K, V_q, s_V, dtype=torch.float16):
 </details>
 <h2 id="a-附录完整的工程参考">§A 附录：完整的工程参考</h2>
 <h3 id="a1-主要论文-reference-list">A.1 主要论文 reference list</h3>
-<table><thead><tr><th>方法</th><th>论文</th><th>关键贡献</th></tr></thead><tbody><tr><td>LLM.int8()</td><td>Dettmers et al., NeurIPS 2022</td><td>Mixed-precision INT8 decomposition for outlier</td></tr><tr><td>GPTQ</td><td>Frantar et al., ICLR 2023</td><td>OBS-based W4 PTQ for LLM</td></tr><tr><td>SmoothQuant</td><td>Xiao et al., ICML 2023</td><td>Migrate activation outlier to weight (W8A8)</td></tr><tr><td>AWQ</td><td>Lin et al., MLSys 2024</td><td>Activation-aware per-channel scale (W4)</td></tr><tr><td>QuIP</td><td>Chee et al., NeurIPS 2023</td><td>Random Hadamard for weight incoherence</td></tr><tr><td>QuaRot</td><td>Ashkboos et al., NeurIPS 2024</td><td>Full Hadamard rotation, W4A4KV4</td></tr><tr><td>SpinQuant</td><td>Liu et al., ICLR 2025 (Meta)</td><td>Learned rotations $R_1$-$R_4$</td></tr><tr><td>OmniQuant</td><td>Shao et al., ICLR 2024</td><td>Learnable equivalent transforms</td></tr><tr><td>KIVI</td><td>Liu et al., ICML 2024</td><td>per-channel K + per-token V, INT2 KV</td></tr><tr><td>KVQuant</td><td>Hooper et al., NeurIPS 2024</td><td>Pre-RoPE quant K, non-uniform V</td></tr><tr><td>QServe / QoQ</td><td>Lin et al., MLSys 2025</td><td>W4A8KV4 GPU kernel co-design</td></tr><tr><td>LLM-QAT</td><td>Liu et al., 2023</td><td>Self-distillation QAT for W4</td></tr><tr><td>BitNet b1.58</td><td>Ma et al., 2024</td><td>Ternary weight LLM from scratch</td></tr><tr><td>FP8 Training</td><td>Micikevicius et al., 2022</td><td>E4M3 forward / E5M2 backward</td></tr><tr><td>MX formats</td><td>OCP / Microsoft, 2023</td><td>Block-scaled FP4/6/8 with E8M0</td></tr><tr><td>NVFP4</td><td>NVIDIA Blackwell, 2025</td><td>FP4 E2M1 + FP8 E4M3 block + FP32 tensor scale</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>论文</th><th>关键贡献</th></tr></thead><tbody><tr><td>LLM.int8()</td><td>Dettmers et al., NeurIPS 2022</td><td>Mixed-precision INT8 decomposition for outlier</td></tr><tr><td>GPTQ</td><td>Frantar et al., ICLR 2023</td><td>OBS-based W4 PTQ for LLM</td></tr><tr><td>SmoothQuant</td><td>Xiao et al., ICML 2023</td><td>Migrate activation outlier to weight (W8A8)</td></tr><tr><td>AWQ</td><td>Lin et al., MLSys 2024</td><td>Activation-aware per-channel scale (W4)</td></tr><tr><td>QuIP</td><td>Chee et al., NeurIPS 2023</td><td>Random Hadamard for weight incoherence</td></tr><tr><td>QuaRot</td><td>Ashkboos et al., NeurIPS 2024</td><td>Full Hadamard rotation, W4A4KV4</td></tr><tr><td>SpinQuant</td><td>Liu et al., ICLR 2025 (Meta)</td><td>Learned rotations $R_1$-$R_4$</td></tr><tr><td>OmniQuant</td><td>Shao et al., ICLR 2024</td><td>Learnable equivalent transforms</td></tr><tr><td>KIVI</td><td>Liu et al., ICML 2024</td><td>per-channel K + per-token V, INT2 KV</td></tr><tr><td>KVQuant</td><td>Hooper et al., NeurIPS 2024</td><td>Pre-RoPE quant K, non-uniform V</td></tr><tr><td>QServe / QoQ</td><td>Lin et al., MLSys 2025</td><td>W4A8KV4 GPU kernel co-design</td></tr><tr><td>LLM-QAT</td><td>Liu et al., 2023</td><td>Self-distillation QAT for W4</td></tr><tr><td>BitNet b1.58</td><td>Ma et al., 2024</td><td>Ternary weight LLM from scratch</td></tr><tr><td>FP8 Training</td><td>Micikevicius et al., 2022</td><td>E4M3 forward / E5M2 backward</td></tr><tr><td>MX formats</td><td>OCP / Microsoft, 2023</td><td>Block-scaled FP4/6/8 with E8M0</td></tr><tr><td>NVFP4</td><td>NVIDIA Blackwell, 2025</td><td>FP4 E2M1 + FP8 E4M3 block + FP32 tensor scale</td></tr></tbody></table></div>
 <h3 id="a2-一图速查选什么量化方案">A.2 一图速查：选什么量化方案</h3>
 <pre class="diagram"><code>
   ┌─────────────────────────┐
@@ -1318,7 +1325,7 @@ def dequantize_kv(K_q, s_K, V_q, s_V, dtype=torch.float16):
  + Hadamard rotation 用 QServe kernel
  PPL +0.5 (70B)      PPL +0.2</code></pre>
 <h3 id="a3-量化-quick-reference-卡片">A.3 量化 quick reference 卡片</h3>
-<table><thead><tr><th>任务</th><th>推荐方案</th><th>框架</th></tr></thead><tbody><tr><td>单卡推理 LLaMA-2-70B</td><td>AWQ W4 + Marlin (vLLM / SGLang)</td><td>AutoAWQ</td></tr><tr><td>多卡推理 LLaMA-3-405B</td><td>SmoothQuant + GPTQ W4A8 + KV8</td><td>TensorRT-LLM</td></tr><tr><td>端侧 (Apple Silicon / CPU)</td><td>GGUF Q4_K_M / Q5_K_S</td><td>llama.cpp</td></tr><tr><td>训练 fp8 LLM</td><td>TE FP8 (E4M3/E5M2) + amax history</td><td>Transformer Engine</td></tr><tr><td>QLoRA finetune</td><td>NF4 + double quant + LoRA</td><td>bitsandbytes + peft</td></tr><tr><td>极致 throughput H100/B200 serving</td><td>QoQ W4A8KV4 / NVFP4</td><td>QServe / TensorRT-LLM</td></tr><tr><td>边缘 &lt; 100 MB model</td><td>BitNet b1.58 (1.58-bit) from scratch</td><td>自定义 / bitnet.cpp</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>任务</th><th>推荐方案</th><th>框架</th></tr></thead><tbody><tr><td>单卡推理 LLaMA-2-70B</td><td>AWQ W4 + Marlin (vLLM / SGLang)</td><td>AutoAWQ</td></tr><tr><td>多卡推理 LLaMA-3-405B</td><td>SmoothQuant + GPTQ W4A8 + KV8</td><td>TensorRT-LLM</td></tr><tr><td>端侧 (Apple Silicon / CPU)</td><td>GGUF Q4_K_M / Q5_K_S</td><td>llama.cpp</td></tr><tr><td>训练 fp8 LLM</td><td>TE FP8 (E4M3/E5M2) + amax history</td><td>Transformer Engine</td></tr><tr><td>QLoRA finetune</td><td>NF4 + double quant + LoRA</td><td>bitsandbytes + peft</td></tr><tr><td>极致 throughput H100/B200 serving</td><td>QoQ W4A8KV4 / NVFP4</td><td>QServe / TensorRT-LLM</td></tr><tr><td>边缘 &lt; 100 MB model</td><td>BitNet b1.58 (1.58-bit) from scratch</td><td>自定义 / bitnet.cpp</td></tr></tbody></table></div>
 <h3 id="a4-sanity-check-checklist">A.4 Sanity check checklist</h3>
 <p>实战部署任何量化模型前，必跑：</p>
 <ul><li>[ ] <strong>PPL on calibration domain</strong>：量化前后差 &lt; 0.2 算 OK</li><li>[ ] <strong>PPL on out-of-domain</strong>（重要！）：差 &lt; 0.5 算 OK，&gt; 1 重新选 calibration data</li><li>[ ] <strong>MMLU / GSM8K 等下游 task</strong>：drop &lt; 1% 算 OK</li><li>[ ] <strong>Long context PPL</strong>（最考验 KV cache quant）：4K / 8K / 32K 三档对比</li><li>[ ] <strong>生成质量主观评估</strong>：让人盲评 50 个 prompt 的输出，比 FP16 不显著差</li><li>[ ] <strong>Throughput / TTFT (Time To First Token)</strong>：实测 vs 理论数字差 &gt; 30% 说明 kernel 未充分优化</li><li>[ ] <strong>峰值显存</strong>：实测 vs nominal $\text{bits} \cdot \text{params} / 8 + \text{KV cache} + \text{activations}$</li></ul>
@@ -1328,7 +1335,7 @@ def dequantize_kv(K_q, s_K, V_q, s_V, dtype=torch.float16):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/quantization_tutorial.md</code> ·
   SHA256 <code>ec55cbec4018</code> ·
-  generated at 2026-07-12 04:12 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

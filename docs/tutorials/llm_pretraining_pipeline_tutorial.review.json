@@ -1,7 +1,7 @@
 {
  "skill": "interview-cheatsheet",
  "source": "docs/tutorials/llm_pretraining_pipeline_tutorial.md",
- "source_sha256": "d548de992e7b297c62e6764efe58e837e9449c494943ee4a0b50f1c348eacb22",
+ "source_sha256": "7a61fdf59d1145889a705c5a16c5ed0223e93c9d4b83f0cc98e5e9836f5c0d82",
  "output": "docs/tutorials/llm_pretraining_pipeline_tutorial.html",
  "runnable_code": "docs/tutorials/code/pretraining_pipeline.py",
  "topic": "LLM Pretraining Pipeline / 面试 Cheat Sheet — Kaplan vs Chinchilla scaling law精确指数区分(非同一组'0.5/0.5') / C≈6ND近似的适用边界 / corpus factory数据流水线(dedup先于split/MinHash-LSH/污染检测) / document packing与loss masking(跨文档attention语义选择) / training lifecycle与checkpoint resume的三层强度声明 / 26 高频题",
@@ -13,7 +13,7 @@
   "notes": "gpt-5.6-sol对提议大纲做详尽设计前置审(105条编号claim),核心纠偏:Kaplan(2020)给出N∝C^0.73,D∝C^0.27;Chinchilla(2022)没有唯一一组'精确指数'(不同方法给出~0.50/0.50、~0.49/0.51、~0.46/0.54);参数化损失模型L(N,D)=E+A/N^α+B/D^β拟合α≈0.34,β≈0.28;'超出Chinchilla token数就是过拟合'是错误说法;document packing里普通causal mask不阻断跨文档attention不是bug而是语义选择。起草时作为硬护栏。"
  },
  "math_code_review": {
-  "verdict": "PASS (after 3 review batches — math/facts+citations, code, structure+Q&A — + full fix pass, verified by re-running the fixed script)",
+  "verdict": "PASS (after 3 review batches — math/facts+citations, code, structure+Q&A — + full fix pass, verified by re-running the fixed script; + 1 scannability de-hedge round, expression-only, no factual changes)",
   "rounds": [
    {
     "run": 1,
@@ -35,6 +35,13 @@
     "verdict": "7.5/10,缺训练状态机/data-sampler层/长文档chunking整段 -> 全部补齐",
     "notes": "补完整训练update状态机(或诚实标注§6范围)、补data-stream/sampler层、补长文档chunking/truncation、补train/val-test分叉;修正token记账口径混淆(processed slots vs non-padding input vs valid target,三种口径此前被混成一个'tokens-per-update');checkpoint/resume'确定性'承诺按三层强度重新表述(可继续训练/样本序列一致/数值bitwise同轨迹)。",
     "thread_id": "019f884d-96f8-7b20-8de6-64bb2eaca151"
+   },
+   {
+    "run": 4,
+    "scope": "可扫读性去冗余(owner反馈触发)",
+    "verdict": "中度冗杂(§0/§1/§4影响扫读) -> 全部修复",
+    "thread_id": "019fb3db-75b3-7ac2-84d5-f6969ec6176b",
+    "notes": "41条清单全部执行:§0记号约定改表格;§4.1三种token记账口径改表格+DP replica嵌套括号拆解;§4.2归约语义先给不变量公式∇(ΣNLL_r/ΣM_r)再分情况;D*/N*漂移段按'经验比例→解析结论→不可外推'三层重写;Q24三类泄漏改表格。行数+47(长段拆表格/bullet)但字节-6.5%——扫读性来自结构不来自行数。表达重排不改事实结论。"
    }
   ]
  },
@@ -45,10 +52,10 @@
  },
  "translation_fidelity_note": "N/A (this is the ZH source; see _en.review.json for the EN fidelity review)",
  "summary": "LLM Pretraining Pipeline cheat sheet (effort=max, ~839 lines, bilingual). The design review here was the most mathematically dense of the four new tutorials (Kaplan vs Chinchilla scaling-law exponents, parametric loss-model derivation, document-packing loss-mask semantics). Code review caught a real padding-detection bug that directly contradicted a rule the tutorial's own prose asserted ('never judge padding by token ID'), which would have silently deleted real EOS supervision under PAD==EOS. Final verdict: SHIP after full fix + re-verification.",
- "rendered_at": "2026-07-22",
+ "rendered_at": "2026-07-31",
  "render_review": {
   "verdict": "PASS",
   "thread_id": "019f88bb-7765-7013-8702-3daafa3d5ef4",
-  "notes": "6项渲染质量检查(表格列数/TOC条目数/公式逐式一致/details闭合数/无注入/无个人信息)全部通过;source SHA256与当前.md完全一致。"
+  "notes": "初版渲染审PASS(6项检查);去冗余后用升级版渲染器(table-wrap横向滚动修复)全库统一重渲染,源hash同步刷新。"
  }
 }

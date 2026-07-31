@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/attention_tutorial_en.md">
 <meta name="aris:source-sha256" content="f057c218d5b6435d443d904c25e0e732705172efce84a0918a984c166a516800">
-<meta name="aris:generated-at" content="2026-07-12 04:18 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -591,7 +598,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/attention_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>f057c218d5b6</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:18 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -682,7 +689,7 @@ W_o ∈ R^{D×D}    →    Output [B, L_q, D]</code></pre>
 <h3 id="32-why-multi-head-would-a-single-head-work">3.2　Why multi-head (would a single head work?)</h3>
 <ul><li><strong>Different subspaces</strong>: each head learns one relational pattern in its own $d_k$-dim subspace (syntax, coreference, long-distance dependency, local n-gram, ...)</li><li><strong>Expressiveness</strong>: a single head learns only one attention pattern; H heads give H different weighted-sum outputs <strong>in parallel</strong> at inference</li><li><strong>Parameter efficiency</strong>: $d_k = D/H$ rather than $D$, so parameter count doesn't grow linearly with H</li><li>Common interview question: are more heads always better? <strong>No.</strong> $d_k = D/H$ being too small (e.g., $d_k &lt; 16$) limits each head's expressiveness; Mistral / LLaMA use head_dim ≈ 64-128 as the sweet spot</li></ul>
 <h3 id="33-parameter-count-and-flops">3.3　Parameter count and FLOPs</h3>
-<table><thead><tr><th>Component</th><th>Shape</th><th>Parameter count</th></tr></thead><tbody><tr><td>$W_q$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_k$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_v$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_o$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td><strong>Total</strong></td><td></td><td><strong>$4D^2$</strong> (independent of $H$)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Component</th><th>Shape</th><th>Parameter count</th></tr></thead><tbody><tr><td>$W_q$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_k$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_v$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_o$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td><strong>Total</strong></td><td></td><td><strong>$4D^2$</strong> (independent of $H$)</td></tr></tbody></table></div>
 <p>FLOPs (single self-attention forward, $L_q = L_k = L$):</p>
 <ul><li>QKV projection: $3 \cdot 2 B L D^2 = 6 B L D^2$</li><li>$QK^\top$: $2 B H L^2 d_k = 2 B L^2 D$</li><li>Softmax weight × V: $2 B L^2 D$</li><li>Output projection $W_o$: $2 B L D^2$</li><li><strong>Total $\approx 8 B L D^2 + 4 B L^2 D$</strong> — the first term is linear in $L$, the second quadratic (long-sequence bottleneck)</li></ul>
 <h3 id="34-code-core-30-lines">3.4　Code (core 30 lines)</h3>
@@ -721,7 +728,7 @@ W_o ∈ R^{D×D}    →    Output [B, L_q, D]</code></pre>
         return self.W_o(self._merge(out)), w</code></pre>
 <h2 id="4-self--cross--causal--padding">§4 Self / Cross / Causal / Padding</h2>
 <h3 id="41-self-vs-cross-attention-mandatory">4.1　Self vs Cross Attention (mandatory)</h3>
-<table><thead><tr><th></th><th>Self-Attention</th><th>Cross-Attention</th></tr></thead><tbody><tr><td><strong>Q source</strong></td><td>$X$</td><td>$X_\text{decoder}$ / latent / learnable queries</td></tr><tr><td><strong>K, V source</strong></td><td>$X$ (same)</td><td>$X_\text{encoder}$ / context / memory</td></tr><tr><td><strong>$L_q$ vs $L_k$</strong></td><td>equal</td><td>can differ</td></tr><tr><td><strong>Typical mask</strong></td><td>causal (decoder) or padding (encoder)</td><td>K/V-side padding mask (no causal)</td></tr><tr><td><strong>Purpose</strong></td><td>intra-position correlation</td><td>retrieve relevant info from external memory</td></tr><tr><td><strong>Examples</strong></td><td>every BERT layer; every GPT layer; ViT</td><td>Transformer Decoder's second sub-layer; DETR; Perceiver; Stable Diffusion (image Q × text K/V)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th></th><th>Self-Attention</th><th>Cross-Attention</th></tr></thead><tbody><tr><td><strong>Q source</strong></td><td>$X$</td><td>$X_\text{decoder}$ / latent / learnable queries</td></tr><tr><td><strong>K, V source</strong></td><td>$X$ (same)</td><td>$X_\text{encoder}$ / context / memory</td></tr><tr><td><strong>$L_q$ vs $L_k$</strong></td><td>equal</td><td>can differ</td></tr><tr><td><strong>Typical mask</strong></td><td>causal (decoder) or padding (encoder)</td><td>K/V-side padding mask (no causal)</td></tr><tr><td><strong>Purpose</strong></td><td>intra-position correlation</td><td>retrieve relevant info from external memory</td></tr><tr><td><strong>Examples</strong></td><td>every BERT layer; every GPT layer; ViT</td><td>Transformer Decoder's second sub-layer; DETR; Perceiver; Stable Diffusion (image Q × text K/V)</td></tr></tbody></table></div>
 <h3 id="42-causal-mask-decoder--gpt">4.2　Causal Mask (Decoder / GPT)</h3>
 <p>Lower-triangular matrix (including diagonal): row $i$ may attend to keys $j \le i$.</p>
 <pre><code class="language-python">def causal_mask(L, device=None):
@@ -743,7 +750,7 @@ pmask = padding_mask(lengths).unsqueeze(1).unsqueeze(1)   # [B, 1, 1, L_k]
 out, _ = mha(x, x, x, mask=pmask)</code></pre>
 <div class="callout callout-info"><div class="callout-title">Causal + padding together</div><p>AND the two masks: <code>combined = causal_mask &amp; padding_mask_4d</code>. Mind the broadcast dims: causal is <code>[L,L]</code>, padding is <code>[B,1,1,L_k]</code>, and the AND yields <code>[B,1,L,L]</code>.</p></div>
 <h2 id="5-complexity-analysis">§5 Complexity Analysis</h2>
-<table><thead><tr><th></th><th>Time</th><th>Memory</th><th>Bottleneck</th></tr></thead><tbody><tr><td>RNN</td><td>$O(L \cdot D^2)$</td><td>$O(D)$</td><td>sequential, not parallelizable</td></tr><tr><td>Self-Attention</td><td>$O(L^2 \cdot D)$</td><td>$O(L^2 + L \cdot D)$</td><td>$L^2$ score matrix (long sequences)</td></tr><tr><td>Conv (kernel $k$)</td><td>$O(L \cdot k \cdot D^2)$</td><td>$O(D)$</td><td>limited receptive field</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th></th><th>Time</th><th>Memory</th><th>Bottleneck</th></tr></thead><tbody><tr><td>RNN</td><td>$O(L \cdot D^2)$</td><td>$O(D)$</td><td>sequential, not parallelizable</td></tr><tr><td>Self-Attention</td><td>$O(L^2 \cdot D)$</td><td>$O(L^2 + L \cdot D)$</td><td>$L^2$ score matrix (long sequences)</td></tr><tr><td>Conv (kernel $k$)</td><td>$O(L \cdot k \cdot D^2)$</td><td>$O(D)$</td><td>limited receptive field</td></tr></tbody></table></div>
 <p>Key points:</p>
 <ul><li>Self-attention's $L^2$ <strong>compute</strong> is acceptable (GPU parallel), but <strong>$L^2$ memory</strong> (score matrix) is the real bottleneck — this is the pain point Flash Attention attacks</li><li>At LLM inference, the prefill stage is $O(L^2)$; the decode stage with KV cache is $O(L)$ per step (see §6)</li><li>When $L \approx D$, attention and FFN take similar time; when $L \gg D$, attention dominates</li></ul>
 <h2 id="6-kv-cache--mqa--gqa">§6 KV Cache + MQA / GQA</h2>
@@ -756,7 +763,7 @@ out, _ = mha(x, x, x, mask=pmask)</code></pre>
 <p>$$\text{KV cache} = L_\text{ctx} \cdot n_\text{layers} \cdot \underbrace{2}_{K, V} \cdot H_\text{kv} \cdot d_\text{head} \cdot \text{bytes\_per\_elem}$$</p>
 <p>Note: under MQA/GQA $H_\text{kv} \ll H$, shrinking the cache dramatically. For LLaMA-2-70B (GQA, $H_\text{kv}=8$), $L_\text{ctx}=4096$, 80 layers, fp16: about <strong>1.25 GiB</strong> (≈1.34 GB) <strong>/ sample</strong> — this is why LLaMA-2 uses GQA instead of MHA (vanilla MHA would reach about <strong>10 GiB ≈ 10.74 GB / sample</strong>).</p>
 <h3 id="62-mqa--gqa-attacking-kv-cache-memory">6.2　MQA / GQA (attacking KV-cache memory)</h3>
-<table><thead><tr><th>Variant</th><th>Q heads</th><th>K/V heads</th><th>KV cache reduction</th><th>Used in</th></tr></thead><tbody><tr><td><strong>MHA</strong> (vanilla)</td><td>$H$</td><td>$H$</td><td>1×</td><td>original Transformer</td></tr><tr><td><strong>MQA</strong> (Multi-Query)</td><td>$H$</td><td><strong>1</strong></td><td>$H \times$</td><td>PaLM, Falcon</td></tr><tr><td><strong>GQA</strong> (Grouped-Query)</td><td>$H$</td><td>$G$ ($1 &lt; G &lt; H$)</td><td>$H/G \times$</td><td>LLaMA-2-70B (7B/13B are still MHA), all of LLaMA-3, Mistral</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Variant</th><th>Q heads</th><th>K/V heads</th><th>KV cache reduction</th><th>Used in</th></tr></thead><tbody><tr><td><strong>MHA</strong> (vanilla)</td><td>$H$</td><td>$H$</td><td>1×</td><td>original Transformer</td></tr><tr><td><strong>MQA</strong> (Multi-Query)</td><td>$H$</td><td><strong>1</strong></td><td>$H \times$</td><td>PaLM, Falcon</td></tr><tr><td><strong>GQA</strong> (Grouped-Query)</td><td>$H$</td><td>$G$ ($1 &lt; G &lt; H$)</td><td>$H/G \times$</td><td>LLaMA-2-70B (7B/13B are still MHA), all of LLaMA-3, Mistral</td></tr></tbody></table></div>
 <p>Core idea: <strong>multiple Q heads share one set of K/V</strong>. MQA is extreme but slightly hurts quality; GQA is a compromise (e.g., H=32, G=8) that cuts memory/bandwidth by 4× with essentially no quality loss.</p>
 <div class="callout callout-bad"><div class="callout-title">Footgun</div><p>MQA/GQA reduce <strong>KV-cache memory + memory bandwidth</strong>, <strong>not</strong> Q-projection compute (Q head count is unchanged). Interviewers love to push back with "what exactly did it reduce?".</p></div>
 <h2 id="7-flashattention-core-tricks">§7 FlashAttention Core Tricks</h2>
@@ -767,7 +774,7 @@ out, _ = mha(x, x, x, mask=pmask)</code></pre>
 <ul><li><strong>Avoids materializing</strong> the full $L \times L$ scores / probs matrix in HBM</li><li>The paper's HBM IO complexity is about $O(L^2 d^2 / M + Ld)$, vs $O(L^2 + Ld)$ HBM traffic for standard attention — when $L$ is large and $M$ (SRAM) is appropriate, IO drops sharply</li><li>Peak memory drops from $O(L^2)$ to $O(L)$ (no stored intermediate scores)</li><li>Typical speedup 2-4× (depends on sequence length &amp; GPU architecture)</li><li><strong>Mathematically equivalent</strong> (exact attention, not sparse / linear approximation)</li></ul>
 <div class="callout callout-info"><div class="callout-title">FlashAttention v1/v2/v3 key differences</div><p>v1 (2022): online softmax + block tiling + recompute. v2 (2023): swap the inner/outer loops (Q-outer, KV-inner) + better warp-level parallelism + fewer non-matmul FLOPs. v3 (2024): targets H100 Hopper with WGMMA / TMA / FP8 + asynchronous pipeline. Interviews usually focus on v1/v2 and online-softmax details.</p></div>
 <h2 id="8-position-encoding-rope--alibi--absolute">§8 Position Encoding (RoPE / ALiBi / Absolute)</h2>
-<table><thead><tr><th>Method</th><th>Principle</th><th>Extrapolation</th><th>Used in</th></tr></thead><tbody><tr><td><strong>Sinusoidal absolute</strong></td><td>Fixed sin/cos position vector added to the input embedding</td><td>Position encoding itself can be defined for any length, but the model may not generalize past trained lengths</td><td>Original Transformer (Vaswani 2017)</td></tr><tr><td><strong>Learned absolute</strong></td><td>Treat position as a token and learn an embedding table</td><td>Poor (the table is fixed-size, a hard limit)</td><td>BERT, GPT-2</td></tr><tr><td><strong>RoPE</strong> (Rotary)</td><td>Apply position-dependent rotation to $Q, K$: $q_m \to q_m e^{im\theta}$ (complex-number view) — <strong>the position-dependent term enters via relative shift $m-n$ in the inner product</strong> (content vectors still influence scores)</td><td>Medium (naturally captures relative position; out-of-length needs NTK-aware / YaRN)</td><td>LLaMA-1/2/3, Mistral, Qwen</td></tr><tr><td><strong>ALiBi</strong></td><td>Add a positional-distance bias to scores: $\text{score}_{ij} - m \cdot \lvert i-j \rvert$</td><td>Good (linear bias extrapolates naturally)</td><td>BLOOM, MPT</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Method</th><th>Principle</th><th>Extrapolation</th><th>Used in</th></tr></thead><tbody><tr><td><strong>Sinusoidal absolute</strong></td><td>Fixed sin/cos position vector added to the input embedding</td><td>Position encoding itself can be defined for any length, but the model may not generalize past trained lengths</td><td>Original Transformer (Vaswani 2017)</td></tr><tr><td><strong>Learned absolute</strong></td><td>Treat position as a token and learn an embedding table</td><td>Poor (the table is fixed-size, a hard limit)</td><td>BERT, GPT-2</td></tr><tr><td><strong>RoPE</strong> (Rotary)</td><td>Apply position-dependent rotation to $Q, K$: $q_m \to q_m e^{im\theta}$ (complex-number view) — <strong>the position-dependent term enters via relative shift $m-n$ in the inner product</strong> (content vectors still influence scores)</td><td>Medium (naturally captures relative position; out-of-length needs NTK-aware / YaRN)</td><td>LLaMA-1/2/3, Mistral, Qwen</td></tr><tr><td><strong>ALiBi</strong></td><td>Add a positional-distance bias to scores: $\text{score}_{ij} - m \cdot \lvert i-j \rvert$</td><td>Good (linear bias extrapolates naturally)</td><td>BLOOM, MPT</td></tr></tbody></table></div>
 <h3 id="81-attention-sink-advanced-topic">8.1　Attention Sink (advanced topic)</h3>
 <p>In trained LLMs, attention at decode time concentrates abnormally on the first 1-4 tokens (especially [BOS] / the first token), even when those tokens are content-irrelevant. This phenomenon is called <strong>attention sink</strong>. <strong>A common intuitive explanation</strong>: softmax forces weights to sum to 1, so when a query doesn't really want to attend to anything, it needs a "junk slot" to absorb probability mass; and because early tokens are visible to all subsequent tokens, training naturally produces a global sink. StreamingLLM (Xiao et al., ICLR 2024) exploits this for long-sequence inference (keep the attention sink + a sliding window).</p>
 <h2 id="9-attention-in-diffusion-mandatory-if-you-mention-generative-work">§9 Attention in Diffusion (mandatory if you mention generative work)</h2>
@@ -967,7 +974,7 @@ All checks passed.</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/attention_tutorial_en.md</code> ·
   SHA256 <code>f057c218d5b6</code> ·
-  generated at 2026-07-12 04:18 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/multi_agent_long_horizon_tutorial.md">
 <meta name="aris:source-sha256" content="bde1da91b63b6cee1484826ba2c7af749c78f2b513980dd770dcbefb7bec964d">
-<meta name="aris:generated-at" content="2026-07-12 04:28 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -644,7 +651,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/multi_agent_long_horizon_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>bde1da91b63b</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:28 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -659,11 +666,11 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>把 LLM 当成 $y = f_\theta(x)$ 一次 forward 的 oracle，有三个本质限制：</p>
 <ul><li><strong>状态有界</strong>：context window 是物理上限（即使 1M token 也有限），无法长期保持目标</li><li><strong>决策一锤定音</strong>：一次 sampling 错了就错了，没有"undo / replan" 机制</li><li><strong>能力切片</strong>：单 prompt 既要 reason 又要 act 又要 verify，<strong>role drift</strong>——前段 reasoning 与后段 verification 互相干扰</li></ul>
 <p><strong>agent</strong> 的本质是把这三个问题外部化：</p>
-<table><thead><tr><th>LLM 内置</th><th>Agent 外置</th></tr></thead><tbody><tr><td>context window</td><td>persistent memory（vector store / KG / disk）</td></tr><tr><td>one-shot sampling</td><td>iterative loop: perceive → plan → act → reflect</td></tr><tr><td>single role</td><td>multi-agent role specialization</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>LLM 内置</th><th>Agent 外置</th></tr></thead><tbody><tr><td>context window</td><td>persistent memory（vector store / KG / disk）</td></tr><tr><td>one-shot sampling</td><td>iterative loop: perceive → plan → act → reflect</td></tr><tr><td>single role</td><td>multi-agent role specialization</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">mental model — agent = LLM × harness × memory × tools</div><p>一个 agent 不是一个 LLM，而是 LLM 套在 outer loop 上。harness 决定 LLM 什么时候被 call、call 什么、怎么把 output 喂回去。Claude Code Agent / Cursor / Devin / SWE-Agent 本质都是 <strong>不同 harness 的差异</strong>——同样的 LLM，harness 设计差距能拉开 30-50pp 的 task success rate。</p></div>
 <h3 id="12-multi-agent-vs-long-horizon-vs-agentic">1.2　multi-agent vs long-horizon vs agentic</h3>
 <p>这三个词常被混用，但<strong>精确含义不同</strong>：</p>
-<table><thead><tr><th>概念</th><th>关注点</th><th>典型代表</th></tr></thead><tbody><tr><td><strong>multi-agent</strong></td><td>多个 LLM role-play 不同身份<strong>协作 / 对抗</strong></td><td>CAMEL, AutoGen, MetaGPT, debate</td></tr><tr><td><strong>long-horizon</strong></td><td>同一 agent 跨<strong>多 turn / 长时间</strong>保持目标</td><td>MemGPT, Voyager, OSWorld, SWE-Lancer</td></tr><tr><td><strong>agentic</strong></td><td>LLM 具备<strong>自主 plan + tool use + reflection</strong> 能力（≥1 agent，≥1 step）</td><td>Toolformer, ReAct, AutoGPT</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>概念</th><th>关注点</th><th>典型代表</th></tr></thead><tbody><tr><td><strong>multi-agent</strong></td><td>多个 LLM role-play 不同身份<strong>协作 / 对抗</strong></td><td>CAMEL, AutoGen, MetaGPT, debate</td></tr><tr><td><strong>long-horizon</strong></td><td>同一 agent 跨<strong>多 turn / 长时间</strong>保持目标</td><td>MemGPT, Voyager, OSWorld, SWE-Lancer</td></tr><tr><td><strong>agentic</strong></td><td>LLM 具备<strong>自主 plan + tool use + reflection</strong> 能力（≥1 agent，≥1 step）</td><td>Toolformer, ReAct, AutoGPT</td></tr></tbody></table></div>
 <p>→ 一个真实系统通常<strong>三个都涉及</strong>（比如 Devin = agentic（自主决策）+ long-horizon（跨小时调试）+ 多 sub-agent（planner / executor / debugger））。</p>
 <h3 id="13-two-thread-心法每道面试题先-disambiguate">1.3　two-thread 心法（每道面试题先 disambiguate）</h3>
 <p>面试官问 "你怎么理解 multi-agent system？" 时，<strong>第一句话先 disambiguate</strong>：</p>
@@ -730,7 +737,7 @@ prompt ─┼─ proposer_2 (LLaMA3-70B)  ──→ aggregator (Qwen1.5-110B-Cha
         └─ proposer_N (Mixtral)            成最终答案&quot;</code></pre>
 <p><strong>关键观察</strong>（Wang 2024 fig 3）：把 N 个 proposer 的 response 直接 concat 进 aggregator 的 prompt，比 best-of-N（选最高 reward 一个）效果好。原因：<strong>多个不完美回答的互补信号</strong>比单个最优回答的信息量大。</p>
 <p><strong>MoA 在 AlpacaEval 2.0 上 LC win rate</strong>：</p>
-<table><thead><tr><th>系统</th><th>LC Win Rate</th></tr></thead><tbody><tr><td>GPT-4 Omni (May 2024)</td><td>57.5%</td></tr><tr><td>MoA (6× open-source models)</td><td><strong>65.1%</strong></td></tr><tr><td>MoA-Lite (3× layer)</td><td>59.3%</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>系统</th><th>LC Win Rate</th></tr></thead><tbody><tr><td>GPT-4 Omni (May 2024)</td><td>57.5%</td></tr><tr><td>MoA (6× open-source models)</td><td><strong>65.1%</strong></td></tr><tr><td>MoA-Lite (3× layer)</td><td>59.3%</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">MoA 的理论解释（自己加分）</div><p>这不是 ensemble averaging（不是简单 vote），而是 <strong>LLM-as-aggregator</strong> 在 prompt 空间做 latent reasoning：把 N 个不同 perspective 的 response 当成 "expert evidence"，让 aggregator 做一次 in-context reasoning + synthesis。本质是 <strong>Wang et al. 2022 self-consistency 的 LLM-aggregator 推广</strong>（self-consistency 用 majority vote，MoA 用 LLM）。</p></div>
 <pre><code class="language-python">def moa_inference(prompt, proposers, aggregator, num_layers=3):
     &quot;&quot;&quot; Wang 2024 MoA 多层版本 (paper 默认 3 层) &quot;&quot;&quot;
@@ -816,12 +823,12 @@ def multi_agent_debate(query, agents, num_rounds=3):
 <p><strong>Liang 2024 的 affirmative-negative 反例</strong>：刻意设计对抗 agent，averaging 结构被破坏 —— 严格说不是 "$\beta \ge 1$"，而是 <strong>没有公共 fixed-point set</strong>（两个 cluster 互推），所以必须加 judge 当<strong>外部决策器</strong>强行裁决。</p>
 <h3 id="34-n3-vs-n5边际收益分析">3.4　N=3 vs N=5：边际收益分析</h3>
 <p><strong>经验观察</strong>（Du 2023 / Liang 2024 多组实验综合）：</p>
-<table><thead><tr><th>N</th><th>相对 baseline 提升（GSM8K / MMLU 类推理任务）</th><th>Cost (× LLM call)</th></tr></thead><tbody><tr><td>1 (no debate)</td><td>baseline</td><td>1×</td></tr><tr><td>3</td><td>+5-10pp (典型)</td><td>3 × R rounds</td></tr><tr><td>5</td><td>+1-2pp 在 N=3 之上</td><td>5 × R rounds</td></tr><tr><td>7+</td><td>&lt;1pp 增量</td><td>7 × R rounds</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>N</th><th>相对 baseline 提升（GSM8K / MMLU 类推理任务）</th><th>Cost (× LLM call)</th></tr></thead><tbody><tr><td>1 (no debate)</td><td>baseline</td><td>1×</td></tr><tr><td>3</td><td>+5-10pp (典型)</td><td>3 × R rounds</td></tr><tr><td>5</td><td>+1-2pp 在 N=3 之上</td><td>5 × R rounds</td></tr><tr><td>7+</td><td>&lt;1pp 增量</td><td>7 × R rounds</td></tr></tbody></table></div>
 <p>→ <strong>N=3 到 N=5 边际收益急剧下降</strong>，N=3, R=2-3 已经吃到大部分收益。具体数字依任务而变（math vs trivia vs translation 表现不同）。</p>
 <div class="callout callout-warn"><div class="callout-title">cost-accuracy 关系不是线性</div><p>N 增加收益递减，根本原因是 <strong>agent 之间 correlation 上升</strong>（同 model family 的 N 个 agent 给出高度相关的回答，independent ensemble 假设崩塌；按 Condorcet 定理收敛速率受 $\rho$ 影响，$\rho$ 大则增益小）。面试常问"为什么不 N=100"——除了 cost，是 correlation。</p></div>
 <h2 id="4-协调协议a2a--黑板架构--hierarchical-orchestrator">§4 协调协议：A2A / 黑板架构 / hierarchical orchestrator</h2>
 <h3 id="41-通信协议层级">4.1　通信协议层级</h3>
-<table><thead><tr><th>层</th><th>名字</th><th>典型代表</th></tr></thead><tbody><tr><td>应用层</td><td>任务语义</td><td>"你修 bug，我写 test"</td></tr><tr><td>协调层</td><td>message routing</td><td>AutoGen GroupChat, GroupChatManager</td></tr><tr><td>协议层</td><td>message format</td><td><strong>A2A (Google 2025)</strong>, <strong>MCP (Anthropic 2024)</strong>, OpenAI Agents SDK</td></tr><tr><td>传输层</td><td>RPC / WebSocket / stdio</td><td>HTTP, gRPC, stdio</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>层</th><th>名字</th><th>典型代表</th></tr></thead><tbody><tr><td>应用层</td><td>任务语义</td><td>"你修 bug，我写 test"</td></tr><tr><td>协调层</td><td>message routing</td><td>AutoGen GroupChat, GroupChatManager</td></tr><tr><td>协议层</td><td>message format</td><td><strong>A2A (Google 2025)</strong>, <strong>MCP (Anthropic 2024)</strong>, OpenAI Agents SDK</td></tr><tr><td>传输层</td><td>RPC / WebSocket / stdio</td><td>HTTP, gRPC, stdio</td></tr></tbody></table></div>
 <ul><li><strong>MCP (Model Context Protocol, Anthropic Nov 2024)</strong>：<strong>LLM ↔ tool</strong> 的协议，不是 agent ↔ agent。但很多 agent framework 用 MCP 暴露 sub-agent 作为 tool（"sub-agent as tool"）。</li><li><strong>A2A (Agent-to-Agent, Google April 2025)</strong>：明确针对<strong>多 agent 互联</strong>，定义 agent card / task / message / artifact 四个核心对象，HTTP+JSON-RPC。截至 2026-05 仍是 spec 阶段，业界用得少。</li><li><strong>OpenAI Agents SDK</strong> (2025) 提供 handoff / guardrails / tracing 抽象，事实上是 OpenAI 私有协议。</li></ul>
 <h3 id="42-黑板架构blackboard-architecture">4.2　黑板架构（Blackboard architecture）</h3>
 <p>经典 AI 架构（HEARSAY-II 1980，DARPA 项目），<strong>multi-agent 共享一个全局可读写的"黑板"</strong>，每个 agent 看黑板决定要不要发言。在 LLM 时代它的变体是：</p>
@@ -866,7 +873,7 @@ Orchestrator: 陷入 deadlock</code></pre>
 <h2 id="5-long-horizon-agentmemory-architecture">§5 long-horizon agent：memory architecture</h2>
 <h3 id="51-memory-三类sensory--short-term--long-term">5.1　memory 三类：sensory / short-term / long-term</h3>
 <p>借用认知心理学的 Atkinson-Shiffrin 三级模型：</p>
-<table><thead><tr><th>Memory</th><th>LLM 对应</th><th>容量</th><th>持续时间</th></tr></thead><tbody><tr><td><strong>Sensory</strong></td><td>当前 input token</td><td>几 K</td><td>一次 forward</td></tr><tr><td><strong>Short-term / Working</strong></td><td>LLM context window</td><td>几 K - 1M</td><td>一次 session</td></tr><tr><td><strong>Long-term</strong></td><td>外部 store (vector / KG / file)</td><td>unbounded</td><td>永久</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Memory</th><th>LLM 对应</th><th>容量</th><th>持续时间</th></tr></thead><tbody><tr><td><strong>Sensory</strong></td><td>当前 input token</td><td>几 K</td><td>一次 forward</td></tr><tr><td><strong>Short-term / Working</strong></td><td>LLM context window</td><td>几 K - 1M</td><td>一次 session</td></tr><tr><td><strong>Long-term</strong></td><td>外部 store (vector / KG / file)</td><td>unbounded</td><td>永久</td></tr></tbody></table></div>
 <p>Long-term 又分两类（Tulving 1972）：</p>
 <ul><li><strong>Episodic memory</strong>：具体事件（"昨天我和 Alice 讨论 RLHF"）</li><li><strong>Semantic memory</strong>：抽象知识（"DPO 的 loss 是 ..."）</li></ul>
 <p>在 agent 系统里：</p>
@@ -896,7 +903,7 @@ Orchestrator: 陷入 deadlock</code></pre>
 <p><strong>关键术语</strong>：</p>
 <ul><li><strong>Main Context</strong> = 当前 LLM input（system prompt + working context + recall snippet + dialogue）</li><li><strong>Recall Memory</strong> = 过去对话历史（按时间存）</li><li><strong>Archival Memory</strong> = 任意 fact / document（按 semantic store）</li><li><strong>Page Fault</strong> = main context 不够，需要 retrieve archival/recall → 触发 function call</li></ul>
 <p><strong>page fault 对 latency 的影响</strong>：</p>
-<table><thead><tr><th>操作</th><th>延迟典型值（GPT-4o-class）</th></tr></thead><tbody><tr><td>一次 LLM forward（4K context）</td><td>1-2 秒</td></tr><tr><td>一次 archival search（vector store）</td><td>50-200 ms</td></tr><tr><td>一次 page fault（search → LLM 再 generate）</td><td><strong>1-2 秒（搜索） + 1-2 秒（合成）</strong></td></tr><tr><td>主上下文 hit（无 page fault）</td><td>1-2 秒</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>操作</th><th>延迟典型值（GPT-4o-class）</th></tr></thead><tbody><tr><td>一次 LLM forward（4K context）</td><td>1-2 秒</td></tr><tr><td>一次 archival search（vector store）</td><td>50-200 ms</td></tr><tr><td>一次 page fault（search → LLM 再 generate）</td><td><strong>1-2 秒（搜索） + 1-2 秒（合成）</strong></td></tr><tr><td>主上下文 hit（无 page fault）</td><td>1-2 秒</td></tr></tbody></table></div>
 <p>→ <strong>page fault 把单次 turn 延迟 ~翻倍</strong>。生产系统常用 <strong>prefetch</strong>（预测要用什么 archival，提前 retrieve）来缓解。</p>
 <h3 id="53-memorybank海马体启发">5.3　MemoryBank：海马体启发</h3>
 <p>MemoryBank (Zhong et al., AAAI 2024, arXiv 2305.10250) 受 <strong>Ebbinghaus forgetting curve</strong> 启发，每条 memory 带<strong>两个不同的量</strong>：会衰减的<strong>保持率 retention/retrievability</strong>（$R$）和会增强的<strong>记忆强度 strength</strong>（$S$，衰减速度由它决定，$S$ 越大衰减越慢）：</p>
@@ -919,7 +926,7 @@ Stage 2 (online, cheap):
   global: 用社区摘要做 map-reduce</code></pre>
 <p><strong>Wins</strong>：</p>
 <p>GraphRAG 原论文（Edge et al. 2024）实际测评对象是 <strong>podcast 转录 + 新闻文章数据集</strong>上的 <strong>global sensemaking</strong> 任务，用 LLM 判官在 comprehensiveness / diversity / empowerment 等维度做与 baseline 方法的 <strong>pairwise win-rate</strong> 对比——不是 multi-hop QA 准确率：</p>
-<table><thead><tr><th>Benchmark</th><th>对比对象</th><th>GraphRAG 表现</th></tr></thead><tbody><tr><td>Global sensemaking（podcast/新闻数据集，LLM 判官 pairwise win-rate）</td><td>vector RAG baseline</td><td>comprehensiveness/diversity 上显著更高 win-rate</td></tr><tr><td>单跳 factoid QA</td><td>vector RAG baseline</td><td>无明显优势，vector RAG 已够用</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Benchmark</th><th>对比对象</th><th>GraphRAG 表现</th></tr></thead><tbody><tr><td>Global sensemaking（podcast/新闻数据集，LLM 判官 pairwise win-rate）</td><td>vector RAG baseline</td><td>comprehensiveness/diversity 上显著更高 win-rate</td></tr><tr><td>单跳 factoid QA</td><td>vector RAG baseline</td><td>无明显优势，vector RAG 已够用</td></tr></tbody></table></div>
 <blockquote><p>注：GraphRAG 原论文并未报告 HotpotQA 等 multi-hop QA 数据集上的准确率数字；教程早期版本给出的"Multi-hop QA ~50%→~70%"是编造数据，已删除。</p></blockquote>
 <p><strong>Loss</strong>：</p>
 <ul><li>offline cost 高（一次 build KG 要扫全语料）</li><li>KG schema 设计成败决定一切</li></ul>
@@ -1125,9 +1132,9 @@ def lats_search(initial_state, llm_propose, llm_propose_one, llm_value, env_step
 <div class="callout callout-warn"><div class="callout-title">LATS 实现陷阱</div><p>(1) <code>simulate</code> 必须从 parent + action 推（不复用 select leaf 的 state）；(2) <strong>policy（<code>llm_propose_one</code>）和 value（<code>llm_value</code>）必须分开传</strong>——之前版本误把 value 当 policy 用，rollout 行为退化为只看 state value 不选 action；(3) <code>expand</code> 时 prior 用 <code>softmax(LLM_logp)</code> 归一化；(4) <strong>terminal 判定要严格</strong>，否则 rollout 无限循环；(5) PUCT 系数 c 典型 1.0-3.0；(6) 生产里加 wall-time budget 检查，避免 50-iter 跑超时。</p></div>
 <h2 id="7-long-horizon-evaluation-benchmarks">§7 long-horizon evaluation benchmarks</h2>
 <h3 id="71-benchmark-对比表2024-2026">7.1　Benchmark 对比表（2024-2026）</h3>
-<table><thead><tr><th>Benchmark</th><th>论文</th><th>任务类型</th><th>步长</th><th>2026-05 SOTA</th></tr></thead><tbody><tr><td><strong>AgentBench</strong></td><td>Liu et al., ICLR 2024, arXiv 2308.03688</td><td>8 envs (OS, DB, WebShop, HouseHold...)</td><td>10-50</td><td>GPT-4 综合分 ≈ 4.01（跨 8 个环境加权聚合，非满分 10 分制的直接百分比）</td></tr><tr><td><strong>τ-bench (TAU-bench)</strong></td><td>Yao et al., 2024, arXiv 2406.12045</td><td>customer service multi-turn (retail, airline)</td><td>20-50</td><td>Claude 3.5 Sonnet ≈ 45-55% (retail)</td></tr><tr><td><strong>OSWorld</strong></td><td>Xie et al., NeurIPS 2024, arXiv 2404.07972</td><td>real OS GUI (Linux/macOS/Win, ≈ 369 任务)</td><td>5-100</td><td>Anthropic Claude (2026-05) ≈ 60% (subset)</td></tr><tr><td><strong>WebArena</strong></td><td>Zhou et al., ICLR 2024, arXiv 2307.13854</td><td>self-hosted web (Reddit-clone, self-hosted GitLab, etc.)</td><td>5-30</td><td>GPT-4 ≈ 14.4% (2024)，2026 头部 ~ 50%</td></tr><tr><td><strong>VisualWebArena</strong></td><td>Koh et al., ACL 2024, arXiv 2401.13649</td><td>WebArena + 视觉理解</td><td>10-30</td><td>GPT-4V ≈ 16.4%</td></tr><tr><td><strong>SWE-bench / Verified</strong></td><td>Jimenez et al., ICLR 2024, arXiv 2310.06770</td><td>2294 真实 GitHub issue 全集 (Python repos)；Verified 是其中人审过的 500 题子集</td><td>多文件多 commit</td><td>Claude 4.6 Sonnet (2026-05) ~ 75% (Verified 500 题子集)</td></tr><tr><td><strong>MLE-bench</strong></td><td>Chan et al., 2024 (OpenAI), arXiv 2410.07095</td><td>75 Kaggle ML 比赛任务</td><td>24h compute budget</td><td>o1-preview + AIDE ≈ 16.9% medals</td></tr><tr><td><strong>SWE-Lancer</strong></td><td>OpenAI, 2025, arXiv 2502.12115</td><td>1488 真实 Upwork freelance task ($1M+ payout)</td><td>持续 hours-days</td><td>GPT-4o ≈ 8% (managerial), 26% (IC)</td></tr><tr><td><strong>Adventure / TextWorld</strong></td><td>Côté et al., 2018 (workshop paper), arXiv 1806.11532</td><td>text adventure game</td><td>50-500</td><td>RL-trained baseline + LLM &gt; 80% on Coin Collector</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Benchmark</th><th>论文</th><th>任务类型</th><th>步长</th><th>2026-05 SOTA</th></tr></thead><tbody><tr><td><strong>AgentBench</strong></td><td>Liu et al., ICLR 2024, arXiv 2308.03688</td><td>8 envs (OS, DB, WebShop, HouseHold...)</td><td>10-50</td><td>GPT-4 综合分 ≈ 4.01（跨 8 个环境加权聚合，非满分 10 分制的直接百分比）</td></tr><tr><td><strong>τ-bench (TAU-bench)</strong></td><td>Yao et al., 2024, arXiv 2406.12045</td><td>customer service multi-turn (retail, airline)</td><td>20-50</td><td>Claude 3.5 Sonnet ≈ 45-55% (retail)</td></tr><tr><td><strong>OSWorld</strong></td><td>Xie et al., NeurIPS 2024, arXiv 2404.07972</td><td>real OS GUI (Linux/macOS/Win, ≈ 369 任务)</td><td>5-100</td><td>Anthropic Claude (2026-05) ≈ 60% (subset)</td></tr><tr><td><strong>WebArena</strong></td><td>Zhou et al., ICLR 2024, arXiv 2307.13854</td><td>self-hosted web (Reddit-clone, self-hosted GitLab, etc.)</td><td>5-30</td><td>GPT-4 ≈ 14.4% (2024)，2026 头部 ~ 50%</td></tr><tr><td><strong>VisualWebArena</strong></td><td>Koh et al., ACL 2024, arXiv 2401.13649</td><td>WebArena + 视觉理解</td><td>10-30</td><td>GPT-4V ≈ 16.4%</td></tr><tr><td><strong>SWE-bench / Verified</strong></td><td>Jimenez et al., ICLR 2024, arXiv 2310.06770</td><td>2294 真实 GitHub issue 全集 (Python repos)；Verified 是其中人审过的 500 题子集</td><td>多文件多 commit</td><td>Claude 4.6 Sonnet (2026-05) ~ 75% (Verified 500 题子集)</td></tr><tr><td><strong>MLE-bench</strong></td><td>Chan et al., 2024 (OpenAI), arXiv 2410.07095</td><td>75 Kaggle ML 比赛任务</td><td>24h compute budget</td><td>o1-preview + AIDE ≈ 16.9% medals</td></tr><tr><td><strong>SWE-Lancer</strong></td><td>OpenAI, 2025, arXiv 2502.12115</td><td>1488 真实 Upwork freelance task ($1M+ payout)</td><td>持续 hours-days</td><td>GPT-4o ≈ 8% (managerial), 26% (IC)</td></tr><tr><td><strong>Adventure / TextWorld</strong></td><td>Côté et al., 2018 (workshop paper), arXiv 1806.11532</td><td>text adventure game</td><td>50-500</td><td>RL-trained baseline + LLM &gt; 80% on Coin Collector</td></tr></tbody></table></div>
 <h3 id="72-benchmark-选择决策表">7.2　benchmark 选择决策表</h3>
-<table><thead><tr><th>想测什么</th><th>选哪个</th></tr></thead><tbody><tr><td>通用 agent 能力</td><td>AgentBench</td></tr><tr><td>客服对话 + 工具调用准确率</td><td>TAU-bench</td></tr><tr><td>真实 GUI 操作（最难）</td><td>OSWorld</td></tr><tr><td>编程 agent + 真实 repo 修复</td><td>SWE-bench Verified</td></tr><tr><td>长达数天的 ML 工作</td><td>MLE-bench</td></tr><tr><td>经济价值实测</td><td>SWE-Lancer</td></tr><tr><td>Web navigation</td><td>WebArena / VisualWebArena</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>想测什么</th><th>选哪个</th></tr></thead><tbody><tr><td>通用 agent 能力</td><td>AgentBench</td></tr><tr><td>客服对话 + 工具调用准确率</td><td>TAU-bench</td></tr><tr><td>真实 GUI 操作（最难）</td><td>OSWorld</td></tr><tr><td>编程 agent + 真实 repo 修复</td><td>SWE-bench Verified</td></tr><tr><td>长达数天的 ML 工作</td><td>MLE-bench</td></tr><tr><td>经济价值实测</td><td>SWE-Lancer</td></tr><tr><td>Web navigation</td><td>WebArena / VisualWebArena</td></tr></tbody></table></div>
 <h3 id="73-benchmark-的-horizon-长度对失败模式的暗示">7.3　benchmark 的 horizon 长度对失败模式的暗示</h3>
 <ul><li><strong>短 horizon (5-20 step)</strong>：失败主要是 single-step error（误解 query / 调错 tool）</li><li><strong>中 horizon (20-100 step)</strong>：开始出现 context overflow / lost-in-the-middle / replan 失败</li><li><strong>长 horizon (100+ step, multi-day)</strong>：memory stale, sub-agent blame, cost explosion, decision paralysis</li></ul>
 <p><strong>长 horizon 上每多 10 step 成功率约衰减 1/2</strong>（Anthropic 2025 内部观察，公开 blog 部分提及，不是严格 scaling law）——这是为什么 long-horizon agent 是 2026 最难也最有研究价值的方向。</p>
@@ -1277,7 +1284,7 @@ class Orchestrator:
 <p><strong>MoA</strong>（N 个 proposer + 1 个 aggregator）： $$\text{cost} = (N + 1) \times C \times O(L_\text{prompt}) + 1 \times C \times O(NL_\text{response})$$ 线性 in $N$，<strong>实际上更便宜</strong>。</p>
 <p><strong>debate (Du 2023)</strong>： $$\text{cost} = N \times R \times C \times O(NL_\text{response})$$ （每个 agent 看其他 $N-1$ 个 response）→ $O(N^2 R C L_\text{response})$。</p>
 <p><strong>对比</strong>：</p>
-<table><thead><tr><th>模式</th><th>Cost 量级</th></tr></thead><tbody><tr><td>Single LLM</td><td>$O(C L)$</td></tr><tr><td>MoA</td><td>$O(N C L)$</td></tr><tr><td>Debate (Du)</td><td>$O(N^2 R C L)$</td></tr><tr><td>GroupChat (round-robin)</td><td>$O(N R^2 C L)$ 或更糟</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模式</th><th>Cost 量级</th></tr></thead><tbody><tr><td>Single LLM</td><td>$O(C L)$</td></tr><tr><td>MoA</td><td>$O(N C L)$</td></tr><tr><td>Debate (Du)</td><td>$O(N^2 R C L)$</td></tr><tr><td>GroupChat (round-robin)</td><td>$O(N R^2 C L)$ 或更糟</td></tr></tbody></table></div>
 <p>→ <strong>GroupChat 是最贵的</strong>（这就是为什么 production AutoGen 几乎都改用 hierarchical orchestrator）。</p>
 <h3 id="112-long-horizon-agent-memory-cost">11.2　long-horizon agent memory cost</h3>
 <p>设 $T$ = total turn 数, $M$ = total memory size。</p>
@@ -1288,12 +1295,12 @@ class Orchestrator:
 <p>→ <strong>tree search at inference 很贵</strong>——这就是 Agent-Q 的核心动机（offline MCTS 训完 inference 直接用 fine-tuned policy）。</p>
 <h2 id="12-与相关方法对比">§12 与相关方法对比</h2>
 <h3 id="121-multi-agent-vs-single-agent--reflection">12.1　multi-agent vs single-agent + reflection</h3>
-<table><thead><tr><th>维度</th><th>Multi-Agent (debate, MoA)</th><th>Single + Reflection (Reflexion, Self-Consistency)</th></tr></thead><tbody><tr><td>多样性 来源</td><td>多个 model (heterogeneous)</td><td>同 model 不同 sampling</td></tr><tr><td>Cost</td><td>$O(NRC)$ 起</td><td>$O(NC)$</td></tr><tr><td>失败模式</td><td>sub-agent conflict, blame-shifting</td><td>echo-chamber (同一 bias 重复 N 次)</td></tr><tr><td>何时选</td><td>model 之间真的有不同 capability 互补</td><td>主要靠 sampling diversity</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>Multi-Agent (debate, MoA)</th><th>Single + Reflection (Reflexion, Self-Consistency)</th></tr></thead><tbody><tr><td>多样性 来源</td><td>多个 model (heterogeneous)</td><td>同 model 不同 sampling</td></tr><tr><td>Cost</td><td>$O(NRC)$ 起</td><td>$O(NC)$</td></tr><tr><td>失败模式</td><td>sub-agent conflict, blame-shifting</td><td>echo-chamber (同一 bias 重复 N 次)</td></tr><tr><td>何时选</td><td>model 之间真的有不同 capability 互补</td><td>主要靠 sampling diversity</td></tr></tbody></table></div>
 <p><strong>经验</strong>：若 N 个 agent 是<strong>同 base model 同 prompt</strong>，multi-agent 与 self-consistency 收益几乎等同（同源 bias），<strong>没必要上 multi-agent</strong>。</p>
 <h3 id="122-tree-search-vs-long-cot-o1-style">12.2　Tree search vs long CoT (o1-style)</h3>
-<table><thead><tr><th>维度</th><th>Tree search (ToT/LATS)</th><th>Long CoT (o1, R1)</th></tr></thead><tbody><tr><td>哪里 search</td><td>外部显式 tree</td><td>LLM 内部 hidden CoT</td></tr><tr><td>可观测性</td><td>高（tree 可视化）</td><td>低（hidden trace）</td></tr><tr><td>Inference 延迟</td><td>高（多次 LLM call）</td><td>中（单次 long generation）</td></tr><tr><td>训练成本</td><td>几乎无（inference-only）</td><td>高（RL on reasoning）</td></tr><tr><td>何时选</td><td>需可解释 / 没法训</td><td>有足够 compute 训</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>Tree search (ToT/LATS)</th><th>Long CoT (o1, R1)</th></tr></thead><tbody><tr><td>哪里 search</td><td>外部显式 tree</td><td>LLM 内部 hidden CoT</td></tr><tr><td>可观测性</td><td>高（tree 可视化）</td><td>低（hidden trace）</td></tr><tr><td>Inference 延迟</td><td>高（多次 LLM call）</td><td>中（单次 long generation）</td></tr><tr><td>训练成本</td><td>几乎无（inference-only）</td><td>高（RL on reasoning）</td></tr><tr><td>何时选</td><td>需可解释 / 没法训</td><td>有足够 compute 训</td></tr></tbody></table></div>
 <h3 id="123-memory-architecture-选型">12.3　memory architecture 选型</h3>
-<table><thead><tr><th>场景</th><th>推荐</th></tr></thead><tbody><tr><td>小项目 / prototype</td><td>LangChain ConversationBuffer (in-memory list)</td></tr><tr><td>中等规模 / 单用户 long session</td><td>MemGPT-style RAM/disk + recall</td></tr><tr><td>多用户产品 + 知识库</td><td>vector store (Chroma / Pinecone) + recall</td></tr><tr><td>复杂 multi-hop QA / 文档密集</td><td>GraphRAG</td></tr><tr><td>Agent 需要"忘记"</td><td>MemoryBank (Ebbinghaus decay)</td></tr><tr><td>视频/科研等强结构化</td><td>typed memory + dependency DAG (A²RD 风格)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>场景</th><th>推荐</th></tr></thead><tbody><tr><td>小项目 / prototype</td><td>LangChain ConversationBuffer (in-memory list)</td></tr><tr><td>中等规模 / 单用户 long session</td><td>MemGPT-style RAM/disk + recall</td></tr><tr><td>多用户产品 + 知识库</td><td>vector store (Chroma / Pinecone) + recall</td></tr><tr><td>复杂 multi-hop QA / 文档密集</td><td>GraphRAG</td></tr><tr><td>Agent 需要"忘记"</td><td>MemoryBank (Ebbinghaus decay)</td></tr><tr><td>视频/科研等强结构化</td><td>typed memory + dependency DAG (A²RD 风格)</td></tr></tbody></table></div>
 <h2 id="13-2025-2026-前沿系统">§13 2025-2026 前沿系统</h2>
 <h3 id="131-anthropic-claude-code-agent--computer-use">13.1　Anthropic Claude Code Agent / Computer Use</h3>
 <ul><li><strong>Claude Computer Use</strong> (Oct 2024)：让 Claude 直接操作 desktop（截屏 → reason → mouse/keyboard action）。OSWorld 上 ~ 14.9% (2024)，到 2026-05 已 ~ 60% (Anthropic blog)。</li><li><strong>Claude Code Agent</strong> (Feb-2025 GA)：orchestrator + subagent 模式，subagent 可用 TaskCreate 调出（不同 system prompt + tool 子集）。CLI tool 形式开放给开发者。</li></ul>
@@ -1379,7 +1386,7 @@ Round 2: 再修订
 <details>
 
 <summary>Q9. Vector RAG 和 GraphRAG 的区别？什么场景 GraphRAG 才值？</summary>
-<table><thead><tr><th></th><th>Vector RAG</th><th>GraphRAG</th></tr></thead><tbody><tr><td>表示</td><td>embedding chunks</td><td>entity-relation KG + community</td></tr><tr><td>索引</td><td>similarity search</td><td>graph traversal + community summary</td></tr><tr><td>Multi-hop</td><td>弱</td><td>强</td></tr><tr><td>Global query</td><td>不能</td><td>行</td></tr><tr><td>Offline cost</td><td>低</td><td>高（要 LLM 抽 entity）</td></tr><tr><td>单 hop factoid</td><td>OK</td><td>overkill</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th></th><th>Vector RAG</th><th>GraphRAG</th></tr></thead><tbody><tr><td>表示</td><td>embedding chunks</td><td>entity-relation KG + community</td></tr><tr><td>索引</td><td>similarity search</td><td>graph traversal + community summary</td></tr><tr><td>Multi-hop</td><td>弱</td><td>强</td></tr><tr><td>Global query</td><td>不能</td><td>行</td></tr><tr><td>Offline cost</td><td>低</td><td>高（要 LLM 抽 entity）</td></tr><tr><td>单 hop factoid</td><td>OK</td><td>overkill</td></tr></tbody></table></div>
 <p>→ <strong>多跳 + global theme query 选 GraphRAG</strong>；单跳 factoid 用 vector RAG 够了。盲目堆 GraphRAG 是 2025-2026 常见 over-engineering。</p>
 </details>
 <details>
@@ -1399,7 +1406,7 @@ Round 2: 再修订
 <p><strong>$\beta &lt; 1$ 的实现条件</strong>：</p>
 <ul><li>agent 倾向 majority pull（peer 一致时容易动摇 → 拉力强）</li><li>temperature 适中（太高随机不收敛，太低固化）</li><li>同源 agent（heterogeneous 之间偏置不同会增加 contraction 难度）</li></ul>
 <p><strong>N=3 vs N=5（Du 2023 / Liang 2024 经验观察）</strong>：</p>
-<table><thead><tr><th>N</th><th>相对 baseline 提升（推理类任务，依 task 而变）</th><th>cost</th></tr></thead><tbody><tr><td>1</td><td>baseline</td><td>1×</td></tr><tr><td>3</td><td>+5-10pp</td><td>~9× (N × R)</td></tr><tr><td>5</td><td>+1-2pp 在 N=3 之上</td><td>~15×</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>N</th><th>相对 baseline 提升（推理类任务，依 task 而变）</th><th>cost</th></tr></thead><tbody><tr><td>1</td><td>baseline</td><td>1×</td></tr><tr><td>3</td><td>+5-10pp</td><td>~9× (N × R)</td></tr><tr><td>5</td><td>+1-2pp 在 N=3 之上</td><td>~15×</td></tr></tbody></table></div>
 <p><strong>边际收益急剧下降</strong>原因：</p>
 <ol><li><strong>agent 之间 correlation</strong>：同模型 N agent 给出高度相关回答，ensemble gain $\sim \sigma^2 (1 + (N-1)\rho)$，$\rho$ 大则增益小</li><li><strong>diminishing return on independent voices</strong>：投票理论的 Condorcet 定理告诉我们，多数对的概率随 N 增长但收敛速率递减</li></ol>
 <p><strong>production 选 N=3, round=2 已吃到 80% 收益</strong>。</p>
@@ -1427,7 +1434,7 @@ Round 2: 再修订
 <summary>Q14. error compound 对 long-horizon agent 的影响怎么量化？</summary>
 <p>简化模型：独立单步成功率 $p$，$T$ step 任务总成功率：</p>
 <p>$$P(\text{all success}) = p^T$$</p>
-<table><thead><tr><th>$p$</th><th>$T=10$</th><th>$T=20$</th><th>$T=50$</th><th>$T=100$</th></tr></thead><tbody><tr><td>0.90</td><td>0.349</td><td>0.122</td><td>0.005</td><td>2.7e-5</td></tr><tr><td>0.95</td><td>0.599</td><td>0.358</td><td>0.077</td><td>0.006</td></tr><tr><td>0.99</td><td>0.904</td><td>0.818</td><td>0.605</td><td>0.366</td></tr><tr><td>0.999</td><td>0.990</td><td>0.980</td><td>0.951</td><td>0.905</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>$p$</th><th>$T=10$</th><th>$T=20$</th><th>$T=50$</th><th>$T=100$</th></tr></thead><tbody><tr><td>0.90</td><td>0.349</td><td>0.122</td><td>0.005</td><td>2.7e-5</td></tr><tr><td>0.95</td><td>0.599</td><td>0.358</td><td>0.077</td><td>0.006</td></tr><tr><td>0.99</td><td>0.904</td><td>0.818</td><td>0.605</td><td>0.366</td></tr><tr><td>0.999</td><td>0.990</td><td>0.980</td><td>0.951</td><td>0.905</td></tr></tbody></table></div>
 <p>→ <strong>single-step 99% 才能撑住 50 step</strong>。</p>
 <p><strong>实际中并非独立</strong>——某些 step 的失败会 propagate（同 mode 错），所以 effective $p$ 更低；反之 step 间有 verify/rollback 时可"修复"，effective $p$ 提高。<strong>真实长 horizon agent 的 effective $p$ ≈ 0.95-0.98</strong>。</p>
 <p><strong>缓解</strong>：</p>
@@ -1463,7 +1470,7 @@ Stage 2 (online):
 <details>
 
 <summary>Q17. orchestrator + worker 模式比 GroupChat 强在哪？</summary>
-<table><thead><tr><th>维度</th><th>GroupChat (flat)</th><th>Orchestrator + Worker (hierarchical)</th></tr></thead><tbody><tr><td>Cost 量级</td><td>$O(N R^2 C L)$</td><td>$O(R \cdot (C_\text{orch} + N_\text{used} \cdot C_\text{worker}))$</td></tr><tr><td>控制流</td><td>隐式（selector LLM）</td><td>显式（orchestrator 决定）</td></tr><tr><td>失败追溯</td><td>难（多 agent 互相引用）</td><td>易（orchestrator 是唯一决策者）</td></tr><tr><td>模型分层</td><td>同 model</td><td>可 cascade（orch 用大，worker 用小）</td></tr><tr><td>适合任务</td><td>短任务 / 探索性</td><td>长任务 / 工程化</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>GroupChat (flat)</th><th>Orchestrator + Worker (hierarchical)</th></tr></thead><tbody><tr><td>Cost 量级</td><td>$O(N R^2 C L)$</td><td>$O(R \cdot (C_\text{orch} + N_\text{used} \cdot C_\text{worker}))$</td></tr><tr><td>控制流</td><td>隐式（selector LLM）</td><td>显式（orchestrator 决定）</td></tr><tr><td>失败追溯</td><td>难（多 agent 互相引用）</td><td>易（orchestrator 是唯一决策者）</td></tr><tr><td>模型分层</td><td>同 model</td><td>可 cascade（orch 用大，worker 用小）</td></tr><tr><td>适合任务</td><td>短任务 / 探索性</td><td>长任务 / 工程化</td></tr></tbody></table></div>
 <p><strong>经验</strong>：production agent <strong>几乎全是 orchestrator + worker</strong>——Claude Code、Cursor、Devin、SWE-Agent 都是这个模式。GroupChat 主要在学术 demo 和 早期 prototype 用。</p>
 </details>
 <details>
@@ -1477,7 +1484,7 @@ Stage 2 (online):
 <details>
 
 <summary>Q19. SWE-bench Verified / SWE-Lancer / MLE-bench 各测什么？怎么选？</summary>
-<table><thead><tr><th>Benchmark</th><th>测什么</th><th>任务长度</th></tr></thead><tbody><tr><td><strong>SWE-bench Verified</strong></td><td>真实 GitHub Python bug 修复（人审过 500/2294 题）</td><td>小时级</td></tr><tr><td><strong>SWE-Lancer</strong></td><td>真实 Upwork freelance task（含 IC + managerial）</td><td>小时 ~ 天级</td></tr><tr><td><strong>MLE-bench</strong></td><td>Kaggle ML 比赛（数据探索 + 模型训练）</td><td>天级 (24h budget)</td></tr><tr><td><strong>OSWorld</strong></td><td>Real OS GUI 任务（截屏 + mouse/keyboard）</td><td>分钟级</td></tr><tr><td><strong>TAU-bench</strong></td><td>Customer service multi-turn</td><td>分钟级</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Benchmark</th><th>测什么</th><th>任务长度</th></tr></thead><tbody><tr><td><strong>SWE-bench Verified</strong></td><td>真实 GitHub Python bug 修复（人审过 500/2294 题）</td><td>小时级</td></tr><tr><td><strong>SWE-Lancer</strong></td><td>真实 Upwork freelance task（含 IC + managerial）</td><td>小时 ~ 天级</td></tr><tr><td><strong>MLE-bench</strong></td><td>Kaggle ML 比赛（数据探索 + 模型训练）</td><td>天级 (24h budget)</td></tr><tr><td><strong>OSWorld</strong></td><td>Real OS GUI 任务（截屏 + mouse/keyboard）</td><td>分钟级</td></tr><tr><td><strong>TAU-bench</strong></td><td>Customer service multi-turn</td><td>分钟级</td></tr></tbody></table></div>
 <p><strong>选</strong>：</p>
 <ul><li>想 demo coding agent → SWE-bench Verified（事实工业标准）</li><li>想 demo 经济价值 → SWE-Lancer（payment 信号）</li><li>想 demo ML R&amp;D agent → MLE-bench</li><li>想 demo OS / desktop agent → OSWorld（最难）</li><li>想 demo 客服对话 + tool → TAU-bench</li></ul>
 </details>
@@ -1525,7 +1532,7 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
 <p>$$L_\text{with\_pf} = L_\text{single} + k \cdot (L_\text{search} + L_\text{rerun})$$</p>
 <ul><li>$L_\text{search}$ ~ 50-200 ms (vector store)</li><li>$L_\text{rerun}$ ~ 1 个完整 LLM call（重新 prefill + decode）</li></ul>
 <p>典型数字（GPT-4o-class，4K context input, 500 token output）：</p>
-<table><thead><tr><th>配置</th><th>latency</th></tr></thead><tbody><tr><td>无 page fault</td><td>~ 1.2 s</td></tr><tr><td>1 page fault</td><td>~ 2.5 s</td></tr><tr><td>3 page fault</td><td>~ 5-7 s</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>配置</th><th>latency</th></tr></thead><tbody><tr><td>无 page fault</td><td>~ 1.2 s</td></tr><tr><td>1 page fault</td><td>~ 2.5 s</td></tr><tr><td>3 page fault</td><td>~ 5-7 s</td></tr></tbody></table></div>
 <p><strong>延迟 ~ 翻倍 per page fault</strong>。</p>
 <p><strong>Amortize 方法</strong>：</p>
 <ol><li><strong>prefetch</strong>：基于当前 conversation <strong>predict 下一个 turn 需要什么 memory</strong>，在 user 输入 / LLM 思考时<strong>并行</strong> retrieve</li><li><strong>batch fault</strong>：把多个 small fault 合并成一次大 retrieval（cache locality）</li><li><strong>hierarchical paging</strong>：常用 fact 缓存在 "L2 working memory"（不进 main context 但快速可取），冷数据在 archival</li><li><strong>speculative archival</strong>：retrieve 时多拿 k+ 几条候选，可能用上（避免 next-turn re-fault）</li><li><strong>streaming response</strong>：开始 search 时就开始 stream "I'm checking my notes..."，掩盖延迟</li><li><strong>session warmup</strong>：session 开始时预先把高频 archival 拉到 working memory</li></ol>
@@ -1568,7 +1575,7 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
 <p>$$\mathcal{L}_\text{DPO} = -\log \sigma\!\left( \beta \log\frac{\pi_\theta(a^+ | s)}{\pi_\text{ref}(a^+ | s)} - \beta \log\frac{\pi_\theta(a^- | s)}{\pi_\text{ref}(a^- | s)} \right)$$</p>
 <p>直接 fine-tune base LLM。</p>
 <p><strong>Agent-Q 结果</strong>（WebShop）：</p>
-<table><thead><tr><th>方法</th><th>success rate</th><th>inference cost</th></tr></thead><tbody><tr><td>Base LLM</td><td>28%</td><td>1×</td></tr><tr><td>ReAct</td><td>38%</td><td>1×</td></tr><tr><td>In-loop MCTS</td><td>48%</td><td>~100×</td></tr><tr><td>Agent-Q (DPO from MCTS，policy-only，推理时不用 MCTS)</td><td><strong>51%</strong></td><td>1×</td></tr><tr><td>Agent-Q + 推理时叠加 online MCTS/search</td><td><strong>~95.4%</strong></td><td>接近 in-loop MCTS 量级</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>success rate</th><th>inference cost</th></tr></thead><tbody><tr><td>Base LLM</td><td>28%</td><td>1×</td></tr><tr><td>ReAct</td><td>38%</td><td>1×</td></tr><tr><td>In-loop MCTS</td><td>48%</td><td>~100×</td></tr><tr><td>Agent-Q (DPO from MCTS，policy-only，推理时不用 MCTS)</td><td><strong>51%</strong></td><td>1×</td></tr><tr><td>Agent-Q + 推理时叠加 online MCTS/search</td><td><strong>~95.4%</strong></td><td>接近 in-loop MCTS 量级</td></tr></tbody></table></div>
 <p>→ 51% 是不带推理时 search 的 policy-only 结果；论文真正的旗舰数字是叠加推理时 search 后的 ~95.4%（接近/超过人类平均水平）。<strong>MCTS at training, fast policy at inference（可选再叠加推理时 search 拿最高分）</strong> 是 2024-2026 一个关键 design pattern——类比 AlphaGo Zero 的 self-play + DPO 风格 distillation。</p>
 <p><strong>面试加分</strong>：这个 pattern（MCTS 产数据、fast policy 部署）也出现在 <strong>rStar-Math</strong>（Microsoft 2025 MCTS + PPM self-evolution）——共同主题是 <strong>inference-time search 是产数据手段，不是部署目标</strong>。但要注意区分：<strong>DeepSeek-R1-Zero</strong> 走的是不同路线，它用 <strong>GRPO</strong>（Group Relative Policy Optimization）纯 RL 直接在 base model 上训练产生长链 CoT，论文中明确<strong>未使用 MCTS</strong>，不属于这一 MCTS-distill pattern——这是一个常见的混淆点。</p>
 </details>
@@ -1588,7 +1595,7 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
 </details>
 <h2 id="a-附录核心-paper-时间线--一句话总结">§A 附录：核心 paper 时间线 + 一句话总结</h2>
 <p>按时间倒序（截止 2026-05）：</p>
-<table><thead><tr><th>日期</th><th>Paper</th><th>arXiv</th><th>一句话贡献</th></tr></thead><tbody><tr><td>2025-09</td><td>Anthropic Claude Sonnet 4.5 + extended thinking</td><td>(no arXiv)</td><td>长程 reasoning + budget-aware thinking</td></tr><tr><td>2025-03</td><td>OpenAI Agents SDK</td><td>(no arXiv)</td><td>handoff / guardrails / tracing 抽象</td></tr><tr><td>2025-01</td><td>OpenAI Operator</td><td>(no arXiv)</td><td>CUA-trained vision-language agent for web</td></tr><tr><td>2024-10</td><td>Claude Computer Use</td><td>(no arXiv)</td><td>desktop GUI agent，OSWorld ~ 14.9% (2024)</td></tr><tr><td>2024-08</td><td>Agent-Q</td><td>2408.07199</td><td>MCTS + DPO，policy-only 28% → 51%；叠加推理时 search 达 ~95.4%</td></tr><tr><td>2024-06</td><td>MoA (Mixture of Agents)</td><td>2406.04692</td><td>N 个 proposer + aggregator 超 GPT-4 Omni</td></tr><tr><td>2024-06</td><td>TAU-bench</td><td>2406.12045</td><td>customer service multi-turn agent benchmark</td></tr><tr><td>2024-05</td><td>SWE-Agent</td><td>2405.15793</td><td>ACI for SWE-bench Lite 18.0%</td></tr><tr><td>2024-04</td><td>OSWorld</td><td>2404.07972</td><td>real OS GUI 369 任务</td></tr><tr><td>2024-04</td><td>GraphRAG</td><td>2404.16130</td><td>LLM-extracted KG + community for global QA</td></tr><tr><td>2024-01</td><td>VisualWebArena</td><td>2401.13649</td><td>vision + web 任务</td></tr><tr><td>2023-12</td><td>Math-Shepherd</td><td>2312.08935</td><td>对每个中间步骤做多次 Monte Carlo 补全采样(非树搜索)自动标 PRM</td></tr><tr><td>2023-10</td><td>LATS</td><td>2310.04406</td><td>MCTS + Reflexion + value</td></tr><tr><td>2023-10</td><td>SWE-bench</td><td>2310.06770</td><td>2294 真实 GitHub Python bug</td></tr><tr><td>2023-10</td><td>MemGPT</td><td>2310.08560</td><td>OS-style virtual memory for LLM</td></tr><tr><td>2023-08</td><td>AutoGen</td><td>2308.08155</td><td>conversable agent / GroupChat framework</td></tr><tr><td>2023-08</td><td>MetaGPT</td><td>2308.00352</td><td>SOP-driven 软件公司 multi-agent</td></tr><tr><td>2023-08</td><td>AgentBench</td><td>2308.03688</td><td>8 envs 通用 agent benchmark</td></tr><tr><td>2023-08</td><td>AgentVerse</td><td>2308.10848</td><td>expert recruitment + collaborative decision</td></tr><tr><td>2023-07</td><td>WebArena</td><td>2307.13854</td><td>self-hosted real web benchmark</td></tr><tr><td>2023-07</td><td>ChatDev</td><td>2307.07924</td><td>chat chain for software dev</td></tr><tr><td>2023-05</td><td>RAP</td><td>2305.14992</td><td>MCTS + world model in LLM agent</td></tr><tr><td>2023-05</td><td>Tree of Thoughts</td><td>2305.10601</td><td>LLM propose + LLM evaluate + tree search</td></tr><tr><td>2023-05</td><td>Multi-Agent Debate (Du)</td><td>2305.14325</td><td>N agent debate → consensus</td></tr><tr><td>2023-05</td><td>Multi-Agent Debate (Liang)</td><td>2305.19118</td><td>affirmative / negative + judge</td></tr><tr><td>2023-05</td><td>MemoryBank</td><td>2305.10250</td><td>Ebbinghaus forgetting curve</td></tr><tr><td>2023-04</td><td>Generative Agents (Park)</td><td>2304.03442</td><td>25-agent sandbox social emergence</td></tr><tr><td>2023-03</td><td>Reflexion</td><td>2303.11366</td><td>natural-language self-reflection from trajectory</td></tr><tr><td>2023-03</td><td>CAMEL</td><td>2303.17760</td><td>role-play inception prompting</td></tr><tr><td>2023-03</td><td>HuggingGPT</td><td>2303.17580</td><td>plan-then-execute with HF models</td></tr><tr><td>2022-10</td><td>ReAct</td><td>2210.03629</td><td>thought-action 交替</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>日期</th><th>Paper</th><th>arXiv</th><th>一句话贡献</th></tr></thead><tbody><tr><td>2025-09</td><td>Anthropic Claude Sonnet 4.5 + extended thinking</td><td>(no arXiv)</td><td>长程 reasoning + budget-aware thinking</td></tr><tr><td>2025-03</td><td>OpenAI Agents SDK</td><td>(no arXiv)</td><td>handoff / guardrails / tracing 抽象</td></tr><tr><td>2025-01</td><td>OpenAI Operator</td><td>(no arXiv)</td><td>CUA-trained vision-language agent for web</td></tr><tr><td>2024-10</td><td>Claude Computer Use</td><td>(no arXiv)</td><td>desktop GUI agent，OSWorld ~ 14.9% (2024)</td></tr><tr><td>2024-08</td><td>Agent-Q</td><td>2408.07199</td><td>MCTS + DPO，policy-only 28% → 51%；叠加推理时 search 达 ~95.4%</td></tr><tr><td>2024-06</td><td>MoA (Mixture of Agents)</td><td>2406.04692</td><td>N 个 proposer + aggregator 超 GPT-4 Omni</td></tr><tr><td>2024-06</td><td>TAU-bench</td><td>2406.12045</td><td>customer service multi-turn agent benchmark</td></tr><tr><td>2024-05</td><td>SWE-Agent</td><td>2405.15793</td><td>ACI for SWE-bench Lite 18.0%</td></tr><tr><td>2024-04</td><td>OSWorld</td><td>2404.07972</td><td>real OS GUI 369 任务</td></tr><tr><td>2024-04</td><td>GraphRAG</td><td>2404.16130</td><td>LLM-extracted KG + community for global QA</td></tr><tr><td>2024-01</td><td>VisualWebArena</td><td>2401.13649</td><td>vision + web 任务</td></tr><tr><td>2023-12</td><td>Math-Shepherd</td><td>2312.08935</td><td>对每个中间步骤做多次 Monte Carlo 补全采样(非树搜索)自动标 PRM</td></tr><tr><td>2023-10</td><td>LATS</td><td>2310.04406</td><td>MCTS + Reflexion + value</td></tr><tr><td>2023-10</td><td>SWE-bench</td><td>2310.06770</td><td>2294 真实 GitHub Python bug</td></tr><tr><td>2023-10</td><td>MemGPT</td><td>2310.08560</td><td>OS-style virtual memory for LLM</td></tr><tr><td>2023-08</td><td>AutoGen</td><td>2308.08155</td><td>conversable agent / GroupChat framework</td></tr><tr><td>2023-08</td><td>MetaGPT</td><td>2308.00352</td><td>SOP-driven 软件公司 multi-agent</td></tr><tr><td>2023-08</td><td>AgentBench</td><td>2308.03688</td><td>8 envs 通用 agent benchmark</td></tr><tr><td>2023-08</td><td>AgentVerse</td><td>2308.10848</td><td>expert recruitment + collaborative decision</td></tr><tr><td>2023-07</td><td>WebArena</td><td>2307.13854</td><td>self-hosted real web benchmark</td></tr><tr><td>2023-07</td><td>ChatDev</td><td>2307.07924</td><td>chat chain for software dev</td></tr><tr><td>2023-05</td><td>RAP</td><td>2305.14992</td><td>MCTS + world model in LLM agent</td></tr><tr><td>2023-05</td><td>Tree of Thoughts</td><td>2305.10601</td><td>LLM propose + LLM evaluate + tree search</td></tr><tr><td>2023-05</td><td>Multi-Agent Debate (Du)</td><td>2305.14325</td><td>N agent debate → consensus</td></tr><tr><td>2023-05</td><td>Multi-Agent Debate (Liang)</td><td>2305.19118</td><td>affirmative / negative + judge</td></tr><tr><td>2023-05</td><td>MemoryBank</td><td>2305.10250</td><td>Ebbinghaus forgetting curve</td></tr><tr><td>2023-04</td><td>Generative Agents (Park)</td><td>2304.03442</td><td>25-agent sandbox social emergence</td></tr><tr><td>2023-03</td><td>Reflexion</td><td>2303.11366</td><td>natural-language self-reflection from trajectory</td></tr><tr><td>2023-03</td><td>CAMEL</td><td>2303.17760</td><td>role-play inception prompting</td></tr><tr><td>2023-03</td><td>HuggingGPT</td><td>2303.17580</td><td>plan-then-execute with HF models</td></tr><tr><td>2022-10</td><td>ReAct</td><td>2210.03629</td><td>thought-action 交替</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">建议精读 5 篇</div><p>准备面试时间有限时，按优先级读：</p>
 <ol><li><strong>MemGPT (2310.08560)</strong> —— virtual-memory 抽象，长程 memory 鼻祖</li><li><strong>MoA (2406.04692)</strong> —— multi-agent 实证最强 baseline</li><li><strong>Multi-Agent Debate (Du, 2305.14325)</strong> —— debate 范式起源</li><li><strong>LATS (2310.04406)</strong> —— tree-search agent 工程典范</li><li><strong>MetaGPT (2308.00352)</strong> —— structured multi-agent SOP</li></ol></div>
 <div class="callout callout-warn"><div class="callout-title">常考开放题准备</div><p>顶级 lab interview 经常问 open-ended 题（如 Q25），关键是展现 <strong>research taste</strong>：能列出 3-5 个具体方向（不是"我会做 multi-agent" 这种空话），每个方向能给一个 concrete proposal + 一个 expected failure mode。</p></div>
@@ -1600,7 +1607,7 @@ Agent: 调用旧 endpoint → 403 forbidden → 困惑 → 反复 retry</code></
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/multi_agent_long_horizon_tutorial.md</code> ·
   SHA256 <code>bde1da91b63b</code> ·
-  generated at 2026-07-12 04:28 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

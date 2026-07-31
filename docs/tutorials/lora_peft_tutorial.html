@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/lora_peft_tutorial.md">
 <meta name="aris:source-sha256" content="9009e663f283467f8f591956b64c09fb3e24a9b94472a034d626b00830be64ad">
-<meta name="aris:generated-at" content="2026-07-12 04:18 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -581,7 +588,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/lora_peft_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>9009e663f283</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:18 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -701,7 +708,7 @@ def inject_lora(model: nn.Module, target_names=(&quot;q_proj&quot;, &quot;v_proj
 <div class="callout callout-info"><div class="callout-title">dropout 放在旁路输入</div><p>LoRA dropout 作用于 $x$ 进入 $A$ 之前，相当于对低秩适配做正则；主路 $W_0 x$ 不加 dropout（基座是冻结的、不需要正则）。</p></div>
 <h2 id="4-显存账lora-到底省在哪">§4 显存账：LoRA 到底省在哪</h2>
 <p>把一个 $\Psi$ 参数模型用 Adam 微调，按字节拆解（混合精度训练，per param）：</p>
-<table><thead><tr><th>组件</th><th>满参微调</th><th>LoRA（基座 bf16）</th></tr></thead><tbody><tr><td>基座权重（bf16）</td><td>$2\Psi$</td><td>$2\Psi$（冻结，仍需常驻）</td></tr><tr><td>基座梯度</td><td>$2\Psi$</td><td>$0$</td></tr><tr><td>基座 fp32 master</td><td>$4\Psi$</td><td>$0$</td></tr><tr><td>基座 Adam $m,v$（fp32）</td><td>$8\Psi$</td><td>$0$</td></tr><tr><td>LoRA 参数 + 梯度 + 优化器</td><td>—</td><td>$16 \cdot \Psi_{\text{lora}}$</td></tr><tr><td><strong>可训练相关合计</strong></td><td>$\approx 16\Psi$</td><td>$\approx 2\Psi + 16\Psi_{\text{lora}}$</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>组件</th><th>满参微调</th><th>LoRA（基座 bf16）</th></tr></thead><tbody><tr><td>基座权重（bf16）</td><td>$2\Psi$</td><td>$2\Psi$（冻结，仍需常驻）</td></tr><tr><td>基座梯度</td><td>$2\Psi$</td><td>$0$</td></tr><tr><td>基座 fp32 master</td><td>$4\Psi$</td><td>$0$</td></tr><tr><td>基座 Adam $m,v$（fp32）</td><td>$8\Psi$</td><td>$0$</td></tr><tr><td>LoRA 参数 + 梯度 + 优化器</td><td>—</td><td>$16 \cdot \Psi_{\text{lora}}$</td></tr><tr><td><strong>可训练相关合计</strong></td><td>$\approx 16\Psi$</td><td>$\approx 2\Psi + 16\Psi_{\text{lora}}$</td></tr></tbody></table></div>
 <p>其中 $\Psi_{\text{lora}} \ll \Psi$（典型 0.1%~1%）。所以 LoRA 把"满参微调 16 bytes/param 的大头"几乎全砍掉，只剩基座那份 $2\Psi$ 常驻 + 一丢丢 LoRA 开销。</p>
 <p><strong>但有一个必须主动澄清的点：激活显存（activation memory）LoRA 不自动省。</strong> 因为旁路 $BA$ 挂在冻结层上，反向传播仍要穿过整个网络计算 $\partial L / \partial x$，中间激活照存。LoRA 省的是<strong>优化器状态 + 梯度 + master 权重</strong>，不是激活。要省激活得另上 <strong>gradient checkpointing</strong>（用算力换激活显存）。</p>
 <p>可训练参数量（适配 $M$ 个线性层，第 $i$ 层 $d_i \times k_i$）：</p>
@@ -768,12 +775,12 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
         return F.linear(x, W_eff, self.base.bias)</code></pre>
 <div class="callout callout-info"><div class="callout-title">面试点：DoRA 改了什么</div><p>LoRA 只学 $\Delta W=BA$；DoRA = 可训练幅度 $m$ + 用 LoRA 学方向。它解释了"LoRA 为何在某些任务弱于满参"——因为 LoRA 的幅度/方向更新被绑死，DoRA 解绑了。DoRA 可叠加 QLoRA（<strong>QDoRA</strong>）在量化基座上做分解，兼顾显存与效果。</p></div>
 <h2 id="7-lora-家族变体一览">§7 LoRA 家族变体一览</h2>
-<table><thead><tr><th>变体</th><th>一句话</th><th>改了 LoRA 的什么</th><th>论文</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>低秩旁路 $BA$</td><td>基线</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>rsLoRA</strong></td><td>缩放改 $\alpha/\sqrt{r}$</td><td>高秩梯度稳定</td><td>Kalajdzievski 2023, 2312.03732</td></tr><tr><td><strong>DoRA</strong></td><td>幅度-方向分解</td><td>解绑幅度与方向</td><td>Liu 2024, 2402.09353</td></tr><tr><td><strong>PiSSA</strong></td><td>用 $W_0$ 主成分初始化 $A,B$</td><td>初始化（更快收敛）</td><td>Meng 2024, 2404.02948</td></tr><tr><td><strong>LoRA-GA</strong></td><td>让首步梯度逼近满参</td><td>初始化（梯度对齐）</td><td>Wang 2024, 2407.05000</td></tr><tr><td><strong>AdaLoRA</strong></td><td>SVD 形式 + 按重要性剪秩</td><td>自适应分配秩预算</td><td>Zhang 2023, 2303.10512</td></tr><tr><td><strong>LoRA+</strong></td><td>$A,B$ 用不同学习率</td><td>优化（$B$ 更大 lr）</td><td>Hayou 2024, 2402.12354</td></tr><tr><td><strong>(IA)³</strong></td><td>学缩放向量乘激活</td><td>非低秩、参数更省</td><td>Liu 2022, 2205.05638</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>变体</th><th>一句话</th><th>改了 LoRA 的什么</th><th>论文</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>低秩旁路 $BA$</td><td>基线</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>rsLoRA</strong></td><td>缩放改 $\alpha/\sqrt{r}$</td><td>高秩梯度稳定</td><td>Kalajdzievski 2023, 2312.03732</td></tr><tr><td><strong>DoRA</strong></td><td>幅度-方向分解</td><td>解绑幅度与方向</td><td>Liu 2024, 2402.09353</td></tr><tr><td><strong>PiSSA</strong></td><td>用 $W_0$ 主成分初始化 $A,B$</td><td>初始化（更快收敛）</td><td>Meng 2024, 2404.02948</td></tr><tr><td><strong>LoRA-GA</strong></td><td>让首步梯度逼近满参</td><td>初始化（梯度对齐）</td><td>Wang 2024, 2407.05000</td></tr><tr><td><strong>AdaLoRA</strong></td><td>SVD 形式 + 按重要性剪秩</td><td>自适应分配秩预算</td><td>Zhang 2023, 2303.10512</td></tr><tr><td><strong>LoRA+</strong></td><td>$A,B$ 用不同学习率</td><td>优化（$B$ 更大 lr）</td><td>Hayou 2024, 2402.12354</td></tr><tr><td><strong>(IA)³</strong></td><td>学缩放向量乘激活</td><td>非低秩、参数更省</td><td>Liu 2022, 2205.05638</td></tr></tbody></table></div>
 <p>几个值得展开的：</p>
 <ul><li><strong>PiSSA</strong>：对 $W_0$ 做 SVD 得到主奇异值/向量，用其初始化 $A_0,B_0$（例如 $A_0=U_{:,:r}\Sigma_{:r,:r}^{1/2}$、$B_0=\Sigma_{:r,:r}^{1/2}V_{:,:r}^\top$，使 $B_0A_0$ 逼近 $W_0$ 的主 $r$ 秩分量），冻结残差 $W_{\text{res}} = W_0 - \gamma B_0 A_0$（$\gamma=\alpha/r$ 是与 §2 一致的 LoRA 缩放；若沿用标准带缩放的 forward，残差必须减去带 $\gamma$ 的 $B_0A_0$ 才能保证 $t=0$ 时 $h=W_0x$；等价地也可令 $\alpha=r$，即 $\gamma=1$，把缩放吸收进初始化，此时可简化为 $W_0-B_0A_0$）。因为一开始就对准主成分，收敛更快、效果常更好。</li><li><strong>AdaLoRA</strong>：把 $\Delta W$ 参数化成 SVD 形式 $P\Lambda Q$，训练中按奇异值重要性<strong>动态剪枝</strong>，把有限的秩预算分给更需要的层（不同层 $r$ 不同），而非均匀分配。</li><li><strong>(IA)³</strong>：不走低秩矩阵，而是学三个<strong>缩放向量</strong> $l_k, l_v, l_{ff}$，逐元素乘到 key、value、FFN 隐藏激活上：$k \to l_k \odot k$。参数量比 LoRA 还小一个量级，T-Few 用它做少样本超过 in-context learning。</li></ul>
 <h2 id="8-与其他-peft-范式对比">§8 与其他 PEFT 范式对比</h2>
 <p>PEFT 大致分四类：<strong>加性低秩（LoRA 系）</strong>、<strong>加性模块（Adapter）</strong>、<strong>软提示（Prompt/Prefix）</strong>、<strong>选择性（BitFit）</strong>。</p>
-<table><thead><tr><th>方法</th><th>训练什么</th><th>插在哪</th><th>推理额外开销</th><th>典型可训练比例</th><th>论文</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>低秩 $BA$</td><td>并联到线性层</td><td><strong>零</strong>（可合并）</td><td>0.1%~1%</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>Adapter</strong></td><td>瓶颈 MLP</td><td>串联在子层后</td><td>有（串行子模块）</td><td>0.5%~5%</td><td>Houlsby 2019, 1902.00751</td></tr><tr><td><strong>Prefix-Tuning</strong></td><td>每层前缀 K/V</td><td>注意力 K/V 前缀</td><td>有（占 KV / 序列）</td><td>&lt;0.1%~1%</td><td>Li-Liang 2021, 2101.00190</td></tr><tr><td><strong>Prompt Tuning</strong></td><td>输入软提示</td><td>仅 embedding 层</td><td>有（占序列长度）</td><td>极小</td><td>Lester 2021, 2104.08691</td></tr><tr><td><strong>P-Tuning v2</strong></td><td>每层软提示</td><td>各层前缀</td><td>有</td><td>0.1%~3%</td><td>Liu 2021, 2110.07602</td></tr><tr><td><strong>BitFit</strong></td><td>仅 bias</td><td>各层 bias 项</td><td>零（原地）</td><td>~0.08%</td><td>Ben-Zaken 2021, 2106.10199</td></tr><tr><td><strong>(IA)³</strong></td><td>缩放向量</td><td>K/V/FFN 激活</td><td>有（可部分合并）</td><td>&lt;0.05%</td><td>Liu 2022, 2205.05638</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>训练什么</th><th>插在哪</th><th>推理额外开销</th><th>典型可训练比例</th><th>论文</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>低秩 $BA$</td><td>并联到线性层</td><td><strong>零</strong>（可合并）</td><td>0.1%~1%</td><td>Hu 2021, 2106.09685</td></tr><tr><td><strong>Adapter</strong></td><td>瓶颈 MLP</td><td>串联在子层后</td><td>有（串行子模块）</td><td>0.5%~5%</td><td>Houlsby 2019, 1902.00751</td></tr><tr><td><strong>Prefix-Tuning</strong></td><td>每层前缀 K/V</td><td>注意力 K/V 前缀</td><td>有（占 KV / 序列）</td><td>&lt;0.1%~1%</td><td>Li-Liang 2021, 2101.00190</td></tr><tr><td><strong>Prompt Tuning</strong></td><td>输入软提示</td><td>仅 embedding 层</td><td>有（占序列长度）</td><td>极小</td><td>Lester 2021, 2104.08691</td></tr><tr><td><strong>P-Tuning v2</strong></td><td>每层软提示</td><td>各层前缀</td><td>有</td><td>0.1%~3%</td><td>Liu 2021, 2110.07602</td></tr><tr><td><strong>BitFit</strong></td><td>仅 bias</td><td>各层 bias 项</td><td>零（原地）</td><td>~0.08%</td><td>Ben-Zaken 2021, 2106.10199</td></tr><tr><td><strong>(IA)³</strong></td><td>缩放向量</td><td>K/V/FFN 激活</td><td>有（可部分合并）</td><td>&lt;0.05%</td><td>Liu 2022, 2205.05638</td></tr></tbody></table></div>
 <p>核心对比维度（面试爱问）：</p>
 <ul><li><strong>推理延迟</strong>：LoRA（合并后）和 BitFit 是真正零开销；(IA)³ 的缩放向量在<strong>固定单 adapter</strong> 时也常可折叠进相邻线性层权重（动态多 adapter 才有在线缩放开销）。Adapter 串行非线性子模块、Prompt/Prefix 占用序列或 KV，都有不可消除的额外推理成本。</li><li><strong>占用上下文</strong>：Prompt/Prefix 系会吃掉一部分可用序列长度（soft tokens 占位）；LoRA / Adapter / BitFit 不占。</li><li><strong>表达力 vs 参数</strong>：Prompt Tuning 参数最省但小模型上效果弱（Lester 指出"规模够大才追平满参"）；LoRA 在参数/效果上折中最好，成为事实标准。</li></ul>
 <div class="callout callout-warn"><div class="callout-title">Adapter 为什么有推理延迟而 LoRA 没有</div><p>Adapter 是<strong>串联</strong>新模块（down→非线性→up），推理时必须额外跑这几层，且打断了原算子融合；LoRA 是<strong>并联</strong>线性旁路，数学上能合并进原权重（线性 + 线性 = 线性），合并后消失。非线性的 Adapter 无法这样吸收。</p></div>
@@ -781,7 +788,7 @@ def qlora_linear_forward(x, nf4_weight, absmax, lora_A, lora_B, scaling):
 <ul><li><strong>LoRA 学习率要比满参高</strong>：LoRA 参数少、且只调一个低秩子空间，经验上 lr 取 $1\text{e-}4 \sim 3\text{e-}4$（比满参的 $1\text{e-}5\sim2\text{e-}5$ 高一个量级）。LoRA+ 进一步指出 $B$ 应比 $A$ 用更大 lr。</li><li><strong>target_modules 选择</strong>：只配 <code>q,v</code> 省但弱；配全部线性层（含 FFN）通常最稳。配错模块名（不同模型命名不同，如 <code>c_attn</code> vs <code>q_proj</code>）会导致"LoRA 没挂上去、loss 不降"。</li><li><strong>$\alpha/r$ 设置</strong>：常见 $\alpha=2r$。换 $r$ 后若忘了 $\alpha$ 随动，等于改了有效学习率。高秩想避免坍缩用 rsLoRA。</li><li><strong>QLoRA 合并坑</strong>（§5.5）：别把 LoRA 合并回 4-bit 基座，反量化到 fp16 再合并。</li><li><strong>多 adapter 服务</strong>：不合并、在线加旁路可热插拔多个 adapter；要极致推理速度就为每个任务合并出独立权重。</li><li><strong>dtype 一致性</strong>：旁路 $A,B$ 与反量化后的基座要在同一精度做加法，混 dtype 会报错或精度异常。</li><li><strong>保存的是 adapter 不是整模型</strong>：<code>save</code> 只存 $A,B$（几十 MB），分发轻量；加载时挂回同一基座。版本要对齐基座，否则 $W_0$ 不一致、$\Delta W$ 无意义。</li><li><strong>梯度检查点配合</strong>：LoRA 不省激活，长序列训练务必开 gradient checkpointing，否则激活显存照样 OOM。</li></ul>
 <div class="callout callout-bad"><div class="callout-title">经典翻车</div><p>"LoRA 把显存降下来了，所以 batch 可以开很大" —— 错。激活显存没省，开大 batch 仍可能 OOM。LoRA 省的是优化器/梯度那部分，不是激活那部分。</p></div>
 <h2 id="10-复杂度与资源">§10 复杂度与资源</h2>
-<table><thead><tr><th>维度</th><th>满参微调</th><th>LoRA</th><th>QLoRA</th></tr></thead><tbody><tr><td>可训练参数</td><td>$\Psi$</td><td>$\sum_i r_i(d_i+k_i)$（~0.1%~1%）</td><td>同 LoRA</td></tr><tr><td>基座存储</td><td>bf16 $2\Psi$ B</td><td>bf16 $2\Psi$ B</td><td>NF4 4 bit/param $= 0.5\Psi$ B</td></tr><tr><td>优化器+梯度显存</td><td>$\approx 14\Psi$ B</td><td>$\approx 14\Psi_{\text{lora}}$ B</td><td>同 LoRA</td></tr><tr><td>激活显存</td><td>高</td><td><strong>同满参</strong>（需 checkpointing）</td><td>同满参</td></tr><tr><td>训练前向计算</td><td>$W_0 x$</td><td>$W_0 x + \frac{\alpha}{r}B(Ax)$（多两次小 matmul）</td><td>+ 反量化开销</td></tr><tr><td>推理延迟（合并后）</td><td>基线</td><td><strong>零额外</strong></td><td>反量化或合并到 fp16</td></tr><tr><td>单卡可训最大模型（80GB·vanilla Adam 量级）</td><td>~3B（7B 满参需 ZeRO / offload / 8-bit optimizer）</td><td>~13B~33B</td><td>~65B</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>满参微调</th><th>LoRA</th><th>QLoRA</th></tr></thead><tbody><tr><td>可训练参数</td><td>$\Psi$</td><td>$\sum_i r_i(d_i+k_i)$（~0.1%~1%）</td><td>同 LoRA</td></tr><tr><td>基座存储</td><td>bf16 $2\Psi$ B</td><td>bf16 $2\Psi$ B</td><td>NF4 4 bit/param $= 0.5\Psi$ B</td></tr><tr><td>优化器+梯度显存</td><td>$\approx 14\Psi$ B</td><td>$\approx 14\Psi_{\text{lora}}$ B</td><td>同 LoRA</td></tr><tr><td>激活显存</td><td>高</td><td><strong>同满参</strong>（需 checkpointing）</td><td>同满参</td></tr><tr><td>训练前向计算</td><td>$W_0 x$</td><td>$W_0 x + \frac{\alpha}{r}B(Ax)$（多两次小 matmul）</td><td>+ 反量化开销</td></tr><tr><td>推理延迟（合并后）</td><td>基线</td><td><strong>零额外</strong></td><td>反量化或合并到 fp16</td></tr><tr><td>单卡可训最大模型（80GB·vanilla Adam 量级）</td><td>~3B（7B 满参需 ZeRO / offload / 8-bit optimizer）</td><td>~13B~33B</td><td>~65B</td></tr></tbody></table></div>
 <p>旁路前向开销：每个适配层多 $2 \cdot 2 L r d$ FLOPs（$Ax$ 与 $B(\cdot)$ 两次小 matmul），因 $r \ll d$，相对主路 $2Ld^2$ 可忽略。合并后旁路彻底消失。</p>
 <div class="callout callout-warn"><div class="callout-title">&quot;单卡最大模型&quot;只是经验量级</div><p>真实上限强依赖序列长度、batch、gradient checkpointing、优化器选择（8-bit / offload）、target_modules 与是否 ZeRO 切分，上表仅为 vanilla Adam 假设下的粗略数量级，不是硬上限。</p></div>
 <h2 id="11-25-高频面试题">§11 25 高频面试题</h2>
@@ -965,7 +972,7 @@ all LoRA / DoRA sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/lora_peft_tutorial.md</code> ·
   SHA256 <code>9009e663f283</code> ·
-  generated at 2026-07-12 04:18 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

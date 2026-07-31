@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/agentic_rl_tutorial.md">
 <meta name="aris:source-sha256" content="b1327e360f4efce1dafb46409307bc6288fb7113af185fbacc4893e2456cb9f9">
-<meta name="aris:generated-at" content="2026-07-12 04:23 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -633,7 +640,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/agentic_rl_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>b1327e360f4e</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:23 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -647,7 +654,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <ul><li><strong>single-turn 偏好</strong> 不 directly transfer 到 multi-turn task success</li><li><strong>RM 学的是"哪种文风讨人喜欢"</strong>，不是"哪种调用顺序能解决问题"</li><li><strong>整段 response reward</strong>，无法区分"前 100 token 推理对、第 101 token 选错了 tool"</li></ul>
 <p>Agentic RL 与 RLHF 的核心区别不在"reward 一定来自 RM 还是一定来自环境"这种严格二分，而在 <strong>credit assignment 的时间尺度</strong>（RLHF 是单条 response 的 immediate reward；Agentic RL 要在数十步的长 trajectory 上做信用分配）与<strong>验证方式</strong>（RLHF 依赖 RM 对文风/偏好的主观打分；Agentic RL 更强调可编程验证的客观结果，如 test pass、math 答对、网页 task 完成——但也允许用学习到的 reward model，如 §6.9 WebRL 的 ORM，只是相比传统 RLHF-RM 更强调可编程验证信号做主干）。这一步让 alignment-style RL 升级为 <strong>decision-making RL</strong>。</p>
 <h3 id="12-mental-modelmdp--pomdp-表述">1.2　Mental model：MDP / POMDP 表述</h3>
-<table><thead><tr><th>元素</th><th>RLHF (single-turn)</th><th>Agentic RL</th></tr></thead><tbody><tr><td>State $s_t$</td><td>prompt</td><td>$(o_0, a_0, o_1, \dots, o_{t-1}, a_{t-1})$（history）</td></tr><tr><td>Action $a_t$</td><td>整段 response</td><td>一步 <code>(thought, tool_call)</code> 或 token-level subaction</td></tr><tr><td>Reward $r_t$</td><td>terminal RM 分</td><td>terminal task success（多数时刻为 0）</td></tr><tr><td>Horizon $T$</td><td>1（一段 response）</td><td>10-200 步（agent loop）</td></tr><tr><td>Trajectory 长度 (token)</td><td>$10^2$-$10^3$</td><td>$10^3$-$10^5$</td></tr><tr><td>Environment</td><td>RM (神经网络)</td><td>真实环境（shell / browser / search / Python）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>元素</th><th>RLHF (single-turn)</th><th>Agentic RL</th></tr></thead><tbody><tr><td>State $s_t$</td><td>prompt</td><td>$(o_0, a_0, o_1, \dots, o_{t-1}, a_{t-1})$（history）</td></tr><tr><td>Action $a_t$</td><td>整段 response</td><td>一步 <code>(thought, tool_call)</code> 或 token-level subaction</td></tr><tr><td>Reward $r_t$</td><td>terminal RM 分</td><td>terminal task success（多数时刻为 0）</td></tr><tr><td>Horizon $T$</td><td>1（一段 response）</td><td>10-200 步（agent loop）</td></tr><tr><td>Trajectory 长度 (token)</td><td>$10^2$-$10^3$</td><td>$10^3$-$10^5$</td></tr><tr><td>Environment</td><td>RM (神经网络)</td><td>真实环境（shell / browser / search / Python）</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">Note</div><p>上表是两者的<strong>典型</strong>配置对比，不是严格二分——Agentic RL 同样可以用学习到的 reward model 打分（如 §6.9 WebRL 的 ORM），只是相比传统 RLHF-RM 更强调用可编程验证信号（test-pass、task success）做主干；真正的分野在 credit assignment 的时间尺度与验证方式，而非"reward 是否来自 RM"本身。</p></div>
 <pre class="diagram"><code>
       ┌──────────────────────────────┐
@@ -669,7 +676,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
                      │
                      └─→ 回到 π_θ</code></pre>
 <h3 id="13-agentic-rl-与三类-rl-邻居的关系">1.3　Agentic RL 与三类 RL 邻居的关系</h3>
-<table><thead><tr><th>邻居</th><th>共同点</th><th>差异</th></tr></thead><tbody><tr><td><strong>RLHF / DPO</strong></td><td>LLM + KL-anchored RL</td><td>Agentic 必须多轮 + tool I/O，reward 来自环境而非 RM</td></tr><tr><td><strong>Reasoning RL（R1, R1-Zero）</strong></td><td>rule-based outcome reward + GRPO</td><td>R1 只在数学/代码答题，无 tool；Agentic RL 在 tool 调用 + 多步交互上</td></tr><tr><td><strong>经典 robotic RL（VPT, OpenVLA）</strong></td><td>sparse terminal reward + long horizon</td><td>LLM agent action space = token sequence；机器人 RL action = 连续控制</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>邻居</th><th>共同点</th><th>差异</th></tr></thead><tbody><tr><td><strong>RLHF / DPO</strong></td><td>LLM + KL-anchored RL</td><td>Agentic 必须多轮 + tool I/O，reward 来自环境而非 RM</td></tr><tr><td><strong>Reasoning RL（R1, R1-Zero）</strong></td><td>rule-based outcome reward + GRPO</td><td>R1 只在数学/代码答题，无 tool；Agentic RL 在 tool 调用 + 多步交互上</td></tr><tr><td><strong>经典 robotic RL（VPT, OpenVLA）</strong></td><td>sparse terminal reward + long horizon</td><td>LLM agent action space = token sequence；机器人 RL action = 连续控制</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">面试 framing</div><p>被问到"Agentic RL 是什么"时，<strong>先 disambiguate</strong>。</p></div>
 <ul><li>(1) 严格定义：multi-turn + tool I/O + outcome reward RL</li><li>(2) 与 RLHF 的边界：RLHF 是 single-turn alignment，Agentic 是 multi-turn decision-making</li><li>(3) 与 reasoning RL 的边界：reasoning RL 只算答题正确，Agentic RL 算 task success on real environment</li></ul>
 <p>这三句话能在 30 秒内把面试官的预期 anchor 准。</p>
@@ -713,7 +720,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h2 id="3-reward-design-for-agents核心">§3 Reward design for agents（核心）</h2>
 <p>reward 是 Agentic RL 的命门。<strong>Reward 错了，模型再大、算法再新也学不到东西</strong>；reward 对了，简单 GRPO 就能上 SOTA。</p>
 <h3 id="31-outcome-reward-vs-process-reward">3.1　Outcome reward vs Process reward</h3>
-<table><thead><tr><th>维度</th><th><strong>Outcome reward</strong></th><th><strong>Process reward</strong></th></tr></thead><tbody><tr><td>监督粒度</td><td>trajectory 终点 1 个 reward</td><td>每步 (or 每 subgoal) 1 个 reward</td></tr><tr><td>Label 来源</td><td>task success（test pass / answer match）</td><td>PRM / step verifier / human</td></tr><tr><td>稀疏度</td><td>极稀疏（多数 step 0）</td><td>dense</td></tr><tr><td>Credit assignment</td><td>难（长 horizon 上 GAE 也难)</td><td>易（每步直接打分）</td></tr><tr><td>Reward hacking</td><td>较低（rule-based 时）</td><td>较高（PRM 可被 hack）</td></tr><tr><td>实施难度</td><td>易（test-pass / 答案 match）</td><td>难（PRM 训练成本高）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th><strong>Outcome reward</strong></th><th><strong>Process reward</strong></th></tr></thead><tbody><tr><td>监督粒度</td><td>trajectory 终点 1 个 reward</td><td>每步 (or 每 subgoal) 1 个 reward</td></tr><tr><td>Label 来源</td><td>task success（test pass / answer match）</td><td>PRM / step verifier / human</td></tr><tr><td>稀疏度</td><td>极稀疏（多数 step 0）</td><td>dense</td></tr><tr><td>Credit assignment</td><td>难（长 horizon 上 GAE 也难)</td><td>易（每步直接打分）</td></tr><tr><td>Reward hacking</td><td>较低（rule-based 时）</td><td>较高（PRM 可被 hack）</td></tr><tr><td>实施难度</td><td>易（test-pass / 答案 match）</td><td>难（PRM 训练成本高）</td></tr></tbody></table></div>
 <p><strong>面试 take</strong>：reasoning RL（R1）选 outcome reward 因为数学/代码可程序化验证；agent RL 主流也选 outcome reward 因为 agent 任务 ground truth 更明确（task 完成 yes/no）。<strong>process reward 主要用于 reasoning-heavy 任务</strong>（数学 step 标 PRM），在 tool-use agent 上较少。</p>
 <h3 id="32-verifier-based-rewardrule-based">3.2　Verifier-based reward（rule-based）</h3>
 <p>这是 Agentic RL 最干净的 reward 形式：把 reward 写成 <strong>可执行的 verifier 函数</strong>。</p>
@@ -876,7 +883,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>agent action space 包括：</p>
 <ul><li><strong>token-level exploration</strong>：sampling temperature，控制 token 选择多样性</li><li><strong>tool-call-level exploration</strong>：每个 thought-action 周期选择不同 tool / 不同 query</li><li><strong>trajectory-level exploration</strong>：完全不同 trajectory plan</li></ul>
 <p>经典做法：</p>
-<table><thead><tr><th>方法</th><th>实现</th></tr></thead><tbody><tr><td>Temperature schedule</td><td>rollout 时 $T \in [0.7, 1.2]$，训练随轮次降温</td></tr><tr><td>Top-p / Top-k</td><td>限制 sampling 范围避免 outlier token</td></tr><tr><td>ε-tool-choice</td><td>以 $\epsilon$ 概率随机选 tool（替代 LLM-policy 选择）</td></tr><tr><td>Diverse beam</td><td>多 trajectory 用 diverse beam search 保证多样性</td></tr><tr><td>GRPO group sampling</td><td>同 prompt $G = 16$ 个 rollout，天然 exploration</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>实现</th></tr></thead><tbody><tr><td>Temperature schedule</td><td>rollout 时 $T \in [0.7, 1.2]$，训练随轮次降温</td></tr><tr><td>Top-p / Top-k</td><td>限制 sampling 范围避免 outlier token</td></tr><tr><td>ε-tool-choice</td><td>以 $\epsilon$ 概率随机选 tool（替代 LLM-policy 选择）</td></tr><tr><td>Diverse beam</td><td>多 trajectory 用 diverse beam search 保证多样性</td></tr><tr><td>GRPO group sampling</td><td>同 prompt $G = 16$ 个 rollout，天然 exploration</td></tr></tbody></table></div>
 <p><strong>RAGEN / StarPO 的关键 insight</strong>（Wang et al. 2025 arXiv 2504.20073）：multi-turn agent RL 中 <strong>rollout 多样性是 collapse 的"防火墙"</strong>——单 trajectory 训练会让 policy 退化为 deterministic mode。</p>
 <h3 id="54-curriculum--difficulty-scheduling">5.4　Curriculum &amp; difficulty scheduling</h3>
 <p>agent 任务从易到难排序，按 model 当前能力 schedule：</p>
@@ -1229,7 +1236,7 @@ def verifier_reward(trajectory, task_type, ground_truth):
 <p>代表实现：<strong>verl</strong> (ByteDance Seed open-source), <strong>AReaL</strong> (Ant Group + Tsinghua, async RL system arXiv 2505.24298), <strong>OpenRLHF v0.5+</strong>.</p>
 <h3 id="84-tool-rl-on-tau-bench--swe-bench--osworld">8.4　Tool-RL on TAU-bench / SWE-bench / OSWorld</h3>
 <p>工业 benchmark 上的 SOTA 趋势（2025-2026 公开数字）：</p>
-<table><thead><tr><th>Benchmark</th><th>Task</th><th>2024 SOTA</th><th>2025-2026 SOTA</th><th>Key approach</th></tr></thead><tbody><tr><td><strong>TAU-bench (retail)</strong></td><td>customer service multi-turn</td><td>~50% (GPT-4)</td><td>70-80% (Claude 4.x, GPT-5)</td><td>RLHF + agent SFT</td></tr><tr><td><strong>SWE-bench Verified</strong></td><td>GitHub PR fix</td><td>~25% (Claude 3.5)</td><td><strong>70-80%+</strong> (Claude 4.x, o3)</td><td>Agent scaffold + RL</td></tr><tr><td><strong>OSWorld</strong></td><td>OS GUI task</td><td>~12% (GPT-4V)</td><td>~50-60% (Claude 4.x, Operator)</td><td>Computer-Use RL</td></tr><tr><td><strong>WebArena</strong></td><td>web nav</td><td>14.4% (GPT-4)</td><td>43% (WebRL Llama-8B)</td><td>curriculum + RL</td></tr><tr><td><strong>GAIA</strong></td><td>general assistant</td><td>15% (GPT-4)</td><td>60-70% (Claude 4.x, o3)</td><td>Agent + tool RL</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Benchmark</th><th>Task</th><th>2024 SOTA</th><th>2025-2026 SOTA</th><th>Key approach</th></tr></thead><tbody><tr><td><strong>TAU-bench (retail)</strong></td><td>customer service multi-turn</td><td>~50% (GPT-4)</td><td>70-80% (Claude 4.x, GPT-5)</td><td>RLHF + agent SFT</td></tr><tr><td><strong>SWE-bench Verified</strong></td><td>GitHub PR fix</td><td>~25% (Claude 3.5)</td><td><strong>70-80%+</strong> (Claude 4.x, o3)</td><td>Agent scaffold + RL</td></tr><tr><td><strong>OSWorld</strong></td><td>OS GUI task</td><td>~12% (GPT-4V)</td><td>~50-60% (Claude 4.x, Operator)</td><td>Computer-Use RL</td></tr><tr><td><strong>WebArena</strong></td><td>web nav</td><td>14.4% (GPT-4)</td><td>43% (WebRL Llama-8B)</td><td>curriculum + RL</td></tr><tr><td><strong>GAIA</strong></td><td>general assistant</td><td>15% (GPT-4)</td><td>60-70% (Claude 4.x, o3)</td><td>Agent + tool RL</td></tr></tbody></table></div>
 <p>注意：benchmark contamination 风险大，<strong>2026Q1 OpenAI 已弃用 SWE-bench Verified</strong>（原因：contamination + test flaw）；当前更可信 benchmark 是 SWE-Lancer、SWE-bench Multilingual、private holdout。</p>
 <h3 id="85-anthropic-computer-useclaude-35--45--opus-4x">8.5　Anthropic Computer-Use（Claude 3.5 → 4.5 → Opus 4.x）</h3>
 <p><strong>公开知识</strong>：</p>
@@ -1237,13 +1244,13 @@ def verifier_reward(trajectory, task_type, ground_truth):
 <p><strong>算法层面的 inferred 信息</strong>（学术界推测，未官方确认）:</p>
 <ul><li>训练大概率涉及 RLHF on screenshot trajectories</li><li>reward 含 task completion grader (LLM-as-judge) + safety classifier</li><li>可能用 GRPO / RLOO style critic-free RL（公开 paper 多次提及 critic-free）</li></ul>
 <h3 id="86-2025-2026-papers-群像">8.6　2025-2026 papers 群像</h3>
-<table><thead><tr><th>论文</th><th>方向</th><th>核心贡献</th></tr></thead><tbody><tr><td><strong>KodCode</strong> (Xu et al. 2025)</td><td>代码 agent RL</td><td>高质量代码 RL 数据集 + GRPO baseline</td></tr><tr><td><strong>DAPO</strong> (Yu et al. 2025 ByteDance)</td><td>GRPO 改进</td><td>clip higher / dynamic sampling / token loss / overlong shaping</td></tr><tr><td><strong>VAPO</strong> (字节跳动 2025)</td><td>GRPO 加 lightweight critic</td><td>trace-level credit dilution 缓解</td></tr><tr><td><strong>CISPO</strong> (MiniMax 2025)</td><td>importance sampling 改进</td><td>解决 negative advantage 大 ratio 失稳</td></tr><tr><td><strong>R-Zero</strong></td><td>Self-Play RL</td><td>Challenger-Solver self-play，learnability reward</td></tr><tr><td><strong>Absolute Zero</strong></td><td>Self-Play RL</td><td>完全无外部 task，code executor 当 verifier</td></tr><tr><td><strong>Search-R1</strong></td><td>search agent RL</td><td>search 当 first-class action + rule reward</td></tr><tr><td><strong>Light-R1</strong> / <strong>Sky-T1</strong></td><td>reasoning + tool RL</td><td>开源 reproduction R1 + agent extension</td></tr><tr><td><strong>OpenAgent</strong> / <strong>Llama-Agent</strong></td><td>数据 + 框架</td><td>大规模 agent SFT + RL pipeline</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>论文</th><th>方向</th><th>核心贡献</th></tr></thead><tbody><tr><td><strong>KodCode</strong> (Xu et al. 2025)</td><td>代码 agent RL</td><td>高质量代码 RL 数据集 + GRPO baseline</td></tr><tr><td><strong>DAPO</strong> (Yu et al. 2025 ByteDance)</td><td>GRPO 改进</td><td>clip higher / dynamic sampling / token loss / overlong shaping</td></tr><tr><td><strong>VAPO</strong> (字节跳动 2025)</td><td>GRPO 加 lightweight critic</td><td>trace-level credit dilution 缓解</td></tr><tr><td><strong>CISPO</strong> (MiniMax 2025)</td><td>importance sampling 改进</td><td>解决 negative advantage 大 ratio 失稳</td></tr><tr><td><strong>R-Zero</strong></td><td>Self-Play RL</td><td>Challenger-Solver self-play，learnability reward</td></tr><tr><td><strong>Absolute Zero</strong></td><td>Self-Play RL</td><td>完全无外部 task，code executor 当 verifier</td></tr><tr><td><strong>Search-R1</strong></td><td>search agent RL</td><td>search 当 first-class action + rule reward</td></tr><tr><td><strong>Light-R1</strong> / <strong>Sky-T1</strong></td><td>reasoning + tool RL</td><td>开源 reproduction R1 + agent extension</td></tr><tr><td><strong>OpenAgent</strong> / <strong>Llama-Agent</strong></td><td>数据 + 框架</td><td>大规模 agent SFT + RL pipeline</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">2026Q1-Q2 趋势</div><p>agent RL on real environment（OS, browser, IDE）成为开源主线。<strong>simulator → 真实环境 → 部署 RL</strong> 的 sim-to-real pipeline 是下一个 frontier。Anthropic / OpenAI / DeepSeek / Meta 等都在做但细节未公开。</p></div>
 <h2 id="9-failure-modes--工程经验">§9 Failure modes &amp; 工程经验</h2>
 <h3 id="91-agentic-rl-的七宗罪">9.1　Agentic RL 的"七宗罪"</h3>
-<table><thead><tr><th>失败模式</th><th>症状</th><th>根因</th><th>缓解</th></tr></thead><tbody><tr><td><strong>Token mask 漏 observation</strong></td><td>reward 上不去 / agent 学到怪行为</td><td>gradient 流到 environment token</td><td>严格 per-sample action_mask</td></tr><tr><td><strong>Reward hacking on grader</strong></td><td>benchmark 涨但人评下降</td><td>grader 有漏洞</td><td>grader ensemble + holdout test</td></tr><tr><td><strong>Length-explosion</strong></td><td>agent 拖到 context 上限</td><td>reward 与 length 正相关</td><td>length penalty + max_steps cap</td></tr><tr><td><strong>Tool-call hallucination</strong></td><td>agent 调不存在的 tool</td><td>base model SFT 不够</td><td>Agent-FLAN-style negative SFT</td></tr><tr><td><strong>Loop / repetition</strong></td><td>agent 反复调同样 tool</td><td>exploration 不够</td><td>tool-call diversity bonus + ε-tool</td></tr><tr><td><strong>Group $\sigma = 0$ collapse</strong></td><td>advantage = NaN / 0</td><td>全 success 或全 fail</td><td>data filter + std clamp</td></tr><tr><td><strong>KL collapse</strong></td><td>policy entropy → 0</td><td>β 太小</td><td>per-step KL + entropy bonus</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>失败模式</th><th>症状</th><th>根因</th><th>缓解</th></tr></thead><tbody><tr><td><strong>Token mask 漏 observation</strong></td><td>reward 上不去 / agent 学到怪行为</td><td>gradient 流到 environment token</td><td>严格 per-sample action_mask</td></tr><tr><td><strong>Reward hacking on grader</strong></td><td>benchmark 涨但人评下降</td><td>grader 有漏洞</td><td>grader ensemble + holdout test</td></tr><tr><td><strong>Length-explosion</strong></td><td>agent 拖到 context 上限</td><td>reward 与 length 正相关</td><td>length penalty + max_steps cap</td></tr><tr><td><strong>Tool-call hallucination</strong></td><td>agent 调不存在的 tool</td><td>base model SFT 不够</td><td>Agent-FLAN-style negative SFT</td></tr><tr><td><strong>Loop / repetition</strong></td><td>agent 反复调同样 tool</td><td>exploration 不够</td><td>tool-call diversity bonus + ε-tool</td></tr><tr><td><strong>Group $\sigma = 0$ collapse</strong></td><td>advantage = NaN / 0</td><td>全 success 或全 fail</td><td>data filter + std clamp</td></tr><tr><td><strong>KL collapse</strong></td><td>policy entropy → 0</td><td>β 太小</td><td>per-step KL + entropy bonus</td></tr></tbody></table></div>
 <h3 id="92-online-vs-offline-rl-trade-off">9.2　Online vs offline RL trade-off</h3>
-<table><thead><tr><th>维度</th><th>Online RL (PPO/GRPO)</th><th>Offline RL (DPO/RFT)</th></tr></thead><tbody><tr><td>数据效率</td><td>低（每轮新 rollout）</td><td>高（一次 dataset 多次训）</td></tr><tr><td>训练速度</td><td>慢（rollout 含 tool I/O）</td><td>快（pure SFT-style）</td></tr><tr><td>性能上限</td><td>高（持续学习新分布）</td><td>中（受限于 dataset 分布）</td></tr><tr><td>实现复杂度</td><td>高（trajectory queue + verifier server）</td><td>低</td></tr><tr><td>适合</td><td>长期投入 + 真实环境</td><td>资源受限 + 已有 demo data</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>Online RL (PPO/GRPO)</th><th>Offline RL (DPO/RFT)</th></tr></thead><tbody><tr><td>数据效率</td><td>低（每轮新 rollout）</td><td>高（一次 dataset 多次训）</td></tr><tr><td>训练速度</td><td>慢（rollout 含 tool I/O）</td><td>快（pure SFT-style）</td></tr><tr><td>性能上限</td><td>高（持续学习新分布）</td><td>中（受限于 dataset 分布）</td></tr><tr><td>实现复杂度</td><td>高（trajectory queue + verifier server）</td><td>低</td></tr><tr><td>适合</td><td>长期投入 + 真实环境</td><td>资源受限 + 已有 demo data</td></tr></tbody></table></div>
 <p><strong>实践建议</strong>：从 offline RL（agent SFT + DPO）起手，建立 baseline；有算力后迁移到 online RL（PPO/GRPO + verifier）。</p>
 <h3 id="93-rollout-优化经验">9.3　Rollout 优化经验</h3>
 <ul><li><strong>vLLM PagedAttention</strong> 比 HF generate 快 5-10×，是 agent rollout 的必装</li><li><strong>Tool sandbox</strong> 用 Docker + gVisor，单机并行 64-128 个 trajectory 没问题</li><li><strong>Async rollout pipeline</strong>：rollout worker 不阻塞 trainer worker</li><li><strong>Trajectory replay buffer</strong>：FIFO + priority 混合，replay 时按 reward 加权</li><li><strong>Batch size = group_size × prompt_per_batch</strong>：典型 $G = 16$, prompt = 32 → 512 trajectory / batch</li></ul>
@@ -1458,7 +1465,7 @@ def verifier_reward(trajectory, task_type, ground_truth):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/agentic_rl_tutorial.md</code> ·
   SHA256 <code>b1327e360f4e</code> ·
-  generated at 2026-07-12 04:23 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

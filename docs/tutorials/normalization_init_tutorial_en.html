@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/normalization_init_tutorial_en.md">
 <meta name="aris:source-sha256" content="582b7021e94459417061f7ac5e7f8435e4f0b6f74291d00532c1b32af3f72e9f">
-<meta name="aris:generated-at" content="2026-07-12 04:17 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -620,7 +627,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/normalization_init_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>582b7021e944</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:17 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -769,7 +776,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <blockquote><p>🎯 <strong>Frontier, honest positioning</strong> Fixup / NFNets / DyT together convey one message: <strong>normalization is not theoretically a necessary condition for training deep nets</strong> — its core roles (control variance, smooth the landscape, squash outliers) can be replaced by "good init / explicit variance control / learnable squashing." But <strong>LN/RMSNorm remain the safe default in current production systems</strong> (robust, plug-and-play, mature ecosystem). When discussing these in interviews, mark them as "research directions / promising," don't say "already replaced normalization."</p></blockquote>
 <h2 id="11-engineering-practice--complexity-comparison--common-misconceptions">§11 Engineering practice + complexity comparison + common misconceptions</h2>
 <h3 id="111-comparison-of-the-four-norms">11.1　Comparison of the four norms</h3>
-<table><thead><tr><th>Norm</th><th>Normalization dim</th><th>batch-dependent</th><th>train$\ne$eval</th><th>learnable params</th><th>relative cost</th></tr></thead><tbody><tr><td><strong>BatchNorm</strong></td><td>along batch (+spatial), per-channel</td><td>yes</td><td><strong>yes</strong> (running stats at inference)</td><td>$\gamma,\beta$</td><td>medium (two reductions + maintain running stats + multi-GPU sync)</td></tr><tr><td><strong>LayerNorm</strong></td><td>along feature dim, per-token</td><td>no</td><td>no</td><td>$\gamma,\beta$</td><td>medium (one extra statistic — the mean; naive impl needs two reductions, fused/Welford can do it in one pass)</td></tr><tr><td><strong>RMSNorm</strong></td><td>along feature-dim RMS, per-token</td><td>no</td><td>no</td><td>$\gamma$ (no $\beta$)</td><td>low (one sum-of-squares reduction, no mean, no shift)</td></tr><tr><td><strong>GroupNorm</strong></td><td>within-group channels (+spatial), per sample</td><td>no</td><td>no</td><td>$\gamma,\beta$</td><td>medium (within-group reduction, batch-independent)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Norm</th><th>Normalization dim</th><th>batch-dependent</th><th>train$\ne$eval</th><th>learnable params</th><th>relative cost</th></tr></thead><tbody><tr><td><strong>BatchNorm</strong></td><td>along batch (+spatial), per-channel</td><td>yes</td><td><strong>yes</strong> (running stats at inference)</td><td>$\gamma,\beta$</td><td>medium (two reductions + maintain running stats + multi-GPU sync)</td></tr><tr><td><strong>LayerNorm</strong></td><td>along feature dim, per-token</td><td>no</td><td>no</td><td>$\gamma,\beta$</td><td>medium (one extra statistic — the mean; naive impl needs two reductions, fused/Welford can do it in one pass)</td></tr><tr><td><strong>RMSNorm</strong></td><td>along feature-dim RMS, per-token</td><td>no</td><td>no</td><td>$\gamma$ (no $\beta$)</td><td>low (one sum-of-squares reduction, no mean, no shift)</td></tr><tr><td><strong>GroupNorm</strong></td><td>within-group channels (+spatial), per sample</td><td>no</td><td>no</td><td>$\gamma,\beta$</td><td>medium (within-group reduction, batch-independent)</td></tr></tbody></table></div>
 <h3 id="112-engineering-details">11.2　Engineering details</h3>
 <ul><li><strong>Pre-LN: don't miss the final LN</strong> (§5.3): there must be a closing LN after the transformer stack and before the LM head, or the inflated residual stream goes straight into the output head and quality drops.</li><li><strong>The $\epsilon$ placement</strong>: the convention is $\sqrt{\sigma^2+\epsilon}$ ($\epsilon$ <strong>inside</strong> the sqrt, as in PyTorch), not $\sqrt{\sigma^2}+\epsilon$. Too small an $\epsilon$ in fp16 triggers division-by-zero / overflow when $\sigma^2\approx0$; RMSNorm's $\epsilon$ is likewise inside $\sqrt{\text{mean}(x^2)+\epsilon}$.</li><li><strong>fp16/bf16 numerics</strong>: the normalization reduction (sum / sum-of-squares) <strong>must accumulate in fp32</strong>, even if the activations are bf16 — sum-of-squares easily overflows / loses significant bits in low precision. Standard implementations upcast the norm internals to fp32 then downcast.</li><li><strong>fused kernels</strong>: LN/RMSNorm are <strong>memory-bound</strong> (read activations → reduce → write back), tiny in FLOPs but heavy in memory traffic; a fused kernel (Apex <code>FusedLayerNorm</code>, Triton, FlashNorm, etc.) merges read-compute-write into one kernel, saving HBM round-trips. RMSNorm skips one statistic (the mean) and has no $\beta$, so even under a fused single-pass kernel it still saves a bit of arithmetic and memory traffic versus fused LayerNorm.</li><li><strong>inference cost</strong>: by FLOPs normalization is negligible, but it <strong>breaks operator fusion + carries a reduction</strong>, accumulating into noticeable latency in large-model per-token decode; this is one reason RMSNorm (one fewer reduction) is favored on the inference side.</li><li><strong>BN's multi-GPU footgun</strong>: under data parallelism each GPU sees only part of the batch, so BN stats are "local-batch"; getting global stats requires SyncBatchNorm (cross-GPU communication, slow). LN/RMSNorm don't have this issue (per-token, no sync needed).</li></ul>
 <h3 id="113-common-footguns">11.3　Common footguns</h3>
@@ -1032,7 +1039,7 @@ all normalization / residual / init sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/normalization_init_tutorial_en.md</code> ·
   SHA256 <code>582b7021e944</code> ·
-  generated at 2026-07-12 04:17 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

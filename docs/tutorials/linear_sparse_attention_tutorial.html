@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/linear_sparse_attention_tutorial.md">
 <meta name="aris:source-sha256" content="9bbd91bc260e0bbae7d299607776449c8a2b4f4877349d394dbc076412288c54">
-<meta name="aris:generated-at" content="2026-07-12 04:21 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -609,7 +616,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/linear_sparse_attention_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>9bbd91bc260e</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:21 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -644,7 +651,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>这就是面试金句：<strong>"线性注意力 = 一个隐藏状态是矩阵 $S\in\mathbb{R}^{d_k\times d_v}$ 的 RNN"</strong>。对比普通 RNN 的向量 hidden state，这里状态是<strong>外积累加出来的矩阵</strong>——它存的是一个"$\phi(k)\to v$"的关联记忆（associative memory / fast weight）。</p>
 <div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>状态是矩阵，不是向量（高频追问）</strong> 线性注意力的递推状态是 $S\in\mathbb{R}^{d_k\times d_v}$（外积 $\phi(k)v^\top$ 累加）。Decode 每步在序列长度上是 $O(1)$，但在状态规模上是 $O(d_k d_v)$——更新和读取都正比于这个矩阵大小。说成"$O(1)$ 状态"要补一句"$O(1)$ 是对序列长度而言"。</p></div>
 <p>两种视角，同一计算：</p>
-<table><thead><tr><th>视角</th><th>公式</th><th>复杂度</th><th>适合</th></tr></thead><tbody><tr><td><strong>并行 / 二次</strong></td><td>$o = \big(\phi(Q)\phi(K)^\top \odot M\big)V$（$M$ 为 causal mask）</td><td>$O(L^2 d)$</td><td>短序列 / 直观</td></tr><tr><td><strong>递推 / 线性</strong></td><td>$S_t=S_{t-1}+\phi(k_t)v_t^\top,\ o_t=\phi(q_t)^\top S_t$</td><td>$O(Ld_kd_v)$，状态 $O(d_kd_v)$</td><td>decode / 长序列</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>视角</th><th>公式</th><th>复杂度</th><th>适合</th></tr></thead><tbody><tr><td><strong>并行 / 二次</strong></td><td>$o = \big(\phi(Q)\phi(K)^\top \odot M\big)V$（$M$ 为 causal mask）</td><td>$O(L^2 d)$</td><td>短序列 / 直观</td></tr><tr><td><strong>递推 / 线性</strong></td><td>$S_t=S_{t-1}+\phi(k_t)v_t^\top,\ o_t=\phi(q_t)^\top S_t$</td><td>$O(Ld_kd_v)$，状态 $O(d_kd_v)$</td><td>decode / 长序列</td></tr></tbody></table></div>
 <p>注意：causal 线性注意力的<strong>朴素并行式</strong>仍要物化 $L\times L$（因为 mask 是逐元素的），所以训练时真正用的是 §6 的 <strong>chunkwise</strong> 折中——既不物化 $L^2$，又能用 matmul。</p>
 <h3 id="23-丢失-softmax-归一化的代价">2.3　丢失 softmax 归一化的代价</h3>
 <p>softmax 有两个隐性好处被线性注意力丢掉了：</p>
@@ -776,12 +783,12 @@ if __name__ == &quot;__main__&quot;:
 <ul><li><strong>Lightning Attention（MiniMax-01）</strong>：严格说它是<strong>IO-aware 的线性注意力</strong>实现（不是 softmax 稀疏），用类似 FlashAttention 的 tiling + chunkwise 把线性注意力做到 IO 高效，配合混合架构（间插少量 softmax 层）撑起百万级上下文。放在这里是因为 MiniMax-01 是"线性 + 少量 full attention 混合"的大规模落地代表（见 §9）。</li><li><strong>DeepSeek-V3.2 的 DSA（DeepSeek Sparse Attention）/ lightning indexer</strong>：用一个<strong>轻量索引器（lightning indexer）</strong>给每个 query 快速打分"该 attend 哪些历史 token"，再只在被选中的 token 上做注意力。核心是用一个<strong>便宜的打分网络</strong>做 token 级选择，把长上下文 attention 的成本降下来，同时尽量不掉质量。</li></ul>
 <div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>别把 Lightning Attention 归成"稀疏 softmax"</strong> Lightning Attention 本质是<strong>线性注意力</strong>的高效实现（IO-aware），归在 §2 那一族；DSA / NSA / MoBA 才是"保留 softmax、选子集"的稀疏注意力。面试若把它们混为一谈会露怯——区分点是"有没有放弃 softmax、有没有固定大小递推状态"。</p></div>
 <h3 id="75-固定-pattern-vs-可训练稀疏一句话对比">7.5　固定 pattern vs 可训练稀疏（一句话对比）</h3>
-<table><thead><tr><th>维度</th><th>固定 pattern（Longformer/BigBird 时代）</th><th>可训练稀疏（NSA / MoBA, 2025）</th></tr></thead><tbody><tr><td>稀疏结构</td><td>人为设计（窗口+全局+随机）</td><td>模型<strong>学</strong>出来（内容相关选块）</td></tr><tr><td>训练</td><td>（继续）预训练阶段即应用，非仅微调套用¹</td><td><strong>原生</strong>从随机初始化端到端稀疏训练（NSA）</td></tr><tr><td>硬件</td><td>多数 IO 不友好</td><td><strong>硬件对齐</strong>（块连续、tensor-core 友好）</td></tr><tr><td>效果</td><td>长文档可用，质量有损</td><td>接近 full attention，且有真实加速</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>固定 pattern（Longformer/BigBird 时代）</th><th>可训练稀疏（NSA / MoBA, 2025）</th></tr></thead><tbody><tr><td>稀疏结构</td><td>人为设计（窗口+全局+随机）</td><td>模型<strong>学</strong>出来（内容相关选块）</td></tr><tr><td>训练</td><td>（继续）预训练阶段即应用，非仅微调套用¹</td><td><strong>原生</strong>从随机初始化端到端稀疏训练（NSA）</td></tr><tr><td>硬件</td><td>多数 IO 不友好</td><td><strong>硬件对齐</strong>（块连续、tensor-core 友好）</td></tr><tr><td>效果</td><td>长文档可用，质量有损</td><td>接近 full attention，且有真实加速</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">Warning</div><p><strong>¹ "fine-tune 时套上"是不准确的旧说法</strong> Longformer 从 RoBERTa 权重继续做 MLM 预训练时就已经用滑窗+全局 pattern（BigBird 类似，在（继续）预训练阶段就应用其稀疏结构），并非只在下游微调时才套用。与 NSA 的真正区别不是"预训练 vs 微调"，而是<strong>稀疏结构是否从随机初始化端到端训练</strong>——NSA 从零开始原生训练稀疏结构，Longformer/BigBird 是把稀疏 pattern 适配到已有稠密预训练检查点上（continued-pretraining，而非 from-scratch 稀疏预训练）。</p></div>
 <h2 id="8-kv-cache-与推理线性ssm-的杀手锏">§8 KV cache 与推理：线性/SSM 的杀手锏</h2>
 <h3 id="81-三族方法的推理画像">8.1　三族方法的推理画像</h3>
 <p>自回归 decode 阶段（一个一个吐 token），三族方法的资源画像截然不同：</p>
-<table><thead><tr><th>方法</th><th>decode 每步计算</th><th>"记忆"随上下文 $L$ 的增长</th><th>每步访存</th></tr></thead><tbody><tr><td><strong>softmax + KV cache</strong></td><td>$O(L\,d)$（新 q 对全部历史 k/v）</td><td>KV cache <strong>$O(L)$ 线性增长</strong></td><td>读整个 KV cache（带宽瓶颈）</td></tr><tr><td><strong>线性注意力 / SSM</strong></td><td>$O(d_k d_v)$（更新+读固定状态）</td><td><strong>固定大小状态 $O(d_k d_v)$，与 $L$ 无关</strong></td><td>只读写那个小状态</td></tr><tr><td><strong>稀疏（NSA/MoBA）</strong></td><td>$O(s\,d)$（只看选中的 $s$ 个 token/块）</td><td>仍需<strong>存全部 KV</strong>（$O(L)$），但只<strong>访问</strong>子集</td><td>读子集（比 full 少）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>decode 每步计算</th><th>"记忆"随上下文 $L$ 的增长</th><th>每步访存</th></tr></thead><tbody><tr><td><strong>softmax + KV cache</strong></td><td>$O(L\,d)$（新 q 对全部历史 k/v）</td><td>KV cache <strong>$O(L)$ 线性增长</strong></td><td>读整个 KV cache（带宽瓶颈）</td></tr><tr><td><strong>线性注意力 / SSM</strong></td><td>$O(d_k d_v)$（更新+读固定状态）</td><td><strong>固定大小状态 $O(d_k d_v)$，与 $L$ 无关</strong></td><td>只读写那个小状态</td></tr><tr><td><strong>稀疏（NSA/MoBA）</strong></td><td>$O(s\,d)$（只看选中的 $s$ 个 token/块）</td><td>仍需<strong>存全部 KV</strong>（$O(L)$），但只<strong>访问</strong>子集</td><td>读子集（比 full 少）</td></tr></tbody></table></div>
 <div class="callout callout-good"><div class="callout-title">OK</div><p><strong>这就是线性 / SSM 的最大卖点</strong> softmax 的 KV cache 随上下文<strong>线性膨胀</strong>——128K 上下文、70B 模型的 KV cache 能到几十 GB，是长上下文推理的头号显存 / 带宽杀手。线性注意力 / SSM 把历史压进一个<strong>固定大小</strong>的递推状态（$d_k\times d_v$ 或 SSM 的 $N$ 维），<strong>显存与上下文长度无关、每 token 解码 $O(1)$</strong>——这是它们在长上下文 / 高吞吐 serving 上最硬的优势。</p></div>
 <h3 id="82-kv-cache-显存对比直觉数字">8.2　KV cache 显存对比（直觉数字）</h3>
 <p>softmax KV cache（per sample，与 §attention 篇一致）：</p>
@@ -796,7 +803,7 @@ if __name__ == &quot;__main__&quot;:
 <p><strong>修法出奇地简单粗暴：在大量线性 / SSM 层里，交错插入少数几层 full softmax attention。</strong> 那几层 full attention 负责"精确检索 / in-context copy"，其余线性/SSM 层负责"廉价地处理长程上下文"。少量 full attention 层就能把 recall 补回到接近纯 Transformer；但只要保留哪怕一层 full attention，模型的渐进时间复杂度类别仍是 $O(L^2)$——该层贡献的二次项在 $L$ 足够大时依然是主导项。hybrid 真正带来的是<strong>常数因子的大幅降低</strong>（多数层是 $O(L)$、只有少数层 $O(L^2)$），而不是把复杂度类别本身变成线性；KV cache 侧同理（见 §8.2 的提醒）。</p>
 <div class="callout callout-good"><div class="callout-title">OK</div><p><strong>为什么 hybrid 赢</strong> 在固定预算下，hybrid 同时拿到了两端的好处：<strong>线性/SSM 层 → 长上下文的吞吐与显存（常数状态）</strong>；<strong>少数 full attention 层 → recall / 精确检索</strong>。经验上一个很小的 full-attention 比例（常见 1:5 到 1:7，即每 6–8 层插 1 层 full）就能逼近纯注意力的质量，而 KV cache 砍掉一大截。这就是 2024–2025 大量工业级长上下文模型选混合的原因。</p></div>
 <h3 id="92-代表性混合模型与比例">9.2　代表性混合模型与比例</h3>
-<table><thead><tr><th>模型</th><th>线性 / SSM 成分</th><th>full attention 成分</th><th>大致比例 / 特点</th></tr></thead><tbody><tr><td><strong>Jamba</strong></td><td>Mamba 层</td><td>Transformer 层 + MoE</td><td>Mamba:Attention 约 7:1，块内插 1 层 attention；首个大规模 Mamba-Transformer 混合</td></tr><tr><td><strong>Zamba</strong></td><td>Mamba 主干</td><td><strong>共享</strong>一个全局 attention 块（被多处复用）</td><td>用单个共享 attention 省参数</td></tr><tr><td><strong>Hymba</strong></td><td>SSM head</td><td>attention head</td><td><strong>同一层内并行</strong>跑 attention head 与 SSM head（head 级混合，非层级交错）</td></tr><tr><td><strong>Qwen3-Next</strong></td><td><strong>Gated DeltaNet</strong> 层</td><td>gated（输出门控）full attention 层</td><td>大比例 Gated DeltaNet + 少量门控注意力，主打长上下文效率</td></tr><tr><td><strong>Kimi-Linear</strong></td><td><strong>KDA</strong>（Kimi Delta Attention，Gated DeltaNet 变体）</td><td>周期性 full attention（MLA）</td><td>线性层:full 约 3:1，长上下文吞吐与 KV cache 大幅优化</td></tr><tr><td><strong>MiniMax-01</strong></td><td><strong>Lightning Attention</strong>（线性）</td><td>softmax attention</td><td>大比例 lightning + 周期性 softmax，支撑百万级上下文</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模型</th><th>线性 / SSM 成分</th><th>full attention 成分</th><th>大致比例 / 特点</th></tr></thead><tbody><tr><td><strong>Jamba</strong></td><td>Mamba 层</td><td>Transformer 层 + MoE</td><td>Mamba:Attention 约 7:1，块内插 1 层 attention；首个大规模 Mamba-Transformer 混合</td></tr><tr><td><strong>Zamba</strong></td><td>Mamba 主干</td><td><strong>共享</strong>一个全局 attention 块（被多处复用）</td><td>用单个共享 attention 省参数</td></tr><tr><td><strong>Hymba</strong></td><td>SSM head</td><td>attention head</td><td><strong>同一层内并行</strong>跑 attention head 与 SSM head（head 级混合，非层级交错）</td></tr><tr><td><strong>Qwen3-Next</strong></td><td><strong>Gated DeltaNet</strong> 层</td><td>gated（输出门控）full attention 层</td><td>大比例 Gated DeltaNet + 少量门控注意力，主打长上下文效率</td></tr><tr><td><strong>Kimi-Linear</strong></td><td><strong>KDA</strong>（Kimi Delta Attention，Gated DeltaNet 变体）</td><td>周期性 full attention（MLA）</td><td>线性层:full 约 3:1，长上下文吞吐与 KV cache 大幅优化</td></tr><tr><td><strong>MiniMax-01</strong></td><td><strong>Lightning Attention</strong>（线性）</td><td>softmax attention</td><td>大比例 lightning + 周期性 softmax，支撑百万级上下文</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>Hymba 的 head 级混合 vs 其余的层级交错</strong> 多数 hybrid 是<strong>层级</strong>交错（某些层是 SSM、某些层是 attention）；<strong>Hymba 是层内</strong>把 attention head 和 SSM head <strong>并行</strong>放在同一层（fused / parallel heads）。这是两种不同的混合粒度，面试能点出"层级 vs head 级"会加分。</p></div>
 <h3 id="93-近期趋势">9.3　近期趋势</h3>
 <p>2024→2025 的清晰趋势：<strong>线性层从"纯加性线性注意力 / Mamba"升级到"门控 + 改写式更新"（Gated DeltaNet / KDA）</strong>，因为后者 recall 更强、需要的 full attention 层更少；同时 full attention 那几层也常用上 GQA / MLA / 输出门控等省 KV 的手段。换句话说，hybrid 的两端都在各自变强：线性端靠 delta rule + 门控逼近 attention 的 recall，attention 端靠 MLA/GQA 压 KV cache。</p>
@@ -806,7 +813,7 @@ if __name__ == &quot;__main__&quot;:
 <div class="callout callout-bad"><div class="callout-title">Blocked</div><p><strong>最大 footgun #2：以为 SSD / SSM "就是" attention 或线性注意力"约等于" softmax</strong> SSD 是"SSM ≡ <strong>结构化掩码（半可分）线性注意力</strong>"的精确等价，<strong>不是</strong> softmax attention；线性注意力是否"近似 softmax"要看 feature map——<strong>只有 Performer 类（FAVOR+ 随机特征）显式构造为 $\exp(q^\top k)$ 的无偏有限维近似</strong>，ELU+1（Katharopoulos）、RetNet/GLA 等则是换用另一个核函数 / 相似度度量，并未试图逼近 softmax 的 exp 核（见 §2.1）。二者共同的局限是：任何有限维内积（无论是否逼近 softmax）都<strong>表达不出 softmax 的任意尖锐 one-hot 选择</strong>，这是 recall 变弱的根源——但"近似 softmax"这个说法只适用于 Performer 类方法。把这些等价 / 近似过度宣称成"等同 / 无损替代 softmax"，或把"近似 softmax"当成所有线性注意力变体的共性，都是经典错误，会被追问到底。</p></div>
 <h2 id="11-复杂度与资源">§11 复杂度与资源</h2>
 <p>下表按"训练时间 / decode 每步 / KV·状态显存 / recall / 长度外推 / 可并行"对比五族方法（$L$=序列长，$d$=隐维，$d_k d_v$=线性状态，$N$=SSM 状态维，$s$=稀疏选中数，$C$=chunk）。表中绝对值/范数用 $\lvert\cdot\rvert$、$\lVert\cdot\rVert$ 记号。</p>
-<table><thead><tr><th>方法</th><th>训练时间</th><th>decode 每步</th><th>KV / 状态显存（随 $L$）</th><th>recall</th><th>长度外推</th><th>可并行训练</th></tr></thead><tbody><tr><td><strong>softmax (Flash)</strong></td><td>$O(L^2 d)$</td><td>$O(L d)$</td><td>KV cache $O(L)$ 线性增长</td><td><strong>强</strong></td><td>RoPE+YaRN 中等</td><td>是（matmul）</td></tr><tr><td><strong>线性注意力</strong></td><td>$O(L d_k d_v)$（chunkwise）</td><td>$O(d_k d_v)$</td><td>状态 $O(d_k d_v)$，<strong>与 $L$ 无关</strong></td><td>弱（容量瓶颈）</td><td>好（衰减自然外推）</td><td>是（chunkwise matmul）</td></tr><tr><td><strong>SSM / Mamba-2</strong></td><td>$O(L\,N d)$（SSD chunkwise）</td><td>$O(N d)$</td><td>状态 $O(N d)$，<strong>与 $L$ 无关</strong></td><td>中（强于纯线性，弱于 softmax）</td><td>好</td><td>是（SSD matmul）</td></tr><tr><td><strong>DeltaNet / Gated</strong></td><td>$O(L d_k d_v)$（WY chunkwise）</td><td>$O(d_k d_v)$</td><td>状态 $O(d_k d_v)$，<strong>与 $L$ 无关</strong></td><td>中-强（改写式更新提升 recall）</td><td>好</td><td>是（WY chunkwise）</td></tr><tr><td><strong>稀疏 (NSA)</strong></td><td>$O(L\,s\,d)$（$s\ll L$）</td><td>$O(s\,d)$（仍存全 KV）</td><td>KV $O(L)$（存全部，访问子集）</td><td><strong>强</strong>（保留 softmax）</td><td>取决于窗口/选择</td><td>是（块 matmul，硬件对齐）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>训练时间</th><th>decode 每步</th><th>KV / 状态显存（随 $L$）</th><th>recall</th><th>长度外推</th><th>可并行训练</th></tr></thead><tbody><tr><td><strong>softmax (Flash)</strong></td><td>$O(L^2 d)$</td><td>$O(L d)$</td><td>KV cache $O(L)$ 线性增长</td><td><strong>强</strong></td><td>RoPE+YaRN 中等</td><td>是（matmul）</td></tr><tr><td><strong>线性注意力</strong></td><td>$O(L d_k d_v)$（chunkwise）</td><td>$O(d_k d_v)$</td><td>状态 $O(d_k d_v)$，<strong>与 $L$ 无关</strong></td><td>弱（容量瓶颈）</td><td>好（衰减自然外推）</td><td>是（chunkwise matmul）</td></tr><tr><td><strong>SSM / Mamba-2</strong></td><td>$O(L\,N d)$（SSD chunkwise）</td><td>$O(N d)$</td><td>状态 $O(N d)$，<strong>与 $L$ 无关</strong></td><td>中（强于纯线性，弱于 softmax）</td><td>好</td><td>是（SSD matmul）</td></tr><tr><td><strong>DeltaNet / Gated</strong></td><td>$O(L d_k d_v)$（WY chunkwise）</td><td>$O(d_k d_v)$</td><td>状态 $O(d_k d_v)$，<strong>与 $L$ 无关</strong></td><td>中-强（改写式更新提升 recall）</td><td>好</td><td>是（WY chunkwise）</td></tr><tr><td><strong>稀疏 (NSA)</strong></td><td>$O(L\,s\,d)$（$s\ll L$）</td><td>$O(s\,d)$（仍存全 KV）</td><td>KV $O(L)$（存全部，访问子集）</td><td><strong>强</strong>（保留 softmax）</td><td>取决于窗口/选择</td><td>是（块 matmul，硬件对齐）</td></tr></tbody></table></div>
 <p>关键读表要点：</p>
 <ul><li><strong>状态显存与 $L$ 无关</strong>只有线性 / SSM / DeltaNet 三族做到；稀疏仍存 $O(L)$ KV（省的是计算/访存）。</li><li><strong>recall</strong> 大致排序（<strong>经验值</strong>，随模型规模 / 训练 recipe / benchmark 浮动，不是定理；尤其 DeltaNet/Gated 与 Mamba-2 的相对位置很依赖具体设置）：softmax ≈ 稀疏(NSA) &gt; DeltaNet/Gated &gt; Mamba-2 &gt; 纯线性注意力。注意 NSA 的"≈ softmax"是 <strong>softmax-over-selected</strong>（保留 softmax，但只在选中的块/token 上算）——selector 命中时接近 full attention 的 recall，但<strong>不是 exact full softmax</strong>，极端大海捞针若选错块仍可能 miss。这正是 hybrid 想把 softmax 的 recall 和线性的吞吐结合的动机。</li><li><strong>训练全可并行</strong>：五族都能 matmul 并行训练（线性/SSM/DeltaNet 靠 chunkwise，稀疏靠块），区别在常数和访存友好度。</li><li><strong>decode</strong>：线性/SSM/DeltaNet 是序列长度上的真 $O(1)$；softmax 是 $O(L)$；稀疏是 $O(s)$ 但要维护全 KV。</li></ul>
 <h2 id="12-25-高频面试题">§12 25 高频面试题</h2>
@@ -1051,7 +1058,7 @@ all linear / sparse attention sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/linear_sparse_attention_tutorial.md</code> ·
   SHA256 <code>9bbd91bc260e</code> ·
-  generated at 2026-07-12 04:21 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

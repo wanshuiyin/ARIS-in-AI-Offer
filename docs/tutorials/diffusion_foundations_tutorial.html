@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_foundations_tutorial.md">
 <meta name="aris:source-sha256" content="3b7554f2575871b7adef380116023e27397af4c0f09a642088a3ff78e90169e6">
-<meta name="aris:generated-at" content="2026-07-13 10:17 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -653,7 +660,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_foundations_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>3b7554f25758</code></span>
-    <span><strong>Rendered:</strong> 2026-07-13 10:17 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -679,7 +686,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
                           s = -ε/σ_t,   v = α&#x27;x_0 + σ&#x27;ε,   ε = -σ s</code></pre>
 <div class="callout callout-info"><div class="callout-title">面试一句话答</div><p>"DDPM 是离散时间下 VP-SDE 的特例；score-based 是连续时间下的等价参数化；Flow Matching 在 VP/VE path 下与 score matching 同信息，只是参数化成 $v$ 不是 $s$。Rectified Flow 跳出 SDE 框架，用线性 path 直接学 ODE 的 vector field。"</p></div>
 <h3 id="13-convention全文统一">1.3　Convention（全文统一）</h3>
-<table><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>$x_0$</td><td>干净数据样本</td></tr><tr><td>$x_t$, $t \in \{1,\dots,T\}$ 或 $t \in [0,T]$</td><td>加噪后的样本</td></tr><tr><td>$\epsilon \sim \mathcal{N}(0, I)$</td><td>标准 Gaussian 噪声</td></tr><tr><td>$\alpha_t, \beta_t = 1 - \alpha_t$</td><td>DDPM 单步 forward 系数</td></tr><tr><td>$\bar\alpha_t = \prod_{s=1}^t \alpha_s$</td><td>DDPM cumulative 系数</td></tr><tr><td>$\sigma_t$</td><td>标准差（NCSN / EDM 视角的"噪声水平"）</td></tr><tr><td>$s_\theta(x_t, t) \approx \nabla_{x_t}\log p_t(x_t)$</td><td>score</td></tr><tr><td>$\epsilon_\theta(x_t, t) \approx \epsilon$</td><td>DDPM 中预测的噪声</td></tr><tr><td>$D_\theta(x; \sigma) \approx x_0$</td><td>EDM 的 denoiser 输出</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>$x_0$</td><td>干净数据样本</td></tr><tr><td>$x_t$, $t \in \{1,\dots,T\}$ 或 $t \in [0,T]$</td><td>加噪后的样本</td></tr><tr><td>$\epsilon \sim \mathcal{N}(0, I)$</td><td>标准 Gaussian 噪声</td></tr><tr><td>$\alpha_t, \beta_t = 1 - \alpha_t$</td><td>DDPM 单步 forward 系数</td></tr><tr><td>$\bar\alpha_t = \prod_{s=1}^t \alpha_s$</td><td>DDPM cumulative 系数</td></tr><tr><td>$\sigma_t$</td><td>标准差（NCSN / EDM 视角的"噪声水平"）</td></tr><tr><td>$s_\theta(x_t, t) \approx \nabla_{x_t}\log p_t(x_t)$</td><td>score</td></tr><tr><td>$\epsilon_\theta(x_t, t) \approx \epsilon$</td><td>DDPM 中预测的噪声</td></tr><tr><td>$D_\theta(x; \sigma) \approx x_0$</td><td>EDM 的 denoiser 输出</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">时间方向陷阱</div><p>DDPM 论文 forward 是 $t = 0 \to T$（数据加噪到纯噪声），reverse 是 $T \to 0$；FM 论文常用 $t = 0$ 噪声、$t = 1$ 数据。<strong>面试写代码前一定要先 disambiguate 时间方向</strong>——否则 sampler 容易跑反。</p></div>
 <h2 id="2-ddpm-forward-process">§2 DDPM Forward Process</h2>
 <h3 id="21-单步与闭式表达">2.1　单步与闭式表达</h3>
@@ -770,7 +777,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="61-forward-sde">6.1　Forward SDE</h3>
 <p>Song et al. 2021 (ICLR) 把所有 diffusion 写成 <strong>forward SDE</strong>：</p>
 <p>$$dx = f(x, t)\, dt + g(t)\, dW$$</p>
-<table><thead><tr><th>Type</th><th>$f(x, t)$</th><th>$g(t)$</th><th>对应离散版</th></tr></thead><tbody><tr><td><strong>VP-SDE</strong> (variance preserving)</td><td>$-\frac{1}{2}\beta(t) x$</td><td>$\sqrt{\beta(t)}$</td><td>DDPM</td></tr><tr><td><strong>VE-SDE</strong> (variance exploding)</td><td>$0$</td><td>$\sqrt{d[\sigma^2(t)]/dt}$</td><td>SMLD / EDM</td></tr><tr><td><strong>sub-VP</strong></td><td>$-\frac{1}{2}\beta(t) x$</td><td>$\sqrt{\beta(t)(1-e^{-2\int_0^t \beta(s)ds})}$</td><td>介于 VP/VE，likelihood 更好</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Type</th><th>$f(x, t)$</th><th>$g(t)$</th><th>对应离散版</th></tr></thead><tbody><tr><td><strong>VP-SDE</strong> (variance preserving)</td><td>$-\frac{1}{2}\beta(t) x$</td><td>$\sqrt{\beta(t)}$</td><td>DDPM</td></tr><tr><td><strong>VE-SDE</strong> (variance exploding)</td><td>$0$</td><td>$\sqrt{d[\sigma^2(t)]/dt}$</td><td>SMLD / EDM</td></tr><tr><td><strong>sub-VP</strong></td><td>$-\frac{1}{2}\beta(t) x$</td><td>$\sqrt{\beta(t)(1-e^{-2\int_0^t \beta(s)ds})}$</td><td>介于 VP/VE，likelihood 更好</td></tr></tbody></table></div>
 <p>VP-SDE 满足 $\text{Var}[x_t] \le 1$（variance preserving），VE-SDE 让方差无界增长（variance exploding）。</p>
 <h3 id="62-reverse-sde-anderson-1982">6.2　Reverse SDE (Anderson 1982)</h3>
 <p>对任意 forward SDE，存在 <strong>reverse-time SDE</strong>：</p>
@@ -795,7 +802,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\frac{\partial p_t}{\partial t} = -\nabla \cdot \left[\left(f - \tfrac{1}{2} g^2 \nabla \log p_t\right) p_t\right]$$</p>
 <p>这正是 ODE $dx/dt = f - \frac{1}{2} g^2 \nabla \log p_t$ 的连续性方程——所以它们的 $p_t$ 一致。</p>
 <h3 id="64-ode-视角的优势">6.4　ODE 视角的优势</h3>
-<table><thead><tr><th>优势</th><th>说明</th></tr></thead><tbody><tr><td><strong>Deterministic</strong></td><td>同一 noise → 同一 sample，可做 image editing / interpolation</td></tr><tr><td><strong>NFE 友好</strong></td><td>高阶 ODE solver（Heun / RK4 / DPM-Solver）少步数即可</td></tr><tr><td><strong>Likelihood 可计算</strong></td><td>$\log p_0(x_0) = \log p_T(x_T) + \int_0^T \nabla \cdot v_t(x(t))\, dt$（PF-ODE 的 instantaneous change-of-variables，Chen et al. 2018），用 Hutchinson trace estimator 估计 div</td></tr><tr><td><strong>桥到 FM</strong></td><td>RF / SD3 / FLUX 走这条线</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>优势</th><th>说明</th></tr></thead><tbody><tr><td><strong>Deterministic</strong></td><td>同一 noise → 同一 sample，可做 image editing / interpolation</td></tr><tr><td><strong>NFE 友好</strong></td><td>高阶 ODE solver（Heun / RK4 / DPM-Solver）少步数即可</td></tr><tr><td><strong>Likelihood 可计算</strong></td><td>$\log p_0(x_0) = \log p_T(x_T) + \int_0^T \nabla \cdot v_t(x(t))\, dt$（PF-ODE 的 instantaneous change-of-variables，Chen et al. 2018），用 Hutchinson trace estimator 估计 div</td></tr><tr><td><strong>桥到 FM</strong></td><td>RF / SD3 / FLUX 走这条线</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">SDE vs ODE 的 trade-off</div><p>SDE 采样的随机扰动可以"修正"早期错误，<strong>通常 sample 质量更高</strong>但 NFE 大；ODE deterministic 但易受 solver 误差累积，需更高阶 solver。EDM 提出折中：基础 ODE + 小幅 stochastic churn（"$S_\text{churn}$"），FID 更好。</p></div>
 <h2 id="7-ddimnon-markovian-forward--deterministic-sampler">§7 DDIM：Non-Markovian Forward → Deterministic Sampler</h2>
 <h3 id="71-motivation">7.1　Motivation</h3>
@@ -959,7 +966,7 @@ else:
 <p><strong>实际上</strong>：对应任意 $\alpha(t), \sigma(t)$ 的 Gaussian path，三个量 $\{\epsilon_\theta, s_\theta, v_\theta\}$ 完全等价。所以训 DDPM、训 score-based、训 FM 在 VP/VE path 上是同一件事。</p>
 <h3 id="132-为什么-sd3--flux-改用-rectified-flow">13.2　为什么 SD3 / FLUX 改用 Rectified Flow？</h3>
 <p><strong>Rectified Flow 的 path</strong>：$x_t = (1-t) x_0 + t x_1$（噪声→数据线性插值），$v_t = x_1 - x_0$。</p>
-<table><thead><tr><th>优势</th><th>RF (linear)</th><th>VP/VE (curved)</th></tr></thead><tbody><tr><td>条件路径 (conditional path)</td><td>直线（marginal ODE 轨迹在独立配对下仍可能弯曲，需 Reflow 拉直）</td><td>曲线（需更高阶 solver）</td></tr><tr><td>Target $v_t$</td><td>不依赖 $t$</td><td>依赖 $t$（VP cosine 路径）</td></tr><tr><td>少步数采样</td><td>Euler 4-8 步可用</td><td>Euler 需 30+ 步</td></tr><tr><td>Reflow 可压到 1-2 步</td><td>✓（InstaFlow；SD3-Turbo 走的是 LADD 而非 reflow，见 §12.4）</td><td>✗</td></tr><tr><td>训练稳定性</td><td>logit-normal $t$ + RF 稳</td><td>需精心调 noise schedule</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>优势</th><th>RF (linear)</th><th>VP/VE (curved)</th></tr></thead><tbody><tr><td>条件路径 (conditional path)</td><td>直线（marginal ODE 轨迹在独立配对下仍可能弯曲，需 Reflow 拉直）</td><td>曲线（需更高阶 solver）</td></tr><tr><td>Target $v_t$</td><td>不依赖 $t$</td><td>依赖 $t$（VP cosine 路径）</td></tr><tr><td>少步数采样</td><td>Euler 4-8 步可用</td><td>Euler 需 30+ 步</td></tr><tr><td>Reflow 可压到 1-2 步</td><td>✓（InstaFlow；SD3-Turbo 走的是 LADD 而非 reflow，见 §12.4）</td><td>✗</td></tr><tr><td>训练稳定性</td><td>logit-normal $t$ + RF 稳</td><td>需精心调 noise schedule</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">一句话 SD3 ablation 结论</div><p>"在同样的 DiT backbone 下，RF + logit-normal $t$ 比 VP + uniform $t$ 在 ImageNet 256 FID 提升约 0.5-1.0；在 T2I 任务 GenEval 上文本对齐显著更好。"</p></div>
 <h3 id="133-ddpmddimedmrfcm-全图">13.3　DDPM/DDIM/EDM/RF/CM 全图</h3>
 <pre class="diagram"><code>                训练目标              采样方式               典型 NFE
@@ -1430,7 +1437,7 @@ def pf_ode_sample_ddim_exact(eps_model, sched: DDPMSchedule, shape, device, num_
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_foundations_tutorial.md</code> ·
   SHA256 <code>3b7554f25758</code> ·
-  generated at 2026-07-13 10:17 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

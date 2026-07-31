@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/video_generation_tutorial.md">
 <meta name="aris:source-sha256" content="f25820ee39d9957799b4fb358a1ffb7a3dcac6ae66e3979b34a77e3ea80735f9">
-<meta name="aris:generated-at" content="2026-07-13 10:03 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -624,7 +631,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/video_generation_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>f25820ee39d9</code></span>
-    <span><strong>Rendered:</strong> 2026-07-13 10:03 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -638,7 +645,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>记 $H{\times}W{\times}T$ 视频，pixel 数随 $T$ 线性增长，token 数（patchify 后）也线性增长。<strong>Attention 复杂度二次于 token 数</strong>——这意味着在原 pixel 空间做 full 3D attention 对 $T \ge 16$ 已经爆炸。所以视频生成的核心工程问题是：</p>
 <ul><li><strong>压缩</strong>：3D VAE 在空间 + 时间双维度压缩 token 数（典型 $8 \times 8 \times 4$）</li><li><strong>架构</strong>：在 latent 上跑 attention（spatiotemporal patterns 是设计点）</li><li><strong>生成范式</strong>：DDPM / Rectified Flow / FM（v-prediction 主流；SD3-style）</li></ul>
 <h3 id="12-2024-2025-时间线按发布顺序">1.2 2024-2025 时间线（按发布顺序）</h3>
-<table><thead><tr><th>时间</th><th>模型</th><th>出品</th><th>关键贡献</th></tr></thead><tbody><tr><td>2023-07 → ICLR'24</td><td><strong>AnimateDiff</strong></td><td>Guo et al.</td><td>T2I 主干 + plug-in motion module，开源 I2V/T2V 鼻祖</td></tr><tr><td>2023-11</td><td><strong>SVD</strong></td><td>Stability</td><td>I2V 开源 baseline；SD2.1 + temporal layers</td></tr><tr><td>2024-01</td><td><strong>Latte</strong></td><td>Ma et al.</td><td>早期 DiT-Video；factorized spatial+temporal</td></tr><tr><td>2024-02</td><td><strong>Sora</strong></td><td>OpenAI</td><td>DiT + spacetime patches + 大规模 caption；闭源</td></tr><tr><td>2024-05</td><td><strong>Veo</strong></td><td>Google DeepMind</td><td>闭源 1080p / 1 分钟</td></tr><tr><td>2024-06</td><td><strong>Kling</strong></td><td>Kuaishou</td><td>国产闭源，时长 2 分钟</td></tr><tr><td>2024-08</td><td><strong>CogVideoX</strong> (arXiv)</td><td>Zhipu/THU</td><td>开源 2B/5B；Expert Transformer + 3D VAE</td></tr><tr><td>2024-10</td><td><strong>Movie Gen</strong></td><td>Meta</td><td>Movie Gen Video 30B + Movie Gen Audio 13B（两个独立模型；音频模型依据生成视频做同步音效/配乐）；DiT + FM</td></tr><tr><td>2024-10</td><td><strong>Mochi-1</strong></td><td>Genmo</td><td>10B 开源；AsymmDiT 非对称 MM-DiT</td></tr><tr><td>2024-11</td><td><strong>LTX-Video</strong></td><td>Lightricks</td><td>实时（2B）；强压缩 VAE + DiT</td></tr><tr><td>2024-12</td><td><strong>Hunyuan-Video</strong></td><td>Tencent</td><td>13B 开源 SoTA；3D Causal VAE + MM-DiT + prompt rewriter</td></tr><tr><td>2024-12</td><td><strong>Veo 2</strong></td><td>Google</td><td>4K / 2 分钟</td></tr><tr><td>2025-02</td><td><strong>Wan 2.1</strong></td><td>Alibaba (Team Wan)</td><td>14B 开源；T2V + I2V 双模</td></tr><tr><td>2025-07</td><td><strong>Wan 2.2</strong></td><td>Alibaba</td><td>升级版；MoE expert + 更长时序</td></tr><tr><td>2024-2025</td><td><strong>OpenSora / OpenSora-Plan</strong></td><td>HPC-AI / PKU</td><td>全开源训练栈复刻 Sora pipeline</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>时间</th><th>模型</th><th>出品</th><th>关键贡献</th></tr></thead><tbody><tr><td>2023-07 → ICLR'24</td><td><strong>AnimateDiff</strong></td><td>Guo et al.</td><td>T2I 主干 + plug-in motion module，开源 I2V/T2V 鼻祖</td></tr><tr><td>2023-11</td><td><strong>SVD</strong></td><td>Stability</td><td>I2V 开源 baseline；SD2.1 + temporal layers</td></tr><tr><td>2024-01</td><td><strong>Latte</strong></td><td>Ma et al.</td><td>早期 DiT-Video；factorized spatial+temporal</td></tr><tr><td>2024-02</td><td><strong>Sora</strong></td><td>OpenAI</td><td>DiT + spacetime patches + 大规模 caption；闭源</td></tr><tr><td>2024-05</td><td><strong>Veo</strong></td><td>Google DeepMind</td><td>闭源 1080p / 1 分钟</td></tr><tr><td>2024-06</td><td><strong>Kling</strong></td><td>Kuaishou</td><td>国产闭源，时长 2 分钟</td></tr><tr><td>2024-08</td><td><strong>CogVideoX</strong> (arXiv)</td><td>Zhipu/THU</td><td>开源 2B/5B；Expert Transformer + 3D VAE</td></tr><tr><td>2024-10</td><td><strong>Movie Gen</strong></td><td>Meta</td><td>Movie Gen Video 30B + Movie Gen Audio 13B（两个独立模型；音频模型依据生成视频做同步音效/配乐）；DiT + FM</td></tr><tr><td>2024-10</td><td><strong>Mochi-1</strong></td><td>Genmo</td><td>10B 开源；AsymmDiT 非对称 MM-DiT</td></tr><tr><td>2024-11</td><td><strong>LTX-Video</strong></td><td>Lightricks</td><td>实时（2B）；强压缩 VAE + DiT</td></tr><tr><td>2024-12</td><td><strong>Hunyuan-Video</strong></td><td>Tencent</td><td>13B 开源 SoTA；3D Causal VAE + MM-DiT + prompt rewriter</td></tr><tr><td>2024-12</td><td><strong>Veo 2</strong></td><td>Google</td><td>4K / 2 分钟</td></tr><tr><td>2025-02</td><td><strong>Wan 2.1</strong></td><td>Alibaba (Team Wan)</td><td>14B 开源；T2V + I2V 双模</td></tr><tr><td>2025-07</td><td><strong>Wan 2.2</strong></td><td>Alibaba</td><td>升级版；MoE expert + 更长时序</td></tr><tr><td>2024-2025</td><td><strong>OpenSora / OpenSora-Plan</strong></td><td>HPC-AI / PKU</td><td>全开源训练栈复刻 Sora pipeline</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">闭源 vs 开源</div><p>Sora / Veo / Kling / Movie Gen 没放 weights，所有架构细节基于官方 technical report；面试时不要把内部 ablation 当真硬数字，要主动说 "according to their report"。</p></div>
 <h3 id="13-整体-pipeline共性骨架">1.3 整体 pipeline（共性骨架）</h3>
 <pre><code>Text  --T5/CLIP/MLLM--&gt;  text tokens [B, L_t, D]
@@ -805,7 +812,7 @@ class SpacetimeUnpatchify(nn.Module):
 <h2 id="4-spatiotemporal-attention-三大变体">§4 Spatiotemporal Attention 三大变体</h2>
 <h3 id="41-复杂度对比核心面试题">4.1 复杂度对比（核心面试题）</h3>
 <p>定义 $S = h \cdot w / (p_h p_w)$（每帧 token 数），$T_t = t / p_t$（时间 token 数），$N = S \cdot T_t$。</p>
-<table><thead><tr><th>类型</th><th>公式形式</th><th>Time</th><th>Score memory (vanilla)</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>Factorized 2+1D</strong></td><td>$\text{TempAttn}(\text{SpatialAttn}(x))$</td><td>$O(T_t S^2 + S T_t^2) \cdot d$</td><td>$O(T_t S^2 + S T_t^2)$</td><td>Latte, OpenSora, AnimateDiff</td></tr><tr><td><strong>Full 3D ST</strong></td><td>$\text{Attn}_{\text{ST}}(x \in \mathbb{R}^{N \times D})$</td><td>$O(N^2 d) = O(S^2 T_t^2 d)$</td><td>$O(N^2)$</td><td>Hunyuan-Video, Mochi, (Sora 推测)</td></tr><tr><td><strong>2+1D + 周期 full</strong></td><td>大部分块 2+1D, 少量块 full</td><td>介于两者</td><td>介于两者</td><td>OpenSora-Plan, CogVideoX</td></tr><tr><td><strong>Window 3D / 稀疏</strong></td><td>局部 3D window</td><td>$O(N \cdot w^3 d)$ ($w$ = window)</td><td>$O(N \cdot w^3)$</td><td>部分工程实践</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>类型</th><th>公式形式</th><th>Time</th><th>Score memory (vanilla)</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>Factorized 2+1D</strong></td><td>$\text{TempAttn}(\text{SpatialAttn}(x))$</td><td>$O(T_t S^2 + S T_t^2) \cdot d$</td><td>$O(T_t S^2 + S T_t^2)$</td><td>Latte, OpenSora, AnimateDiff</td></tr><tr><td><strong>Full 3D ST</strong></td><td>$\text{Attn}_{\text{ST}}(x \in \mathbb{R}^{N \times D})$</td><td>$O(N^2 d) = O(S^2 T_t^2 d)$</td><td>$O(N^2)$</td><td>Hunyuan-Video, Mochi, (Sora 推测)</td></tr><tr><td><strong>2+1D + 周期 full</strong></td><td>大部分块 2+1D, 少量块 full</td><td>介于两者</td><td>介于两者</td><td>OpenSora-Plan, CogVideoX</td></tr><tr><td><strong>Window 3D / 稀疏</strong></td><td>局部 3D window</td><td>$O(N \cdot w^3 d)$ ($w$ = window)</td><td>$O(N \cdot w^3)$</td><td>部分工程实践</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">核心对比</div><p>Full 3D 是 spacetime token 全交互，<strong>表达力最强</strong>；Factorized 是先空间后时间两次 attn，<strong>强假设 space ⊗ time 可分</strong>，但成本低 $\min(S, T_t)$ 量级倍。Sora 官方未披露具体 attention 类型，社区基于其 "spacetime patches" 描述普遍推测是 full 3D / 大序列统一 attention（Hunyuan-Video / Mochi 已采用此设计）。</p></div>
 <h3 id="42-factorized-21d-attentionlatte--opensora">4.2 Factorized 2+1D Attention（Latte / OpenSora）</h3>
 <pre class="diagram"><code>
@@ -911,7 +918,7 @@ class Factorized2plus1DBlock(nn.Module):
 <ul><li><strong>Dual-stream blocks</strong>（前 N 层）：text token 与 video token 在 attention 共享，但 FFN / AdaLN 独立——让两个模态先各自精炼表示。</li><li><strong>Single-stream blocks</strong>（后 M 层）：text token 和 video token 完全 share weight，相当于普通 Transformer 处理统一序列。</li></ul>
 <p>这与 Mochi-1 的 <strong>AsymmDiT</strong> 类似（Mochi 让 video stream 比 text stream 宽 4 倍参数，因为视频信息远多于文本）。</p>
 <h3 id="53-文本编码器一览">5.3 文本编码器（一览）</h3>
-<table><thead><tr><th>模型</th><th>Text encoder</th><th>备注</th></tr></thead><tbody><tr><td>Hunyuan-Video</td><td>CLIP-L + MLLM (LLaVA 风)</td><td>MLLM 提供长 prompt + 物体关系</td></tr><tr><td>Mochi-1</td><td>T5-XXL</td><td>与 SD3 同</td></tr><tr><td>Wan 2.1 / 2.2</td><td>UMT5 (multilingual)</td><td>支持中英双语</td></tr><tr><td>CogVideoX</td><td>T5-XXL</td><td>—</td></tr><tr><td>Sora</td><td>未公开</td><td>OpenAI 报告只提到使用 re-captioning 流程</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模型</th><th>Text encoder</th><th>备注</th></tr></thead><tbody><tr><td>Hunyuan-Video</td><td>CLIP-L + MLLM (LLaVA 风)</td><td>MLLM 提供长 prompt + 物体关系</td></tr><tr><td>Mochi-1</td><td>T5-XXL</td><td>与 SD3 同</td></tr><tr><td>Wan 2.1 / 2.2</td><td>UMT5 (multilingual)</td><td>支持中英双语</td></tr><tr><td>CogVideoX</td><td>T5-XXL</td><td>—</td></tr><tr><td>Sora</td><td>未公开</td><td>OpenAI 报告只提到使用 re-captioning 流程</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">prompt rewriter（Hunyuan-Video / Sora 报告）</div><p>训练数据 caption 通常长且细致，用户 short prompt 与训练分布有 gap。Sora 官方报告提到训练前对视频做 dense re-captioning；Hunyuan-Video 在推理时用 LLM 改写短 prompt 成 dense caption 再喂模型。面试常问"为什么需要 prompt rewriter"——答：训练/推理 caption 分布对齐 + 用户原 prompt 太短。</p></div>
 <h3 id="54-代码mm-dit-video-block">5.4 代码：MM-DiT video block</h3>
 <pre><code class="language-python">class MMDiTVideoBlock(nn.Module):
@@ -1041,7 +1048,7 @@ class Factorized2plus1DBlock(nn.Module):
 <p>I2V 训练时给参考帧 latent 不加噪（或加极小噪声），待生成帧加正常 $\tau$ 噪声。loss 只在待生成帧位置计算。这点在 SVD / Hunyuan-Video I2V variant 中都有提到。</p>
 <h2 id="7-长视频生成开放问题">§7 长视频生成（开放问题）</h2>
 <h3 id="71-三大主流路线">7.1 三大主流路线</h3>
-<table><thead><tr><th>路线</th><th>方法</th><th>代表</th><th>缺点</th></tr></thead><tbody><tr><td><strong>Keyframe + interpolation</strong></td><td>先生成 $K$ 个关键帧（远距），再每段插值出中间帧</td><td>NUWA-XL, Movie Gen 部分 pipeline</td><td>关键帧 transition 可能不自然</td></tr><tr><td><strong>Hierarchical (coarse → fine)</strong></td><td>先生成 low-fps 低分辨率版本，再 cascade 超分 + 帧插</td><td>Phenaki, Imagen Video, Sora 部分</td><td>多阶段累积误差</td></tr><tr><td><strong>Autoregressive chunks</strong></td><td>每次生成 $T$ 帧 chunk，下一 chunk 以前 chunk 末尾为条件</td><td>Mochi-1 部分模式, StreamingT2V</td><td>误差累积 → drift, "loop"</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>路线</th><th>方法</th><th>代表</th><th>缺点</th></tr></thead><tbody><tr><td><strong>Keyframe + interpolation</strong></td><td>先生成 $K$ 个关键帧（远距），再每段插值出中间帧</td><td>NUWA-XL, Movie Gen 部分 pipeline</td><td>关键帧 transition 可能不自然</td></tr><tr><td><strong>Hierarchical (coarse → fine)</strong></td><td>先生成 low-fps 低分辨率版本，再 cascade 超分 + 帧插</td><td>Phenaki, Imagen Video, Sora 部分</td><td>多阶段累积误差</td></tr><tr><td><strong>Autoregressive chunks</strong></td><td>每次生成 $T$ 帧 chunk，下一 chunk 以前 chunk 末尾为条件</td><td>Mochi-1 部分模式, StreamingT2V</td><td>误差累积 → drift, "loop"</td></tr></tbody></table></div>
 <h3 id="72-sora-的-duration-as-condition">7.2 Sora 的 "duration as condition"</h3>
 <p>Sora 把 video duration 当成 conditioning（不是固定 $T$），训练时把不同时长视频都见过；推理时给定目标时长，生成对应长度 patch 序列。这在公开 report 中只是简短提到。</p>
 <h3 id="73-autoregressive-video-generation-兼容性causal-vae-派上用场">7.3 Autoregressive Video Generation 兼容性（Causal VAE 派上用场）</h3>
@@ -1081,7 +1088,7 @@ def chunk_autoregressive(rf_sample_fn, vae, text, num_chunks, chunk_t_lat=4, ove
     return vae.decoder(z_full)</code></pre>
 <div class="callout callout-warn"><div class="callout-title">drift 问题</div><p>即使有 overlap，AR 模式下后期 chunk 容易出现内容 drift（人物消失、色调变化）。Movie Gen / Hunyuan 采用全局 attention 一次生成短视频（5-10s）+ 后处理超分时长 trick 而非纯 AR。</p></div>
 <h2 id="8-控制--编辑--角色一致性简表">§8 控制 / 编辑 / 角色一致性（简表）</h2>
-<table><thead><tr><th>任务</th><th>代表方法</th><th>注入手段</th></tr></thead><tbody><tr><td>Camera 控制</td><td><strong>MotionCtrl</strong> (Wang et al. 2023)</td><td>CMCM: 相机轨迹 $R, T$ 序列 → temporal embedding</td></tr><tr><td>Object trajectory 控制</td><td><strong>MotionCtrl</strong> OMCM 模块</td><td>2D 轨迹点 → spatial heatmap 当 condition</td></tr><tr><td>人物动画</td><td><strong>AnimateAnyone</strong> (Hu et al. CVPR 2024)</td><td>ReferenceNet (sibling SD 主干) + Pose Guider (OpenPose/DWPose) + temporal layers</td></tr><tr><td>角色一致</td><td>IP-Adapter / DreamBooth-style</td><td>ID embedding 经 cross-attn 注入</td></tr><tr><td>局部编辑</td><td>Mask-guided generation</td><td>角色 mask + ref image 一同注入</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>任务</th><th>代表方法</th><th>注入手段</th></tr></thead><tbody><tr><td>Camera 控制</td><td><strong>MotionCtrl</strong> (Wang et al. 2023)</td><td>CMCM: 相机轨迹 $R, T$ 序列 → temporal embedding</td></tr><tr><td>Object trajectory 控制</td><td><strong>MotionCtrl</strong> OMCM 模块</td><td>2D 轨迹点 → spatial heatmap 当 condition</td></tr><tr><td>人物动画</td><td><strong>AnimateAnyone</strong> (Hu et al. CVPR 2024)</td><td>ReferenceNet (sibling SD 主干) + Pose Guider (OpenPose/DWPose) + temporal layers</td></tr><tr><td>角色一致</td><td>IP-Adapter / DreamBooth-style</td><td>ID embedding 经 cross-attn 注入</td></tr><tr><td>局部编辑</td><td>Mask-guided generation</td><td>角色 mask + ref image 一同注入</td></tr></tbody></table></div>
 <h2 id="9-评测vbench--fvd--clipsim-v">§9 评测：VBench / FVD / CLIPSim-V</h2>
 <div class="callout callout-good"><div class="callout-title">VBench (Huang et al. CVPR 2024) — 现 SoTA 标准</div><p>16 个细粒度维度，分两大类。</p></div>
 <ul><li><strong>Video Quality (7 维)</strong>：Subject Consistency, Background Consistency, Temporal Flickering, Motion Smoothness, Dynamic Degree, Aesthetic Quality, Imaging Quality</li><li><strong>Video-Condition Consistency (9 维)</strong>：Object Class, Multiple Objects, Human Action, Color, Spatial Relationship, Scene, Appearance Style, Temporal Style, Overall Consistency</li></ul>
@@ -1093,13 +1100,13 @@ def chunk_autoregressive(rf_sample_fn, vae, text, num_chunks, chunk_t_lat=4, ove
 <p><strong>实务</strong>：Hunyuan-Video tech report 同时报 VBench + 人评（user study 1-5 likert）；Sora / Veo demos 只给定性可视化。面试碰到"你怎么评测"——说 VBench + 人评 + 在 UCF-101 / MSR-VTT 上算 FVD。</p>
 <h2 id="10-复杂度与显存">§10 复杂度与显存</h2>
 <h3 id="101-token-数与-attention-cost">10.1 Token 数与 attention cost</h3>
-<table><thead><tr><th>视频规格</th><th>VAE 下采样</th><th>VAE 后 latent shape</th><th>Patchify (1,2,2) 后 N</th><th>Full-3D Attn $N^2$</th></tr></thead><tbody><tr><td>$256{\times}256{\times}16$ (2s, 8fps)</td><td>$4{\times}8{\times}8$</td><td>$4 \times 32 \times 32$</td><td>$4 \cdot 16 \cdot 16 = 1024$</td><td>$\approx 10^6$</td></tr><tr><td>$720p{\times}48$ (2s, 24fps, latent $12{\times}90{\times}160$)</td><td>$4{\times}8{\times}8$</td><td>$12 \times 90 \times 160$</td><td>$12 \cdot 45 \cdot 80 = 43200$</td><td>$\approx 1.9 \times 10^9$</td></tr><tr><td>$1080p{\times}120$ (5s, 24fps, latent $30{\times}136{\times}240$)</td><td>$4{\times}8{\times}8$</td><td>$30 \times 136 \times 240$</td><td>$30 \cdot 68 \cdot 120 = 244800$</td><td>$\approx 6.0 \times 10^{10}$</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>视频规格</th><th>VAE 下采样</th><th>VAE 后 latent shape</th><th>Patchify (1,2,2) 后 N</th><th>Full-3D Attn $N^2$</th></tr></thead><tbody><tr><td>$256{\times}256{\times}16$ (2s, 8fps)</td><td>$4{\times}8{\times}8$</td><td>$4 \times 32 \times 32$</td><td>$4 \cdot 16 \cdot 16 = 1024$</td><td>$\approx 10^6$</td></tr><tr><td>$720p{\times}48$ (2s, 24fps, latent $12{\times}90{\times}160$)</td><td>$4{\times}8{\times}8$</td><td>$12 \times 90 \times 160$</td><td>$12 \cdot 45 \cdot 80 = 43200$</td><td>$\approx 1.9 \times 10^9$</td></tr><tr><td>$1080p{\times}120$ (5s, 24fps, latent $30{\times}136{\times}240$)</td><td>$4{\times}8{\times}8$</td><td>$30 \times 136 \times 240$</td><td>$30 \cdot 68 \cdot 120 = 244800$</td><td>$\approx 6.0 \times 10^{10}$</td></tr></tbody></table></div>
 <p>很快爆。面试常问 "长视频/高分辨率 attention 瓶颈"——答：$O(N^2)$ 二次成本 + FlashAttention 也减不了 token 数本质；解法是 factorized / window / cascaded 多阶段。</p>
 <h3 id="102-显存与-flops-要点">10.2 显存与 FLOPs 要点</h3>
 <ul><li><strong>Score 矩阵显存</strong>：vanilla 是 $O(L^2)$；FlashAttention 降到 $O(L)$ activation</li><li><strong>KV cache</strong>：纯 diffusion 无 AR step，训练时无 KV cache 概念；activation checkpointing + ZeRO-3 是必备</li><li><strong>3D Causal VAE 推理</strong>：可分 chunk，显存 $O(\text{chunk}_T \cdot h \cdot w \cdot C)$</li><li><strong>训练 FLOPs</strong>：13B 模型 per-batch attention FLOPs ≈ $4 B N^2 d$ × layers（B = batch size）；按 §10.1 同一公式与最大规格数字（$N \approx 2.45 \times 10^5$, $N^2 \approx 6 \times 10^{10}$）粗算，attention 部分 FLOPs 量级在数十 PFLOP/sample（具体随 hidden dim、layer 数体量浮动），而非几百到上千 PFLOP，用数千 H100 数月级别训出</li></ul>
 <h2 id="11-与其他生成模型的关系">§11 与其他生成模型的关系</h2>
 <h3 id="111-image-diffusion-vs-video-diffusion">11.1 Image diffusion vs Video diffusion</h3>
-<table><thead><tr><th>维度</th><th>Image (SD3 / SDXL / FLUX)</th><th>Video (Hunyuan / Mochi / Wan)</th></tr></thead><tbody><tr><td>VAE</td><td>2D VAE, $\downarrow 8\times$</td><td>3D Causal VAE, $\downarrow 4\times8\times8$</td></tr><tr><td>Token 数</td><td>$\sim 10^3$ (1024² @ 16²)</td><td>$\sim 10^4 - 10^5$</td></tr><tr><td>Attention</td><td>Self + Cross</td><td>ST (factorized / full 3D) + Cross/MM-DiT</td></tr><tr><td>训练 token 量</td><td>数十亿 image-text pair</td><td>数千万 video-text pair（视频数据稀缺）</td></tr><tr><td>评测</td><td>FID, CLIPScore</td><td>VBench, FVD, CLIPSim-V</td></tr><tr><td>主要难点</td><td>美学 / prompt 跟随</td><td>时序一致性 / 物理合理性 / 长时长</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>Image (SD3 / SDXL / FLUX)</th><th>Video (Hunyuan / Mochi / Wan)</th></tr></thead><tbody><tr><td>VAE</td><td>2D VAE, $\downarrow 8\times$</td><td>3D Causal VAE, $\downarrow 4\times8\times8$</td></tr><tr><td>Token 数</td><td>$\sim 10^3$ (1024² @ 16²)</td><td>$\sim 10^4 - 10^5$</td></tr><tr><td>Attention</td><td>Self + Cross</td><td>ST (factorized / full 3D) + Cross/MM-DiT</td></tr><tr><td>训练 token 量</td><td>数十亿 image-text pair</td><td>数千万 video-text pair（视频数据稀缺）</td></tr><tr><td>评测</td><td>FID, CLIPScore</td><td>VBench, FVD, CLIPSim-V</td></tr><tr><td>主要难点</td><td>美学 / prompt 跟随</td><td>时序一致性 / 物理合理性 / 长时长</td></tr></tbody></table></div>
 <h3 id="112-video-llm-vs-video-generation-vs-ar-video">11.2 Video LLM vs Video Generation vs AR Video</h3>
 <ul><li><strong>Video LLM</strong> (VideoChat / Video-LLaVA / NaVit)：输入视频，输出文本（理解方向）；CLIP/ViViT/VideoMAE feature + LLM</li><li><strong>Diffusion Video Gen</strong>（本文主线）：质量高，长视频靠 chunk / hierarchical</li><li><strong>AR Video</strong> (Cosmos-Predict, VAR-Video 系列)：视频 token 化 (VQ-VAE / FSQ) + LM 风格生成。优势：天然 streaming + 长视频；劣势：质量目前不如 diffusion</li><li><strong>Unified</strong> (Show-o / Emu3 等 2025 苗头)：同时理解 + 生成；视频版本尚未爆发</li><li>2024-2025 SoTA 仍以 diffusion 占主流</li></ul>
 <h2 id="12-25-高频面试题">§12 25 高频面试题</h2>
@@ -1349,7 +1356,7 @@ def video_gen_sample(model, text, t_lat=12, h_lat=90, w_lat=160, steps=50,
 <div class="callout callout-good"><div class="callout-title">Sanity checks 视频生成模型常做的</div></div>
 <ul><li><strong>Reconstruction-only</strong>：先 VAE encode 后 decode，PSNR / SSIM / LPIPS 看是否能复原原视频</li><li><strong>Random latent decode</strong>（需谨慎解读）：video latent diffusion 的 first-stage VAE 通常只用极弱的 KL 权重（接近纯 autoencoder，非严格生成式 VAE），聚合后验不保证匹配 $\mathcal{N}(0, I)$；直接从标准高斯采样 decode 很可能得到噪声状伪影而非"自然 looking"画面。更可靠的 sanity check 是看重建 PSNR/SSIM/LPIPS，以及各 latent 通道的经验均值/方差是否在合理范围</li><li><strong>Class / prompt overfit</strong>：单一 prompt 训练 1000 步看模型能不能 memorize</li><li><strong>VBench 局部维度</strong>：训练中段先评 Subject Consistency / Motion Smoothness 看时序是否稳定</li><li><strong>CFG sweep</strong>：scale = 0/1/3/6/10 看影响（过高会饱和 / 闪烁）</li></ul>
 <h3 id="a4-当前-sota-一览">A.4 当前 SoTA 一览</h3>
-<table><thead><tr><th>维度</th><th>当前 SoTA</th><th>备注</th></tr></thead><tbody><tr><td>开源最强 T2V</td><td>Hunyuan-Video 13B</td><td>2024-12，质量逼近闭源</td></tr><tr><td>开源 I2V</td><td>Wan 2.2 I2V / Hunyuan-Video I2V</td><td>中文 prompt 友好</td></tr><tr><td>闭源最强</td><td>Veo 2 / Sora / Kling</td><td>4K / 长时长</td></tr><tr><td>实时</td><td>LTX-Video 2B</td><td>RTX 4090 实时</td></tr><tr><td>视频 + 音频</td><td>Movie Gen (闭源)</td><td>视频 30B + 音频 13B，两个独立基础模型</td></tr><tr><td>控制类</td><td>AnimateAnyone / MotionCtrl</td><td>人物 / 相机控制</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>当前 SoTA</th><th>备注</th></tr></thead><tbody><tr><td>开源最强 T2V</td><td>Hunyuan-Video 13B</td><td>2024-12，质量逼近闭源</td></tr><tr><td>开源 I2V</td><td>Wan 2.2 I2V / Hunyuan-Video I2V</td><td>中文 prompt 友好</td></tr><tr><td>闭源最强</td><td>Veo 2 / Sora / Kling</td><td>4K / 长时长</td></tr><tr><td>实时</td><td>LTX-Video 2B</td><td>RTX 4090 实时</td></tr><tr><td>视频 + 音频</td><td>Movie Gen (闭源)</td><td>视频 30B + 音频 13B，两个独立基础模型</td></tr><tr><td>控制类</td><td>AnimateAnyone / MotionCtrl</td><td>人物 / 相机控制</td></tr></tbody></table></div>
 <hr />
 <p><strong>Video Generation Quick Reference</strong> · 主要参考：Sora technical report (OpenAI 2024), Hunyuan-Video tech report (Tencent 2024), Mochi-1 blog (Genmo 2024), CogVideoX (Yang et al. arXiv 2024-08 → ICLR 2025), Wan tech report (Team Wan / Ang Wang et al. arXiv 2025), Movie Gen tech report (Meta 2024), VBench (Huang et al. CVPR 2024), AnimateDiff (Guo et al. arXiv 2023-07 → ICLR 2024), SVD (Blattmann et al. arXiv 2023-11), Latte (Ma et al. arXiv 2024-01 → TMLR 2025), MotionCtrl (Wang et al. 2023 → SIGGRAPH 2024), AnimateAnyone (Hu et al. CVPR 2024), SD3 (Esser et al. ICML 2024)</p>
 
@@ -1357,7 +1364,7 @@ def video_gen_sample(model, text, t_lat=12, h_lat=90, w_lat=160, steps=50,
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/video_generation_tutorial.md</code> ·
   SHA256 <code>f25820ee39d9</code> ·
-  generated at 2026-07-13 10:03 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

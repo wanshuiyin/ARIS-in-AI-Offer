@@ -1,18 +1,19 @@
 {
  "skill": "interview-cheatsheet (EN translation-fidelity)",
  "source": "docs/tutorials/transformer_block_tutorial_en.md",
- "source_sha256": "d92395ec71d3c8acc751cdcf6e147bce3e3a1997edc0828df1801d41c38fffd4",
+ "source_sha256": "2eda9fa08fee7a6f9e1b13cd3709e44cf2e4b1fd16fdc425c8450f3db230ffc6",
  "output": "docs/tutorials/transformer_block_tutorial_en.html",
  "zh_source": "docs/tutorials/transformer_block_tutorial.md",
  "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
- "verdict": "PASS (after fixes)",
- "thread_id": "019f8895-ce55-79a0-8b6a-2f45cd35282c",
- "translated_by": "subagent (general-purpose), using incremental section-by-section Edit calls (never a single full-file Write) specifically to avoid the output-token-limit stall that had previously hit hand-translation attempts on this collection; 18 Edit calls, no single edit over ~200 lines",
+ "verdict": "PASS",
+ "thread_id": "019fb617-f4e1-70b0-b4fa-7013ae9e49df",
+ "translated_by": "subagent, incremental section-by-section Edits (48 edits), terminology conventions from prior fidelity round pre-baked into the prompt",
  "translation_fidelity_review": {
-  "verdict": "PASS (0 P0, 3 P1 fixed, ~10 P2 style items fixed)",
-  "date": "2026-07-22",
-  "notes": "P1s fixed: a pronoun-antecedent ambiguity in §3 ('neither belongs to...') that could be read as contradicting the preceding sentence; KV heads mistranslated as 'copies' in 3 places (§7.2/Q12/Q24), which misleadingly implies duplicated content rather than distinct projections; 'an order of magnitude smaller' over-specified an asymptotic O(d) vs O(d²) comparison into a literal ~10x claim. P2s fixed: 'bit-identical' wording clarified to 'numerically equivalent, not necessarily bitwise identical'; several grammar issues; repeated 'closing off' translationese (5 spots) reworded to 'normalizing the accumulated residual stream' / 'normalizing/stabilizing the branch output'; a handful of other literal-translation phrasings ('engineering-feasible', 'reads literally as', 'top-lab deep-water territory', etc.) smoothed to natural technical English. Structural verification (headings/code-fences/$$-blocks/table-separators/details-tags) all matched 1:1 between ZH and EN both before and after these prose-only fixes."
+  "verdict": "PASS",
+  "date": "2026-07-31",
+  "thread_id": "019fb617-f4e1-70b0-b4fa-7013ae9e49df",
+  "notes": "重排+去冗余后全量重翻(cp ZH骨架+48次逐节Edit,预置上一轮术语约定:KV份数用heads、asymptotically lower-order、numerically equivalent within tolerance)。保真审PASS,0 P0/P1:高危区(§0全部/§1.2数据流/§5/§9八题)逐段核对+低危区抽样8处,程度词/否定/术语/数字全部无漂移。"
  },
- "structural_parity": "## 11/11 · ### 19/19 · fences 10/10 · $$ 6/6 · table dividers 10/10 · <details>/<summary> 30/30/30 · 859/859 lines; 0 residual CJK characters",
- "rendered_at": "2026-07-22"
+ "structural_parity": "## 11/11 · ### 19/19 · fences 10/10 · $$ 6/6 · table dividers 10/10 · <details> 30/30 · 807/807 lines; 0 residual CJK characters",
+ "rendered_at": "2026-07-31"
 }

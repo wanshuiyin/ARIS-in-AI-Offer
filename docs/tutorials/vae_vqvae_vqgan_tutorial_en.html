@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/vae_vqvae_vqgan_tutorial_en.md">
 <meta name="aris:source-sha256" content="21bfbdac6eba97838fdf1405f8e030fd74465588b3661114507913b54a4f3019">
-<meta name="aris:generated-at" content="2026-07-13 10:17 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -619,7 +626,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/vae_vqvae_vqgan_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>21bfbdac6eba</code></span>
-    <span><strong>Rendered:</strong> 2026-07-13 10:17 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -811,7 +818,7 @@ def vae_loss(x: torch.Tensor, logits: torch.Tensor, mu: torch.Tensor,
 <h3 id="52-causes-intuitive-analysis">5.2　Causes (intuitive analysis)</h3>
 <ul><li><strong>Decoder too strong</strong>: if $p_\theta(x|z)$ is itself an expressive PixelCNN / Autoregressive decoder (Bowman 2016's LSTM text VAE classic flop), it can fit the data without relying on $z$, so ELBO's optimal strategy is to zero out the KL term.</li><li><strong>KL term too high pressure</strong>: ELBO in early training, reconstruction is not yet established, optimizer easily pushes KL to 0 first (local optimum).</li><li><strong>Simple data</strong>: collapse rare on MNIST, common on text VAEs.</li></ul>
 <h3 id="53-mitigation-methods-interview-must-list">5.3　Mitigation methods (interview must list)</h3>
-<table><thead><tr><th>Method</th><th>How</th><th>Source</th></tr></thead><tbody><tr><td><strong>KL annealing</strong></td><td>$\beta(t) = \min(1, t / T)$ linear from 0 to 1</td><td>Bowman et al. (2016)</td></tr><tr><td><strong>Free bits</strong></td><td>Per-dim KL lower bound $\lambda$ nats: $\max(D_\text{KL}^{(i)}, \lambda)$</td><td>Kingma et al. (2016)</td></tr><tr><td><strong>$\beta$ &lt; 1</strong></td><td>Directly reduce KL weight</td><td>$\beta$-VAE reverse usage</td></tr><tr><td><strong>Weakened decoder</strong></td><td>When using strong AR decoders like PixelCNN, manually truncate context / add dropout</td><td>Chen et al. (2017)</td></tr><tr><td><strong>Auxiliary task</strong></td><td>Add word dropout, bag-of-words auxiliary loss</td><td>Bowman et al. (2016)</td></tr><tr><td><strong>VAE-IAF / NF prior</strong></td><td>Use more complex prior or normalizing flow posterior</td><td>Kingma et al. (2016)</td></tr><tr><td><strong>Skip / lateral connections</strong></td><td>Force latent to participate in decoder (e.g. VLAE)</td><td>Zhao et al. (2017)</td></tr><tr><td><strong>VQ-VAE</strong></td><td>Discrete latent + codebook commitment, <strong>structurally avoids</strong> collapse</td><td>van den Oord (2017)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Method</th><th>How</th><th>Source</th></tr></thead><tbody><tr><td><strong>KL annealing</strong></td><td>$\beta(t) = \min(1, t / T)$ linear from 0 to 1</td><td>Bowman et al. (2016)</td></tr><tr><td><strong>Free bits</strong></td><td>Per-dim KL lower bound $\lambda$ nats: $\max(D_\text{KL}^{(i)}, \lambda)$</td><td>Kingma et al. (2016)</td></tr><tr><td><strong>$\beta$ &lt; 1</strong></td><td>Directly reduce KL weight</td><td>$\beta$-VAE reverse usage</td></tr><tr><td><strong>Weakened decoder</strong></td><td>When using strong AR decoders like PixelCNN, manually truncate context / add dropout</td><td>Chen et al. (2017)</td></tr><tr><td><strong>Auxiliary task</strong></td><td>Add word dropout, bag-of-words auxiliary loss</td><td>Bowman et al. (2016)</td></tr><tr><td><strong>VAE-IAF / NF prior</strong></td><td>Use more complex prior or normalizing flow posterior</td><td>Kingma et al. (2016)</td></tr><tr><td><strong>Skip / lateral connections</strong></td><td>Force latent to participate in decoder (e.g. VLAE)</td><td>Zhao et al. (2017)</td></tr><tr><td><strong>VQ-VAE</strong></td><td>Discrete latent + codebook commitment, <strong>structurally avoids</strong> collapse</td><td>van den Oord (2017)</td></tr></tbody></table></div>
 <div class="callout callout-good"><div class="callout-title">Free bits formula</div><p>Implementation is extremely simple: <code>kl_per_dim = max(kl_per_dim, λ)</code>. <strong>This only means "stop penalizing below the threshold"</strong>: once a dimension's raw KL drops below λ, the clamp output becomes the constant λ, whose gradient w.r.t. that dimension is 0 — the optimizer will no longer push it lower, but it also <strong>will not actively push it back above λ</strong>. If the decoder is strong enough to already have collapsed a dimension's posterior, the raw KL can still sit near 0; the loss just reports the saturated λ, not a genuine lower bound. Common values $\lambda \approx 0.5$-$2$ nats / dim.</p></div>
 <h2 id="6-vq-vae-discrete-latent--codebook--ste">§6 VQ-VAE: Discrete Latent + Codebook + STE</h2>
 <h3 id="61-structure-van-den-oord-vinyals-kavukcuoglu-neurips-2017">6.1　Structure (van den Oord, Vinyals, Kavukcuoglu, NeurIPS 2017)</h3>
@@ -984,7 +991,7 @@ def vqvae_loss(x, x_hat, vq_loss):
 <h2 id="7-vq-gan-adversarial--perceptual--transformer-prior">§7 VQ-GAN: Adversarial + Perceptual + Transformer Prior</h2>
 <h3 id="71-core-idea-esser-rombach-ommer-cvpr-2021-taming-transformers">7.1　Core idea (Esser, Rombach, Ommer, CVPR 2021, "Taming Transformers")</h3>
 <p>VQ-VAE reconstruction on ImageNet has <strong>blurry texture details</strong>. VQ-GAN transforms to:</p>
-<table><thead><tr><th>Component</th><th>VQ-VAE</th><th>VQ-GAN</th></tr></thead><tbody><tr><td><strong>Recon loss</strong></td><td>L2 / L1 pixel</td><td>L1 pixel + <strong>LPIPS perceptual</strong> + <strong>PatchGAN adversarial</strong></td></tr><tr><td><strong>Prior</strong></td><td>PixelCNN</td><td><strong>Transformer (decoder-only)</strong> over code tokens</td></tr><tr><td><strong>Codebook</strong></td><td>512-1024 codes</td><td>1024-16384 codes</td></tr><tr><td><strong>Compression</strong></td><td>4×-8×</td><td>8×-32× (higher compression, relying on perceptual + adversarial to save quality)</td></tr><tr><td><strong>Application</strong></td><td>unconditional / class-cond generation</td><td>high-res image synthesis, "Taming Transformers"</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Component</th><th>VQ-VAE</th><th>VQ-GAN</th></tr></thead><tbody><tr><td><strong>Recon loss</strong></td><td>L2 / L1 pixel</td><td>L1 pixel + <strong>LPIPS perceptual</strong> + <strong>PatchGAN adversarial</strong></td></tr><tr><td><strong>Prior</strong></td><td>PixelCNN</td><td><strong>Transformer (decoder-only)</strong> over code tokens</td></tr><tr><td><strong>Codebook</strong></td><td>512-1024 codes</td><td>1024-16384 codes</td></tr><tr><td><strong>Compression</strong></td><td>4×-8×</td><td>8×-32× (higher compression, relying on perceptual + adversarial to save quality)</td></tr><tr><td><strong>Application</strong></td><td>unconditional / class-cond generation</td><td>high-res image synthesis, "Taming Transformers"</td></tr></tbody></table></div>
 <h3 id="72-loss-formula">7.2　Loss formula</h3>
 <p>$$\mathcal{L}_\text{VQ-GAN}^\text{stage1} = \mathcal{L}_\text{rec} + \mathcal{L}_\text{VQ} + \lambda \cdot \mathcal{L}_\text{GAN}$$</p>
 <p>where:</p>
@@ -1193,16 +1200,16 @@ def hinge_g_loss(fake_logits):
 
         return z_hat, self.entropy_weight * entropy_loss</code></pre>
 <h3 id="97-cosmos--openmagvit2--modern-video-tokenizers">9.7　Cosmos / OpenMagViT2 / modern video tokenizers</h3>
-<table><thead><tr><th>Tokenizer</th><th>Source</th><th>Quantization</th><th>Used in</th></tr></thead><tbody><tr><td><strong>MAGVIT-v2</strong></td><td>Google 2024 (ICLR)</td><td>LFQ</td><td>Early text-to-video demo</td></tr><tr><td><strong>OpenMagViT2</strong></td><td>Open reproduction 2024</td><td>LFQ</td><td>Public video tokenizer baseline</td></tr><tr><td><strong>Cosmos Tokenizer</strong></td><td>NVIDIA 2024</td><td>FSQ + video spatiotemporal compression</td><td>NVIDIA Cosmos world model</td></tr><tr><td><strong>VideoPoet tokenizer</strong></td><td>Google 2024</td><td>LFQ-style</td><td>text-to-video</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Tokenizer</th><th>Source</th><th>Quantization</th><th>Used in</th></tr></thead><tbody><tr><td><strong>MAGVIT-v2</strong></td><td>Google 2024 (ICLR)</td><td>LFQ</td><td>Early text-to-video demo</td></tr><tr><td><strong>OpenMagViT2</strong></td><td>Open reproduction 2024</td><td>LFQ</td><td>Public video tokenizer baseline</td></tr><tr><td><strong>Cosmos Tokenizer</strong></td><td>NVIDIA 2024</td><td>FSQ + video spatiotemporal compression</td><td>NVIDIA Cosmos world model</td></tr><tr><td><strong>VideoPoet tokenizer</strong></td><td>Google 2024</td><td>LFQ-style</td><td>text-to-video</td></tr></tbody></table></div>
 <p>Engineering essentials:</p>
 <ul><li><strong>Joint spatiotemporal compression</strong>: spatial 8× + temporal 4× (4 frames merged into 1 token plane)</li><li><strong>3D causal CNN</strong> encoder (forward time causality, can stream-encode long videos)</li><li><strong>Cross-resolution generalization</strong>: training on 256×256, inference on 1024×1024 requires careful test-time adaptation</li></ul>
 <h2 id="10-complexity-and-resource-comparison">§10 Complexity and Resource Comparison</h2>
-<table><thead><tr><th>Model</th><th>Latent type</th><th>Train parameters (encoder+decoder)</th><th>Main loss</th><th>Codebook collapse</th><th>STE dependency</th></tr></thead><tbody><tr><td><strong>VAE</strong></td><td>continuous Gaussian</td><td>$\sim$10-100M</td><td>recon + KL (closed form)</td><td>N/A</td><td>No (reparameterization)</td></tr><tr><td><strong>$\beta$-VAE</strong></td><td>continuous Gaussian</td><td>Same as VAE</td><td>recon + $\beta$·KL</td><td>N/A</td><td>No</td></tr><tr><td><strong>NVAE</strong></td><td>hierarchical continuous</td><td>80M-200M</td><td>recon + multi-layer KL</td><td>N/A</td><td>No</td></tr><tr><td><strong>VQ-VAE</strong></td><td>discrete via codebook</td><td>50-200M</td><td>recon + codebook + $\beta$·commitment</td><td><strong>Frequently occurs</strong></td><td>Yes</td></tr><tr><td><strong>VQ-VAE-2</strong></td><td>hierarchical discrete</td><td>100-500M</td><td>Same as VQ-VAE × 2 layers</td><td>Same as above</td><td>Yes</td></tr><tr><td><strong>VQ-GAN</strong></td><td>discrete + adversarial</td><td>50-300M (+ D)</td><td>recon + LPIPS + GAN + codebook + commitment</td><td>Same as above</td><td>Yes</td></tr><tr><td><strong>dVAE</strong></td><td>categorical (logits)</td><td>50-200M</td><td>recon + KL to uniform</td><td>Rare (categorical distribution learning)</td><td>No (Gumbel-softmax backprops soft)</td></tr><tr><td><strong>FSQ</strong></td><td>scalar quantize per dim</td><td>30-150M</td><td>recon (+ perceptual)</td><td><strong>Almost never occurs</strong></td><td>Yes (but minimal)</td></tr><tr><td><strong>LFQ</strong></td><td>binary scalar quantize</td><td>30-150M</td><td>recon (+ entropy reg)</td><td><strong>Almost never occurs</strong></td><td>Yes</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Model</th><th>Latent type</th><th>Train parameters (encoder+decoder)</th><th>Main loss</th><th>Codebook collapse</th><th>STE dependency</th></tr></thead><tbody><tr><td><strong>VAE</strong></td><td>continuous Gaussian</td><td>$\sim$10-100M</td><td>recon + KL (closed form)</td><td>N/A</td><td>No (reparameterization)</td></tr><tr><td><strong>$\beta$-VAE</strong></td><td>continuous Gaussian</td><td>Same as VAE</td><td>recon + $\beta$·KL</td><td>N/A</td><td>No</td></tr><tr><td><strong>NVAE</strong></td><td>hierarchical continuous</td><td>80M-200M</td><td>recon + multi-layer KL</td><td>N/A</td><td>No</td></tr><tr><td><strong>VQ-VAE</strong></td><td>discrete via codebook</td><td>50-200M</td><td>recon + codebook + $\beta$·commitment</td><td><strong>Frequently occurs</strong></td><td>Yes</td></tr><tr><td><strong>VQ-VAE-2</strong></td><td>hierarchical discrete</td><td>100-500M</td><td>Same as VQ-VAE × 2 layers</td><td>Same as above</td><td>Yes</td></tr><tr><td><strong>VQ-GAN</strong></td><td>discrete + adversarial</td><td>50-300M (+ D)</td><td>recon + LPIPS + GAN + codebook + commitment</td><td>Same as above</td><td>Yes</td></tr><tr><td><strong>dVAE</strong></td><td>categorical (logits)</td><td>50-200M</td><td>recon + KL to uniform</td><td>Rare (categorical distribution learning)</td><td>No (Gumbel-softmax backprops soft)</td></tr><tr><td><strong>FSQ</strong></td><td>scalar quantize per dim</td><td>30-150M</td><td>recon (+ perceptual)</td><td><strong>Almost never occurs</strong></td><td>Yes (but minimal)</td></tr><tr><td><strong>LFQ</strong></td><td>binary scalar quantize</td><td>30-150M</td><td>recon (+ entropy reg)</td><td><strong>Almost never occurs</strong></td><td>Yes</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">Ecological niche positioning</div></div>
 <ul><li>Want <strong>diffusion / FM</strong>: use KL-VAE / SD VAE (continuous latent)</li><li>Want <strong>AR generation (GPT-style image token)</strong>: use VQ-GAN / FSQ / LFQ</li><li>Want <strong>MaskGIT / Muse / parallel decode</strong>: use VQ-GAN / FSQ</li><li>Want <strong>video / long sequence</strong>: use FSQ / LFQ (high codebook usage, no collapse)</li></ul>
 <h2 id="11-comparison-with-related-methods--position-in-the-ecosystem">§11 Comparison with Related Methods / Position in the Ecosystem</h2>
 <h3 id="111-vae-vs-gan-vs-diffusion-vs-flow--fm">11.1　VAE vs GAN vs Diffusion vs Flow / FM</h3>
-<table><thead><tr><th>Model</th><th>Likelihood</th><th>Training stability</th><th>Diversity</th><th>Sample quality</th><th>Inference speed</th></tr></thead><tbody><tr><td><strong>VAE</strong></td><td>Yes (ELBO)</td><td>✅ Stable</td><td>✅ Good</td><td>⚠️ Blurry</td><td>✅ 1-step</td></tr><tr><td><strong>GAN</strong></td><td>None</td><td>❌ Hard</td><td>❌ Mode collapse</td><td>✅ Sharp</td><td>✅ 1-step</td></tr><tr><td><strong>Diffusion</strong></td><td>Approximate (VLB)</td><td>✅ Stable</td><td>✅ Good</td><td>✅ SOTA</td><td>❌ Many NFE</td></tr><tr><td><strong>Flow / FM</strong></td><td>Yes (ODE)</td><td>✅ Stable</td><td>✅ Good</td><td>✅ Strong</td><td>⚠️ Several NFE</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Model</th><th>Likelihood</th><th>Training stability</th><th>Diversity</th><th>Sample quality</th><th>Inference speed</th></tr></thead><tbody><tr><td><strong>VAE</strong></td><td>Yes (ELBO)</td><td>✅ Stable</td><td>✅ Good</td><td>⚠️ Blurry</td><td>✅ 1-step</td></tr><tr><td><strong>GAN</strong></td><td>None</td><td>❌ Hard</td><td>❌ Mode collapse</td><td>✅ Sharp</td><td>✅ 1-step</td></tr><tr><td><strong>Diffusion</strong></td><td>Approximate (VLB)</td><td>✅ Stable</td><td>✅ Good</td><td>✅ SOTA</td><td>❌ Many NFE</td></tr><tr><td><strong>Flow / FM</strong></td><td>Yes (ODE)</td><td>✅ Stable</td><td>✅ Good</td><td>✅ Strong</td><td>⚠️ Several NFE</td></tr></tbody></table></div>
 <h3 id="112-role-of-tokenizer-series-in-large-models">11.2　Role of tokenizer series in large models</h3>
 <pre class="diagram"><code>
 Tokenizer Stage 1                Generative Stage 2 (prior)
@@ -1394,7 +1401,7 @@ KL-VAE →   continuous latent map  →   Diffusion / Flow Matching (LDM, SD, SD
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/vae_vqvae_vqgan_tutorial_en.md</code> ·
   SHA256 <code>21bfbdac6eba</code> ·
-  generated at 2026-07-13 10:17 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

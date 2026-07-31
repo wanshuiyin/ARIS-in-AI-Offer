@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/vlm_multimodal_tutorial.md">
 <meta name="aris:source-sha256" content="1846758ab564aa3874d446fdf198d41d7333829beddcb8f10a4be7d0158b75b2">
-<meta name="aris:generated-at" content="2026-07-12 04:23 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -649,7 +656,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/vlm_multimodal_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>1846758ab564</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:23 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -673,7 +680,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\mathbf{z}'_\ell = \text{MHA}(\text{LN}(\mathbf{z}_{\ell-1})) + \mathbf{z}_{\ell-1}, \quad \mathbf{z}_\ell = \text{MLP}(\text{LN}(\mathbf{z}'_\ell)) + \mathbf{z}'_\ell$$</p>
 <p>Pre-norm（LN 在 sub-layer 输入端），MLP 用 GELU。注意 ViT 原版的 patch 数固定（$224/16=14 \Rightarrow N=196$），<strong>positional embedding 表大小固定</strong>——这是 dynamic resolution 要解决的痛点（§10）。</p>
 <h3 id="23-vit-规格梳理">2.3　ViT 规格梳理</h3>
-<table><thead><tr><th>模型</th><th>Patch</th><th>Hidden $D$</th><th>Layers</th><th>Heads</th><th>Params</th><th>出处</th></tr></thead><tbody><tr><td>ViT-B/16</td><td>16</td><td>768</td><td>12</td><td>12</td><td>86M</td><td>Dosovitskiy 2021</td></tr><tr><td>ViT-L/14</td><td>14</td><td>1024</td><td>24</td><td>16</td><td>304M</td><td>Radford et al. 2021 (CLIP)</td></tr><tr><td>ViT-H/14</td><td>14</td><td>1280</td><td>32</td><td>16</td><td>632M</td><td>Dosovitskiy 2021</td></tr><tr><td>ViT-g/14</td><td>14</td><td>1408</td><td>40</td><td>16</td><td>1.0B</td><td>Zhai et al. 2022</td></tr><tr><td>ViT-bigG/14</td><td>14</td><td>1664</td><td>48</td><td>16</td><td>1.8B</td><td>OpenCLIP, 2023</td></tr><tr><td>EVA-02-L/14</td><td>14</td><td>1024</td><td>24</td><td>16</td><td>304M</td><td>Fang 2023</td></tr><tr><td>SigLIP SoViT-400M/14</td><td>14</td><td>1152</td><td>27</td><td>16</td><td>400M</td><td>Alabdulmohsin 2023</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模型</th><th>Patch</th><th>Hidden $D$</th><th>Layers</th><th>Heads</th><th>Params</th><th>出处</th></tr></thead><tbody><tr><td>ViT-B/16</td><td>16</td><td>768</td><td>12</td><td>12</td><td>86M</td><td>Dosovitskiy 2021</td></tr><tr><td>ViT-L/14</td><td>14</td><td>1024</td><td>24</td><td>16</td><td>304M</td><td>Radford et al. 2021 (CLIP)</td></tr><tr><td>ViT-H/14</td><td>14</td><td>1280</td><td>32</td><td>16</td><td>632M</td><td>Dosovitskiy 2021</td></tr><tr><td>ViT-g/14</td><td>14</td><td>1408</td><td>40</td><td>16</td><td>1.0B</td><td>Zhai et al. 2022</td></tr><tr><td>ViT-bigG/14</td><td>14</td><td>1664</td><td>48</td><td>16</td><td>1.8B</td><td>OpenCLIP, 2023</td></tr><tr><td>EVA-02-L/14</td><td>14</td><td>1024</td><td>24</td><td>16</td><td>304M</td><td>Fang 2023</td></tr><tr><td>SigLIP SoViT-400M/14</td><td>14</td><td>1152</td><td>27</td><td>16</td><td>400M</td><td>Alabdulmohsin 2023</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">ViT-L/14 的出处纠正</div><p>Large 架构本身（D=1024, 24 层, 16 heads）确实来自 Dosovitskiy et al. 2021；但原始 ViT 论文只报告了 B/16, B/32, L/16, L/32, H/14，<strong>从未训练过 patch=14 的 Large 配置</strong>。ViT-L/14 这一具体组合是 CLIP（Radford et al. 2021, ICML）首次训练并推广的。</p>
 <p>💡 <strong>head_dim 通常固定 64</strong> — ViT 系列大多遵循 head_dim ≈ 64–88，等价于 $D / H$。Scaling-laws 推荐 head_dim 不要太小，否则单 head 表达力受限。</p></div>
 <h3 id="24-code-vit-patch-embed--主干核心-60-行">2.4　Code: ViT patch embed + 主干（核心 60 行）</h3>
@@ -833,7 +840,7 @@ if __name__ == &quot;__main__&quot;:
 <ul><li>batch size 不再耦合所有 negative</li><li>单机可用极大 batch（SigLIP 报告单 chip 32k batch 可训）</li><li>通信只需把本机的 query 与远端 key 配对计算 sigmoid（chunked all-pair），不需要 logsumexp 同步</li></ul>
 <div class="callout callout-warn"><div class="callout-title">bias $b$ 不是装饰</div><p>训练初期 $\mathbf{u}, \mathbf{v}$ 接近随机，$S_{ij}$ 接近 0，sigmoid 输出 0.5。负样本占 $N^2 - N \approx N^2$，正样本只占 $N$ 个；如果初始预测全部 ~0.5，<strong>负样本梯度会主导初期训练</strong>。SigLIP 初始化 $b_0 \approx -10$，让 sigmoid 输出初期接近 0，<strong>所有点先被预测为负</strong>，正样本 loss 大、负样本 loss 小，从这个状态再启动训练就稳定了。</p></div>
 <h3 id="43-siglip-vs-clip-对比">4.3　SigLIP vs CLIP 对比</h3>
-<table><thead><tr><th>维度</th><th>CLIP (softmax)</th><th>SigLIP (sigmoid)</th></tr></thead><tbody><tr><td>Loss 形式</td><td>$\propto$ logsumexp(row) + logsumexp(col)</td><td>$\propto$ $\sum_{ij}$ binary logistic</td></tr><tr><td>Batch 依赖</td><td>强（梯度耦合 batch）</td><td>弱（每项独立）</td></tr><tr><td>通信</td><td>all-gather embedding</td><td>chunked all-pair sigmoid</td></tr><tr><td>Bias 项</td><td>无（隐式被 softmax 吸收）</td><td>learnable $b$，初始化 $\approx -10$</td></tr><tr><td>小 batch 表现</td><td>差（&lt; 4k 几乎不学）</td><td>显著更好（1k 也能学）</td></tr><tr><td>大 batch 表现</td><td>边际收益递减</td><td>一直涨到 32k+</td></tr><tr><td>零样本 ImageNet（ViT-L/14, 400M data）</td><td>~75%</td><td>~76–78%</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>CLIP (softmax)</th><th>SigLIP (sigmoid)</th></tr></thead><tbody><tr><td>Loss 形式</td><td>$\propto$ logsumexp(row) + logsumexp(col)</td><td>$\propto$ $\sum_{ij}$ binary logistic</td></tr><tr><td>Batch 依赖</td><td>强（梯度耦合 batch）</td><td>弱（每项独立）</td></tr><tr><td>通信</td><td>all-gather embedding</td><td>chunked all-pair sigmoid</td></tr><tr><td>Bias 项</td><td>无（隐式被 softmax 吸收）</td><td>learnable $b$，初始化 $\approx -10$</td></tr><tr><td>小 batch 表现</td><td>差（&lt; 4k 几乎不学）</td><td>显著更好（1k 也能学）</td></tr><tr><td>大 batch 表现</td><td>边际收益递减</td><td>一直涨到 32k+</td></tr><tr><td>零样本 ImageNet（ViT-L/14, 400M data）</td><td>~75%</td><td>~76–78%</td></tr></tbody></table></div>
 <h3 id="44-siglip-2-google-2025">4.4　SigLIP-2 (Google 2025)</h3>
 <p>Tschannen et al. 2025 在 SigLIP-1 基础上：</p>
 <ul><li>加入 <strong>caption-style decoder</strong>（类似 CapPa）做 captioning 辅助任务</li><li><strong>Self-distillation + dense local objectives</strong>：在 patch 级别做局部对比，提升细节定位能力</li><li><strong>多语言扩展</strong>：训练数据扩到 100+ 语言，多语言 zero-shot 显著提升</li><li>公开 NaFlex 变体支持 native aspect ratio</li></ul>
@@ -876,7 +883,7 @@ class SigLIPLoss(nn.Module):
 <p>Gadre et al. 2023 (NeurIPS) 设计了 "data filtering benchmark"：固定 (model, compute)，只调 data filter。结论：</p>
 <ul><li><strong>CLIP filtering</strong> + <strong>basic filtering</strong> + <strong>image-based</strong> 三种 filter 组合最优</li><li>大模型 (ViT-L/14) 在小数据 (12.8M) 上反而不如 ViT-B（<strong>data-limited regime 下大模型过拟合</strong>）</li></ul>
 <h3 id="54-对比一览">5.4　对比一览</h3>
-<table><thead><tr><th>方法</th><th>Vision Tower 初始化</th><th>Loss</th><th>Batch</th><th>训练数据</th><th>ImageNet zero-shot</th></tr></thead><tbody><tr><td>CLIP (OpenAI)</td><td>from scratch</td><td>softmax InfoNCE</td><td>32k</td><td>WIT 400M</td><td>76.2% (L/14@336)</td></tr><tr><td>OpenCLIP</td><td>from scratch</td><td>softmax InfoNCE</td><td>90k</td><td>LAION-2B</td><td>80.1% (bigG/14)</td></tr><tr><td>EVA-CLIP</td><td>EVA-02 MIM</td><td>softmax InfoNCE</td><td>—</td><td>LAION-2B</td><td>82.0% (E/14+)</td></tr><tr><td>SigLIP</td><td>from scratch</td><td>sigmoid</td><td>32k</td><td>WebLI</td><td>82.0% (So400M/14)</td></tr><tr><td>SigLIP-2</td><td>from scratch</td><td>sigmoid + caption + distill</td><td>—</td><td>WebLI 10B</td><td>84%+</td></tr><tr><td>MetaCLIP</td><td>from scratch</td><td>softmax InfoNCE</td><td>—</td><td>重新构造 LAION-grade</td><td>79.2% (H/14)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>Vision Tower 初始化</th><th>Loss</th><th>Batch</th><th>训练数据</th><th>ImageNet zero-shot</th></tr></thead><tbody><tr><td>CLIP (OpenAI)</td><td>from scratch</td><td>softmax InfoNCE</td><td>32k</td><td>WIT 400M</td><td>76.2% (L/14@336)</td></tr><tr><td>OpenCLIP</td><td>from scratch</td><td>softmax InfoNCE</td><td>90k</td><td>LAION-2B</td><td>80.1% (bigG/14)</td></tr><tr><td>EVA-CLIP</td><td>EVA-02 MIM</td><td>softmax InfoNCE</td><td>—</td><td>LAION-2B</td><td>82.0% (E/14+)</td></tr><tr><td>SigLIP</td><td>from scratch</td><td>sigmoid</td><td>32k</td><td>WebLI</td><td>82.0% (So400M/14)</td></tr><tr><td>SigLIP-2</td><td>from scratch</td><td>sigmoid + caption + distill</td><td>—</td><td>WebLI 10B</td><td>84%+</td></tr><tr><td>MetaCLIP</td><td>from scratch</td><td>softmax InfoNCE</td><td>—</td><td>重新构造 LAION-grade</td><td>79.2% (H/14)</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">2024–2025 趋势</div><p>SigLIP 系列在 zero-shot ImageNet 和下游 retrieval 上已经稳定超过 CLIP；典型开放权重 VLM 用 SigLIP-So400M 的是 <strong>PaliGemma / LLaVA-OneVision</strong>。<strong>Molmo/PixMo 主模型仍用 OpenAI CLIP ViT-L/14@336（SigLIP 只出现在其论文 ablation）；InternVL 系列用自家的 InternViT；Qwen2-VL 用自训 ViT；LLaVA-1.5/1.6 仍用 CLIP ViT-L/14</strong>——并非"切到 SigLIP"是行业共识。</p></div>
 <h2 id="6-llavaprojector--2-stage-训练">§6 LLaVA：projector + 2-stage 训练</h2>
 <h3 id="61-架构">6.1　架构</h3>
@@ -965,7 +972,7 @@ class LLaVA(nn.Module):
         attention_mask = torch.nn.utils.rnn.pad_sequence(new_mask, batch_first=True) if attention_mask is not None else None
         return self.llm(inputs_embeds=inputs_embeds, labels=labels, attention_mask=attention_mask)</code></pre>
 <h3 id="64-llava-15--16--next-关键升级">6.4　LLaVA-1.5 / 1.6 / NeXT 关键升级</h3>
-<table><thead><tr><th>版本</th><th>时间</th><th>主要改动</th></tr></thead><tbody><tr><td>LLaVA-1.0</td><td>2023.04</td><td>单层 Linear projector；CLIP ViT-L/14@224²，视觉 token = 256（$16\times 16$）</td></tr><tr><td>LLaVA-1.5</td><td>2023.10</td><td>2-layer MLP；分辨率升到 336²，视觉 token = 576（$24\times 24$）；加入 OCR / GQA / VQAv2 等学术数据</td></tr><tr><td>LLaVA-1.6 / NeXT</td><td>2024.01</td><td><strong>AnyRes</strong>：训练阶段即采用切图网格 $2\times 2 / 2\times 3 / \dots$ 各编码再拼，支持任意 aspect ratio；token 数≈$(1{+}n{\cdot}m)\cdot 576$（2×2→约2880，2×3→约4032；实际实现有 unpad + image_newline，略少于该理论值）</td></tr><tr><td>LLaVA-OneVision</td><td>2024.08</td><td>单 / 多图 / 视频统一；引入 SI（single image）+ OV（onevision）数据 mix</td></tr><tr><td>LLaVA-NeXT-Video</td><td>2024.04</td><td>视频版，把多帧 visual feature 序列化喂入</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>版本</th><th>时间</th><th>主要改动</th></tr></thead><tbody><tr><td>LLaVA-1.0</td><td>2023.04</td><td>单层 Linear projector；CLIP ViT-L/14@224²，视觉 token = 256（$16\times 16$）</td></tr><tr><td>LLaVA-1.5</td><td>2023.10</td><td>2-layer MLP；分辨率升到 336²，视觉 token = 576（$24\times 24$）；加入 OCR / GQA / VQAv2 等学术数据</td></tr><tr><td>LLaVA-1.6 / NeXT</td><td>2024.01</td><td><strong>AnyRes</strong>：训练阶段即采用切图网格 $2\times 2 / 2\times 3 / \dots$ 各编码再拼，支持任意 aspect ratio；token 数≈$(1{+}n{\cdot}m)\cdot 576$（2×2→约2880，2×3→约4032；实际实现有 unpad + image_newline，略少于该理论值）</td></tr><tr><td>LLaVA-OneVision</td><td>2024.08</td><td>单 / 多图 / 视频统一；引入 SI（single image）+ OV（onevision）数据 mix</td></tr><tr><td>LLaVA-NeXT-Video</td><td>2024.04</td><td>视频版，把多帧 visual feature 序列化喂入</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">AnyRes (LLaVA-1.6) 的核心 trick</div><p>LLaVA-NeXT/1.6 在<strong>训练阶段就采用 AnyRes 网格切图</strong>（而非仅推理时的技巧），让模型在训练中学会处理多 tile + 全局缩略图的空间布局：把高分辨率图切成 $n \times m$ 个 336² tile 各自编码，再加一份缩放到 336² 的"全局缩略图"。<strong>token 数约从 576 涨到 (1 + n·m)·576</strong>（真实实现还会做 unpad 去除按 aspect ratio 产生的 padding 区域、并在 tile 行间插入 image_newline token，实际数量略少于这个理论公式），但每个 tile 仍走同一个 frozen ViT。<strong>和 InternVL / Qwen-VL 的 tiling 是同一类思路</strong>。</p></div>
 <h2 id="7-blip-2q-former-cross-attention">§7 BLIP-2：Q-Former cross-attention</h2>
 <h3 id="71-motivation">7.1　Motivation</h3>
@@ -1034,7 +1041,7 @@ class QFormer(nn.Module):
         return q                                         # [B, 32, d_q]</code></pre>
 <div class="callout callout-warn"><div class="callout-title">`kdim`/`vdim` 适配</div><p><code>nn.MultiheadAttention</code> 默认 K/V 输入维度等于 <code>embed_dim</code>；Q-Former cross-attn 里 query 768 维、image feat 1408 维，<strong>必须显式传 <code>kdim=d_v, vdim=d_v</code></strong>，否则 PyTorch 会在 forward 时按 768 期望 K/V 输入，直接抛 shape mismatch 错误（不是悄悄截断）。</p></div>
 <h3 id="75-q-former-vs-llava-projectortrade-off">7.5　Q-Former vs LLaVA Projector：trade-off</h3>
-<table><thead><tr><th>维度</th><th>LLaVA Projector</th><th>BLIP-2 Q-Former</th></tr></thead><tbody><tr><td>参数量</td><td>~20M (MLP)</td><td>~180M (Q-Former + queries)</td></tr><tr><td>计算</td><td>仅 MLP forward</td><td>12 层 cross-attn forward</td></tr><tr><td>视觉 token 数</td><td>$N$（随分辨率二次增长）</td><td>固定 32</td></tr><tr><td>信息损失</td><td>几乎 0（每个 patch 都进 LLM）</td><td>显著（256+ patch 压成 32）</td></tr><tr><td>训练复杂度</td><td>1 stage（pretrain）+ 1 stage（IT）</td><td>2 stage（表征 + 生成）；stage 1 同时优化 ITC + ITM + ITG 三个 loss</td></tr><tr><td>LLM context 占用</td><td>大（576–2880 token）</td><td>小（32 token）</td></tr><tr><td>适合场景</td><td>高分辨率 / 细节任务</td><td>LLM context 紧张 / 多模态批量推理</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>LLaVA Projector</th><th>BLIP-2 Q-Former</th></tr></thead><tbody><tr><td>参数量</td><td>~20M (MLP)</td><td>~180M (Q-Former + queries)</td></tr><tr><td>计算</td><td>仅 MLP forward</td><td>12 层 cross-attn forward</td></tr><tr><td>视觉 token 数</td><td>$N$（随分辨率二次增长）</td><td>固定 32</td></tr><tr><td>信息损失</td><td>几乎 0（每个 patch 都进 LLM）</td><td>显著（256+ patch 压成 32）</td></tr><tr><td>训练复杂度</td><td>1 stage（pretrain）+ 1 stage（IT）</td><td>2 stage（表征 + 生成）；stage 1 同时优化 ITC + ITM + ITG 三个 loss</td></tr><tr><td>LLM context 占用</td><td>大（576–2880 token）</td><td>小（32 token）</td></tr><tr><td>适合场景</td><td>高分辨率 / 细节任务</td><td>LLM context 紧张 / 多模态批量推理</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">2024–2025 主流回归 projector</div><p>Qwen2-VL / LLaVA-NeXT / InternVL-2 / DeepSeek-VL2 几乎都用 projector（带 spatial reduction / pixel shuffle 控 token 数；原始 Qwen-VL 用的是单层 cross-attention query resampler，是 Qwen2-VL 才改用带 pixel shuffle 的 MLP patch merger），<strong>Q-Former 在工业 VLM 中淡出</strong>。但 Q-Former 思路在 video VLM 里仍活跃（用 query 做 frame-level pooling）。</p></div>
 <h2 id="8-flamingoperceiver-resampler--gated-cross-attn">§8 Flamingo：Perceiver Resampler + Gated Cross-Attn</h2>
 <h3 id="81-设计目标">8.1　设计目标</h3>
@@ -1050,7 +1057,7 @@ class QFormer(nn.Module):
 <p><strong>关键</strong>：$\alpha_\text{attn}, \alpha_\text{ffn}$ 是 learnable scalar，<strong>初始化为 0</strong>。所以 $\tanh(0)=0$，新增 cross-attn 在初始化时<strong>对 LLM 输出零贡献</strong>——LLM 表现与未加视觉模块的 frozen LLM 完全一致。训练时 $\alpha$ 逐渐学到非零值，视觉信息开始注入。</p>
 <div class="callout callout-good"><div class="callout-title">这就是&quot;residual 嫁接&quot;</div><p>Llama-3.2-Vision (Meta 2024) 沿用了完全相同的设计：frozen LLaMA-3 + 学一个 gated cross-attn adapter。优点是<strong>完全保留 text-only 性能</strong>，缺点是<strong>视觉能力上限低于 fine-tune LLM 的 LLaVA/Qwen-VL</strong>。</p></div>
 <h3 id="84-flamingo--llama-32-v-vs-llava-对比">8.4　Flamingo / Llama-3.2-V vs LLaVA 对比</h3>
-<table><thead><tr><th>方面</th><th>Flamingo / Llama-3.2-V</th><th>LLaVA / Qwen-VL</th></tr></thead><tbody><tr><td>LLM 是否解冻</td><td><strong>否</strong>（frozen）</td><td>是（stage 2 解冻）</td></tr><tr><td>Image 作 token</td><td>否（作 KV）</td><td><strong>是</strong>（作 token）</td></tr><tr><td>Text-only 能力保留</td><td>✅ 完全保留</td><td>⚠️ 可能轻微退化</td></tr><tr><td>视觉理解上限</td><td>受限于 cross-attn 容量</td><td>更高（LLM 可"思考"图像）</td></tr><tr><td>训练数据</td><td>interleaved</td><td>image-instruction pair</td></tr><tr><td>适用场景</td><td>大 LLM + 不想重训</td><td>中小 LLM + 视觉为核心</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方面</th><th>Flamingo / Llama-3.2-V</th><th>LLaVA / Qwen-VL</th></tr></thead><tbody><tr><td>LLM 是否解冻</td><td><strong>否</strong>（frozen）</td><td>是（stage 2 解冻）</td></tr><tr><td>Image 作 token</td><td>否（作 KV）</td><td><strong>是</strong>（作 token）</td></tr><tr><td>Text-only 能力保留</td><td>✅ 完全保留</td><td>⚠️ 可能轻微退化</td></tr><tr><td>视觉理解上限</td><td>受限于 cross-attn 容量</td><td>更高（LLM 可"思考"图像）</td></tr><tr><td>训练数据</td><td>interleaved</td><td>image-instruction pair</td></tr><tr><td>适用场景</td><td>大 LLM + 不想重训</td><td>中小 LLM + 视觉为核心</td></tr></tbody></table></div>
 <h2 id="9-cogvlm-与视觉专家--cross-attn-fusion-变体">§9 CogVLM 与"视觉专家" / Cross-attn fusion 变体</h2>
 <h3 id="91-cogvlm视觉专家分支">9.1　CogVLM：视觉专家分支</h3>
 <p>Wang et al. 2023 (CogVLM) 的核心：在 LLM 的 attention / FFN 里<strong>复制一份并行分支</strong>，专门处理 visual token，<strong>与原 text 分支共享 attention 计算但走不同 projection</strong>：</p>
@@ -1167,10 +1174,10 @@ def apply_mrope(q, k, cos, sin):
 <ul><li><strong>数据</strong>：GPT-4 生成的 visual instruction（LLaVA-Instruct-158K, ShareGPT4V）+ 学术 VQA 数据（VQAv2, GQA, OCR-VQA, TextVQA）</li><li><strong>训练</strong>：解冻 LLM + projector，<strong>vision tower 一般保持冻结</strong>（LLaVA-1.5 / Qwen-VL）。<strong>Qwen2-VL 在最后阶段也解冻 vision tower</strong>做 end-to-end fine-tune</li><li><strong>Loss</strong>：next-token prediction on answer tokens（input image + question 不算 loss）</li></ul>
 <h3 id="123-stage-3preference--rlhf">12.3　Stage 3：Preference / RLHF</h3>
 <p>目的：减幻觉、提升 helpfulness / harmlessness、长尾任务对齐。</p>
-<table><thead><tr><th>方法</th><th>时间</th><th>核心</th></tr></thead><tbody><tr><td><strong>LLaVA-RLHF</strong></td><td>2023.09, Sun et al.</td><td>PPO + human preference + hallucination-aware reward</td></tr><tr><td><strong>RLAIF-V</strong></td><td>2024, Yu et al.</td><td>AI feedback 替代 human label, divide-and-conquer</td></tr><tr><td><strong>POVID</strong></td><td>2024</td><td>DPO + 故意构造的幻觉 negative</td></tr><tr><td><strong>VLM-R1</strong></td><td>2025</td><td>GRPO + verifiable reward（视觉 reasoning 类 R1）</td></tr><tr><td><strong>Bespoke / R1-Onevision</strong></td><td>2025</td><td>视觉 chain-of-thought + RL refinement</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>时间</th><th>核心</th></tr></thead><tbody><tr><td><strong>LLaVA-RLHF</strong></td><td>2023.09, Sun et al.</td><td>PPO + human preference + hallucination-aware reward</td></tr><tr><td><strong>RLAIF-V</strong></td><td>2024, Yu et al.</td><td>AI feedback 替代 human label, divide-and-conquer</td></tr><tr><td><strong>POVID</strong></td><td>2024</td><td>DPO + 故意构造的幻觉 negative</td></tr><tr><td><strong>VLM-R1</strong></td><td>2025</td><td>GRPO + verifiable reward（视觉 reasoning 类 R1）</td></tr><tr><td><strong>Bespoke / R1-Onevision</strong></td><td>2025</td><td>视觉 chain-of-thought + RL refinement</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">VLM-R1 (2025) 是当下热点</div><p>把 DeepSeek-R1 的"verifiable reward + GRPO"配方迁到视觉任务（如 ScienceQA, MMMU）。reward 来自答案是否匹配 ground truth（不用 process reward model），训练后 visual reasoning chain 显著增长，benchmark 大幅提升。</p></div>
 <h3 id="124-数据规模-vs-阶段">12.4　数据规模 vs 阶段</h3>
-<table><thead><tr><th>阶段</th><th>数据量</th><th>训练 token</th><th>解冻部分</th></tr></thead><tbody><tr><td>Alignment</td><td>0.5–5M caption</td><td>1–10B</td><td>projector</td></tr><tr><td>Instruction tune</td><td>0.2–10M instruction</td><td>1–50B</td><td>LLM + projector</td></tr><tr><td>Preference</td><td>50k–500k preference pair</td><td>100M–1B</td><td>LLM (LoRA / full)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>阶段</th><th>数据量</th><th>训练 token</th><th>解冻部分</th></tr></thead><tbody><tr><td>Alignment</td><td>0.5–5M caption</td><td>1–10B</td><td>projector</td></tr><tr><td>Instruction tune</td><td>0.2–10M instruction</td><td>1–50B</td><td>LLM + projector</td></tr><tr><td>Preference</td><td>50k–500k preference pair</td><td>100M–1B</td><td>LLM (LoRA / full)</td></tr></tbody></table></div>
 <h2 id="13-multimodal-embeddingsbge-vl--jina-clip--vlm2vec">§13 Multimodal Embeddings：BGE-VL / Jina-CLIP / VLM2Vec</h2>
 <h3 id="131-为什么需要新一代多模态-embedding">13.1　为什么需要新一代多模态 embedding？</h3>
 <p>CLIP 训练目标是 "image ↔ short caption" 对齐，<strong>长 instruction 检索 / multi-image / interleaved 文档检索</strong> 表现差。新一代 multimodal embedding 模型针对 retrieval / RAG 场景。</p>
@@ -1351,7 +1358,7 @@ def apply_mrope(q, k, cos, sin):
 <p><strong>根本原因</strong>：</p>
 <ol><li><strong>数据偏差</strong>：训练数据中常出现的 "co-occurrence prior"——"图里有桌子大概率有椅子"。Co-occurrence 让 VLM 在看到桌子时倾向回答"是的，有椅子"，即使图里没椅子</li><li><strong>语言先验主导</strong>：当视觉信号弱时（小物体、模糊、奇怪角度），VLM 退化为纯语言模型，按"语料常识"作答</li><li><strong>LLM 的 sycophancy</strong>：用户问 "图里是不是有 X" 倾向回答 Yes（人类反馈偏向 helpful → 倾向 yes）</li><li><strong>Stage 2 instruction tuning 没有 negative supervision</strong>：标注里很少教 "图里没 X 就回答 No"</li></ol>
 <p><strong>缓解方法</strong>：</p>
-<table><thead><tr><th>方法</th><th>思路</th><th>优势</th><th>劣势</th></tr></thead><tbody><tr><td>LLaVA-RLHF</td><td>PPO + hallucination-aware reward</td><td>训练后期定向修</td><td>需要 reward model + 大量 preference</td></tr><tr><td>RLAIF-V</td><td>AI-generated preference</td><td>数据成本低</td><td>reward model 自身偏差累积</td></tr><tr><td>POVID</td><td>DPO + 构造 hallucination negative</td><td>直接对症</td><td>需精心设计 negative</td></tr><tr><td>VCD (visual contrastive decoding)</td><td>推理时让 VLM 同时看图 vs 模糊图，差值放大视觉信号</td><td>训练免费</td><td>推理 2x 成本</td></tr><tr><td>OPERA</td><td>beam search + over-attention 检测</td><td>推理时检测</td><td>启发式，可能误杀</td></tr><tr><td>POPE 评测驱动</td><td>用 POPE 反向监督</td><td>量化好</td><td>只测 object hallucination</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>思路</th><th>优势</th><th>劣势</th></tr></thead><tbody><tr><td>LLaVA-RLHF</td><td>PPO + hallucination-aware reward</td><td>训练后期定向修</td><td>需要 reward model + 大量 preference</td></tr><tr><td>RLAIF-V</td><td>AI-generated preference</td><td>数据成本低</td><td>reward model 自身偏差累积</td></tr><tr><td>POVID</td><td>DPO + 构造 hallucination negative</td><td>直接对症</td><td>需精心设计 negative</td></tr><tr><td>VCD (visual contrastive decoding)</td><td>推理时让 VLM 同时看图 vs 模糊图，差值放大视觉信号</td><td>训练免费</td><td>推理 2x 成本</td></tr><tr><td>OPERA</td><td>beam search + over-attention 检测</td><td>推理时检测</td><td>启发式，可能误杀</td></tr><tr><td>POPE 评测驱动</td><td>用 POPE 反向监督</td><td>量化好</td><td>只测 object hallucination</td></tr></tbody></table></div>
 <p><strong>未来方向</strong>：从训练数据层根治（grounded caption + segment-level 监督）；visual chain-of-thought（VLM-R1 风格）让模型在回答前先"指认证据"。</p>
 </details>
 <details>
@@ -1396,7 +1403,7 @@ def apply_mrope(q, k, cos, sin):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/vlm_multimodal_tutorial.md</code> ·
   SHA256 <code>1846758ab564</code> ·
-  generated at 2026-07-12 04:23 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

@@ -1,7 +1,7 @@
 {
  "skill": "interview-cheatsheet",
  "source": "docs/tutorials/llm_evaluation_benchmarking_tutorial.md",
- "source_sha256": "1b719c0beedb1f0b6ff73edc9b14a875a045f8de41cc9f2ac5f6e16afa15494a",
+ "source_sha256": "5622aa351679a75fc0d71216ceafda7463353e89cada0854c25e67d92a316659",
  "output": "docs/tutorials/llm_evaluation_benchmarking_tutorial.html",
  "runnable_code": "docs/tutorials/code/llm_eval_metrics.py",
  "topic": "LLM Evaluation & Benchmarking / 面试 Cheat Sheet — evaluation contract先于metric / evaluator ladder多轴决策表 / pass@k无偏组合数估计vs有偏plug-in(核心易错点) / benchmark construction与污染检测分层pipeline / human eval→LLM-as-judge / Bradley-Terry MLE与complete separation / bootstrap统计推断与cluster dependence / 25 高频题",
@@ -13,7 +13,7 @@
   "notes": "gpt-5.6-sol对提议大纲做详尽设计前置审(105条编号claim),最核心的纠偏:'只生成k个样本检查是否至少一个通过'是无偏但高方差的估计,不是有偏估计;真正常见的有偏估计是plug-in形式1-(1-c/n)^k。还纠正了evaluator ladder的成本/可信度伪全序、IRT与CTT概念混用、黑盒污染证明的边界等。起草时作为硬护栏。"
  },
  "math_code_review": {
-  "verdict": "PASS (after 3 review batches — math/facts+citations, code, structure+Q&A — + full fix pass, verified by re-running the fixed script)",
+  "verdict": "PASS (after 3 review batches — math/facts+citations, code, structure+Q&A — + full fix pass, verified by re-running the fixed script; + 1 scannability de-hedge round, expression-only, no factual changes)",
   "rounds": [
    {
     "run": 1,
@@ -35,6 +35,13 @@
     "verdict": "FAIL (Bradley-Terry separation条件错误被此批独立再次发现,与construct-before-metric顺序、Benchmark Construction节名不副实、缺统计功效规划节) -> all fixed",
     "notes": "3批独立收敛到同一个separation判定bug(数学审核、代码审核、结构审核各自发现),是本轮质量信号最强的一处。§3扩展成真正的benchmark construction(补task/item specification、sampling frame、split/stratification);新增§5.8统计功效/样本量规划;evaluator ladder改多轴表;Q11修正0.75 vs 0.7778两种估计量混写;Q12修正'同分布≠不独立'的统计概念混淆。",
     "thread_id": "019f8848-1863-7b11-a657-f84f9e25b00b"
+   },
+   {
+    "run": 4,
+    "scope": "可扫读性去冗余(owner反馈触发)",
+    "verdict": "中度冗杂(§0#2/§2.6/§5.6-5.7/Q25局部重度) -> 全部修复",
+    "thread_id": "019fb3d9-a1b9-70d3-ac2c-3dd045273742",
+    "notes": "~45条清单全部执行:§0九条纠偏压缩为主句先行;§2.6 pass@k重排为五步主线(Rao-Blackwell/n=k退化/成本下沉为注);'手写第一陷阱'警告框删除(与6处重复);§5.6强连通/§5.7非传递长段压缩;Q&A'常见误区'否定镜像清理(Q22因成为§4.5删除论证的唯一保留处而留下)。-17.4%字节。表达重排不改事实结论。"
    }
   ]
  },
@@ -45,10 +52,10 @@
  },
  "translation_fidelity_note": "N/A (this is the ZH source; see _en.review.json for the EN fidelity review)",
  "summary": "LLM Evaluation & Benchmarking cheat sheet (effort=max, ~878 lines, bilingual). First tutorial in this batch to demonstrate triple-independent convergence on the same bug: the Bradley-Terry complete-separation misjudgment was caught separately by the math-review, code-review, AND structure-review passes, each from a different angle — strong evidence it was a real defect rather than reviewer noise. Also demonstrates cross-model self-correction on drafting: the drafting subagent itself caught and fixed an accidentally-transitive (mislabeled) cyclic Bradley-Terry test dataset before handing off. Final verdict: SHIP after full fix + re-verification.",
- "rendered_at": "2026-07-22",
+ "rendered_at": "2026-07-31",
  "render_review": {
   "verdict": "PASS",
   "thread_id": "019f88b9-973c-78a1-9fed-886a02e5ab57",
-  "notes": "6项渲染质量检查(表格列数/TOC条目数/公式逐式一致/details闭合数/无注入/无个人信息)全部通过;source SHA256与当前.md完全一致。"
+  "notes": "初版渲染审PASS(6项检查);去冗余后用升级版渲染器(table-wrap横向滚动修复)全库统一重渲染,源hash同步刷新。"
  }
 }

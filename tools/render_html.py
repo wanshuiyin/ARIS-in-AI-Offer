@@ -503,7 +503,7 @@ def render_table(header: str, divider: str, rows: list[str]) -> str:
             return f' style="text-align:{align[idx]}"'
         return ""
 
-    out: list[str] = ["<table>", "<thead><tr>"]
+    out: list[str] = ['<div class="table-wrap">', "<table>", "<thead><tr>"]
     for idx, cell in enumerate(header_cells):
         out.append(f"<th{cell_attr(idx)}>{render_inline(cell)}</th>")
     out.append("</tr></thead>")
@@ -513,7 +513,7 @@ def render_table(header: str, divider: str, rows: list[str]) -> str:
         for idx, cell in enumerate(split_row(row)):
             out.append(f"<td{cell_attr(idx)}>{render_inline(cell)}</td>")
         out.append("</tr>")
-    out.append("</tbody></table>")
+    out.append("</tbody></table></div>")
     return "".join(out)
 
 

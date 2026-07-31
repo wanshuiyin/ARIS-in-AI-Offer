@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/flow_matching_tutorial.md">
 <meta name="aris:source-sha256" content="f52a889d1dc8449a96095bab199f65afcbbc0b263c00fc694c32b6a1c047bffa">
-<meta name="aris:generated-at" content="2026-07-13 10:03 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -578,7 +585,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/flow_matching_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>f52a889d1dc8</code></span>
-    <span><strong>Rendered:</strong> 2026-07-13 10:03 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -619,7 +626,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="callout callout-info"><div class="callout-title">面试加分：marginal vector field 非唯一</div><p>给定 $p_t$，满足连续性方程 $\partial_t p_t + \nabla\cdot(p_t u_t) = 0$ 的 $u_t$ <strong>不唯一</strong>——任意满足 $\nabla\cdot(p_t w_t) = 0$（即 $p_t$-weighted divergence-free，而非普通的 $\nabla\cdot w_t = 0$）的向量场 $w_t$ 加上去仍是合法的，因为这不改变 $\nabla\cdot(p_t u_t)$ 的值，从而不破坏连续性方程。CFM 通过 conditional path 自动选了一个"自然的" $u_t$（通常对应 OT map 或 score-based ODE）。这点常被追问 "marginal $u_t$ 唯一吗？"。</p></div>
 <h2 id="3-三种-conditional-path-选择">§3 三种 Conditional Path 选择</h2>
 <p>conditioning 取 $z = (x_0, x_1)$，$x_0 \sim p_0$, $x_1 \sim p_1$。conditional path $p_t(x | x_0, x_1)$ 一般是 Dirac $\delta(x - \psi_t(x_0, x_1))$（确定性插值），conditional vector field 为 $\dot{\psi}_t(x_0, x_1)$。</p>
-<table><thead><tr><th>Path</th><th>$x_t = \psi_t(x_0, x_1)$</th><th>Target $u_t$</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>Rectified Flow</strong>（独立采样；若 $(x_0,x_1)$ 用 OT coupling 采样才称 OT-CFM）</td><td>$(1-t)x_0 + t\, x_1$</td><td>$x_1 - x_0$（常数）</td><td>SD3, FLUX, Lumina, MovieGen</td></tr><tr><td><strong>VP cosine</strong></td><td>$\cos\!\left(\frac{\pi t}{2}\right) x_0 + \sin\!\left(\frac{\pi t}{2}\right) x_1$</td><td>$-\frac{\pi}{2}\sin\!\frac{\pi t}{2}\, x_0 + \frac{\pi}{2}\cos\!\frac{\pi t}{2}\, x_1$</td><td>与 DDPM cosine schedule 同族（在限制下）</td></tr><tr><td><strong>VE</strong></td><td>$x_1 + \sigma(1{-}t)\, x_0$，$\sigma$ 递增</td><td>$-\sigma'(1{-}t)\, x_0$</td><td>与 SMLD/EDM 同族（需 prior 方差匹配 $\sigma_{\max}^2$）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Path</th><th>$x_t = \psi_t(x_0, x_1)$</th><th>Target $u_t$</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>Rectified Flow</strong>（独立采样；若 $(x_0,x_1)$ 用 OT coupling 采样才称 OT-CFM）</td><td>$(1-t)x_0 + t\, x_1$</td><td>$x_1 - x_0$（常数）</td><td>SD3, FLUX, Lumina, MovieGen</td></tr><tr><td><strong>VP cosine</strong></td><td>$\cos\!\left(\frac{\pi t}{2}\right) x_0 + \sin\!\left(\frac{\pi t}{2}\right) x_1$</td><td>$-\frac{\pi}{2}\sin\!\frac{\pi t}{2}\, x_0 + \frac{\pi}{2}\cos\!\frac{\pi t}{2}\, x_1$</td><td>与 DDPM cosine schedule 同族（在限制下）</td></tr><tr><td><strong>VE</strong></td><td>$x_1 + \sigma(1{-}t)\, x_0$，$\sigma$ 递增</td><td>$-\sigma'(1{-}t)\, x_0$</td><td>与 SMLD/EDM 同族（需 prior 方差匹配 $\sigma_{\max}^2$）</td></tr></tbody></table></div>
 <h3 id="31-rectified-flow最简最稳最常用">3.1　Rectified Flow：最简、最稳、最常用</h3>
 <p>线性插值：$x_t = (1-t) x_0 + t\, x_1$，所以 $\dot{x}_t = x_1 - x_0$ 是<strong>常数</strong>（不依赖 $t$）。</p>
 <p>训练目标：</p>
@@ -872,7 +879,7 @@ def rk4_sampler(model, x0, steps=25, t_start=0.0, t_end=1.0):
 <p>这就是为什么 DDPM (学 $\epsilon$) 与 score-based (学 $\nabla \log p_t$) 是<strong>等价参数化</strong>。Flow matching 学的 path velocity $u_t = \alpha' x_1 + \sigma' x_0$ 也是其中一种，且在 RF (linear) 下退化为 $u_t = x_1 - x_0$。</p>
 <div class="callout callout-warn"><div class="callout-title">不要与 Salimans-Ho v-prediction 混淆</div><p>Salimans &amp; Ho (2022) 原始定义的 $v$-prediction 是瞬时线性组合 $v \equiv \alpha(t) x_0 - \sigma(t) x_1$（不含时间导数），而这里的 path velocity $u_t = \dot{x}_t$ 是路径对 $t$ 求导得到的切向量，二者是不同对象。只有在 VP cosine schedule 下代入验证两者才成比例（$u_t = -\frac{\pi}{2} v$），一般 path / schedule 下没有这个固定比例关系。</p></div>
 <h3 id="62-几种-path-与-diffusion-的对应表">6.2　几种 path 与 diffusion 的对应表</h3>
-<table><thead><tr><th>FM Path</th><th>等价 Diffusion / SDE</th><th>典型 noise schedule</th></tr></thead><tbody><tr><td>VP cosine</td><td>DDPM (cosine)</td><td>$\bar\alpha_t = \sin^2(\pi t/2)$（本文 $t=0$ 噪声/$t=1$ 数据 convention；若换回 DDPM 自身 $t'=1-t$ convention 则为 $\bar\alpha_{t'} = \cos^2(\pi t'/2)$）</td></tr><tr><td>VP linear</td><td>DDPM (linear β)</td><td>$\beta_t = \beta_0 + t(\beta_1 - \beta_0)$</td></tr><tr><td>VE</td><td>SMLD / EDM</td><td>$\sigma_t \in [\sigma_\min, \sigma_\max]$ 对数线性</td></tr><tr><td>Rectified Flow</td><td>没有标准非零扩散 noising SDE 对应（退化情形除外）</td><td>条件路径 (chord) 是直线；未经 reflow 的生成 ODE 轨迹通常仍弯（见 §6.3）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>FM Path</th><th>等价 Diffusion / SDE</th><th>典型 noise schedule</th></tr></thead><tbody><tr><td>VP cosine</td><td>DDPM (cosine)</td><td>$\bar\alpha_t = \sin^2(\pi t/2)$（本文 $t=0$ 噪声/$t=1$ 数据 convention；若换回 DDPM 自身 $t'=1-t$ convention 则为 $\bar\alpha_{t'} = \cos^2(\pi t'/2)$）</td></tr><tr><td>VP linear</td><td>DDPM (linear β)</td><td>$\beta_t = \beta_0 + t(\beta_1 - \beta_0)$</td></tr><tr><td>VE</td><td>SMLD / EDM</td><td>$\sigma_t \in [\sigma_\min, \sigma_\max]$ 对数线性</td></tr><tr><td>Rectified Flow</td><td>没有标准非零扩散 noising SDE 对应（退化情形除外）</td><td>条件路径 (chord) 是直线；未经 reflow 的生成 ODE 轨迹通常仍弯（见 §6.3）</td></tr></tbody></table></div>
 <h3 id="63-为什么-rectified-flow-训练--采样相对稳">6.3　为什么 Rectified Flow 训练 / 采样相对"稳"</h3>
 <ul><li><strong>常数 target</strong>：$u_t = x_1 - x_0$ 不显式依赖 $t$（在给定 $x_0, x_1$ 后），数值上易拟合</li><li><strong>条件路径 (chord) 是直线</strong>：使 CFM 训练目标不显式依赖 $t$，数值上更稳定；但这不等于学到的 marginal / 生成 ODE 轨迹就是直线——未经 reflow 的 1-RF 生成轨迹一般仍是弯的（marginal 场是对不同 $(x_0, x_1)$ 配对条件速度的期望），因此未 reflow 时依然需要 ~50 步 Euler 才能出好图（见 §5）；真正让生成轨迹变直、支持少步采样的是 reflow（见 §7.1）</li><li><strong>Loss conditioning</strong>：RF 本身比 native DDPM 训练更平衡；但<strong>不是说不需要 reweighting</strong>——SD3 在 RF 之上仍做 logit-normal $t$ sampling 等 reweighting 并 ablate 出涨点</li><li><strong>Reflow 可压缩 NFE</strong>：1-step 生成路线（如 InstaFlow，确实基于 reflow 算法；SD3-Turbo 实际走的是 LADD / 对抗扩散蒸馏路线而非 reflow，二者机制不同，不应并列）</li></ul>
 <h2 id="7-高级话题">§7 高级话题</h2>
@@ -950,7 +957,7 @@ def rk4_sampler(model, x0, steps=25, t_start=0.0, t_end=1.0):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/flow_matching_tutorial.md</code> ·
   SHA256 <code>f52a889d1dc8</code> ·
-  generated at 2026-07-13 10:03 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

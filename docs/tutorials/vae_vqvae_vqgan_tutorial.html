@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/vae_vqvae_vqgan_tutorial.md">
 <meta name="aris:source-sha256" content="3e90acdddc0df8d3176b1b54542468ddf81bae171f9170282dd4d4388932c4f4">
-<meta name="aris:generated-at" content="2026-07-13 10:17 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -619,7 +626,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/vae_vqvae_vqgan_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>3e90acdddc0d</code></span>
-    <span><strong>Rendered:</strong> 2026-07-13 10:17 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -811,7 +818,7 @@ def vae_loss(x: torch.Tensor, logits: torch.Tensor, mu: torch.Tensor,
 <h3 id="52-原因直观分析">5.2　原因（直观分析）</h3>
 <ul><li><strong>Decoder 太强</strong>：若 $p_\theta(x|z)$ 本身就是表达力极强的 PixelCNN / Autoregressive 解码器（Bowman 2016 的 LSTM 文本 VAE 经典翻车），它能不靠 $z$ 直接拟合数据，那 ELBO 最优策略就是让 KL 项归 0。</li><li><strong>KL 项压力大</strong>：ELBO 在训练早期 reconstruction 还没建立，optimizer 容易先把 KL 压到 0（局部最优）。</li><li><strong>数据简单</strong>：MNIST 上 collapse 罕见，文本 VAE 上常见。</li></ul>
 <h3 id="53-缓解方法面试要会列">5.3　缓解方法（面试要会列）</h3>
-<table><thead><tr><th>方法</th><th>做法</th><th>出处</th></tr></thead><tbody><tr><td><strong>KL annealing</strong></td><td>$\beta(t) = \min(1, t / T)$ 线性从 0 升到 1</td><td>Bowman et al. (2016)</td></tr><tr><td><strong>Free bits</strong></td><td>每维 KL 下限 $\lambda$ nats：$\max(D_\text{KL}^{(i)}, \lambda)$</td><td>Kingma et al. (2016)</td></tr><tr><td><strong>$\beta$ &lt; 1</strong></td><td>直接减小 KL 权重</td><td>$\beta$-VAE 反向用法</td></tr><tr><td><strong>Weakened decoder</strong></td><td>用 PixelCNN 等强 AR decoder 时人为 truncate context / 加 dropout</td><td>Chen et al. (2017)</td></tr><tr><td><strong>Auxiliary task</strong></td><td>加 word dropout、bag-of-words 辅助 loss</td><td>Bowman et al. (2016)</td></tr><tr><td><strong>VAE-IAF / NF prior</strong></td><td>用更复杂的先验或 normalizing flow posterior</td><td>Kingma et al. (2016)</td></tr><tr><td><strong>Skip / lateral 连接</strong></td><td>让 latent 强制参与 decoder（如 VLAE）</td><td>Zhao et al. (2017)</td></tr><tr><td><strong>VQ-VAE</strong></td><td>离散 latent 配合 codebook commitment，<strong>结构上避免</strong> collapse</td><td>van den Oord (2017)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>做法</th><th>出处</th></tr></thead><tbody><tr><td><strong>KL annealing</strong></td><td>$\beta(t) = \min(1, t / T)$ 线性从 0 升到 1</td><td>Bowman et al. (2016)</td></tr><tr><td><strong>Free bits</strong></td><td>每维 KL 下限 $\lambda$ nats：$\max(D_\text{KL}^{(i)}, \lambda)$</td><td>Kingma et al. (2016)</td></tr><tr><td><strong>$\beta$ &lt; 1</strong></td><td>直接减小 KL 权重</td><td>$\beta$-VAE 反向用法</td></tr><tr><td><strong>Weakened decoder</strong></td><td>用 PixelCNN 等强 AR decoder 时人为 truncate context / 加 dropout</td><td>Chen et al. (2017)</td></tr><tr><td><strong>Auxiliary task</strong></td><td>加 word dropout、bag-of-words 辅助 loss</td><td>Bowman et al. (2016)</td></tr><tr><td><strong>VAE-IAF / NF prior</strong></td><td>用更复杂的先验或 normalizing flow posterior</td><td>Kingma et al. (2016)</td></tr><tr><td><strong>Skip / lateral 连接</strong></td><td>让 latent 强制参与 decoder（如 VLAE）</td><td>Zhao et al. (2017)</td></tr><tr><td><strong>VQ-VAE</strong></td><td>离散 latent 配合 codebook commitment，<strong>结构上避免</strong> collapse</td><td>van den Oord (2017)</td></tr></tbody></table></div>
 <div class="callout callout-good"><div class="callout-title">Free bits 公式</div><p>实现极简：<code>kl_per_dim = max(kl_per_dim, λ)</code>。<strong>这只是"阈值以下不再惩罚"</strong>：一旦某维 raw KL 低于 λ，clamp 输出变成常数 λ，对该维梯度为 0——optimizer 不会再压低它，但也<strong>不会主动把它推回 λ 以上</strong>。如果 decoder 太强导致某维 posterior 已塌缩，raw KL 仍可能停在接近 0 处，loss 里显示的只是饱和后的 λ，并非真实下限保证。λ≈0.5-2 nats/dim 是常见值。</p></div>
 <h2 id="6-vq-vae离散-latent--codebook--ste">§6 VQ-VAE：离散 latent + Codebook + STE</h2>
 <h3 id="61-结构van-den-oord-vinyals-kavukcuoglu-neurips-2017">6.1　结构（van den Oord, Vinyals, Kavukcuoglu, NeurIPS 2017）</h3>
@@ -984,7 +991,7 @@ def vqvae_loss(x, x_hat, vq_loss):
 <h2 id="7-vq-ganadversarial--perceptual--transformer-prior">§7 VQ-GAN：Adversarial + Perceptual + Transformer Prior</h2>
 <h3 id="71-核心思想esser-rombach-ommer-cvpr-2021-taming-transformers">7.1　核心思想（Esser, Rombach, Ommer, CVPR 2021, "Taming Transformers"）</h3>
 <p>VQ-VAE 在 ImageNet 上重建的<strong>纹理细节模糊</strong>。VQ-GAN 改造为：</p>
-<table><thead><tr><th>组件</th><th>VQ-VAE</th><th>VQ-GAN</th></tr></thead><tbody><tr><td><strong>Recon loss</strong></td><td>L2 / L1 pixel</td><td>L1 pixel + <strong>LPIPS perceptual</strong> + <strong>PatchGAN adversarial</strong></td></tr><tr><td><strong>Prior</strong></td><td>PixelCNN</td><td><strong>Transformer (decoder-only)</strong> over code tokens</td></tr><tr><td><strong>Codebook</strong></td><td>512-1024 codes</td><td>1024-16384 codes</td></tr><tr><td><strong>Compression</strong></td><td>4×-8×</td><td>8×-32×（更高压缩比，靠 perceptual + adversarial 救质量）</td></tr><tr><td><strong>应用</strong></td><td>unconditional / class-cond 生成</td><td>high-res image synthesis, "Taming Transformers"</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>组件</th><th>VQ-VAE</th><th>VQ-GAN</th></tr></thead><tbody><tr><td><strong>Recon loss</strong></td><td>L2 / L1 pixel</td><td>L1 pixel + <strong>LPIPS perceptual</strong> + <strong>PatchGAN adversarial</strong></td></tr><tr><td><strong>Prior</strong></td><td>PixelCNN</td><td><strong>Transformer (decoder-only)</strong> over code tokens</td></tr><tr><td><strong>Codebook</strong></td><td>512-1024 codes</td><td>1024-16384 codes</td></tr><tr><td><strong>Compression</strong></td><td>4×-8×</td><td>8×-32×（更高压缩比，靠 perceptual + adversarial 救质量）</td></tr><tr><td><strong>应用</strong></td><td>unconditional / class-cond 生成</td><td>high-res image synthesis, "Taming Transformers"</td></tr></tbody></table></div>
 <h3 id="72-loss-公式">7.2　Loss 公式</h3>
 <p>$$\mathcal{L}_\text{VQ-GAN}^\text{stage1} = \mathcal{L}_\text{rec} + \mathcal{L}_\text{VQ} + \lambda \cdot \mathcal{L}_\text{GAN}$$</p>
 <p>其中：</p>
@@ -1192,16 +1199,16 @@ def hinge_g_loss(fake_logits):
 
         return z_hat, self.entropy_weight * entropy_loss</code></pre>
 <h3 id="97-cosmos--openmagvit2--现代-video-tokenizer">9.7　Cosmos / OpenMagViT2 / 现代 video tokenizer</h3>
-<table><thead><tr><th>Tokenizer</th><th>出处</th><th>量化方式</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>MAGVIT-v2</strong></td><td>Google 2024 (ICLR)</td><td>LFQ</td><td>text-to-video 早期 demo</td></tr><tr><td><strong>OpenMagViT2</strong></td><td>开源复现 2024</td><td>LFQ</td><td>公开 video tokenizer baseline</td></tr><tr><td><strong>Cosmos Tokenizer</strong></td><td>NVIDIA 2024</td><td>FSQ + 视频时空压缩</td><td>NVIDIA Cosmos world model</td></tr><tr><td><strong>VideoPoet tokenizer</strong></td><td>Google 2024</td><td>LFQ-style</td><td>text-to-video</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Tokenizer</th><th>出处</th><th>量化方式</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>MAGVIT-v2</strong></td><td>Google 2024 (ICLR)</td><td>LFQ</td><td>text-to-video 早期 demo</td></tr><tr><td><strong>OpenMagViT2</strong></td><td>开源复现 2024</td><td>LFQ</td><td>公开 video tokenizer baseline</td></tr><tr><td><strong>Cosmos Tokenizer</strong></td><td>NVIDIA 2024</td><td>FSQ + 视频时空压缩</td><td>NVIDIA Cosmos world model</td></tr><tr><td><strong>VideoPoet tokenizer</strong></td><td>Google 2024</td><td>LFQ-style</td><td>text-to-video</td></tr></tbody></table></div>
 <p>工程要点：</p>
 <ul><li><strong>时空联合压缩</strong>：spatial 8× + temporal 4×（4 帧合 1 token plane）</li><li><strong>3D causal CNN</strong> encoder（前向时间因果，可流式编码长视频）</li><li><strong>跨 resolution generalization</strong>：训 256×256 推 1024×1024 必须 careful test-time 适配</li></ul>
 <h2 id="10-复杂度与资源对比">§10 复杂度与资源对比</h2>
-<table><thead><tr><th>模型</th><th>latent 类型</th><th>训练参数 (encoder+decoder)</th><th>主要 loss</th><th>Codebook collapse</th><th>STE 依赖</th></tr></thead><tbody><tr><td><strong>VAE</strong></td><td>continuous Gaussian</td><td>$\sim$10-100M</td><td>recon + KL (closed form)</td><td>N/A</td><td>否 (reparameterization)</td></tr><tr><td><strong>$\beta$-VAE</strong></td><td>continuous Gaussian</td><td>同 VAE</td><td>recon + $\beta$·KL</td><td>N/A</td><td>否</td></tr><tr><td><strong>NVAE</strong></td><td>hierarchical continuous</td><td>80M-200M</td><td>recon + multi-layer KL</td><td>N/A</td><td>否</td></tr><tr><td><strong>VQ-VAE</strong></td><td>discrete via codebook</td><td>50-200M</td><td>recon + codebook + $\beta$·commitment</td><td><strong>常发生</strong></td><td>是</td></tr><tr><td><strong>VQ-VAE-2</strong></td><td>hierarchical discrete</td><td>100-500M</td><td>同 VQ-VAE × 2 层</td><td>同上</td><td>是</td></tr><tr><td><strong>VQ-GAN</strong></td><td>discrete + adversarial</td><td>50-300M (+ D)</td><td>recon + LPIPS + GAN + codebook + commitment</td><td>同上</td><td>是</td></tr><tr><td><strong>dVAE</strong></td><td>categorical (logits)</td><td>50-200M</td><td>recon + KL to uniform</td><td>较少（categorical 分布学习）</td><td>否（Gumbel-softmax 反传 soft）</td></tr><tr><td><strong>FSQ</strong></td><td>scalar quantize per dim</td><td>30-150M</td><td>recon (+ perceptual)</td><td><strong>几乎不发生</strong></td><td>是（但极简）</td></tr><tr><td><strong>LFQ</strong></td><td>binary scalar quantize</td><td>30-150M</td><td>recon (+ entropy reg)</td><td><strong>几乎不发生</strong></td><td>是</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模型</th><th>latent 类型</th><th>训练参数 (encoder+decoder)</th><th>主要 loss</th><th>Codebook collapse</th><th>STE 依赖</th></tr></thead><tbody><tr><td><strong>VAE</strong></td><td>continuous Gaussian</td><td>$\sim$10-100M</td><td>recon + KL (closed form)</td><td>N/A</td><td>否 (reparameterization)</td></tr><tr><td><strong>$\beta$-VAE</strong></td><td>continuous Gaussian</td><td>同 VAE</td><td>recon + $\beta$·KL</td><td>N/A</td><td>否</td></tr><tr><td><strong>NVAE</strong></td><td>hierarchical continuous</td><td>80M-200M</td><td>recon + multi-layer KL</td><td>N/A</td><td>否</td></tr><tr><td><strong>VQ-VAE</strong></td><td>discrete via codebook</td><td>50-200M</td><td>recon + codebook + $\beta$·commitment</td><td><strong>常发生</strong></td><td>是</td></tr><tr><td><strong>VQ-VAE-2</strong></td><td>hierarchical discrete</td><td>100-500M</td><td>同 VQ-VAE × 2 层</td><td>同上</td><td>是</td></tr><tr><td><strong>VQ-GAN</strong></td><td>discrete + adversarial</td><td>50-300M (+ D)</td><td>recon + LPIPS + GAN + codebook + commitment</td><td>同上</td><td>是</td></tr><tr><td><strong>dVAE</strong></td><td>categorical (logits)</td><td>50-200M</td><td>recon + KL to uniform</td><td>较少（categorical 分布学习）</td><td>否（Gumbel-softmax 反传 soft）</td></tr><tr><td><strong>FSQ</strong></td><td>scalar quantize per dim</td><td>30-150M</td><td>recon (+ perceptual)</td><td><strong>几乎不发生</strong></td><td>是（但极简）</td></tr><tr><td><strong>LFQ</strong></td><td>binary scalar quantize</td><td>30-150M</td><td>recon (+ entropy reg)</td><td><strong>几乎不发生</strong></td><td>是</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">生态位定位</div></div>
 <ul><li>想做 <strong>diffusion / FM</strong>：用 KL-VAE / SD VAE（连续 latent）</li><li>想做 <strong>AR 生成（GPT-style 图像 token）</strong>：用 VQ-GAN / FSQ / LFQ</li><li>想做 <strong>MaskGIT / Muse / 并行 decode</strong>：用 VQ-GAN / FSQ</li><li>想做 <strong>video / 长 sequence</strong>：用 FSQ / LFQ（codebook usage 高、无 collapse）</li></ul>
 <h2 id="11-与相关方法对比--在生态中的位置">§11 与相关方法对比 / 在生态中的位置</h2>
 <h3 id="111-vae-vs-gan-vs-diffusion-vs-flow--fm">11.1　VAE vs GAN vs Diffusion vs Flow / FM</h3>
-<table><thead><tr><th>模型</th><th>似然</th><th>训练稳定性</th><th>多样性</th><th>样本质量</th><th>inference 速度</th></tr></thead><tbody><tr><td><strong>VAE</strong></td><td>有（ELBO）</td><td>✅ 稳</td><td>✅ 好</td><td>⚠️ 模糊</td><td>✅ 1-step</td></tr><tr><td><strong>GAN</strong></td><td>无</td><td>❌ 难</td><td>❌ mode collapse</td><td>✅ 锐利</td><td>✅ 1-step</td></tr><tr><td><strong>Diffusion</strong></td><td>近似（VLB）</td><td>✅ 稳</td><td>✅ 好</td><td>✅ SOTA</td><td>❌ 多 NFE</td></tr><tr><td><strong>Flow / FM</strong></td><td>有（ODE）</td><td>✅ 稳</td><td>✅ 好</td><td>✅ 强</td><td>⚠️ 数 NFE</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模型</th><th>似然</th><th>训练稳定性</th><th>多样性</th><th>样本质量</th><th>inference 速度</th></tr></thead><tbody><tr><td><strong>VAE</strong></td><td>有（ELBO）</td><td>✅ 稳</td><td>✅ 好</td><td>⚠️ 模糊</td><td>✅ 1-step</td></tr><tr><td><strong>GAN</strong></td><td>无</td><td>❌ 难</td><td>❌ mode collapse</td><td>✅ 锐利</td><td>✅ 1-step</td></tr><tr><td><strong>Diffusion</strong></td><td>近似（VLB）</td><td>✅ 稳</td><td>✅ 好</td><td>✅ SOTA</td><td>❌ 多 NFE</td></tr><tr><td><strong>Flow / FM</strong></td><td>有（ODE）</td><td>✅ 稳</td><td>✅ 好</td><td>✅ 强</td><td>⚠️ 数 NFE</td></tr></tbody></table></div>
 <h3 id="112-tokenizer-系列在大模型中的角色">11.2　Tokenizer 系列在大模型中的角色</h3>
 <pre class="diagram"><code>
 Tokenizer Stage 1                Generative Stage 2 (prior)
@@ -1394,7 +1401,7 @@ KL-VAE →   连续 latent map  →   Diffusion / Flow Matching (LDM, SD, SD3, F
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/vae_vqvae_vqgan_tutorial.md</code> ·
   SHA256 <code>3e90acdddc0d</code> ·
-  generated at 2026-07-13 10:17 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

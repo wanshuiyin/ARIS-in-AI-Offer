@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/attention_tutorial.md">
 <meta name="aris:source-sha256" content="ea13435c65f9bce9a064bd65d9e492652b6492beba86d95fdc7639221cd02a02">
-<meta name="aris:generated-at" content="2026-07-12 04:18 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -591,7 +598,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/attention_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>ea13435c65f9</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:18 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -682,7 +689,7 @@ W_o ∈ R^{D×D}    →    Output [B, L_q, D]</code></pre>
 <h3 id="32-为什么要-multi-head不是单-head-也行吗">3.2　为什么要 multi-head（不是单 head 也行吗？）</h3>
 <ul><li><strong>不同 subspace</strong>：每个 head 在自己的 $d_k$ 维子空间里学一种关系模式（语法、共指、远距依赖、局部 n-gram...）</li><li><strong>表达力</strong>：单 head 只能学一种 attention 模式；H 个 head 在 inference 时<strong>并行</strong>给出 H 种不同的 weighted sum 结果</li><li><strong>参数效率</strong>：$d_k = D/H$ 而不是 $D$，所以参数量不会随 H 线性增加</li><li>面试常问：head 越多越好吗？<strong>不</strong>。$d_k = D/H$ 太小（如 $d_k &lt; 16$）会让每个 head 表达力受限；Mistral / LLaMA 用 head_dim ≈ 64-128 是 sweet spot</li></ul>
 <h3 id="33-参数量与-flops">3.3　参数量与 FLOPs</h3>
-<table><thead><tr><th>组件</th><th>形状</th><th>参数量</th></tr></thead><tbody><tr><td>$W_q$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_k$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_v$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_o$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td><strong>总计</strong></td><td></td><td><strong>$4D^2$</strong>（不随 $H$ 变）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>组件</th><th>形状</th><th>参数量</th></tr></thead><tbody><tr><td>$W_q$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_k$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_v$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td>$W_o$</td><td>$D \times D$</td><td>$D^2$</td></tr><tr><td><strong>总计</strong></td><td></td><td><strong>$4D^2$</strong>（不随 $H$ 变）</td></tr></tbody></table></div>
 <p>FLOPs（单次 self-attention forward，$L_q = L_k = L$）：</p>
 <ul><li>QKV projection: $3 \cdot 2 B L D^2 = 6 B L D^2$</li><li>$QK^\top$: $2 B H L^2 d_k = 2 B L^2 D$</li><li>Softmax weight × V: $2 B L^2 D$</li><li>Output projection $W_o$: $2 B L D^2$</li><li><strong>总计 $\approx 8 B L D^2 + 4 B L^2 D$</strong>——前者随 $L$ 线性，后者随 $L$ 平方（长序列瓶颈）</li></ul>
 <h3 id="34-代码核心-30-行">3.4　代码（核心 30 行）</h3>
@@ -721,7 +728,7 @@ W_o ∈ R^{D×D}    →    Output [B, L_q, D]</code></pre>
         return self.W_o(self._merge(out)), w</code></pre>
 <h2 id="4-self--cross--causal--padding">§4 Self / Cross / Causal / Padding</h2>
 <h3 id="41-self-vs-cross-attention必考">4.1　Self vs Cross Attention（必考）</h3>
-<table><thead><tr><th></th><th>Self-Attention</th><th>Cross-Attention</th></tr></thead><tbody><tr><td><strong>Q 来源</strong></td><td>$X$</td><td>$X_\text{decoder}$ / latent / learnable queries</td></tr><tr><td><strong>K, V 来源</strong></td><td>$X$（同源）</td><td>$X_\text{encoder}$ / context / memory</td></tr><tr><td><strong>$L_q$ vs $L_k$</strong></td><td>相等</td><td>可以不同</td></tr><tr><td><strong>典型 mask</strong></td><td>causal (decoder) 或 padding (encoder)</td><td>K/V 端 padding mask（不用 causal）</td></tr><tr><td><strong>用途</strong></td><td>内部位置相关性</td><td>从外部 memory 检索相关信息</td></tr><tr><td><strong>例子</strong></td><td>BERT 各层；GPT 各层；ViT</td><td>Transformer Decoder 第二子层；DETR；Perceiver；Stable Diffusion (image Q × text K/V)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th></th><th>Self-Attention</th><th>Cross-Attention</th></tr></thead><tbody><tr><td><strong>Q 来源</strong></td><td>$X$</td><td>$X_\text{decoder}$ / latent / learnable queries</td></tr><tr><td><strong>K, V 来源</strong></td><td>$X$（同源）</td><td>$X_\text{encoder}$ / context / memory</td></tr><tr><td><strong>$L_q$ vs $L_k$</strong></td><td>相等</td><td>可以不同</td></tr><tr><td><strong>典型 mask</strong></td><td>causal (decoder) 或 padding (encoder)</td><td>K/V 端 padding mask（不用 causal）</td></tr><tr><td><strong>用途</strong></td><td>内部位置相关性</td><td>从外部 memory 检索相关信息</td></tr><tr><td><strong>例子</strong></td><td>BERT 各层；GPT 各层；ViT</td><td>Transformer Decoder 第二子层；DETR；Perceiver；Stable Diffusion (image Q × text K/V)</td></tr></tbody></table></div>
 <h3 id="42-causal-maskdecoder--gpt">4.2　Causal Mask（Decoder / GPT）</h3>
 <p>下三角矩阵（含对角线）：第 $i$ 行可以看 $j \le i$ 的 key。</p>
 <pre><code class="language-python">def causal_mask(L, device=None):
@@ -743,7 +750,7 @@ pmask = padding_mask(lengths).unsqueeze(1).unsqueeze(1)   # [B, 1, 1, L_k]
 out, _ = mha(x, x, x, mask=pmask)</code></pre>
 <div class="callout callout-info"><div class="callout-title">Causal + Padding 同时用</div><p>两个 mask 取 AND：<code>combined = causal_mask &amp; padding_mask_4d</code>。注意 broadcast 维度对齐：causal 是 <code>[L,L]</code>，padding 是 <code>[B,1,1,L_k]</code>，AND 出来 <code>[B,1,L,L]</code>。</p></div>
 <h2 id="5-复杂度分析">§5 复杂度分析</h2>
-<table><thead><tr><th></th><th>Time</th><th>Memory</th><th>瓶颈</th></tr></thead><tbody><tr><td>RNN</td><td>$O(L \cdot D^2)$</td><td>$O(D)$</td><td>顺序计算不可并行</td></tr><tr><td>Self-Attention</td><td>$O(L^2 \cdot D)$</td><td>$O(L^2 + L \cdot D)$</td><td>$L^2$ score 矩阵（长序列）</td></tr><tr><td>Conv (kernel $k$)</td><td>$O(L \cdot k \cdot D^2)$</td><td>$O(D)$</td><td>感受野有限</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th></th><th>Time</th><th>Memory</th><th>瓶颈</th></tr></thead><tbody><tr><td>RNN</td><td>$O(L \cdot D^2)$</td><td>$O(D)$</td><td>顺序计算不可并行</td></tr><tr><td>Self-Attention</td><td>$O(L^2 \cdot D)$</td><td>$O(L^2 + L \cdot D)$</td><td>$L^2$ score 矩阵（长序列）</td></tr><tr><td>Conv (kernel $k$)</td><td>$O(L \cdot k \cdot D^2)$</td><td>$O(D)$</td><td>感受野有限</td></tr></tbody></table></div>
 <p>关键点：</p>
 <ul><li>Self-attention 的 $L^2$ 项<strong>计算</strong>可以接受（GPU 并行），但 <strong>$L^2$ 显存</strong>（score 矩阵）是真正瓶颈——这是 Flash Attention 攻击的痛点</li><li>LLM inference 时 prefill stage 是 $O(L^2)$；decode stage 用 KV cache 后每步是 $O(L)$（见 §6）</li><li>当 $L \approx D$ 时，attention 与 FFN 时间相当；当 $L \gg D$ 时，attention 占绝大部分时间</li></ul>
 <h2 id="6-kv-cache--mqa--gqa">§6 KV Cache + MQA / GQA</h2>
@@ -756,7 +763,7 @@ out, _ = mha(x, x, x, mask=pmask)</code></pre>
 <p>$$\text{KV cache} = L_\text{ctx} \cdot n_\text{layers} \cdot \underbrace{2}_{K, V} \cdot H_\text{kv} \cdot d_\text{head} \cdot \text{bytes\_per\_elem}$$</p>
 <p>注意：MQA/GQA 下 $H_\text{kv} \ll H$，cache 显著缩减。对 LLaMA-2-70B（GQA, $H_\text{kv}=8$）、$L_\text{ctx}=4096$、80 层、fp16：约 <strong>1.25 GiB</strong>（≈1.34 GB）/ sample——这就是 LLaMA-2 用 GQA 不用 MHA 的原因（vanilla MHA 会到约 <strong>10 GiB ≈ 10.74 GB</strong> / sample）。</p>
 <h3 id="62-mqa--gqaattack-kv-cache-显存">6.2　MQA / GQA（attack KV cache 显存）</h3>
-<table><thead><tr><th>变体</th><th>Q heads</th><th>K/V heads</th><th>KV cache 缩减</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>MHA</strong> (Vanilla)</td><td>$H$</td><td>$H$</td><td>1×</td><td>原始 Transformer</td></tr><tr><td><strong>MQA</strong> (Multi-Query)</td><td>$H$</td><td><strong>1</strong></td><td>$H \times$</td><td>PaLM, Falcon</td></tr><tr><td><strong>GQA</strong> (Grouped-Query)</td><td>$H$</td><td>$G$（$1 &lt; G &lt; H$）</td><td>$H/G \times$</td><td>LLaMA-2-70B（7B/13B 仍是 MHA）、LLaMA-3 全系列、Mistral</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>变体</th><th>Q heads</th><th>K/V heads</th><th>KV cache 缩减</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>MHA</strong> (Vanilla)</td><td>$H$</td><td>$H$</td><td>1×</td><td>原始 Transformer</td></tr><tr><td><strong>MQA</strong> (Multi-Query)</td><td>$H$</td><td><strong>1</strong></td><td>$H \times$</td><td>PaLM, Falcon</td></tr><tr><td><strong>GQA</strong> (Grouped-Query)</td><td>$H$</td><td>$G$（$1 &lt; G &lt; H$）</td><td>$H/G \times$</td><td>LLaMA-2-70B（7B/13B 仍是 MHA）、LLaMA-3 全系列、Mistral</td></tr></tbody></table></div>
 <p>核心：<strong>多个 Q head 共享一组 K/V</strong>。MQA 极端但质量略降；GQA 是折中（如 H=32, G=8），显存 / 带宽降 4 倍，质量基本不掉。</p>
 <div class="callout callout-bad"><div class="callout-title">易踩坑</div><p>MQA/GQA 减少的是 <strong>KV cache 显存 + 显存带宽</strong>，<strong>不是 Q projection 计算</strong>（Q 头数不变）。面试常被反问"减了什么"。</p></div>
 <h2 id="7-flashattention-核心-trick">§7 FlashAttention 核心 Trick</h2>
@@ -767,7 +774,7 @@ out, _ = mha(x, x, x, mask=pmask)</code></pre>
 <ul><li><strong>避免 materialize</strong> 完整 $L \times L$ 的 scores / probs 矩阵到 HBM</li><li>论文给出的 HBM IO 复杂度约 $O(L^2 d^2 / M + Ld)$，对比标准 attention 的 $O(L^2 + Ld)$ HBM traffic——当 $L$ 大、$M$（SRAM）合适时 IO 减少显著</li><li>显存峰值从 $O(L^2)$ 降到 $O(L)$（不存中间 scores）</li><li>典型速度提升 2-4 倍（取决于 sequence length &amp; GPU 架构）</li><li><strong>数学上完全等价</strong>（exact attention，不是 sparse / linear approximation）</li></ul>
 <div class="callout callout-info"><div class="callout-title">FlashAttention v1/v2/v3 关键区别</div><p>v1 (2022)：online softmax + block tiling + recompute。v2 (2023)：换内外循环 (Q-outer, KV-inner) + 更好 warp-level parallelism + 减少非 matmul FLOPs。v3 (2024)：针对 H100 Hopper，使用 WGMMA / TMA / FP8 + asynchronous pipeline。面试一般问 v1/v2，会问到 online softmax 细节。</p></div>
 <h2 id="8-position-encoding-rope--alibi--absolute">§8 Position Encoding (RoPE / ALiBi / Absolute)</h2>
-<table><thead><tr><th>方法</th><th>原理</th><th>外推性</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>Sinusoidal absolute</strong></td><td>固定 sin/cos 位置向量加到 input embedding</td><td>位置编码本身可定义任意长度，但模型未必学到长度外的泛化</td><td>原始 Transformer (Vaswani 2017)</td></tr><tr><td><strong>Learned absolute</strong></td><td>把位置当 token，学一个 embedding 表</td><td>差（位置 embedding 表是定长，硬限制）</td><td>BERT, GPT-2</td></tr><tr><td><strong>RoPE</strong> (Rotary)</td><td>对 $Q, K$ 做位置相关的旋转：$q_m \to q_m e^{im\theta}$（复数视角）——<strong>位置相关项通过相对位移 $m-n$ 进入内积</strong>（内容向量仍影响分数）</td><td>中等（自然包含相对位置；长度外推需 NTK-aware / YaRN）</td><td>LLaMA-1/2/3, Mistral, Qwen</td></tr><tr><td><strong>ALiBi</strong></td><td>在 score 上加位置距离 bias：$\text{score}_{ij} - m \cdot \lvert i-j \rvert$</td><td>好（线性 bias 自然外推）</td><td>BLOOM, MPT</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>原理</th><th>外推性</th><th>用在哪</th></tr></thead><tbody><tr><td><strong>Sinusoidal absolute</strong></td><td>固定 sin/cos 位置向量加到 input embedding</td><td>位置编码本身可定义任意长度，但模型未必学到长度外的泛化</td><td>原始 Transformer (Vaswani 2017)</td></tr><tr><td><strong>Learned absolute</strong></td><td>把位置当 token，学一个 embedding 表</td><td>差（位置 embedding 表是定长，硬限制）</td><td>BERT, GPT-2</td></tr><tr><td><strong>RoPE</strong> (Rotary)</td><td>对 $Q, K$ 做位置相关的旋转：$q_m \to q_m e^{im\theta}$（复数视角）——<strong>位置相关项通过相对位移 $m-n$ 进入内积</strong>（内容向量仍影响分数）</td><td>中等（自然包含相对位置；长度外推需 NTK-aware / YaRN）</td><td>LLaMA-1/2/3, Mistral, Qwen</td></tr><tr><td><strong>ALiBi</strong></td><td>在 score 上加位置距离 bias：$\text{score}_{ij} - m \cdot \lvert i-j \rvert$</td><td>好（线性 bias 自然外推）</td><td>BLOOM, MPT</td></tr></tbody></table></div>
 <h3 id="81-attention-sink高级题">8.1　Attention Sink（高级题）</h3>
 <p>训练好的 LLM 在 decode 时，注意力会异常集中在前 1-4 个 token（特别是 [BOS] / 第一个 token），即使内容无关。这种现象叫 <strong>attention sink</strong>。<strong>常见直觉解释</strong>：softmax 强制权重和为 1，当一个 query 实际不想 attend 任何 key 时，需要一个"垃圾位"来吸收概率质量；又因为 early tokens 对所有后续 token 都可见，训练中容易自然形成全局 sink。StreamingLLM (Xiao et al., ICLR 2024) 利用这个现象做长序列推理（保留 attention sink + 滑动窗口）。</p>
 <h2 id="9-attention-in-diffusiongenerative-方向必问">§9 Attention in Diffusion（generative 方向必问）</h2>
@@ -967,7 +974,7 @@ All checks passed.</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/attention_tutorial.md</code> ·
   SHA256 <code>ea13435c65f9</code> ·
-  generated at 2026-07-12 04:18 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

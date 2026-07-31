@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/rag_embedding_retrieval_tutorial.md">
 <meta name="aris:source-sha256" content="503e40435df4b1f2ad180a16d34431b2f2bc7555e49ee6889c1c7cdd752015b8">
-<meta name="aris:generated-at" content="2026-07-12 04:16 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -588,7 +595,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/rag_embedding_retrieval_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>503e40435df4</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:16 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -678,7 +685,7 @@ def info_nce_with_hard(q, d_pos, d_hard, tau=0.05):
 <div class="callout callout-info"><div class="callout-title">learned sparse：SPLADE</div><p>在 BM25（词项）与稠密（语义）之外还有一条中间路线：<strong>SPLADE</strong>（Formal 2021）用 MLM 头把 query/doc 展开成<strong>带学习权重的稀疏词项向量</strong>（含同义/扩展词），既能进倒排索引（快、可解释），又有语义扩展能力，常作为强 baseline 或混合的一路。</p></div>
 <h2 id="6-重排rerank交叉编码器">§6 重排（Rerank）：交叉编码器</h2>
 <p>召回（双塔 + ANN）追求<strong>高 recall、快</strong>，但 top-k 里精排不够。<strong>重排器把召回的 top-k（如 100）重新精确打分、取前几个</strong>。</p>
-<table><thead><tr><th></th><th>双塔 bi-encoder</th><th>交叉编码器 cross-encoder</th><th>ColBERT（late interaction）</th></tr></thead><tbody><tr><td>编码方式</td><td>query、doc <strong>分开</strong>编码</td><td><code>[query; doc]</code> <strong>拼一起</strong>编码</td><td>doc 存<strong>逐 token</strong> 向量</td></tr><tr><td>交互</td><td>仅最后点积（无 token 级交互）</td><td>全程 attention（early，强）</td><td>token 级 late interaction（MaxSim）</td></tr><tr><td>可预计算 doc</td><td>✅（建索引）</td><td>❌（每对都要重算）</td><td>✅（存 token 向量，较大）</td></tr><tr><td>速度 / 规模</td><td>快 / 百万–十亿</td><td>慢 / 只能重排 top-k</td><td>中 / 较大存储</td></tr><tr><td>用途</td><td><strong>召回</strong></td><td><strong>重排</strong></td><td>召回+重排折中</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th></th><th>双塔 bi-encoder</th><th>交叉编码器 cross-encoder</th><th>ColBERT（late interaction）</th></tr></thead><tbody><tr><td>编码方式</td><td>query、doc <strong>分开</strong>编码</td><td><code>[query; doc]</code> <strong>拼一起</strong>编码</td><td>doc 存<strong>逐 token</strong> 向量</td></tr><tr><td>交互</td><td>仅最后点积（无 token 级交互）</td><td>全程 attention（early，强）</td><td>token 级 late interaction（MaxSim）</td></tr><tr><td>可预计算 doc</td><td>✅（建索引）</td><td>❌（每对都要重算）</td><td>✅（存 token 向量，较大）</td></tr><tr><td>速度 / 规模</td><td>快 / 百万–十亿</td><td>慢 / 只能重排 top-k</td><td>中 / 较大存储</td></tr><tr><td>用途</td><td><strong>召回</strong></td><td><strong>重排</strong></td><td>召回+重排折中</td></tr></tbody></table></div>
 <p>交叉编码器：$\text{score}(q,d) = \text{MLP}(\text{BERT}([q;d])_{\texttt{[CLS]}})$，query 和 doc 的 token 全程互相 attend，所以准；代价是<strong>无法预计算</strong>（doc 表示依赖 query），只能对召回的少量候选跑。</p>
 <p><strong>ColBERT 的 late interaction</strong>：doc 存每个 token 的向量，打分用 MaxSim——query 每个 token 找 doc 里最相似的 token 再求和：</p>
 <p>$$\text{score}(q,d) = \sum_{i \in q} \max_{j \in d} \mathbf{E}_{q_i}^\top \mathbf{E}_{d_j}$$</p>
@@ -701,7 +708,7 @@ LLM 生成 + 引用   ⑤ 可选自检: Self-RAG(生成反思) · CRAG(检索质
 <h3 id="81-graphrag">8.1　GraphRAG</h3>
 <p>朴素 RAG 按片段独立召回，回答「跨多文档的全局性问题」（如「整个报告的主题脉络」）很弱。<strong>GraphRAG</strong>（微软，Edge 2024）先用 LLM 把语料抽成<strong>实体-关系知识图 + 社区摘要</strong>，全局问题走「社区摘要」而非散片段。强在 query-focused summarization，代价是建图贵。</p>
 <h3 id="82-rag-vs-长上下文-vs-微调">8.2　RAG vs 长上下文 vs 微调</h3>
-<table><thead><tr><th></th><th>RAG</th><th>长上下文</th><th>微调</th></tr></thead><tbody><tr><td>注入什么</td><td>可更新的<strong>外部事实</strong></td><td>当次塞进的全文</td><td><strong>能力 / 风格 / 格式</strong></td></tr><tr><td>知识更新</td><td>改库即可、可溯源</td><td>每次重塞、无持久</td><td>重训、易过时</td></tr><tr><td>成本</td><td>检索 + 短 prompt</td><td>长 prompt 贵、慢</td><td>训练贵、推理便宜</td></tr><tr><td>短板</td><td>检索错则答错</td><td>lost-in-the-middle</td><td>不擅长灌海量新事实</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th></th><th>RAG</th><th>长上下文</th><th>微调</th></tr></thead><tbody><tr><td>注入什么</td><td>可更新的<strong>外部事实</strong></td><td>当次塞进的全文</td><td><strong>能力 / 风格 / 格式</strong></td></tr><tr><td>知识更新</td><td>改库即可、可溯源</td><td>每次重塞、无持久</td><td>重训、易过时</td></tr><tr><td>成本</td><td>检索 + 短 prompt</td><td>长 prompt 贵、慢</td><td>训练贵、推理便宜</td></tr><tr><td>短板</td><td>检索错则答错</td><td>lost-in-the-middle</td><td>不擅长灌海量新事实</td></tr></tbody></table></div>
 <p>实务里三者常组合：微调调风格 + RAG 注事实 + 适度长上下文容纳召回片段。</p>
 <h3 id="83-评测别只看生成">8.3　评测（别只看生成）</h3>
 <p>分两层评：</p>
@@ -768,7 +775,7 @@ def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
 <ul><li><strong>chunk 大小是头号旋钮</strong>：太大检索粗、太小断上下文；先试 256/512 token + 10–20% overlap，按评测调。</li><li><strong>比调 chunk size 更高价值的改进</strong>：<strong>Contextual Retrieval</strong>（Anthropic 2024，嵌入前给每个 chunk 补一段 LLM 生成的全文上下文）与 <strong>late chunking</strong>（Jina 2024，先整文过长上下文 encoder、再切块池化）都针对「普通切块丢失文档级上下文」这一根因，往往比单纯调块大小收益更大。</li><li><strong>嵌入模型要对域</strong>：通用嵌入在专业领域（医疗/法律/代码）可能弱，考虑领域微调或选对口模型（BGE-M3 / E5 / 领域模型）。</li><li><strong>别纯稠密</strong>：实体/罕见词/精确匹配场景务必加 BM25 混合，否则「检索不到明明有的那条」。</li><li><strong>难负例 false negative</strong>（§2.3）：挖负例要去重、过滤，否则训歪。</li><li><strong>lost in the middle</strong>（§7）：关键片段放 context 头尾，别堆中间。</li><li><strong>重排别省</strong>：召回 recall 够但精度不足时，cross-encoder 重排 top-k 往往是高 ROI 的一步（是否最高取决于召回质量 / 延迟预算 / 候选规模）。</li><li><strong>索引会过期</strong>：库更新后要增量重嵌入 / 重建索引；陈旧索引 = 陈旧答案。</li><li><strong>评测要分层</strong>（§8.3）：检索和生成分开归因，否则定位不了问题在哪。</li><li><strong>温度 $\tau$ 与 batch</strong>：对比学习里大 batch（更多 in-batch 负例）+ 合适 $\tau$ 很关键，小 batch 效果差。</li></ul>
 <div class="callout callout-warn"><div class="callout-title">「加了 RAG 还是幻觉」</div><p>多半不是 LLM 的锅：检索召回了无关/错误片段，LLM「忠实地」据此作答。先查检索（recall@k、片段对不对），再怀疑生成。</p></div>
 <h2 id="11-复杂度与资源">§11 复杂度与资源</h2>
-<table><thead><tr><th>阶段</th><th>计算</th><th>备注</th></tr></thead><tbody><tr><td>嵌入 doc（离线）</td><td>$O(N \cdot C_{\text{enc}})$</td><td>一次性，可批量；MRL 可省存储</td></tr><tr><td>建 ANN 索引（HNSW）</td><td>$O(N \log N)$ 建图</td><td>内存换查询速度</td></tr><tr><td>稠密召回（线上）</td><td>经验近似对数 / 亚线性 per query</td><td>ANN 近似、非精确、非严格保证</td></tr><tr><td>BM25 召回</td><td>倒排索引 $O(\lvert q\rvert \cdot \text{postings})$</td><td>词项级</td></tr><tr><td>RRF 融合</td><td>$O(R \cdot k_{\text{recall}})$</td><td>只排名，极廉价</td></tr><tr><td>cross-encoder 重排</td><td>$O(k_{\text{recall}} \cdot C_{\text{enc}})$</td><td>每个候选一次前向，<strong>只对 top-k</strong></td></tr><tr><td>LLM 生成</td><td>$O(L_{\text{ctx}}^2)$ prefill</td><td>context 越长越贵（见 attention 篇）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>阶段</th><th>计算</th><th>备注</th></tr></thead><tbody><tr><td>嵌入 doc（离线）</td><td>$O(N \cdot C_{\text{enc}})$</td><td>一次性，可批量；MRL 可省存储</td></tr><tr><td>建 ANN 索引（HNSW）</td><td>$O(N \log N)$ 建图</td><td>内存换查询速度</td></tr><tr><td>稠密召回（线上）</td><td>经验近似对数 / 亚线性 per query</td><td>ANN 近似、非精确、非严格保证</td></tr><tr><td>BM25 召回</td><td>倒排索引 $O(\lvert q\rvert \cdot \text{postings})$</td><td>词项级</td></tr><tr><td>RRF 融合</td><td>$O(R \cdot k_{\text{recall}})$</td><td>只排名，极廉价</td></tr><tr><td>cross-encoder 重排</td><td>$O(k_{\text{recall}} \cdot C_{\text{enc}})$</td><td>每个候选一次前向，<strong>只对 top-k</strong></td></tr><tr><td>LLM 生成</td><td>$O(L_{\text{ctx}}^2)$ prefill</td><td>context 越长越贵（见 attention 篇）</td></tr></tbody></table></div>
 <p>双塔的核心红利：doc 编码 $O(N)$ 但<strong>离线一次</strong>，线上每 query 只编码 1 次 + ANN 查询；交叉编码器无法预计算，所以<strong>只能用在 top-k 重排</strong>，绝不能拿来扫全库。</p>
 <h2 id="12-25-高频面试题">§12 25 高频面试题</h2>
 <p>按难度分三档，点开看答案要点 + 易踩坑。</p>
@@ -951,7 +958,7 @@ all RAG / embedding sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/rag_embedding_retrieval_tutorial.md</code> ·
   SHA256 <code>503e40435df4</code> ·
-  generated at 2026-07-12 04:16 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

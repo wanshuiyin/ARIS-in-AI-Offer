@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/about.md">
 <meta name="aris:source-sha256" content="15ccd3d65d308c4656117fca714381d163daa0631e2053409704f6c45f4617e8">
-<meta name="aris:generated-at" content="2026-06-16 06:15 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -546,7 +553,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/about.md</code></span>
     <span><strong>SHA256:</strong> <code>15ccd3d65d30</code></span>
-    <span><strong>Rendered:</strong> 2026-06-16 06:15 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -604,7 +611,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>具体案例（来自仓库 audit trail）：</p>
 <ul><li><strong>VLM 教程</strong>：M-RoPE <code>mrope_section=[16,24,24]</code> 单位被纠正（half-dim pair 不是 dim count）；BLIP-2 stage 数 3 → 2；Qwen2-VL vision tower 攻击 DFN-derived 非自训练</li><li><strong>MoE 教程</strong>：Q20 Mixtral 8×7B 算术从「7×8+2.3≈47B」改成 shared 2.4B + 8×4.8B FFN ≈ 40.8B（路由增长到 46.7B）；§4.4 router gradient 补齐 softmax/renorm 完整 Jacobian；8×H100 80G = 640GB ≠ 671B FP8 修正</li><li><strong>Agent Foundations 教程</strong>：跑了 9 轮 codex review，抓到 30+ 个真错（ReAct Fever 数字、SWE-bench Verified OpenAI attribution、MCP 2025-11-25 DCR demoted to MAY、A2A v1.0 SCREAMING_SNAKE_CASE、Anthropic Tool Use GA 2024-05-30 等）</li></ul>
 <h2 id="教程分类">教程分类</h2>
-<table><thead><tr><th>Category</th><th>Topics</th></tr></thead><tbody><tr><td>🧠 General / 基础</td><td>Attention · KL Divergence in RLHF (k1/k2/k3 · placement gradient bias)</td></tr><tr><td>🎯 Post-Training &amp; Reasoning</td><td>RLHF / DPO / GRPO / PPO · Reasoning Models (o1 / R1) · LLM On-Policy Distillation (MiniLLM / GKD / Qwen3 / Tinker)</td></tr><tr><td>🏛️ LLM Architecture &amp; Systems</td><td>MoE (DeepSeek-V3) · Long Context (RoPE / YaRN / MLA) · KV Cache + Speculative Decoding · Quantization (GPTQ / AWQ / FP8 / NVFP4) · Distributed Training (FSDP2 / ZeRO / TP / PP / EP)</td></tr><tr><td>🌊 Generative Models — Theory &amp; Tokenizers</td><td>Flow Matching · Diffusion Foundations · VAE / VQ-VAE / VQ-GAN / FSQ</td></tr><tr><td>🎨 Generation Systems</td><td>Image Gen (SD3 / FLUX / ControlNet) · Video Gen (Sora / Hunyuan-Video / Wan) · 3D Gen (NeRF / 3DGS / SDS) · Diffusion Post-Training (DDPO / DPOK / Diffusion-DPO / Flow-GRPO) · Diffusion / Flow Distillation (CM / sCM / LCM / DMD / DMD2 / ADD)</td></tr><tr><td>👁️ Multimodal</td><td>VLM (CLIP / LLaVA / Qwen-VL)</td></tr><tr><td>🤖 Agents</td><td>Agent Foundations (ReAct / MCP / A2A) · Agentic RL (AgentTuning / ToolRL / RAGEN / WebRL) · Multi-Agent &amp; Long-Horizon (CAMEL / AutoGen / MoA / MemGPT / LATS) · Self-Evolving Agents (Ctx2Skill / Voyager / Reflexion / STaR)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Category</th><th>Topics</th></tr></thead><tbody><tr><td>🧠 General / 基础</td><td>Attention · KL Divergence in RLHF (k1/k2/k3 · placement gradient bias)</td></tr><tr><td>🎯 Post-Training &amp; Reasoning</td><td>RLHF / DPO / GRPO / PPO · Reasoning Models (o1 / R1) · LLM On-Policy Distillation (MiniLLM / GKD / Qwen3 / Tinker)</td></tr><tr><td>🏛️ LLM Architecture &amp; Systems</td><td>MoE (DeepSeek-V3) · Long Context (RoPE / YaRN / MLA) · KV Cache + Speculative Decoding · Quantization (GPTQ / AWQ / FP8 / NVFP4) · Distributed Training (FSDP2 / ZeRO / TP / PP / EP)</td></tr><tr><td>🌊 Generative Models — Theory &amp; Tokenizers</td><td>Flow Matching · Diffusion Foundations · VAE / VQ-VAE / VQ-GAN / FSQ</td></tr><tr><td>🎨 Generation Systems</td><td>Image Gen (SD3 / FLUX / ControlNet) · Video Gen (Sora / Hunyuan-Video / Wan) · 3D Gen (NeRF / 3DGS / SDS) · Diffusion Post-Training (DDPO / DPOK / Diffusion-DPO / Flow-GRPO) · Diffusion / Flow Distillation (CM / sCM / LCM / DMD / DMD2 / ADD)</td></tr><tr><td>👁️ Multimodal</td><td>VLM (CLIP / LLaVA / Qwen-VL)</td></tr><tr><td>🤖 Agents</td><td>Agent Foundations (ReAct / MCP / A2A) · Agentic RL (AgentTuning / ToolRL / RAGEN / WebRL) · Multi-Agent &amp; Long-Horizon (CAMEL / AutoGen / MoA / MemGPT / LATS) · Self-Evolving Agents (Ctx2Skill / Voyager / Reflexion / STaR)</td></tr></tbody></table></div>
 <blockquote><p>🌐 <strong>双语版本</strong>：23 篇 cheat sheet 每篇都有中文 + 英文 HTML 两个版本（文件名 <code>*_tutorial.html</code> / <code>*_tutorial_en.html</code>）。</p></blockquote>
 <h2 id="怎么贡献">怎么贡献</h2>
 <p>读 <a href="../CONTRIBUTING.md">CONTRIBUTING.md</a>（<a href="../CONTRIBUTING_CN.md">中文</a>）。</p>
@@ -616,7 +623,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/about.md</code> ·
   SHA256 <code>15ccd3d65d30</code> ·
-  generated at 2026-06-16 06:15 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

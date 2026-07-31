@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/kv_cache_speculative_decoding_tutorial_en.md">
 <meta name="aris:source-sha256" content="a890df73b4bb6249d7c5f70cd965e13dabf19c55188fe7af6bc4d538c6a575c5">
-<meta name="aris:generated-at" content="2026-07-12 04:22 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -619,7 +626,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/kv_cache_speculative_decoding_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>a890df73b4bb</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:22 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -637,7 +644,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>But the cost is: <strong>for every new token, the entire KV cache must be read from HBM to SRAM</strong> — which is why 8× H100 + LLaMA-3-70B at batch=1 decode runs far below theoretical FLOPs utilization (often 1-5%).</p>
 <p>Speculative decoding attacks exactly this asymmetry: since decode is bandwidth-bound while GPU compute is spare, <strong>why not compute $K$ candidate tokens in one forward, since weights are read only once?</strong></p>
 <h3 id="12-differences-from-training-time-attention">1.2　Differences from training-time attention</h3>
-<table><thead><tr><th>Phase</th><th>Input</th><th>KV cache behavior</th><th>Bottleneck</th></tr></thead><tbody><tr><td><strong>Training</strong></td><td>$[B, L, D]$ full sequence</td><td>Not needed — all positions computed simultaneously</td><td>FLOPs (compute)</td></tr><tr><td><strong>Prefill (inference)</strong></td><td>$[B, L_\text{prompt}, D]$ entire prompt</td><td><strong>Writes</strong> to cache, fills $L_\text{prompt}$ positions</td><td>FLOPs ($L^2$ attention)</td></tr><tr><td><strong>Decode (inference)</strong></td><td>$[B, 1, D]$ single token</td><td><strong>Reads</strong> + appends 1 position</td><td><strong>HBM bandwidth</strong> (each step must read the entire cache + weights)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Phase</th><th>Input</th><th>KV cache behavior</th><th>Bottleneck</th></tr></thead><tbody><tr><td><strong>Training</strong></td><td>$[B, L, D]$ full sequence</td><td>Not needed — all positions computed simultaneously</td><td>FLOPs (compute)</td></tr><tr><td><strong>Prefill (inference)</strong></td><td>$[B, L_\text{prompt}, D]$ entire prompt</td><td><strong>Writes</strong> to cache, fills $L_\text{prompt}$ positions</td><td>FLOPs ($L^2$ attention)</td></tr><tr><td><strong>Decode (inference)</strong></td><td>$[B, 1, D]$ single token</td><td><strong>Reads</strong> + appends 1 position</td><td><strong>HBM bandwidth</strong> (each step must read the entire cache + weights)</td></tr></tbody></table></div>
 <p>A common interview cross-examination: "can training use KV cache?" — <strong>No</strong>. Training computes all positions at once; there's no "existing K/V waiting to be appended". Using KV cache during training is a beginner mistake.</p>
 <h2 id="2-kv-cache-memory-accounting">§2 KV Cache Memory Accounting</h2>
 <h3 id="21-exact-formula">2.1　Exact formula</h3>
@@ -648,7 +655,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="callout callout-warn"><div class="callout-title">Common pitfall: don&#x27;t multiply by $H$ (Q-heads count)</div><p>KV cache scales only with K/V heads, <strong>not with Q heads</strong>. When MQA reduces K/V heads to 1, Q still has $H$ heads, so Q-projection compute is unchanged.</p></div>
 <h3 id="22-cache-size-for-some-concrete-models-fp16-ltextctx4096">2.2　Cache size for some concrete models (fp16, $L_\text{ctx}=4096$)</h3>
 <p>Plug into the §2.1 formula $2 \cdot L_\text{ctx} \cdot N_\text{layers} \cdot N_\text{kv\_heads} \cdot d_\text{head} \cdot 2\text{B}$:</p>
-<table><thead><tr><th>Model</th><th>$N_\text{layers}$</th><th>$N_\text{kv\_heads}$</th><th>$d_\text{head}$</th><th>cache/sample</th><th>Notes</th></tr></thead><tbody><tr><td>LLaMA-2-7B (MHA)</td><td>32</td><td>32</td><td>128</td><td><strong>2.0 GB</strong></td><td>full MHA, large cache</td></tr><tr><td>LLaMA-2-70B (hypothetical MHA)</td><td>80</td><td>64</td><td>128</td><td><strong>10.0 GB</strong></td><td>this is why 70B uses GQA</td></tr><tr><td>LLaMA-2-70B (GQA)</td><td>80</td><td>8</td><td>128</td><td><strong>1.25 GB</strong></td><td>GQA cuts $H$=64 to $G$=8</td></tr><tr><td>LLaMA-3-70B (GQA)</td><td>80</td><td>8</td><td>128</td><td><strong>1.25 GB</strong></td><td>same as LLaMA-2-70B</td></tr><tr><td>DeepSeek-V2 (MLA)</td><td>60</td><td>—</td><td>$d_c$=512 + $d_r$=64</td><td><strong>~0.27 GB</strong></td><td>MLA formula: $N_\text{layers} \cdot L_\text{ctx} \cdot (d_c+d_r) \cdot 2\text{B}$</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Model</th><th>$N_\text{layers}$</th><th>$N_\text{kv\_heads}$</th><th>$d_\text{head}$</th><th>cache/sample</th><th>Notes</th></tr></thead><tbody><tr><td>LLaMA-2-7B (MHA)</td><td>32</td><td>32</td><td>128</td><td><strong>2.0 GB</strong></td><td>full MHA, large cache</td></tr><tr><td>LLaMA-2-70B (hypothetical MHA)</td><td>80</td><td>64</td><td>128</td><td><strong>10.0 GB</strong></td><td>this is why 70B uses GQA</td></tr><tr><td>LLaMA-2-70B (GQA)</td><td>80</td><td>8</td><td>128</td><td><strong>1.25 GB</strong></td><td>GQA cuts $H$=64 to $G$=8</td></tr><tr><td>LLaMA-3-70B (GQA)</td><td>80</td><td>8</td><td>128</td><td><strong>1.25 GB</strong></td><td>same as LLaMA-2-70B</td></tr><tr><td>DeepSeek-V2 (MLA)</td><td>60</td><td>—</td><td>$d_c$=512 + $d_r$=64</td><td><strong>~0.27 GB</strong></td><td>MLA formula: $N_\text{layers} \cdot L_\text{ctx} \cdot (d_c+d_r) \cdot 2\text{B}$</td></tr></tbody></table></div>
 <p>DeepSeek-V2 cache uses $d_c=512$ (latent dim shared by K/V via the same latent vector) + decoupled RoPE component $d_r=64$ (shared across all heads), following $N_\text{layers} \cdot L_\text{ctx} \cdot (d_c + d_r) \cdot \text{bytes}$ (<strong>no "$\times 2$"</strong>, since K/V no longer store separately). Under fp16, $60 \cdot 4096 \cdot 576 \cdot 2 \approx$ <strong>0.27 GB / sample</strong> — an order of magnitude smaller than same-scale MHA.</p>
 <h3 id="23-batch-dimension">2.3　Batch dimension</h3>
 <p>In real serving, KV cache must also be multiplied by <strong>active batch size</strong>. A 70B + 4K context + GQA deployment on 8×A100 80GB:</p>
@@ -675,7 +682,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <ul><li>vLLM's prefix caching: index cache pages by hash(prompt prefix); on a hit, skip prefill</li><li>For prompt-heavy services like ChatGPT, prefix cache hit rate can reach 90%+, drastically cutting prefill cost</li><li>Implementation key: page-level sharing + COW (copy-on-write); branched requests only write to their own pages</li></ul>
 <h2 id="4-kv-cache-optimization-routes">§4 KV Cache Optimization Routes</h2>
 <h3 id="41-overview-of-routes">4.1　Overview of routes</h3>
-<table><thead><tr><th>Route</th><th>Core idea</th><th>What is reduced</th><th>Representative</th></tr></thead><tbody><tr><td><strong>Shared heads</strong> (MQA/GQA)</td><td>Multiple Q heads share one set of K/V</td><td>K/V head count $H \to G$ or 1</td><td>LLaMA-2/3, Mistral, PaLM</td></tr><tr><td><strong>Low-rank compression</strong> (MLA)</td><td>Project to a low-dim latent; cache latent instead of K/V</td><td>Effective head dim shrinks $d_\text{head} \to d_c/H$</td><td>DeepSeek-V2/V3</td></tr><tr><td><strong>Quantization</strong> (KIVI/KVQuant)</td><td>Cache elements fp16 → int4/int2</td><td>bytes per element</td><td>KIVI, KVQuant, FP8 KV</td></tr><tr><td><strong>Sparsification / eviction</strong></td><td>Keep only "important" K/V positions</td><td>Effective $L_\text{ctx}$ shortened</td><td>H2O, StreamingLLM, TriForce</td></tr><tr><td><strong>Memory management</strong> (PagedAttention)</td><td>Doesn't reduce total, but eliminates fragmentation</td><td>fragmentation overhead</td><td>vLLM</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Route</th><th>Core idea</th><th>What is reduced</th><th>Representative</th></tr></thead><tbody><tr><td><strong>Shared heads</strong> (MQA/GQA)</td><td>Multiple Q heads share one set of K/V</td><td>K/V head count $H \to G$ or 1</td><td>LLaMA-2/3, Mistral, PaLM</td></tr><tr><td><strong>Low-rank compression</strong> (MLA)</td><td>Project to a low-dim latent; cache latent instead of K/V</td><td>Effective head dim shrinks $d_\text{head} \to d_c/H$</td><td>DeepSeek-V2/V3</td></tr><tr><td><strong>Quantization</strong> (KIVI/KVQuant)</td><td>Cache elements fp16 → int4/int2</td><td>bytes per element</td><td>KIVI, KVQuant, FP8 KV</td></tr><tr><td><strong>Sparsification / eviction</strong></td><td>Keep only "important" K/V positions</td><td>Effective $L_\text{ctx}$ shortened</td><td>H2O, StreamingLLM, TriForce</td></tr><tr><td><strong>Memory management</strong> (PagedAttention)</td><td>Doesn't reduce total, but eliminates fragmentation</td><td>fragmentation overhead</td><td>vLLM</td></tr></tbody></table></div>
 <h3 id="42-mqa--gqa-formula-recap">4.2　MQA / GQA formula recap</h3>
 <p>MHA: each head has independent $W_k^{(h)}, W_v^{(h)} \in \mathbb{R}^{D \times d_\text{head}}$; total $H \cdot 2 \cdot D \cdot d_\text{head} = 2 D^2$ parameters (K+V).</p>
 <p>MQA (Shazeer 2019): $H$ Q-heads share <strong>1</strong> set of K/V. $W_k, W_v \in \mathbb{R}^{D \times d_\text{head}}$, K+V parameters $= 2 D d_\text{head}$, <strong>$H$× smaller</strong>. At forward, K and V are broadcast to all $H$ heads for attention.</p>
@@ -692,7 +699,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Similarly, Q is also low-rank compressed (this step is optional and mainly saves training memory rather than inference):</p>
 <p>$$c_t^Q = W^{DQ} h_t, \quad q_t^{C, (i)} = W^{UQ, (i)} c_t^Q$$</p>
 <h4 id="432-cache-size-comparison">4.3.2　Cache size comparison</h4>
-<table><thead><tr><th>Scheme</th><th>Cache elements per token</th></tr></thead><tbody><tr><td>MHA</td><td>$2 \cdot H \cdot d_\text{head}$</td></tr><tr><td>GQA</td><td>$2 \cdot G \cdot d_\text{head}$</td></tr><tr><td>MQA</td><td>$2 \cdot d_\text{head}$</td></tr><tr><td>MLA (bare latent part)</td><td>$d_c$ (<strong>a single vector, no $\times 2$</strong> — because K and V share the same latent)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Scheme</th><th>Cache elements per token</th></tr></thead><tbody><tr><td>MHA</td><td>$2 \cdot H \cdot d_\text{head}$</td></tr><tr><td>GQA</td><td>$2 \cdot G \cdot d_\text{head}$</td></tr><tr><td>MQA</td><td>$2 \cdot d_\text{head}$</td></tr><tr><td>MLA (bare latent part)</td><td>$d_c$ (<strong>a single vector, no $\times 2$</strong> — because K and V share the same latent)</td></tr></tbody></table></div>
 <p>DeepSeek-V2 takes $d_c = 4 d_\text{head}$; the <strong>bare latent</strong> relative to MHA ($2 H d_\text{head}$) compresses by about $H/2$ ($\approx 64×$ at $H=128$). But MLA's actual cache also carries a decoupled-RoPE component $d_r$ (DeepSeek-V2 $d_r = 64$), so the <strong>full cache $=d_c+d_r=576$ compresses by about 57×</strong> relative to MHA (matching the long-context tutorial §9's 57×; counting only the latent over-estimates it as 64×).</p>
 <h4 id="433-inference-equivalence-transformation-the-absorb-trick">4.3.3　Inference equivalence transformation (the absorb trick)</h4>
 <p>In a naive implementation, every step would have to un-project $c_t^{KV}$ back to $k_t, v_t$ then compute attention — which defeats the "save cache" benefit (still doing the up-projection). MLA's elegance is in <strong>matrix absorption</strong>:</p>
@@ -727,7 +734,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="callout callout-bad"><div class="callout-title">Common interview mistake</div><p>saying "MLA is just an extreme version of GQA": wrong. GQA still caches complete K and V, only with fewer heads; MLA caches the latent, and K/V are reconstructed from latent at inference. The two differ mathematically (MLA changes the attention structure; GQA doesn't).</p></div>
 <h3 id="45-kv-quantization-kivi--kvquant--fp8">4.5　KV quantization (KIVI / KVQuant / FP8)</h3>
 <p>KV cache quantization routes compress each cache element from fp16 (2 bytes) to fewer:</p>
-<table><thead><tr><th>Method</th><th>Quantization granularity</th><th>Precision loss</th><th>Notes</th></tr></thead><tbody><tr><td><strong>FP8 KV</strong></td><td>per-tensor / per-channel FP8</td><td>nearly lossless</td><td>H100 native, production-grade default</td></tr><tr><td><strong>KIVI</strong> (Liu et al., ICML 2024)</td><td><strong>K per-channel, V per-token</strong> 2-bit</td><td>&lt;1 PPL</td><td>tuning-free, asymmetric quant</td></tr><tr><td><strong>KVQuant</strong> (Hooper et al., NeurIPS 2024)</td><td>per-channel 4-bit + outlier handling</td><td>minimal</td><td>paper shows 10M context feasible</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Method</th><th>Quantization granularity</th><th>Precision loss</th><th>Notes</th></tr></thead><tbody><tr><td><strong>FP8 KV</strong></td><td>per-tensor / per-channel FP8</td><td>nearly lossless</td><td>H100 native, production-grade default</td></tr><tr><td><strong>KIVI</strong> (Liu et al., ICML 2024)</td><td><strong>K per-channel, V per-token</strong> 2-bit</td><td>&lt;1 PPL</td><td>tuning-free, asymmetric quant</td></tr><tr><td><strong>KVQuant</strong> (Hooper et al., NeurIPS 2024)</td><td>per-channel 4-bit + outlier handling</td><td>minimal</td><td>paper shows 10M context feasible</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">KIVI&#x27;s key insight</div><p>K and V have <strong>different</strong> outlier distributions. K has significant outliers along the channel dimension (a few channels have large values), absorbed by per-channel quant; V has no channel-level outliers but is heterogeneous along the token axis, better handled by per-token quant. KIVI's core contribution is decoupling these two with an asymmetric scheme.</p></div>
 <h2 id="5-pagedattention-vllm-memory-management">§5 PagedAttention (vLLM memory management)</h2>
 <h3 id="51-problem-fragmentation-of-kv-cache">5.1　Problem: fragmentation of KV cache</h3>
@@ -1084,7 +1091,7 @@ def speculative_decode(target, draft, prompt_ids, max_new_tokens, K=4, temperatu
 <div class="callout callout-warn"><div class="callout-title">Production implementation points</div><p>(1) <strong>Cache rollback</strong> must actually rewind the KV cache write position; vLLM uses PagedAttention's block-table pointer change for $O(1)$. (2) <strong>Numerical stability</strong>: $r=p/q$ explodes as $q \to 0$ — compute in fp32 and clamp. (3) <strong>Invariant</strong>: at the start of each loop iteration, cache holds all of seq except the last token — all rollback/refeed logic is to maintain this invariant.</p></div>
 <h2 id="8-main-speculative-decoding-variants">§8 Main Speculative Decoding Variants</h2>
 <h3 id="81-variant-overview">8.1　Variant overview</h3>
-<table><thead><tr><th>Method</th><th>Draft source</th><th>Multi-token structure</th><th>Needs draft training?</th><th>Representative paper</th></tr></thead><tbody><tr><td><strong>Vanilla SD</strong></td><td>Independent small model</td><td>Linear chain</td><td>No (use off-the-shelf small LM)</td><td>Leviathan 2023, Chen 2023</td></tr><tr><td><strong>SpecInfer</strong></td><td>Multiple drafts together</td><td><strong>Static tree</strong></td><td>No</td><td>Miao 2024 (ASPLOS)</td></tr><tr><td><strong>Medusa</strong></td><td>Add N heads on target</td><td>Static tree</td><td>Yes (fine-tune heads)</td><td>Cai 2024 (ICML)</td></tr><tr><td><strong>EAGLE-1</strong></td><td>Feature-level autoregression + small model</td><td>Tree</td><td>Yes (small draft head)</td><td>Li 2024 (ICML)</td></tr><tr><td><strong>EAGLE-2</strong></td><td>Same as EAGLE-1</td><td><strong>Dynamic tree</strong></td><td>Yes</td><td>Li 2024</td></tr><tr><td><strong>EAGLE-3</strong></td><td>Multi-layer feature fusion + training-time test</td><td>Dynamic tree</td><td>Yes</td><td>Li 2025</td></tr><tr><td><strong>Hydra</strong></td><td>Sequential draft heads</td><td>Static tree</td><td>Yes</td><td>Ankner 2024</td></tr><tr><td><strong>Lookahead Decoding</strong></td><td><strong>Jacobi iteration</strong> + n-gram pool</td><td>Self-verify</td><td>No</td><td>Fu 2024 (ICML)</td></tr><tr><td><strong>REST</strong></td><td>Retrieval (datastore)</td><td>Static tree</td><td>No</td><td>He 2024 (NAACL)</td></tr><tr><td><strong>Self-Speculative</strong></td><td>Target skips layers</td><td>Linear</td><td>No (use a subset of target layers)</td><td>Zhang 2024</td></tr><tr><td><strong>TriForce</strong></td><td>Hierarchical (small LM + sparse target)</td><td>Hierarchical</td><td>No</td><td>Sun 2024</td></tr><tr><td><strong>MagicDec</strong></td><td>Small draft + sparse KV</td><td>Linear</td><td>No</td><td>Sadhukhan 2024</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Method</th><th>Draft source</th><th>Multi-token structure</th><th>Needs draft training?</th><th>Representative paper</th></tr></thead><tbody><tr><td><strong>Vanilla SD</strong></td><td>Independent small model</td><td>Linear chain</td><td>No (use off-the-shelf small LM)</td><td>Leviathan 2023, Chen 2023</td></tr><tr><td><strong>SpecInfer</strong></td><td>Multiple drafts together</td><td><strong>Static tree</strong></td><td>No</td><td>Miao 2024 (ASPLOS)</td></tr><tr><td><strong>Medusa</strong></td><td>Add N heads on target</td><td>Static tree</td><td>Yes (fine-tune heads)</td><td>Cai 2024 (ICML)</td></tr><tr><td><strong>EAGLE-1</strong></td><td>Feature-level autoregression + small model</td><td>Tree</td><td>Yes (small draft head)</td><td>Li 2024 (ICML)</td></tr><tr><td><strong>EAGLE-2</strong></td><td>Same as EAGLE-1</td><td><strong>Dynamic tree</strong></td><td>Yes</td><td>Li 2024</td></tr><tr><td><strong>EAGLE-3</strong></td><td>Multi-layer feature fusion + training-time test</td><td>Dynamic tree</td><td>Yes</td><td>Li 2025</td></tr><tr><td><strong>Hydra</strong></td><td>Sequential draft heads</td><td>Static tree</td><td>Yes</td><td>Ankner 2024</td></tr><tr><td><strong>Lookahead Decoding</strong></td><td><strong>Jacobi iteration</strong> + n-gram pool</td><td>Self-verify</td><td>No</td><td>Fu 2024 (ICML)</td></tr><tr><td><strong>REST</strong></td><td>Retrieval (datastore)</td><td>Static tree</td><td>No</td><td>He 2024 (NAACL)</td></tr><tr><td><strong>Self-Speculative</strong></td><td>Target skips layers</td><td>Linear</td><td>No (use a subset of target layers)</td><td>Zhang 2024</td></tr><tr><td><strong>TriForce</strong></td><td>Hierarchical (small LM + sparse target)</td><td>Hierarchical</td><td>No</td><td>Sun 2024</td></tr><tr><td><strong>MagicDec</strong></td><td>Small draft + sparse KV</td><td>Linear</td><td>No</td><td>Sadhukhan 2024</td></tr></tbody></table></div>
 <h3 id="82-medusa-multi-head-in-parallel">8.2　Medusa: multi-head in parallel</h3>
 <p>Medusa's core (Cai et al., ICML 2024): <strong>add $N$ parallel prediction heads on top of the target's final hidden state</strong>; the $k$-th head directly predicts the "$(k+1)$-th future token".</p>
 <ul><li>No need for a separate draft model; only fine-tune these heads (small parameter count)</li><li>The top-$K$ candidates from each of $N$ heads compose a <strong>static tree</strong> (e.g., top-5 per head, $5^N$ paths in theory; in practice deployments use an <strong>offline-designed fixed sparse tree structure</strong>, keeping only the tens-to-hundreds of statistically common candidate paths — this pruning happens at tree-design time, unrelated to typical acceptance)</li><li>Tree attention: flatten all tree nodes into one input for the target's forward; each node's attention mask sees only its ancestors (causal on the tree)</li></ul>
@@ -1118,14 +1125,14 @@ Step 2:  x = x&#x27;, another round
 <h2 id="9-complexity--resource-accounting">§9 Complexity / Resource Accounting</h2>
 <h3 id="91-kv-cache-memory-summary">9.1　KV cache memory (summary)</h3>
 <p>Using LLaMA-2/3-70B architecture ($N_\text{layers}=80, d_\text{head}=128$, MHA $H=64$) as baseline, $L_\text{ctx}=4096$, fp16:</p>
-<table><thead><tr><th>Scheme</th><th>per-token-per-layer bytes</th><th>70B / 4K context (whole model)</th></tr></thead><tbody><tr><td>MHA ($H_\text{kv}=64$)</td><td>$2 \cdot 2 \cdot 64 \cdot 128 = 32768$</td><td>10.0 GB</td></tr><tr><td>GQA ($H_\text{kv}=8$)</td><td>$2 \cdot 2 \cdot 8 \cdot 128 = 4096$</td><td>1.25 GB</td></tr><tr><td>MQA ($H_\text{kv}=1$)</td><td>$2 \cdot 2 \cdot 1 \cdot 128 = 512$</td><td>0.16 GB</td></tr><tr><td>MLA ($d_c=512, d_r=64$, 60 layers)</td><td>$2 \cdot (512+64) = 1152$</td><td>~0.27 GB</td></tr><tr><td>MHA + INT4 KV</td><td>$32768 / 4 = 8192$</td><td>2.5 GB</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Scheme</th><th>per-token-per-layer bytes</th><th>70B / 4K context (whole model)</th></tr></thead><tbody><tr><td>MHA ($H_\text{kv}=64$)</td><td>$2 \cdot 2 \cdot 64 \cdot 128 = 32768$</td><td>10.0 GB</td></tr><tr><td>GQA ($H_\text{kv}=8$)</td><td>$2 \cdot 2 \cdot 8 \cdot 128 = 4096$</td><td>1.25 GB</td></tr><tr><td>MQA ($H_\text{kv}=1$)</td><td>$2 \cdot 2 \cdot 1 \cdot 128 = 512$</td><td>0.16 GB</td></tr><tr><td>MLA ($d_c=512, d_r=64$, 60 layers)</td><td>$2 \cdot (512+64) = 1152$</td><td>~0.27 GB</td></tr><tr><td>MHA + INT4 KV</td><td>$32768 / 4 = 8192$</td><td>2.5 GB</td></tr></tbody></table></div>
 <h3 id="92-speculative-decoding-expected-throughput">9.2　Speculative decoding expected throughput</h3>
 <p>$$\text{tokens / sec}_\text{SD} = \frac{\text{tokens / sec}_\text{baseline} \cdot E[\tau]}{1 + Kc}$$</p>
 <p>Empirical numbers (A100, LLaMA-2-7B target + 68M draft):</p>
 <ul><li>vanilla SD: 1.6-2.2×</li><li>Medusa-2: 2.5-3.0×</li><li>EAGLE-2: 3.0-3.5×</li><li>EAGLE-3: ~4.0× (short context)</li></ul>
 <p>Long context (128K+) regime: vanilla SD drops to 1.1-1.3×; TriForce / MagicDec still hold 2-2.5×.</p>
 <h3 id="93-rough-budget-70b--4k-context--gqa">9.3　Rough budget (70B + 4K context + GQA)</h3>
-<table><thead><tr><th>Item</th><th>Memory</th></tr></thead><tbody><tr><td>weights (fp16)</td><td>140 GB</td></tr><tr><td>KV cache @ batch 8</td><td>$8 \times 1.25$ GB $= 10$ GB</td></tr><tr><td>activation peak (decode, batch 8)</td><td>~2 GB</td></tr><tr><td>total</td><td>~152 GB → tight on 2×80GB A100; typically 4×80GB</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Item</th><th>Memory</th></tr></thead><tbody><tr><td>weights (fp16)</td><td>140 GB</td></tr><tr><td>KV cache @ batch 8</td><td>$8 \times 1.25$ GB $= 10$ GB</td></tr><tr><td>activation peak (decode, batch 8)</td><td>~2 GB</td></tr><tr><td>total</td><td>~152 GB → tight on 2×80GB A100; typically 4×80GB</td></tr></tbody></table></div>
 <p>For vanilla SD, the draft model (7B fp16) adds +14 GB; EAGLE's draft head scales with the target's hidden dim rather than being fixed: the paper reports ~0.24B params (fp16 ≈0.5 GB) for a 7B target (e.g. Vicuna-7B), and ~0.99-1B params (fp16 ≈2 GB) for a 70B target (e.g. LLaMA-2-70B-Chat) — both far smaller than a full 7B vanilla-SD draft, but not a fixed ~200 MB.</p>
 <h2 id="10-25-frequently-asked-interview-questions">§10 25 Frequently-Asked Interview Questions</h2>
 <p>By difficulty L1 (must-know) / L2 (advanced) / L3 (top labs). Expand each entry for answers + common pitfalls.</p>
@@ -1305,7 +1312,7 @@ Step 2:  x = x&#x27;, another round
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/kv_cache_speculative_decoding_tutorial_en.md</code> ·
   SHA256 <code>a890df73b4bb</code> ·
-  generated at 2026-07-12 04:22 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

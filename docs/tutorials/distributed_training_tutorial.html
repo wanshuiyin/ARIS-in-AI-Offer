@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/distributed_training_tutorial.md">
 <meta name="aris:source-sha256" content="99b42980f21030f3b7054517edab91eb80ab729f1b8126b9133c725e3a0c9f10">
-<meta name="aris:generated-at" content="2026-07-12 04:11 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -660,7 +667,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/distributed_training_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>99b42980f210</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:11 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -671,7 +678,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h2 id="1-直觉--为什么模型大了一张卡装不下">§1 直觉 — 为什么模型大了一张卡装不下</h2>
 <p><strong>一道送分题但很多人答不全</strong>：训练一个模型，单卡显存里到底装了什么？</p>
 <p>考虑 fp16 mixed-precision 训练 + Adam optimizer，参数量为 $\Phi$：</p>
-<table><thead><tr><th>项</th><th>单卡占用</th><th>备注</th></tr></thead><tbody><tr><td>Parameter (fp16)</td><td>$2\Phi$</td><td>forward / backward 用</td></tr><tr><td>Gradient (fp16)</td><td>$2\Phi$</td><td>backward 累积</td></tr><tr><td>Optimizer state</td><td>$12\Phi$</td><td>fp32 master copy ($4\Phi$) + Adam $m$, $v$ ($4\Phi + 4\Phi$)</td></tr><tr><td><strong>小计（model states）</strong></td><td><strong>$16\Phi$</strong></td><td>与 batch size 无关</td></tr><tr><td>Activation</td><td>$O(B \cdot L \cdot D \cdot \text{depth})$</td><td>与 batch size、seq len 线性，与 depth 线性</td></tr><tr><td>Workspace / temp buffer</td><td>varies</td><td>NCCL / cuDNN workspace</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>项</th><th>单卡占用</th><th>备注</th></tr></thead><tbody><tr><td>Parameter (fp16)</td><td>$2\Phi$</td><td>forward / backward 用</td></tr><tr><td>Gradient (fp16)</td><td>$2\Phi$</td><td>backward 累积</td></tr><tr><td>Optimizer state</td><td>$12\Phi$</td><td>fp32 master copy ($4\Phi$) + Adam $m$, $v$ ($4\Phi + 4\Phi$)</td></tr><tr><td><strong>小计（model states）</strong></td><td><strong>$16\Phi$</strong></td><td>与 batch size 无关</td></tr><tr><td>Activation</td><td>$O(B \cdot L \cdot D \cdot \text{depth})$</td><td>与 batch size、seq len 线性，与 depth 线性</td></tr><tr><td>Workspace / temp buffer</td><td>varies</td><td>NCCL / cuDNN workspace</td></tr></tbody></table></div>
 <p>7B 参数模型仅 model states 就要 $\approx 112$ GB——一张 80GB H100 都装不下。所以分布式训练<strong>首要目的是切 model states + activation</strong>。</p>
 <div class="callout callout-info"><div class="callout-title">三个正交切分维度</div><p>训练任务可以沿以下三轴切分，理论上彼此独立、实践中复合使用：</p></div>
 <ul><li><strong>数据维度</strong>（DP / ZeRO / FSDP）：切 batch、模型副本之间通信梯度</li><li><strong>模型维度（深度方向）</strong>（PP）：切 layer，stage 之间传 activation</li><li><strong>模型维度（宽度方向）</strong>（TP / SP / CP / EP）：切单层内部的张量，每步通信中间结果</li></ul>
@@ -680,13 +687,13 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>分布式训练 99% 的通信交给 NCCL，必须熟悉 5 个原语的语义和通信量。</p>
 <h3 id="21-五大集合通信原语">2.1 五大集合通信原语</h3>
 <p>设有 $N$ 张 GPU，每张卡持有 size = $S$ 的 buffer。</p>
-<table><thead><tr><th>原语</th><th>输入 → 输出</th><th>等价语义</th><th>Ring 算法通信量 / GPU</th></tr></thead><tbody><tr><td><strong>all-reduce</strong></td><td>$N$ 个 $S$ → $N$ 个相同 $S$</td><td>sum + broadcast</td><td>$2(N-1)/N \cdot S \approx 2S$</td></tr><tr><td><strong>reduce-scatter</strong></td><td>$N$ 个 $S$ → $N$ 个不同 $S/N$</td><td>sum 后切片</td><td>$(N-1)/N \cdot S \approx S$</td></tr><tr><td><strong>all-gather</strong></td><td>$N$ 个 $S/N$ → $N$ 个 $S$</td><td>把各 rank 的片段拼成完整</td><td>$(N-1)/N \cdot S \approx S$</td></tr><tr><td><strong>broadcast</strong></td><td>rank0 的 $S$ → $N$ 个 $S$</td><td>单源</td><td>$S$（树形）</td></tr><tr><td><strong>all-to-all</strong></td><td>$N \times N$ 块矩阵转置</td><td>shuffle</td><td>$(N-1)/N \cdot S \approx S$</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>原语</th><th>输入 → 输出</th><th>等价语义</th><th>Ring 算法通信量 / GPU</th></tr></thead><tbody><tr><td><strong>all-reduce</strong></td><td>$N$ 个 $S$ → $N$ 个相同 $S$</td><td>sum + broadcast</td><td>$2(N-1)/N \cdot S \approx 2S$</td></tr><tr><td><strong>reduce-scatter</strong></td><td>$N$ 个 $S$ → $N$ 个不同 $S/N$</td><td>sum 后切片</td><td>$(N-1)/N \cdot S \approx S$</td></tr><tr><td><strong>all-gather</strong></td><td>$N$ 个 $S/N$ → $N$ 个 $S$</td><td>把各 rank 的片段拼成完整</td><td>$(N-1)/N \cdot S \approx S$</td></tr><tr><td><strong>broadcast</strong></td><td>rank0 的 $S$ → $N$ 个 $S$</td><td>单源</td><td>$S$（树形）</td></tr><tr><td><strong>all-to-all</strong></td><td>$N \times N$ 块矩阵转置</td><td>shuffle</td><td>$(N-1)/N \cdot S \approx S$</td></tr></tbody></table></div>
 <p><strong>关键恒等式</strong>：</p>
 <p>$$\boxed{\;\text{all-reduce} = \text{reduce-scatter} + \text{all-gather}\;}$$</p>
 <p>每一步 ring 上各传 $S/N$，共 $2(N-1)$ 步 → 单 GPU 总流量 $2(N-1)S/N \approx 2S$ bytes（与 $N$ 几乎无关，这是 ring 算法的精髓）。</p>
 <div class="callout callout-warn"><div class="callout-title">面试加分：NCCL 不只一个算法</div><p>NCCL 在小 message 用 <strong>tree all-reduce</strong>（latency-bound，$O(\log N)$ 跳）；大 message 用 <strong>ring all-reduce</strong>（bandwidth-bound，吞吐最优）。NVLink 拓扑下还有 <strong>NVLS (NVLink SHARP)</strong>，硬件做 reduction（H100/H200 NVSwitch 支持）。</p></div>
 <h3 id="22-nvlink--ib--拓扑">2.2 NVLink / IB / 拓扑</h3>
-<table><thead><tr><th>链路</th><th>单向带宽（H100 代）</th><th>用途</th></tr></thead><tbody><tr><td>NVLink 4.0</td><td>450 GB/s（18 链路聚合，per GPU；官方标称 900 GB/s 是双向合计，单向约一半）</td><td>同节点 GPU↔GPU</td></tr><tr><td>PCIe 5.0 x16</td><td>64 GB/s</td><td>GPU↔CPU、慢路径</td></tr><tr><td>InfiniBand NDR 400G</td><td>50 GB/s (per port)</td><td>跨节点</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>链路</th><th>单向带宽（H100 代）</th><th>用途</th></tr></thead><tbody><tr><td>NVLink 4.0</td><td>450 GB/s（18 链路聚合，per GPU；官方标称 900 GB/s 是双向合计，单向约一半）</td><td>同节点 GPU↔GPU</td></tr><tr><td>PCIe 5.0 x16</td><td>64 GB/s</td><td>GPU↔CPU、慢路径</td></tr><tr><td>InfiniBand NDR 400G</td><td>50 GB/s (per port)</td><td>跨节点</td></tr></tbody></table></div>
 <p><strong>经验法则</strong>：节点内通信比跨节点快 <strong>10-20 倍</strong>。所以 TP 一定要塞进一个节点，DP / PP 才跨节点。Llama 3 训练拓扑：TP=8（节点内 NVLink）× PP=16（跨节点 IB）× DP=128。</p>
 <h3 id="23-pytorch-中的-nccl-调用">2.3 PyTorch 中的 NCCL 调用</h3>
 <pre><code class="language-python">import torch
@@ -777,7 +784,7 @@ def main(rank, world_size, local_rank):
         optimizer.step()</code></pre>
 <h3 id="34-复杂度">3.4 复杂度</h3>
 <div class="callout callout-info"><div class="callout-title">记号约定（全文统一）</div><p>后续凡用 $\Phi$ 表示 <strong>参数量</strong>（个数）。fp16 / bf16 训练下一个参数 2 bytes，故 fp16 weight buffer 大小 = $2\Phi$ bytes。下表"$2\Phi$ bytes"指字节数，"$\Phi$ params"指个数。</p></div>
-<table><thead><tr><th>项</th><th>量</th><th>说明</th></tr></thead><tbody><tr><td>单 GPU 显存</td><td>$16\Phi$ bytes + activation</td><td>model states 不分摊（含 fp16 params/grads + fp32 master/Adam）</td></tr><tr><td>单 step 通信量</td><td>$\approx 2 \cdot 2\Phi = 4\Phi$ bytes（ring all-reduce on fp16 gradient）</td><td>等价于 reduce-scatter + all-gather</td></tr><tr><td>扩展性</td><td>计算线性 scale；通信 bandwidth $O(1)$（ring 不依赖 $N$）</td><td>但 latency-bound 小模型仍受 $N$ 影响</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>项</th><th>量</th><th>说明</th></tr></thead><tbody><tr><td>单 GPU 显存</td><td>$16\Phi$ bytes + activation</td><td>model states 不分摊（含 fp16 params/grads + fp32 master/Adam）</td></tr><tr><td>单 step 通信量</td><td>$\approx 2 \cdot 2\Phi = 4\Phi$ bytes（ring all-reduce on fp16 gradient）</td><td>等价于 reduce-scatter + all-gather</td></tr><tr><td>扩展性</td><td>计算线性 scale；通信 bandwidth $O(1)$（ring 不依赖 $N$）</td><td>但 latency-bound 小模型仍受 $N$ 影响</td></tr></tbody></table></div>
 <p><strong>DDP 的硬伤</strong>：model states 不切。Adam 训练 70B 模型，单卡光 model states 就 1.12 TB，DDP 完全装不下。所以 7B+ 模型必须上 ZeRO / FSDP。</p>
 <h2 id="4-zero-123--zero-redundancy-optimizer">§4 ZeRO 1/2/3 — Zero Redundancy Optimizer</h2>
 <p>Rajbhandari et al. <strong>"ZeRO: Memory Optimizations Toward Training Trillion Parameter Models"</strong> (SC 2020) 是分布式训练第二个划时代工作（第一个是 Megatron-TP）。核心思想：DDP 把 model states 复制 $N$ 份是浪费，切成 $N$ 份每张卡只放 $1/N$ 即可，通信只多一点点。</p>
@@ -785,7 +792,7 @@ def main(rank, world_size, local_rank):
 <p>记 $\Phi$ = 参数量，$N$ = DP world size。fp16 mixed precision + Adam 下单卡 model states：</p>
 <p>$$\text{DDP}: \quad 2\Phi + 2\Phi + 12\Phi = 16\Phi$$</p>
 <p>ZeRO 三阶段按 <strong>「切什么」</strong> 区分：</p>
-<table><thead><tr><th>阶段</th><th>切的内容</th><th>单卡 model states</th><th>通信量 (per step)</th></tr></thead><tbody><tr><td><strong>ZeRO-1</strong></td><td>optimizer state</td><td>$2\Phi + 2\Phi + 12\Phi/N$</td><td>$2\Phi$（all-reduce 等价于 reduce-scatter + all-gather；ZeRO-1 只 reduce-scatter grad）</td></tr><tr><td><strong>ZeRO-2</strong></td><td>optimizer state + gradient</td><td>$2\Phi + 2\Phi/N + 12\Phi/N$</td><td>$2\Phi$（同 ZeRO-1）</td></tr><tr><td><strong>ZeRO-3</strong></td><td>opt state + grad + <strong>parameter</strong></td><td>$2\Phi/N + 2\Phi/N + 12\Phi/N = 16\Phi/N$</td><td>$3\Phi$（forward + backward 各一次 all-gather，backward 一次 reduce-scatter）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>阶段</th><th>切的内容</th><th>单卡 model states</th><th>通信量 (per step)</th></tr></thead><tbody><tr><td><strong>ZeRO-1</strong></td><td>optimizer state</td><td>$2\Phi + 2\Phi + 12\Phi/N$</td><td>$2\Phi$（all-reduce 等价于 reduce-scatter + all-gather；ZeRO-1 只 reduce-scatter grad）</td></tr><tr><td><strong>ZeRO-2</strong></td><td>optimizer state + gradient</td><td>$2\Phi + 2\Phi/N + 12\Phi/N$</td><td>$2\Phi$（同 ZeRO-1）</td></tr><tr><td><strong>ZeRO-3</strong></td><td>opt state + grad + <strong>parameter</strong></td><td>$2\Phi/N + 2\Phi/N + 12\Phi/N = 16\Phi/N$</td><td>$3\Phi$（forward + backward 各一次 all-gather，backward 一次 reduce-scatter）</td></tr></tbody></table></div>
 <div class="callout callout-good"><div class="callout-title">极限情况下</div><p>$N$ 足够大时（如 1024 张 H100），ZeRO-3 单卡 model states $16\Phi / 1024 = 0.0156\Phi$。65B 模型即 $\approx 1$ GB / GPU，配合 activation checkpoint 单 H100 完全装得下。</p></div>
 <h3 id="42-zero-3-工作流最常用前向--反向--优化">4.2 ZeRO-3 工作流（最常用，前向 / 反向 / 优化）</h3>
 <p>ZeRO-3 把参数本身也切了，所以参数在用之前必须 <strong>all-gather</strong> 才能 forward。</p>
@@ -820,7 +827,7 @@ def zero3_backward(layer_idx, dy, sharded_W, cached_input):
     return dW_sharded, dx</code></pre>
 <h3 id="43-zero-123-vs-ddp-通信对比重要面试题">4.3 ZeRO-1/2/3 vs DDP 通信对比（重要面试题）</h3>
 <p>总参数 $\Phi$（个数）。下表的单位是 <strong>"fp16 weight buffer 等价数"</strong>（即 $\Phi$ 在通信流量列代表 $2\Phi$ bytes 的 fp16 buffer 流量）。一次 forward+backward+update 的 <strong>per-GPU</strong> 通信流量（ring 假设）：</p>
-<table><thead><tr><th>模式</th><th>Forward</th><th>Backward</th><th>Optim</th><th>总（fp16 buffer equiv.）</th></tr></thead><tbody><tr><td>DDP</td><td>0</td><td>$2\Phi$ (all-reduce grad)</td><td>0</td><td>$2\Phi$（即 $4\Phi$ bytes）</td></tr><tr><td>ZeRO-1</td><td>0</td><td>$\Phi$ (reduce-scatter grad)</td><td>$\Phi$ (all-gather updated params)</td><td>$2\Phi$</td></tr><tr><td>ZeRO-2</td><td>0</td><td>$\Phi$ (reduce-scatter grad)</td><td>$\Phi$ (all-gather)</td><td>$2\Phi$</td></tr><tr><td>ZeRO-3</td><td>$\Phi$ (all-gather params, on-the-fly)</td><td>$\Phi$ (all-gather) + $\Phi$ (reduce-scatter grad)</td><td>0 (已在 backward 中)</td><td>$3\Phi$</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模式</th><th>Forward</th><th>Backward</th><th>Optim</th><th>总（fp16 buffer equiv.）</th></tr></thead><tbody><tr><td>DDP</td><td>0</td><td>$2\Phi$ (all-reduce grad)</td><td>0</td><td>$2\Phi$（即 $4\Phi$ bytes）</td></tr><tr><td>ZeRO-1</td><td>0</td><td>$\Phi$ (reduce-scatter grad)</td><td>$\Phi$ (all-gather updated params)</td><td>$2\Phi$</td></tr><tr><td>ZeRO-2</td><td>0</td><td>$\Phi$ (reduce-scatter grad)</td><td>$\Phi$ (all-gather)</td><td>$2\Phi$</td></tr><tr><td>ZeRO-3</td><td>$\Phi$ (all-gather params, on-the-fly)</td><td>$\Phi$ (all-gather) + $\Phi$ (reduce-scatter grad)</td><td>0 (已在 backward 中)</td><td>$3\Phi$</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">关键结论</div><p>ZeRO-1/2 通信量与 DDP 相同（$2\Phi$ buffer），但显存大幅下降；ZeRO-3 多 $1.5\times$ 通信，换 $N\times$ 显存下降。实际工程中 ZeRO-3 通信也能通过 <strong>prefetch + overlap</strong> 部分隐藏，所以是 70B+ 模型的主流选择。换算成字节：DDP $\approx 4\Phi$ bytes，ZeRO-3 $\approx 6\Phi$ bytes。</p></div>
 <h3 id="44-zero-offload--zero-infinity">4.4 ZeRO-Offload / ZeRO-Infinity</h3>
 <p><strong>ZeRO-Offload</strong>（Ren et al., USENIX ATC 2021）：把 optimizer state + 部分 gradient 卸到 <strong>CPU</strong>，CPU 端跑 Adam update。代价：CPU↔GPU PCIe 通信 + CPU 计算慢。适合<strong>小集群 + 大模型</strong>场景（如单机 8 卡跑 13B）。</p>
@@ -829,7 +836,7 @@ def zero3_backward(layer_idx, dy, sharded_W, cached_input):
 <h2 id="5-fsdp--fsdp2--pytorch-原生-zero-3">§5 FSDP / FSDP2 — PyTorch 原生 ZeRO-3</h2>
 <p>Zhao et al. <strong>"PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel"</strong> (VLDB 2023) 把 ZeRO-3 思想做进 PyTorch 主干。FSDP2（PyTorch 2.4+, 2024）是大重写：<strong>per-parameter DTensor sharding</strong> 替换 FSDP1 的 flat-parameter。</p>
 <h3 id="51-fsdp1-vs-fsdp2-核心区别">5.1 FSDP1 vs FSDP2 核心区别</h3>
-<table><thead><tr><th>维度</th><th>FSDP1 (2022-2023)</th><th>FSDP2 (2024+)</th></tr></thead><tbody><tr><td>数据结构</td><td><strong>FlatParameter</strong>：把同一 wrap unit 内所有 param 拼成一个 1D buffer，再 chunk</td><td><strong>DTensor per-parameter</strong>：每个 param 独立按 dim-0 切</td></tr><tr><td>状态字典</td><td>需 all-gather 才能产出 unflattened state dict</td><td>通信自由 sharded state dict</td></tr><tr><td>冻结参数</td><td>默认（<code>use_orig_params=False</code>）：同 unit 内必须全冻或全可训；<code>use_orig_params=True</code> 时保留原始 <code>nn.Parameter</code>，同一 unit 内可混合冻结/可训（LoRA 等部分微调场景的标准做法）</td><td>各 param 独立，混合冻可训自然</td></tr><tr><td>TP 复合</td><td>困难（flat-buffer 与 TP 沿不同维切冲突）</td><td><strong>天然兼容</strong>：DTensor 描述多轴 placement (<code>Shard(0)</code>, <code>Replicate</code>, <code>Shard(1)</code> 组合)</td></tr><tr><td>API</td><td><code>FullyShardedDataParallel</code></td><td><code>fully_shard()</code> 函数式 wrap</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>FSDP1 (2022-2023)</th><th>FSDP2 (2024+)</th></tr></thead><tbody><tr><td>数据结构</td><td><strong>FlatParameter</strong>：把同一 wrap unit 内所有 param 拼成一个 1D buffer，再 chunk</td><td><strong>DTensor per-parameter</strong>：每个 param 独立按 dim-0 切</td></tr><tr><td>状态字典</td><td>需 all-gather 才能产出 unflattened state dict</td><td>通信自由 sharded state dict</td></tr><tr><td>冻结参数</td><td>默认（<code>use_orig_params=False</code>）：同 unit 内必须全冻或全可训；<code>use_orig_params=True</code> 时保留原始 <code>nn.Parameter</code>，同一 unit 内可混合冻结/可训（LoRA 等部分微调场景的标准做法）</td><td>各 param 独立，混合冻可训自然</td></tr><tr><td>TP 复合</td><td>困难（flat-buffer 与 TP 沿不同维切冲突）</td><td><strong>天然兼容</strong>：DTensor 描述多轴 placement (<code>Shard(0)</code>, <code>Replicate</code>, <code>Shard(1)</code> 组合)</td></tr><tr><td>API</td><td><code>FullyShardedDataParallel</code></td><td><code>fully_shard()</code> 函数式 wrap</td></tr></tbody></table></div>
 <h3 id="52-fsdp-wrap-策略最核心的设计决策">5.2 FSDP wrap 策略（最核心的设计决策）</h3>
 <p>FSDP 不是把整个模型当一个 unit。它按<strong>自定义 unit boundary</strong> 切，每个 unit 内的参数一起 all-gather / reduce-scatter。</p>
 <pre><code class="language-python">import torch
@@ -897,12 +904,12 @@ for batch in loader:
     optimizer.zero_grad(set_to_none=True)</code></pre>
 <h3 id="54-fsdp-vs-zero-3-通信量差异l3-题">5.4 FSDP vs ZeRO-3 通信量差异（L3 题）</h3>
 <p><strong>结论</strong>：<strong>完全一样</strong>（在 wrap unit = layer 这个粒度上）。FSDP 是 ZeRO-3 的 PyTorch 原生实现，算法等价。差异在工程：</p>
-<table><thead><tr><th>维度</th><th>DeepSpeed ZeRO-3</th><th>FSDP2</th></tr></thead><tbody><tr><td>集成</td><td>外部库 + monkey patch</td><td>PyTorch 主干</td></tr><tr><td>state_dict</td><td>需要单独 API 拼装</td><td>原生 <code>set_model_state_dict</code> / DCP</td></tr><tr><td>TP 复合</td><td>DeepSpeed-Megatron 桥接</td><td>DTensor 原生</td></tr><tr><td>冻结 / LoRA</td><td>复杂 (flat-param 冲突)</td><td>自然</td></tr><tr><td>编译</td><td>受限</td><td><code>torch.compile(fullgraph=False)</code> 友好</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>DeepSpeed ZeRO-3</th><th>FSDP2</th></tr></thead><tbody><tr><td>集成</td><td>外部库 + monkey patch</td><td>PyTorch 主干</td></tr><tr><td>state_dict</td><td>需要单独 API 拼装</td><td>原生 <code>set_model_state_dict</code> / DCP</td></tr><tr><td>TP 复合</td><td>DeepSpeed-Megatron 桥接</td><td>DTensor 原生</td></tr><tr><td>冻结 / LoRA</td><td>复杂 (flat-param 冲突)</td><td>自然</td></tr><tr><td>编译</td><td>受限</td><td><code>torch.compile(fullgraph=False)</code> 友好</td></tr></tbody></table></div>
 <p>实际选型：<strong>新项目用 FSDP2；DeepSpeed 仍在 70B+ MoE / 多框架场景用得多</strong>。</p>
 <h3 id="55-hsdp--hybrid-sharded-dp混合分片">5.5 HSDP — Hybrid Sharded DP（混合分片）</h3>
 <p><strong>问题</strong>：1024 张 GPU 全部 ZeRO-3，单次 all-gather 跨 1024 卡 → 单卡通信量 $(N-1)/N \cdot \phi \to \phi$ 不变，但 <strong>latency 大幅上升</strong>（IB 跨节点贵）。</p>
 <p><strong>HSDP</strong>：组内 ZeRO-3（如节点内 8 卡），组间 DDP。等价于把 1024 卡分成 128 个 ZeRO-3 group（每组 8 卡）。</p>
-<table><thead><tr><th>模式</th><th>Shard 范围</th><th>单卡 model states</th><th>跨节点通信</th></tr></thead><tbody><tr><td>纯 ZeRO-3</td><td>全 1024 卡</td><td>$16\Phi / 1024$</td><td>多</td></tr><tr><td>HSDP (8)</td><td>8 卡组内</td><td>$16\Phi / 8 = 2\Phi$</td><td>少（组间是 grad all-reduce）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模式</th><th>Shard 范围</th><th>单卡 model states</th><th>跨节点通信</th></tr></thead><tbody><tr><td>纯 ZeRO-3</td><td>全 1024 卡</td><td>$16\Phi / 1024$</td><td>多</td></tr><tr><td>HSDP (8)</td><td>8 卡组内</td><td>$16\Phi / 8 = 2\Phi$</td><td>少（组间是 grad all-reduce）</td></tr></tbody></table></div>
 <p>trade-off：<strong>显存换通信效率</strong>。Llama 3 在某些训练阶段用 HSDP。</p>
 <h2 id="6-zero--通信优化2023">§6 ZeRO++ — 通信优化（2023）</h2>
 <p>Wang et al. <strong>"ZeRO++: Extremely Efficient Collective Communication for Giant Model Training"</strong> (NeurIPS MLSys workshop 2023, arXiv 2306.10209)。在 ZeRO-3 之上做了 3 件事：</p>
@@ -1159,7 +1166,7 @@ Rank 1: Q[L/C:2L/C], K[L/C:2L/C], V[L/C:2L/C]
 <p>$$y = \sum_{e=1}^E G_e(x) \cdot \text{Expert}_e(x), \quad G \in \mathbb{R}^E, \quad \sum_e G_e = 1$$</p>
 <p>实际部署用 <strong>top-K routing</strong>：只选 $G$ 输出最大的 $K$ 个 expert（典型 $K = 1, 2$），其余 expert 不计算。<strong>计算量与 expert 数 $E$ 无关，只与 $K$ 有关</strong>——这是 MoE 能 scale 参数的关键。</p>
 <h3 id="112-expert-parallelexpert-分到不同-gpu">11.2 Expert Parallel：expert 分到不同 GPU</h3>
-<table><thead><tr><th>模式</th><th>单卡 expert 数</th><th>通信</th></tr></thead><tbody><tr><td>不并行 (replicate)</td><td>$E$</td><td>0</td></tr><tr><td>TP-style expert split</td><td>每 expert 切片，全 GPU 算每个 expert</td><td>many all-reduce</td></tr><tr><td><strong>EP</strong>: 每 GPU 持 $E/N$ 个 expert</td><td>$E/N$</td><td><strong>all-to-all</strong> dispatch + combine</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模式</th><th>单卡 expert 数</th><th>通信</th></tr></thead><tbody><tr><td>不并行 (replicate)</td><td>$E$</td><td>0</td></tr><tr><td>TP-style expert split</td><td>每 expert 切片，全 GPU 算每个 expert</td><td>many all-reduce</td></tr><tr><td><strong>EP</strong>: 每 GPU 持 $E/N$ 个 expert</td><td>$E/N$</td><td><strong>all-to-all</strong> dispatch + combine</td></tr></tbody></table></div>
 <p>EP 的 forward 流程：</p>
 <pre><code>1. 每 GPU 对自己的 token batch 算 gate → 得到每 token 的 routing decision (assign 给 e_1, e_2, ..., e_K)
 2. all-to-all dispatch: 把 token 按 expert 归属发到对应 GPU
@@ -1264,7 +1271,7 @@ y = checkpoint(block_forward, x, use_reentrant=False)</code></pre>
 <p>把前面几条轴拼起来。设 world size $W$，</p>
 <p>$$W = D_{DP} \times T_{TP} \times P_{PP} \times C_{CP} \times E_{EP}$$</p>
 <p>每条轴的角色：</p>
-<table><thead><tr><th>轴</th><th>切什么</th><th>在哪</th><th>通信原语</th></tr></thead><tbody><tr><td>DP / FSDP</td><td>batch + model states</td><td>跨节点 IB ok</td><td>all-reduce / reduce-scatter + all-gather</td></tr><tr><td>TP</td><td>单层 hidden / head</td><td><strong>节点内 NVLink</strong></td><td>all-reduce (per block × 4)</td></tr><tr><td>SP</td><td>TP 外的 LayerNorm / Dropout activation</td><td>节点内（与 TP 共 group）</td><td>reduce-scatter + all-gather</td></tr><tr><td>PP</td><td>layer depth</td><td>跨节点 IB ok</td><td>point-to-point send/recv</td></tr><tr><td>CP</td><td>sequence 维</td><td>节点内或跨节点都可（通信 $\propto L$）</td><td>ring K/V</td></tr><tr><td>EP</td><td>MoE expert</td><td>跨节点 IB ok（all-to-all 量大）</td><td>all-to-all</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>轴</th><th>切什么</th><th>在哪</th><th>通信原语</th></tr></thead><tbody><tr><td>DP / FSDP</td><td>batch + model states</td><td>跨节点 IB ok</td><td>all-reduce / reduce-scatter + all-gather</td></tr><tr><td>TP</td><td>单层 hidden / head</td><td><strong>节点内 NVLink</strong></td><td>all-reduce (per block × 4)</td></tr><tr><td>SP</td><td>TP 外的 LayerNorm / Dropout activation</td><td>节点内（与 TP 共 group）</td><td>reduce-scatter + all-gather</td></tr><tr><td>PP</td><td>layer depth</td><td>跨节点 IB ok</td><td>point-to-point send/recv</td></tr><tr><td>CP</td><td>sequence 维</td><td>节点内或跨节点都可（通信 $\propto L$）</td><td>ring K/V</td></tr><tr><td>EP</td><td>MoE expert</td><td>跨节点 IB ok（all-to-all 量大）</td><td>all-to-all</td></tr></tbody></table></div>
 <h3 id="131-llama-3-405b-训练拓扑公开信息">13.1 Llama 3 405B 训练拓扑（公开信息）</h3>
 <p>Meta 2024 报告 (<a href="https://arxiv.org/abs/2407.21783">2407.21783</a>)：</p>
 <ul><li>16K H100 GPUs（总计 16384）</li><li><p>Parallelism（保持总 GPU 数不变，CP 上去时 DP 下来）：</p>
@@ -1288,7 +1295,7 @@ Reverse 方向 micro-batch: ...[F4&#x27;][F3&#x27;][F2&#x27;][F1&#x27;]
 Stage 0: 同时 process Forward 的 F + Reverse 的 F&#x27; + 对应 B  ← 计算 / 通信完全 overlap</code></pre>
 <p>更精确：DualPipe 设计了一个<strong>双向 schedule</strong>，让每张 GPU 在任意时刻都有两个 micro-batch 在 forward / backward 重叠执行；同时 expert parallel 的 all-to-all 通信也被 hide 在两组 micro-batch 的间隙里。</p>
 <h3 id="142-dualpipe-vs-普通-1f1b-性质">14.2 DualPipe vs 普通 1F1B 性质</h3>
-<table><thead><tr><th>维度</th><th>1F1B</th><th>Interleaved 1F1B</th><th>DualPipe</th></tr></thead><tbody><tr><td>Bubble</td><td>$(P-1)/(M+P-1)$</td><td>$(P-1)/(VM+P-1)$</td><td><strong>接近 0</strong>（warm-up / cool-down 互补，非严格零）</td></tr><tr><td>Activation memory</td><td>$P$ × per stage</td><td>$V \cdot P$ ×</td><td>$\approx 2 \times P$</td></tr><tr><td>通信 overlap</td><td>部分</td><td>同 1F1B</td><td><strong>几乎 100% all-to-all overlap</strong></td></tr><tr><td>实现复杂度</td><td>中</td><td>高</td><td>极高（需 forward &amp; reverse 调度）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>1F1B</th><th>Interleaved 1F1B</th><th>DualPipe</th></tr></thead><tbody><tr><td>Bubble</td><td>$(P-1)/(M+P-1)$</td><td>$(P-1)/(VM+P-1)$</td><td><strong>接近 0</strong>（warm-up / cool-down 互补，非严格零）</td></tr><tr><td>Activation memory</td><td>$P$ × per stage</td><td>$V \cdot P$ ×</td><td>$\approx 2 \times P$</td></tr><tr><td>通信 overlap</td><td>部分</td><td>同 1F1B</td><td><strong>几乎 100% all-to-all overlap</strong></td></tr><tr><td>实现复杂度</td><td>中</td><td>高</td><td>极高（需 forward &amp; reverse 调度）</td></tr></tbody></table></div>
 <h3 id="143-dualpipe-的代价">14.3 DualPipe 的代价</h3>
 <ul><li><strong>代码复杂度爆炸</strong>：一个 stage 同时跑 forward (方向 1) + forward (方向 2) + backward，cuda stream 管理极困难</li><li><strong>2× activation memory</strong>：两个方向都要存 activation，比 1F1B 多 $\approx 2\times$</li><li><strong>stage 必须均衡</strong>：任何一个 stage 卡住都会让两个方向都堵</li></ul>
 <p>DeepSeek 用 DualPipe 是因为 EP all-to-all 通信极重，必须想办法藏起来。<strong>一般训练任务普通 1F1B 已足够</strong>。</p>
@@ -1360,7 +1367,7 @@ future.result()                 # 必要时等</code></pre>
 <p>DCP（Distributed Checkpoint）配合 FSDP2 的 sharded state dict，<strong>单 checkpoint 写盘只需几秒</strong>（每 rank 写自己那部分到分布式存储），不阻塞训练。</p>
 <h2 id="16-通信原语总结表">§16 通信原语总结表</h2>
 <p>为了在面试中快速 recall，一张表收尾。</p>
-<table><thead><tr><th>操作</th><th>当原始数据全部加起来是 $S$（每 rank $S$）</th><th>每 rank 通信量（ring）</th><th>用在</th></tr></thead><tbody><tr><td><code>all-reduce(buf, SUM)</code></td><td>$N \cdot S$ → 全 rank $S$</td><td>$2(N-1)/N \cdot S$</td><td>DDP gradient sync, TP block 末端</td></tr><tr><td><code>reduce-scatter(buf)</code></td><td>$N \cdot S$ → 各 rank $S/N$</td><td>$(N-1)/N \cdot S$</td><td>ZeRO grad reduce, SP 出口</td></tr><tr><td><code>all-gather(shard)</code></td><td>$N \cdot S/N$ → 全 rank $S$</td><td>$(N-1)/N \cdot S$</td><td>ZeRO-3 forward param, SP 入口</td></tr><tr><td><code>broadcast(buf, src)</code></td><td>rank src 的 $S$ → 全 rank $S$</td><td>$S$（树） / $(N-1)/N \cdot S$（ring）</td><td>model 初始化广播</td></tr><tr><td><code>all-to-all(buf)</code></td><td>$N \cdot N$ 块 → 转置</td><td>$(N-1)/N \cdot S$</td><td>MoE EP routing, sequence sharding 变换</td></tr><tr><td><code>point-to-point send/recv</code></td><td>1 → 1</td><td>$S$</td><td>PP stage 边界</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>操作</th><th>当原始数据全部加起来是 $S$（每 rank $S$）</th><th>每 rank 通信量（ring）</th><th>用在</th></tr></thead><tbody><tr><td><code>all-reduce(buf, SUM)</code></td><td>$N \cdot S$ → 全 rank $S$</td><td>$2(N-1)/N \cdot S$</td><td>DDP gradient sync, TP block 末端</td></tr><tr><td><code>reduce-scatter(buf)</code></td><td>$N \cdot S$ → 各 rank $S/N$</td><td>$(N-1)/N \cdot S$</td><td>ZeRO grad reduce, SP 出口</td></tr><tr><td><code>all-gather(shard)</code></td><td>$N \cdot S/N$ → 全 rank $S$</td><td>$(N-1)/N \cdot S$</td><td>ZeRO-3 forward param, SP 入口</td></tr><tr><td><code>broadcast(buf, src)</code></td><td>rank src 的 $S$ → 全 rank $S$</td><td>$S$（树） / $(N-1)/N \cdot S$（ring）</td><td>model 初始化广播</td></tr><tr><td><code>all-to-all(buf)</code></td><td>$N \cdot N$ 块 → 转置</td><td>$(N-1)/N \cdot S$</td><td>MoE EP routing, sequence sharding 变换</td></tr><tr><td><code>point-to-point send/recv</code></td><td>1 → 1</td><td>$S$</td><td>PP stage 边界</td></tr></tbody></table></div>
 <h2 id="17-25-高频面试题">§17 25 高频面试题</h2>
 <p>按 L1 / L2 / L3 排序，每题 collapsible 答案要点。</p>
 <h3 id="l1-必会题任何-ml-工程岗都会问">L1 必会题（任何 ML 工程岗都会问）</h3>
@@ -1623,7 +1630,7 @@ def train_step_4d(pp_stage, schedule, optimizer, batch):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/distributed_training_tutorial.md</code> ·
   SHA256 <code>99b42980f210</code> ·
-  generated at 2026-07-12 04:11 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

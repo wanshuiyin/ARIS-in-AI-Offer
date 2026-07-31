@@ -1,6 +1,6 @@
 ## §0 "输入-状态-输出"总图 + TL;DR Cheat Sheet
 
-> **范围声明**：本教程只讨论 **decoder-only、causal language modeling（next-token 预测）** 这一种预训练目标——不覆盖 encoder-decoder、masked language modeling（BERT 风格的 token/span 遮蔽重建）、以及各类 span-corruption/denoising 目标（如 T5 的 span corruption）。这些目标的位移标签、mask 构造和 loss 归一化都与本文 §3 的推导不同；读到"teacher forcing 位移标签""causal mask"等表述时，默认都是在这个 decoder-only causal LM 的语境下。
+> **范围**：本文只讨论 decoder-only causal LM（next-token 预测）。§3 的位移标签、causal mask 与 loss 归一化均以此为前提；其他预训练目标不在本文范围内。（不覆盖的例子：encoder-decoder、BERT 风格 masked LM、T5 span corruption 等 denoising 目标。）
 
 **预训练不是"喂数据、按 loss 调参",而是一条从原始文档到 checkpoint 的完整状态机。** 面试里大量失分（"6ND 是精确公式""超过 Chinchilla 就是过拟合""causal mask 天然隔离文档"）都来自把这条流水线压缩成了一两个孤立公式。先立好整体心智模型：
 
@@ -29,22 +29,31 @@ packed batch（micro-batch × seq_len）
                       → checkpoint（权重+优化器+RNG+数据游标+…，三层强度见 §5.2）→ resume
 ```
 
-> 上面 ⑥ 是一次 optimizer step 里各环节的**概念执行顺序**，用来把"model/config contract → forward → backward → 梯度同步 → unscale/clip → optimizer step → scheduler/token 计数器 → checkpoint"这条常被略过的链路显式化；本教程随附的最小实现（§6）覆盖的是 dedup/packing/Chinchilla 拟合/spike 监测这几个**关键不变量的 sanity check**，并不包含一个可运行的训练循环或真正的 checkpoint/resume 代码——这里的状态机是帮助建立心智模型的概念图，不代表 §6 的代码复现了整条链路。
+> 上面 ⑥ 是一次 optimizer step 里各环节的**概念执行顺序**。§6 的最小实现只覆盖 dedup/packing/Chinchilla 拟合/spike 监测这几个**关键不变量的 sanity check**，不包含可运行的训练循环或真正的 checkpoint/resume 代码——总图是帮助建立心智模型的概念图，不代表 §6 复现了整条链路。
 
-**记号约定**：$N$ = 每 token 参与主要矩阵乘法的 compute-bearing 参数规模（dense 模型取 total，MoE 模型取 **active**；见 §1.1 关于 embedding 参数是否计入的讨论）；$D$ = 训练时实际呈现给模型、参与监督的 token 数（不保证等于语料的"唯一 token"总量，见 §2.7；精确口径见 §4.1 的 $B_{target}$）；$C$ = 训练计算量（FLOPs 近似，非 GPU 实际耗时）；$B_{input}$ = 一次 optimizer step 送入模型的 token 数（processed token slots，不问是否参与 loss）；$B_{target}$ = 同一次 update 里实际参与 loss 的有效 target token 数——$B_{input}$ 与 $B_{target}$ 的精确公式与区别见 §4.1；$L$ 在 scaling law 语境下指 loss $L(N,D)$，在 attention/序列语境下指 context length，本文按上下文区分，必要时写作 $L_{\text{seq}}$。
+**记号约定**：
+
+| 记号 | 含义 | 备注 |
+| --- | --- | --- |
+| $N$ | 每 token 参与主要矩阵乘法的 compute-bearing 参数规模 | dense 取 total，MoE 取 **active**；embedding/输出投影计数差异见 §1.1 |
+| $D$ | 训练时实际呈现给模型、参与监督的 token 数 | 不保证等于语料"唯一 token"总量（§2.7）；精确口径见 §4.1 |
+| $C$ | 训练计算量（FLOPs 近似） | 非 GPU 实际耗时 |
+| $B_{input}$ | 一次 optimizer step 送入模型的 token 数（processed token slots） | 不问是否参与 loss |
+| $B_{target}$ | 同一次 update 里实际参与 loss 的有效 target token 数 | 与 $B_{input}$ 的精确公式与区别见 §4.1 |
+| $L$ | scaling law 语境指 loss $L(N,D)$；attention/序列语境指 context length | 按上下文区分，必要时写作 $L_{\text{seq}}$ |
 
 > 💡 **一段话搞定 LLM 预训练流水线** — 一页拿下面试核心要点（详见后文 §1–§7 推导）。
 
-1. **$C\approx 6ND$ 只是近似**：系数 $6$ 来自"前向≈$2ND$ + 反向≈$4ND$"（一次 multiply-add = 2 FLOPs），$N$ 应理解为 compute-bearing/非 embedding 参数量（计数约定因论文而异）；忽略了长上下文 attention 的 $L_{\text{seq}}^2$ 项（固定总 token 数 $D$ 时总开销近似随 $D\times L_{\text{seq}}$ 增长，不是 $D\times L_{\text{seq}}^2$）、词表投影、norm/softmax、激活重计算、FLOP 计数约定差异；它是算法级近似训练量，不是 GPU 实际 FLOPs，不能直接换算墙钟时间。
+1. **$C\approx 6ND$ 只是近似**：系数 $6$ 来自"前向≈$2ND$ + 反向≈$4ND$"（一次 multiply-add = 2 FLOPs），$N$ 取 compute-bearing/非 embedding 参数量；忽略了长上下文 attention 项、词表投影、norm/softmax、激活重计算与 FLOP 计数约定差异（逐项辨析见 §1.1）；它是算法级近似训练量，不是 GPU 实际 FLOPs，不能直接换算墙钟时间。
 2. **MoE 记账两条线分开**：每 token 计算用 **active** 参数估算；显存/checkpoint 大小按 **total** 参数算（细节指路 moe_tutorial.md）。
-3. **Kaplan (2020) 和 Chinchilla (2022) 的指数不是同一回事**：Kaplan 给出 $N_{opt}\propto C^{0.73}, D_{opt}\propto C^{0.27}$；Chinchilla 没有唯一一组"精确指数"，不同估计方法给出约 0.50/0.50、0.49/0.51、0.46/0.54；参数化损失模型 $L(N,D)=E+A/N^\alpha+B/D^\beta$ 拟合值约 $\alpha\approx0.34,\beta\approx0.28$，解析最优给出 $N_*\propto C^{0.452}, D_*\propto C^{0.548}$（论文完整精度常报约 0.46/0.54）。分歧不只是"数据更多"——训练 horizon 设计、LR schedule 与预算是否匹配、拟合方法都不同。
-4. **"每参数训 20 token"是经验近似,不是普适常数**；仅凭超出这个比例继续训练本身**不能判定为过拟合**——固定模型喂新的、非重复、相关分布数据通常仍降 loss，真正发生的是相对最终计算量 $C=kND$ 的 compute-optimal 前沿点被"over-trained"；故意训小模型超训是为了压低部署成本，训练计算最优 $\ne$ 全生命周期成本最优。
+3. **Kaplan (2020) 和 Chinchilla (2022) 的指数不是同一回事**：Kaplan 给出 $N_{opt}\propto C^{0.73}, D_{opt}\propto C^{0.27}$；Chinchilla 没有唯一一组"精确指数"，解析最优给出 $N_*\propto C^{0.452}, D_*\propto C^{0.548}$（各估计方法与 $\alpha,\beta$ 拟合值见 §1.3）。分歧不只是"数据更多"——训练 horizon 设计、LR schedule 与预算是否匹配、拟合方法都不同。
+4. **超出"每参数训 20 token"不等于过拟合**：固定模型喂新的、非重复、相关分布数据通常仍降 loss，真正发生的是相对最终计算量 $C=kND$ 的 compute-optimal 前沿点被"over-trained"（§1.4）；20 token/参数本身是经验近似,不是普适常数。故意训小模型超训是为了压低部署成本，训练计算最优 $\ne$ 全生命周期成本最优。
 5. **corpus factory 是本教程最大最独立的一块**（§2）：上游抽取错误容易产生系统性噪声，抽取质量常常是高杠杆环节；MinHash 估计的是 shingle 集合的 **Jaccard 相似度**，不是语义相似度；LSH 只召回候选，候选还要精确 Jaccard 复核；**必须先去重再切分**——近重复样本要按去重簇整组分配 train/val/test，否则同一内容的改写跨 split 会让 validation loss 虚低。
 6. **document packing 的因果 mask 不会自动隔离文档，这不是 bug**：很多系统把打包后的 token 流当成连续的 EOS 分隔流，用普通 causal mask 就是合法选择；若语义要求文档独立，需要 block-diagonal mask **加上**单独的边界 loss mask——阻断 attention 不会自动屏蔽跨文档的预测标签。
 7. **loss 归一化必须是"总和除以总数"**：先对每个 micro-batch 求均值再对这些均值求平均，在各批次有效 token 数不同时会引入偏差。
-8. **global batch，区分送入模型和参与 loss 两种口径**：等长无 padding 时送入模型的 token 数 $B_{input}=B_{micro,seq}\times L_{seq}\times G_{acc}\times W_{DP}$——只有 DP world size 直接扩大独立样本数，TP/PP 不应重复计入；实际参与 loss 的有效 target 数 $B_{target}=\sum_i m_i$ 通常更小（哪怕无 padding，位移标签下每序列也有 $L_{seq}-1$ 个有效 target，见 §4.1）。
-9. **"确定性 resume"要分层看**：权重 + 优化器状态 + 学习率/已消费 token 计数只够"可继续训练"；加上 RNG 状态 + 数据迭代器位置 + shuffle epoch + sampler/worker 状态才够"样本序列一致"；再加 AMP scaler、在途梯度、确定性 kernel、软件版本/通信拓扑一致（且 world-size 不变）才可能接近"数值 bitwise 同轨迹"——三层强度不能混为一谈（§5.2）。
-10. **loss spike/NaN 排查建议按分层顺序走**（不是唯一强制流程）：坏 batch/数据分片 → LR 与 resume 状态 → 梯度与激活 → 混合精度 → 跨 rank 异常 → 硬件故障，并保留可复现的 batch ID/step 号。
+8. **global batch 公式**：$B_{input}=B_{micro,seq}\times L_{seq}\times G_{acc}\times W_{DP}$——只有 DP world size 直接扩大独立样本数，TP/PP 不应重复计入；参与 loss 的 $B_{target}$ 更小，位移标签下每序列只有 $L_{seq}-1$ 个有效 target（口径细节见 §4.1）。
+9. **"确定性 resume"分三层强度**：可继续训练 → 样本序列一致 → 数值 bitwise 同轨迹，三层不能混为一谈，每层需要哪些状态见 §5.2。
+10. **loss spike/NaN 排查建议按分层顺序走**：坏 batch/数据分片 → LR 与 resume 状态 → 梯度与激活 → 混合精度 → 跨 rank 异常 → 硬件故障，并保留可复现的 batch ID/step 号。
 
 ## §1 训练预算与 scaling law
 
@@ -54,16 +63,20 @@ decoder-only dense Transformer 的训练计算量常用近似
 
 $$C \approx 6ND$$
 
-直觉来源：一次 multiply-add 记为 2 FLOPs；对每个 token，前向传播要过一遍所有主要矩阵乘法（QKV 投影、attention 输出投影、FFN 上下投影等），近似消耗 $2N$ FLOPs——这里 $N$ 应理解为 **compute-bearing / 非 embedding 的参数量**：embedding 查表本身是一次索引而不是矩阵乘法，机械地把 embedding 参数计入 $N$ 会系统性高估这部分的计算量；输出词表投影是否单独计数、如何计数，不同论文/实现的约定并不完全一致，读一份具体的 FLOPs 估算时应先确认它采用的是哪种参数计数约定——$D$ 个 token 的前向合计 $\approx 2ND$。反向传播要同时算激活梯度和权重梯度，量级上约是前向的两倍，即 $\approx 4ND$。前向 + 反向 $\approx 6ND$（这里的 $6$ 同样是近似系数，更严谨地应写作 $k\approx 6$）。
+直觉来源：一次 multiply-add 记为 2 FLOPs；对每个 token，前向传播要过一遍所有主要矩阵乘法（QKV 投影、attention 输出投影、FFN 上下投影等），近似消耗 $2N$ FLOPs，$D$ 个 token 的前向合计 $\approx 2ND$。反向传播要同时算激活梯度和权重梯度，量级上约是前向的两倍，即 $\approx 4ND$。前向 + 反向 $\approx 6ND$（$6$ 同样是近似系数，更严谨地应写作 $k\approx 6$）。
 
-> ⚠️ **$6ND$ 是算法级近似，不是精确公式**
-> 它至少忽略/简化了：长上下文 attention 的 $O(L_{\text{seq}}^2)$ 项——这是**每条序列内部** attention score 计算量随 $L_{\text{seq}}^2$ 增长（$N$ 本身不随序列长度变化）；但固定训练总 token 数 $D$ 不变时，序列条数近似为 $D/L_{\text{seq}}$，把每条序列的 $O(L_{\text{seq}}^2)$ 乘上序列条数，**总** attention 开销近似随 $D\times L_{\text{seq}}$ 增长，而不是 $D\times L_{\text{seq}}^2$——不要把"单条序列内的 $L_{\text{seq}}^2$"和"固定 $D$ 下的总开销随 $L_{\text{seq}}$ 线性增长"这两个不同的量搞混，序列越长，这一项相对 $6ND$ 里其余线性项的占比确实越不能忽略；词表投影（$V$ 大时输出层矩阵乘法本身量级可观）；norm/softmax 等非矩阵乘法算子；**激活重计算**（activation checkpointing 为省显存额外重算一遍前向，实际反向的乘数会比 4 更高）；MoE 的 active-vs-total 参数口径（§1.2）；以及不同社区对"1 FLOP"是记 multiply-add 各算一次还是合记一次的**计数约定**差异。$6ND$ 给出的是一种算法级近似训练量，**不等于 GPU 实际执行的 FLOPs**，更不能直接拿来预测墙钟时间（还要看 MFU、通信开销、显存换入换出等工程因素）——粗略估算 GPU-days 需要额外引入 GPU 数量、峰值 FLOPs 和 MFU：$t\approx C/(n_{GPU}\times\text{峰值FLOPs}\times MFU)$，通信开销、重计算、data stall 都会让这只是一个估算而非精确预测。
+**参数计数口径**：$N$ 应理解为 **compute-bearing / 非 embedding 的参数量**——embedding 查表本身是一次索引而不是矩阵乘法，机械地把 embedding 参数计入 $N$ 会系统性高估这部分的计算量。输出词表投影是否单独计数、如何计数，不同论文/实现的约定并不完全一致，读一份具体的 FLOPs 估算时应先确认它的参数计数约定。
+
+> ⚠️ **$6ND$ 是算法级近似，不是精确公式**——它忽略/简化的项分三类：
+> - **序列长度项**：attention score 计算量在**每条序列内部**随 $L_{\text{seq}}^2$ 增长（$N$ 本身不随序列长度变化）；但固定训练总 token 数 $D$ 时序列条数近似为 $D/L_{\text{seq}}$，**总** attention 开销近似随 $D\times L_{\text{seq}}$ 增长，而不是 $D\times L_{\text{seq}}^2$。序列越长，这一项相对 $6ND$ 里其余线性项的占比越不能忽略。
+> - **模型与训练细节**：词表投影（$V$ 大时输出层矩阵乘法量级可观）；norm/softmax 等非矩阵乘法算子；**激活重计算**（activation checkpointing 为省显存额外重算一遍前向，实际反向的乘数会比 4 更高）；MoE 的 active-vs-total 参数口径（§1.2）；不同社区对"1 FLOP"是记 multiply-add 各算一次还是合记一次的**计数约定**差异。
+> - **硬件效率**：$6ND$ **不等于 GPU 实际执行的 FLOPs**，更不能直接预测墙钟时间——粗略估算 GPU-days 需要额外引入 GPU 数量、峰值 FLOPs 和 MFU：$t\approx C/(n_{GPU}\times\text{峰值FLOPs}\times MFU)$，通信开销、重计算、data stall 都会让这只是一个估算而非精确预测。
 
 （这一近似最早由 Kaplan et al. (2020) 系统整理，完整引用见文末参考文献。）
 
 ### 1.2　MoE：每 token 计算用 active，显存用 total
 
-MoE 模型的每 token 计算量估算应代入 **active parameters**（真正参与该 token 前向/反向计算的专家参数），而不是 total parameters；但模型容量、显存占用、checkpoint 文件大小仍然与 **total parameters** 挂钩——一个 671B/37B 风格的模型（DeepSeek-V3 一类的公开配置，见文末参考文献），$6ND$ 里的 $N$ 该用 37B 量级去估计算预算，但存 checkpoint 仍要按 671B 算。路由机制、负载均衡、aux loss 的具体推导不在本教程范围，参见 `moe_tutorial.md`。
+MoE 记账分**两本账**：每 token 计算量用 **active parameters**（真正参与该 token 前向/反向计算的专家参数）估算；模型容量、显存占用、checkpoint 文件大小按 **total parameters** 算。一个 671B/37B 风格的模型（DeepSeek-V3 一类的公开配置，见文末参考文献），$6ND$ 里的 $N$ 用 37B 量级估计算预算，存 checkpoint 按 671B 算。注意 total 对应的是**聚合**的 model-state 大小，单卡实际显存还取决于分片方式（见 Q25）。路由机制、负载均衡、aux loss 的具体推导不在本教程范围，参见 `moe_tutorial.md`。
 
 ### 1.3　Kaplan (2020) vs Chinchilla (2022)：指数不能混为一谈
 
@@ -79,7 +92,7 @@ $$N_{opt}\propto C^{0.73},\qquad D_{opt}\propto C^{0.27}$$
 
 $$L(N,D) = E + \frac{A}{N^\alpha} + \frac{B}{D^\beta}$$
 
-拟合得到约 $\alpha\approx 0.34,\ \beta\approx 0.28$。$E$ 是在这个参数化形式与该数据分布下拟合出的**渐近不可约损失**（asymptotic loss floor）——拟合本身并不能把它唯一分解成"数据熵下界"和"模型族表达力上限"两部分，只能说它大致包含了数据本身的熵以及该模型族的近似误差，具体各占多少无法单靠这一次拟合确定；$A/N^\alpha$ 是"参数不够大"付出的代价，$B/D^\beta$ 是"数据不够多"付出的代价。
+拟合得到约 $\alpha\approx 0.34,\ \beta\approx 0.28$。$E$ 是拟合出的**渐近不可约损失**（asymptotic loss floor），大致包含数据本身的熵与该模型族的近似误差——但拟合本身无法把两者唯一分解开。$A/N^\alpha$ 是"参数不够大"付出的代价，$B/D^\beta$ 是"数据不够多"付出的代价。
 
 在计算预算约束 $C=kND$（$k=6$，见 §1.1）下对 $L(N,D)$ 做约束最优化，用 Lagrange 乘子消元可得解析解：
 
@@ -89,16 +102,18 @@ $$N_* = \left(\frac{\alpha A}{\beta B}\right)^{\frac{1}{\alpha+\beta}}\left(\fra
 
 $$N_*\propto C^{0.452},\qquad D_*\propto C^{0.548}$$
 
-（用论文完整精度的 $\alpha,\beta$ 计算，通常报约 0.46/0.54；§6 的 [D06] 用这组指数做了一个可执行的拟合单元测试，包括 100 倍算力下 $N_*$ 约扩大 $100^{0.452}\approx 8.0$ 倍、$D_*$ 约扩大 $100^{0.548}\approx 12.5$ 倍这条数值断言）。
+（用论文完整精度的 $\alpha,\beta$ 计算，通常报约 0.46/0.54；§6 的 [D06] 用这组指数做了一个可执行的拟合单元测试。）
 
 > ⚠️ **三个常见混淆，逐条澄清**
 > 1. **"约 0.50/0.50"和"约 0.46/0.54"不是同一个精确结果**——前者是"参数和 token 大致等比例增加"这个粗粒度经验结论，后者是参数化损失模型拟合出的具体指数，两者接近但不该互相冒充。
-> 2. **"每参数约训练 20 token"是经验性近似**，不是单由 $\alpha,\beta$ 推出的普适常数——从 $N_*,D_*$ 的解析式可以看出，$D_*/N_*$ 还依赖常数 $A,B$（以及 $k$），且当 $\alpha\ne\beta$ 时 $D_*/N_*\propto (C/k)^{(\alpha-\beta)/(\alpha+\beta)}$ 会随 $C$ 缓慢漂移，并不是严格恒定的比例（**这条推导本身在数学上是成立的**：固定 $A,B,\alpha,\beta,k$ 并继续沿用这个拟合模型时，100 倍算力下比值确实按上述指数增长约 1.56 倍）。但这条漂移结论**不能直接外推成"真实最优比例每 100 倍算力就会稳定增长 1.56 倍"这一经验断言**——原因有三：Chinchilla 论文另外两种独立估计方法（IsoFLOP 曲线拟合、参数/数据比例拟合）给出的比值接近 0.5/0.5，即近似恒定，与这里的漂移方向和幅度并不完全一致；当 $\alpha,\beta$ 相差不大时，拟合误差本身会显著影响 $(\alpha-\beta)/(\alpha+\beta)$ 这个指数，进而放大漂移估计的不确定性；$A,B,k$ 以及数据分布、模型架构、训练 recipe 在跨越多个数量级算力时未必保持不变，而这条推导的前提正是它们全部固定——100 倍算力本身也已经是明显的外推。
-> 3. **Kaplan 与 Chinchilla 分歧的技术原因**不只是"数据更多"：两者用的数据集、实验覆盖范围、损失拟合方法、训练 horizon 设计都不同——Kaplan 大量使用单条训练曲线中间点的 loss（这些中间点对应的 LR schedule 终点并非为该预算专门配置），Chinchilla 强调为每个预定的 token horizon 单独配置匹配的训练 schedule（例如 cosine decay 长度对齐目标 token 数）再比较，这是分歧的重要技术因素，不是简单的"谁的数据集更大"。
+> 2. **"每参数约训练 20 token"是经验性近似**，不是单由 $\alpha,\beta$ 推出的普适常数。
+>    - **解析结论**：$D_*/N_*$ 还依赖常数 $A,B$（以及 $k$）；当 $\alpha\ne\beta$ 时 $D_*/N_*\propto (C/k)^{(\alpha-\beta)/(\alpha+\beta)}$ 会随 $C$ 缓慢漂移——固定 $A,B,\alpha,\beta,k$ 并沿用这个拟合模型时，100 倍算力下比值按此指数增长约 1.56 倍，这条推导在数学上成立。
+>    - **不可外推**：不能把它外推成"真实最优比例每 100 倍算力就稳定增长 1.56 倍"这一经验断言——Chinchilla 另外两种独立估计方法（IsoFLOP 曲线拟合、参数/数据比例拟合）给出近似恒定的约 0.5/0.5；$\alpha,\beta$ 相差不大时，拟合误差会显著影响 $(\alpha-\beta)/(\alpha+\beta)$ 这个指数；$A,B,k$ 与数据分布、架构、训练 recipe 跨多个数量级算力时未必不变，而推导前提正是它们全部固定。
+> 3. **Kaplan 与 Chinchilla 分歧的技术原因**不只是"数据更多"。两者用的数据集、实验覆盖范围、损失拟合方法、训练 horizon 设计都不同。关键差异：Kaplan 大量使用单条训练曲线中间点的 loss（其 LR schedule 终点并非为该预算专门配置），Chinchilla 为每个预定的 token horizon 单独配置匹配的训练 schedule（例如 cosine decay 长度对齐目标 token 数）再比较。
 
 ### 1.4　"超出 Chinchilla 比例 = 过拟合"是错误说法
 
-**这是一个必须纠正的常见误解**：固定一个模型规模 $N$，继续喂新的（非重复、同分布或相关分布）数据，通常**仍然能降低 loss**——这不是过拟合的定义（过拟合应表现为训练 loss 下降但验证 loss 回升）。真正发生的是：固定 $N$ 继续增大 $D$ 时，最终计算量 $C=kND$（§1.1）本身也在同步增大——这不是"固定预算下多训了几步"，而是走到了一个**更大的 $C$**；只是在这个新的、更大的 $C$ 下，$(N,D)$ 相对该 $C$ 对应的 compute-optimal 前沿点 $(N_*,D_*)$（§1.3）而言，具有**更小的 $N$、更大的 $D$**——这个配置相对它自己实际消耗的计算量被称为"**over-trained**"，是一个相对 compute-optimal 前沿的经济学判断，不是训练本身出了错，更不是过拟合。
+**这是一个必须纠正的常见误解**。过拟合的定义是训练 loss 下降但验证 loss 回升——固定模型规模 $N$ 继续喂新的（非重复、同分布或相关分布）数据，通常**仍然能降低 loss**，不满足这个定义。真正发生的是：固定 $N$ 继续增大 $D$ 时，最终计算量 $C=kND$（§1.1）也在同步增大——走到了一个**更大的 $C$**，而 $(N,D)$ 相对该 $C$ 对应的 compute-optimal 前沿点 $(N_*,D_*)$（§1.3）具有**更小的 $N$、更大的 $D$**。这个配置被称为"**over-trained**"——一个相对 compute-optimal 前沿的经济学判断，不是训练本身出了错，更不是过拟合。
 
 工业界大量小模型被**故意**训练到远超 Chinchilla-optimal 比例（例如同等能力下选更小的模型、喂更多 token），理由是**部署侧的推理成本**（显存、延迟、单位 token 服务成本）——用一次性的额外训练计算，换取模型全生命周期里更便宜的推理，这是"训练计算最优"与"全生命周期成本最优"之间的取舍，不是"配方错了"。
 
@@ -131,13 +146,18 @@ $$N_*\propto C^{0.452},\qquad D_*\propto C^{0.548}$$
 | 10. mixture 采样（文档级配额） | 按域权重决定每个域贡献多少篇文档 | 文档级权重≠token 级权重（§2.7） |
 | 11. 确定性分片 | 写出可复现的 raw-document shard 文件 | 需要与 lineage 一起版本化（§2.8） |
 
-> **两阶段而不是一条线**：以上 11 步发生在 **raw-document 阶段**——第 10 步的"mixture 采样"这里指的是决定"每个域按什么比例贡献多少篇文档"这个**文档级**配额，第 11 步的"确定性分片"产出的是 raw-document shards。**tokenizer 在这之后运行**（把 raw-document shards 变成 token stream，见 §2.8 的接口契约），此后还有一段独立发生在 **tokenized 阶段** 的流程：文档级配额换算成的 token 级实际占比未必与配置一致（§2.7 讨论的正是这个 token 级采样单位问题），长文档还需要 chunk/truncate（§2.9），最终写出 tokenized training shards，再进入 §2.10 的 data-stream/sampler 层，split 之后 train 与 val/test 还要分叉处理（§2.11）。把"mixture 采样"简单理解成表格里的单一步骤，忽视它在文档级和 token 级各发生一次、含义并不相同，是这条流水线里最容易读错顺序的一环。
+> **两阶段而不是一条线**：
+> 1. **raw-document 阶段**：以上 11 步——第 10 步的"mixture 采样"是**文档级**配额（每个域按什么比例贡献多少篇文档），第 11 步产出 raw-document shards；
+> 2. **tokenizer 在这之后运行**：把 raw-document shards 变成 token stream（接口契约见 §2.8）；
+> 3. **tokenized 阶段**：token 级 mixture 采样（文档级配额换算成的 token 级实际占比未必与配置一致，§2.7）→ 长文档 chunk/truncate（§2.9）→ 写出 tokenized training shards → §2.10 的 data-stream/sampler 层；split 之后 train 与 val/test 分叉处理（§2.11）。
+>
+> mixture 采样在文档级和 token 级各发生一次、含义并不相同——把它读成表格里的单一步骤，是这条流水线里最容易读错顺序的一环。
 
 **数据 lineage**：每个训练样本理想情况下都应能追溯到——源数据集/URL、快照/爬取版本、抽取与过滤流水线版本、命中的质量过滤器与阈值、所属的去重簇 ID、split 归属、最终落在哪个 shard 文件的哪个偏移量。这套记录是几个月后排查"某条输出是不是背了训练数据""某个 benchmark 是不是被污染了"的唯一依据。
 
 ### 2.2　抽取质量：常常是高杠杆环节，而不是"严格证明更重要"
 
-网页正文抽取（剥离导航栏、广告、页脚模板、评论区噪声）、编码/Unicode 规范化这些**最上游**的步骤，其质量问题常常比后续质量分类器的精细调参更容易产生系统性影响——这一点被 C4 语料审计（Dodge et al.）、RefinedWeb（Penedo et al.）、FineWeb（Penedo et al.）等工作的经验观察间接支持，但这些工作并没有严格证明"抽取质量优先级一定高于分类器"这样一个普适排序。更准确的表述是：上游抽取错误可能把大量结构性噪声（导航文本、重复模板、乱码）系统性地压进每一份文档，而这类噪声在 token 分布上非常"显眼"，因此抽取质量常常是一个**高杠杆（high-leverage）环节**，值得优先投入，而不是一个可有可无的预处理细节。训练语料的 normalization 规则必须与 tokenizer 训练时用的规则保持一致，否则会出现"线上线下切分不一致"的漂移——tokenizer 本身的训练细节、normalization 选项、byte fallback 见 `tokenization_tutorial.md` §3–§4，本节不重复推导。
+网页正文抽取（剥离导航栏、广告、页脚模板、评论区噪声）、编码/Unicode 规范化这些**最上游**的步骤是**高杠杆（high-leverage）环节**：上游抽取错误会把大量结构性噪声（导航文本、重复模板、乱码）系统性地压进每一份文档，其影响常常大于后续质量分类器的精细调参——这是经验观察，不是"抽取一定优先于分类器"的普适排序（C4 语料审计 Dodge et al.、RefinedWeb/FineWeb Penedo et al. 的经验间接支持）。训练语料的 normalization 规则必须与 tokenizer 训练时用的规则保持一致，否则会出现"线上线下切分不一致"的漂移——tokenizer 训练细节、normalization 选项、byte fallback 见 `tokenization_tutorial.md` §3–§4。
 
 语言识别通常用轻量分类器（如 fastText 风格的 n-gram 模型）按文档分流；代码切换文本、短文本的语言判断置信度低是常见工程边界情况。基础质量过滤一般叠加若干启发式规则（行长度分布、符号/字母比例、重复 n-gram 占比）和/或一个小型辅助语言模型的困惑度评分，本质是"用便宜的信号筛掉最差的一批"，而不是精细的语义判断。
 
@@ -173,7 +193,7 @@ $$N_*\propto C^{0.452},\qquad D_*\propto C^{0.548}$$
 | benchmark 污染 | 训练语料含评测集内容 | 未做去污染检测 | n-gram 重叠检测（§2.4） |
 | packed 序列跨文档历史上下文 | 打包后文档 B 能读到文档 A 的 token | causal mask 允许跨文档读取历史 | **通常不是数据泄漏，是序列语义选择**（§3.4） |
 
-第三种最容易被误判为一种"泄漏"：普通 causal mask 允许后一篇文档读到前一篇文档的历史 token，但这只是"读了先前的 token"，不是因果意义上的"未来标签泄漏"——更准确的说法是**"跨样本上下文耦合"**：模型在训练时把两篇独立文档拼在同一条序列里，彼此的表示会相互影响，这是一个训练动态/统计独立性层面的建模选择，而不是评测意义上的信息泄漏。是否需要用 block-diagonal mask 切断它，取决于你是否要求"每篇文档必须是统计独立样本"这条建模假设，详见 §3.4。
+第三种更准确的名字是**"跨样本上下文耦合"**：后一篇文档读到的是先前的 token 而不是未来标签，这是训练动态/统计独立性层面的建模选择，不是评测意义上的信息泄漏。是否需要用 block-diagonal mask 切断它，取决于是否要求"每篇文档必须是统计独立样本"这条建模假设，详见 §3.4。
 
 ### 2.7　mixture 采样：域权重未必等于 token 权重
 
@@ -183,7 +203,12 @@ $$N_*\propto C^{0.452},\qquad D_*\propto C^{0.548}$$
 - **按 token 采样**：直接从拼接后的 token 流里切固定长度的块，与文档边界解耦；
 - **先采域再采文档**：先按域权重选域，再在域内选文档。
 
-三者的区别在于：不同域的**平均文档长度**不同——一个平均文档更长的域，即使按"文档数"配的权重和另一个域相同，实际贡献的 token 数也会更多。因此**当"域权重"是按文档数/文档权重配置、又被直接当成 token 权重使用时，两者通常不相等**——但如果配置项本身就是按 token-level 目标占比定义的，期望意义下二者可以相等，不能无条件断言"域权重一定不等于 token 权重"。domain reweighting 的系统性方法可参见 DoReMi（Xie et al., 2023，文末参考文献）。无论采用哪种采样单位，都必须在采样后单独统计"实际 token 占比"并汇报，而不是只报配置值。
+三者的区别来自不同域的**平均文档长度**不同——平均文档更长的域，同样的文档数权重下实际贡献的 token 数更多。"域权重"与 token 权重的关系分两种情况：
+
+- **按文档数/文档权重配置、又被直接当成 token 权重使用**：两者通常不相等，这是偏差的来源；
+- **配置项本身就按 token-level 目标占比定义**：期望意义下二者可以相等。
+
+无论采用哪种采样单位，都必须在采样后单独统计"实际 token 占比"并汇报，而不是只报配置值。domain reweighting 的系统性方法可参见 DoReMi（Xie et al., 2023，文末参考文献）。
 
 这也牵连到 §1 里 $D$ 的口径：scaling law 里的 $D$ 通常指训练时**呈现**给模型的 token 数（总 token 流过 optimizer 的次数），**不保证等于语料的唯一 token 总量**——如果某个域被反复过采样（多个 epoch）、或语料里仍残留大量近重复内容，名义 $D$ 会比"有效"数据量虚高，多出来的部分不会带来与新数据同等的统计信息；这类"数据受限"场景下重复数据对有效 $D$ 的影响，系统性讨论见 Muennighoff et al. (2023, 文末参考文献)，此处只陈述定性结论，不代入其具体数值。
 
@@ -251,7 +276,11 @@ padding 需要处理两件不同的事：
 1. **key padding mask**：防止 query 位置去 attend 到 padding key；
 2. **loss mask**：把 target 是 padding 的位置排除出 loss（否则会对着无意义的填充目标算梯度）。
 
-**loss mask 没有商量余地**——不做它，loss 一定会被填充目标污染。**key mask 是否必需则取决于序列布局**：在**严格 causal + 右侧 padding**这一常见特例下，真实 query 的位置天然小于 padding 起始位置，causal mask（$k\le q$）本身已经挡住了这些未来的 padding key，此时 key mask 对真实 query 而言是冗余的——省略它不会改变真实 token 的输出。但**左 padding、序列内部有空洞、或任何非"纯 causal + 右 padding"的布局**下，causal 条件本身不足以排除 padding key，真实 query 完全可能读到无意义内容，这时 key mask 不可省略。**通用实现应同时构造两者**——只有在能确认自己严格处于右 padding + causal 这一特例、且愿意长期维护这条隐含假设时，才可以论证性地省略 key mask；不能把这个特例当成可以无条件省略通用处理的理由。
+- **loss mask 始终必需**——不做它，loss 一定会被填充目标污染；
+- **严格 causal + 右侧 padding 时 key mask 可省**——真实 query 的位置天然小于 padding 起始位置，causal mask（$k\le q$）本身已经挡住这些未来的 padding key，省略它不会改变真实 token 的输出；
+- **左 padding、序列内部有空洞等其他布局时 key mask 必需**——causal 条件本身不足以排除 padding key，真实 query 完全可能读到无意义内容。
+
+**建议**：通用实现同时构造两者；只有在能确认严格处于"右 padding + causal"特例、且愿意长期维护这条隐含假设时，才论证性地省略 key mask。
 
 > ⚠️ **PAD 与 EOS 共用同一个 token ID 时的经典事故**
 > 很多 tokenizer 没有独立的 PAD token，直接把 `pad_id` 设成 `eos_id` 本身——这**不一定错**。真正的事故发生在下游代码按 `input_ids == pad_id` 无差别地构造 mask：这会把语料里**所有真实的 EOS 位置**也一起当成 padding 屏蔽掉，训练信号里"文档该在哪结束"的监督被系统性移除，模型的停止能力被显著削弱（从头训练时尤其致命）。正确做法是按**真实的 padding 位置**（每条序列的有效长度 `valid_len`，或随批次携带的显式 padding 标记）构造 mask，绝不用"和某个 token ID 相等"来判定是否是 padding。§6 的 [D05] 把这套 mask 构造成了可执行断言。
@@ -265,7 +294,11 @@ padding 需要处理两件不同的事：
 
 $$M[q,k] = (k\le q)\ \wedge\ (\text{docid}[q]=\text{docid}[k])$$
 
-是否需要重置每篇文档内部的 position ID，取决于位置编码方案与训练语义，不是无条件的硬性要求：**绝对位置 embedding** 下不重置会让后续文档从一个不属于它的巨大位置号开始，通常应该重置；**标准 RoPE** 只依赖 query/key 之间的相对位置差，在 block-diagonal mask 已经把每篇文档的 attention 限制在文档内部之后，给同一文档内所有位置整体加上一个相同的偏移量，理想数学下不改变文档内部的相对相位，不会仅因为"没有从 0 开始编号"而污染文档内部的注意力计算——但一些 RoPE 长度外推/scaling 变体、有限精度下的数值行为、以及希望每篇文档都严格从位置 0 开始训练（例如为了与推理时的位置分布对齐）等工程考虑，仍然让大多数实现选择重置；
+是否重置每篇文档内部的 position ID，取决于位置编码方案与训练语义，不是通用规则：
+
+  - **绝对位置 embedding**：不重置会让后续文档从一个不属于它的巨大位置号开始，通常应该重置；
+  - **标准 RoPE**：只依赖 query/key 之间的相对位置差——block-diagonal mask 把 attention 限制在文档内部后，给同一文档整体加相同偏移量在理想数学下不改变文档内的相对相位，不会仅因"没从 0 编号"而污染注意力计算；
+  - **变体与工程考虑**：RoPE 长度外推/scaling 变体、有限精度下的数值行为、希望每篇文档严格从位置 0 开始训练（与推理时位置分布对齐）——这些仍让大多数实现选择重置；
 
 - **阻断 attention 不会自动屏蔽跨文档的预测标签**——这是 packing 实现里最常见的 bug：团队加上了 block-diagonal mask，就以为"文档已经完全独立"，但如果不单独处理标签，文档 A 的最后一个位置默认仍然会被要求预测文档 B 的第一个 token（一个不折不扣的跨文档 target），必须用 §3.2 的边界 loss mask 单独排除。
 
@@ -294,25 +327,29 @@ PPL 只有在 tokenizer、normalization、评测文本三者都完全一致时�
 
 ### 4.1　micro-batch / DP / 梯度累积：global batch 公式，以及三种不同的 token 计数口径
 
-先钉死记号：$B_{micro,seq}$ 是**每个 DP replica**（而不是"每张卡"——当 TP/PP > 1 时，一个 DP replica 本身会跨多张卡，"每张卡"和"每个 DP replica"不是一回事）每个 micro-batch 的序列数，$L_{seq}$ 是序列长度，$G_{acc}$ 是梯度累积步数，$W_{DP}$ 是数据并行的 world size。
+先钉死记号：$B_{micro,seq}$ 是每个 DP replica 每个 micro-batch 的序列数，$L_{seq}$ 是序列长度，$G_{acc}$ 是梯度累积步数，$W_{DP}$ 是数据并行的 world size。
+
+**DP replica 不等于 GPU**：当 TP/PP > 1 时，一个 DP replica 本身会跨多张卡，"每张卡"和"每个 DP replica"不是一回事。
 
 **送入模型的 token 数**（processed token slots，不管是否有效参与 loss）：
 
 $$B_{input} = B_{micro,seq}\times L_{seq}\times G_{acc}\times W_{DP}$$
 
-**只有 $W_{DP}$ 直接扩大独立样本数**——张量并行（TP）和流水并行（PP）切分的是**同一份**样本的计算（矩阵乘法的维度切分、或层间流水线切分），不应该被重复计入独立样本数；把 TP/PP 的 world size 也乘进 $B_{input}$ 是最常见的 global batch 算错来源。（TP/PP/CP/ZeRO/FSDP 的通信原语和切分机制不在本教程范围，指路 `distributed_training_tutorial.md`。）
+**只有 $W_{DP}$ 直接扩大独立样本数**。张量并行（TP）和流水并行（PP）切分的是**同一份**样本的计算，把它们的 world size 也乘进 $B_{input}$ 是最常见的 global batch 算错来源。（通信原语和切分机制指路 `distributed_training_tutorial.md`。）
 
 **实际参与 loss 的有效 target 数**：
 
 $$B_{target} = \sum_i m_i$$
 
-其中 $m_i$ 是第 $i$ 条序列的有效 target mask 计数（§3.5 的 loss mask 求和）。$B_{input}$ 与 $B_{target}$ 一般不相等，即使**完全没有 padding**：teacher-forcing 位移标签下，每条长度 $L_{seq}$ 的序列最后一个位置没有下一个 token、被记为 `IGNORE`（§3.1），所以无 padding、无文档边界屏蔽时每条序列的有效 target 数是 $L_{seq}-1$ 而不是 $L_{seq}$；再叠加 padding（§3.3）或 packing 的文档边界 loss mask（§3.2、§3.4），$B_{target}$ 会进一步小于 $B_{input}$。
+其中 $m_i$ 是第 $i$ 条序列的有效 target mask 计数（§3.5 的 loss mask 求和）。$B_{input}$ 与 $B_{target}$ 一般不相等，即使**完全没有 padding**：位移标签下每条序列最后一个位置没有下一个 token、被记为 `IGNORE`（§3.1），每序列有效 target 数是 $L_{seq}-1$ 而不是 $L_{seq}$；再叠加 padding（§3.3）或 packing 的文档边界 loss mask（§3.2、§3.4），$B_{target}$ 会进一步小于 $B_{input}$。
 
 **三个记账口径分别对应哪个量，不要混用**：
 
-- **processed token slots**（即 $B_{input}$，"过了多少个 token 位置"）——推进 §5.1 的已消费 token 计数器、以及"按 token 对齐 scheduler"时通常用这个口径；
-- **non-padding input tokens**（$B_{input}$ 减去 padding 位置）——估算 GPU 实际有效吞吐、评估 packing/padding 效率时用这个口径；
-- **valid target tokens**（即 $B_{target}$）——§3.5 的损失归一化分母、以及 §1 scaling law 里的 $D$（训练时呈现给模型、参与监督的 token 数）在有 padding/文档边界屏蔽时应该更贴近这个口径，而不是笼统的 $B_{input}$。
+| 口径 | 对应量 | 用在哪 |
+| --- | --- | --- |
+| processed token slots | $B_{input}$（"过了多少个 token 位置"） | 推进 §5.1 的已消费 token 计数器、按 token 对齐 scheduler |
+| non-padding input tokens | $B_{input}$ 减去 padding 位置 | 估算 GPU 实际有效吞吐、评估 packing/padding 效率 |
+| valid target tokens | $B_{target}$ | §3.5 的损失归一化分母；§1 scaling law 里的 $D$ 在有 padding/边界屏蔽时应更贴近此口径 |
 
 三者一旦混用，"这次训练一共喂了多少 token"这个问题在报告里就会出现好几个互相不一致的数字。
 
@@ -323,8 +360,12 @@ $$B_{target} = \sum_i m_i$$
 1. **相同样本**——累积窗口内消费的数据必须和大 batch 一次性会消费的数据完全一致，不能因为分片方式不同而漏样本或重复样本；
 2. **按全体有效 token 归一化**（§3.5）——而不是对每个 micro-batch 的均值再求均值；
 3. **只执行一次 optimizer step**——梯度在累积窗口内只做加和/平均，权重更新只在窗口结束时发生一次；
-4. **正确处理随机性与状态**——梯度裁剪必须作用在累积完成后的**最终梯度**上（不能对每个 micro-batch 的局部梯度分别裁剪），dropout 等随机性、以及任何跨样本的运行统计量都要表现得像是在完整大 batch 上一次性计算的；
-5. **匹配通信库的归约语义**——DDP/FSDP 等框架默认对多 rank 梯度做**求平均**而不是求和，如果本地代码已经用"NLL 总和 / 本 rank 有效 token 数"算出了归一化损失，all-reduce 时的默认"求平均"会再隐式地按 world size 多除一次，必须显式改成 sum-reduce，或者反过来在本地归一化时预先乘回 $W_{DP}$，两者要匹配上，否则等价性在这一步就被打破。
+4. **最终梯度后处理一致**——梯度裁剪必须作用在累积完成后的**最终梯度**上，不能对每个 micro-batch 的局部梯度分别裁剪；
+5. **随机性与批相关状态一致**——dropout 等随机性、以及任何跨样本的运行统计量，都要表现得像是在完整大 batch 上一次性计算的；
+6. **匹配通信库的归约语义**——最终不变量：全局梯度应等于 $\nabla\left(\sum_r \mathrm{NLL}_r \big/ \sum_r M_r\right)$（$r$ 遍历 DP rank，$M_r$ 是该 rank 的有效 token 数）。
+   - DDP/FSDP 等框架默认对多 rank 梯度做**求平均**而不是求和：若本地已用"NLL 总和 / 本 rank 有效 token 数"算出归一化损失，默认求平均会再隐式地按 world size 多除一次；
+   - 修法二选一：显式改成 sum-reduce 并按全局有效 token 数归一化，或在本地归一化时预先乘回 $W_{DP}$。
+   - 核心检查一条：**本地 loss 和通信层不能重复除以 $W_{DP}$**。
 
 以上几点保证的是**数学等价**——在精确实数运算下，累积得到的梯度与一次性大 batch 算出的梯度是同一个量；它并不保证**浮点数值逐 bit 相同**，累加顺序、all-reduce 的归约树形结构等仍会带来最后几位有效数字的差异（这一层区分与 §5.2 的确定性 resume 三层强度框架一致）。
 
@@ -334,14 +375,20 @@ BF16 与 FP32 的指数位宽相同（动态范围相近），预训练里通常
 
 ### 4.4　sibling 边界（严格执行）
 
-- **optimizer_lr_schedule_tutorial.md** 拥有 AdamW 更新公式推导与 warmup/cosine/WSD 调度数学。本教程只关心：optimizer state（Adam 的 $m,v$）为什么必须随 checkpoint 一起保存才能正确 resume（§5.2）、调度是按 step 还是按 token 数推进、batch size 变化时调度/学习率配置需要怎样联动、以及 warmup/stable/cooldown 三个阶段各自在整个生命周期里扮演什么角色（§5.1）——具体公式一律指路该教程。
-- **distributed_training_tutorial.md** 拥有 ZeRO/FSDP/TP/PP/CP 的通信原语与切分机制。本教程只关心：§4.1 的 global batch 核算、DP 各 rank 消费的数据必须互不重叠（否则 $D$ 被重复计数）。**checkpoint 在 world-size 改变时具体如何重新分片、能否保证重分片后的训练轨迹与不变更 world-size 时一致，这是本教程和该 sibling 都没有给出系统性答案的一块**——本文只在 §5.2 指出"world-size 改变通常不能保证逐 bit 相同轨迹"这一更弱的定性结论；具体通信/切分机制的推导一律指路该教程，但读者不应默认它已经系统覆盖了"重分片后的确定性保证"这个具体问题。
+- **optimizer_lr_schedule_tutorial.md**：拥有 AdamW 更新公式推导与 warmup/cosine/WSD 调度数学；本教程只关心 optimizer state 为什么必须随 checkpoint 保存（§5.2）、调度按 step 还是按 token 数推进、batch size 变化时的联动、以及三个阶段的生命周期角色（§5.1），具体公式一律指路该教程。
+- **distributed_training_tutorial.md**：拥有 ZeRO/FSDP/TP/PP/CP 的通信原语与切分机制；本教程只关心 §4.1 的 global batch 核算、DP 各 rank 消费的数据必须互不重叠（否则 $D$ 被重复计数）。
+- **未覆盖边界**：checkpoint 在 world-size 改变时如何重新分片、重分片后能否保证与原轨迹一致，本教程与该 sibling 都没有给出系统性答案——本文只在 §5.2 给出"world-size 改变通常不能保证逐 bit 相同轨迹"这一更弱的定性结论。
 
 ## §5 lifecycle：从 warmup 到确定性 resume
 
 ### 5.1　warmup/stable/decay/cooldown + 数据阶段变化
 
-生命周期沿 LR schedule 大致分几个阶段（这里只讲阶段的**角色**，具体数学见 `optimizer_lr_schedule_tutorial.md`）：warmup 压住训练早期的不稳定；stable/plateau 占据训练主体；**decay/cooldown 是 LR 侧的概念**——学习率按 schedule 逐步降到很小的值，公式与调度形状指路 `optimizer_lr_schedule_tutorial.md`。**data annealing/late-stage reweighting 是数据侧的独立概念**——不少现代训练配方会在训练末段提高高质量/精选数据在 mixture 中的权重（这类实践在 Llama 3 等公开训练报告中有描述，见文末参考文献）。这两件事**常常在同一个训练末段同时发生**，但分别由 LR schedule 和数据 mixture 配置两条独立的机制控制，不应该把"LR 在 decay"和"数据在被重新加权"当成同一件事的两种说法——一个训练配方完全可以只做 LR decay 而不调整数据权重，反之亦然。
+生命周期沿 LR schedule 大致分几个阶段（这里只讲阶段的**角色**，具体数学见 `optimizer_lr_schedule_tutorial.md`）：warmup 压住训练早期的不稳定；stable/plateau 占据训练主体。训练末段常常同时发生两件事，但它们由不同配置控制：
+
+- **decay/cooldown 是 LR 侧的概念**——学习率按 schedule 逐步降到很小的值，公式与调度形状指路 `optimizer_lr_schedule_tutorial.md`；
+- **data annealing/late-stage reweighting 是数据侧的独立概念**——训练末段提高高质量/精选数据在 mixture 中的权重（Llama 3 等公开训练报告有描述，见文末参考文献）。
+
+一个训练配方完全可以只做 LR decay 而不调整数据权重，反之亦然——不要把"LR 在 decay"和"数据在被重新加权"当成同一件事的两种说法。
 
 另一条生命周期轴是**上下文长度课程**：训练大部分预算用较短序列，后期切到长上下文。这会改变 $L_{seq}$，意味着 §4.1 的 global batch 核算和已消费 token 计数器都要在切换点处保持一致地重新计算，不能默默沿用切换前的假设。
 
@@ -353,7 +400,7 @@ BF16 与 FP32 的指数位宽相同（动态范围相近），预训练里通常
 2. **样本序列一致**：重启后模型看到的数据顺序（哪个样本在哪个 step）与不中断时完全一致，不要求逐 bit 数值相同。除了第 1 层的内容，还必须有：RNG 状态（Python/框架/CUDA 等各处的生成器）、数据迭代器位置、shuffle epoch、sampler 状态，以及数据加载 worker/prefetch 队列的状态（§2.10；否则多 worker 预取顺序本身就是一个不确定源）；多 rank 训练还要各 rank 的 checkpoint 元数据。
 3. **数值/bitwise 同轨迹**（最强，通常无法完全达到）：在第 2 层基础上，还需要 AMP loss-scaler 的状态（否则 resume 后的动态 loss scale 起点不同，早期几步的梯度缩放路径就会分叉）、恰好在梯度累积窗口内尚未完成的"在途"梯度（pending gradients，如果 checkpoint 只在累积边界打点则可规避）、确定性 kernel（cuDNN/cuBLAS 等非确定性算子必须显式关闭）、以及完全相同的软件版本与通信拓扑（不同 GPU 数/不同集合通信实现的浮点归约顺序不同就会有 ULP 级别的差异累积）。**world-size 发生变化时**，即便重新分片语义写得再仔细，通常也无法保证与不改变 world-size 时逐 bit 相同的轨迹——数据切分方式、梯度归约的树形结构都会变。
 
-缺失任意一层要求的对应状态，都会把承诺降级到更弱的一层：漏了数据迭代器位置，第 2 层直接失效（重启后要么重复消费已训练过的数据，要么跳过一段）；漏了 RNG 状态，dropout/数据打乱会立刻跟原轨迹分叉；漏了 AMP scaler/pending gradients/确定性 kernel 设置，即使前两层都满足，第 3 层依然做不到。world-size 改变时如何重新分片，细节指路 `distributed_training_tutorial.md`（该 sibling 目前并未系统覆盖"重分片后仍逐 bit 复现"这类更强承诺，只涉及分片本身的机制，§4.4）。
+缺失任意一层要求的对应状态，都会把承诺降级到更弱的一层——checkpoint 元数据应明确标注自己保证到哪一层（world-size 改变的重分片边界见 §4.4）。
 
 ### 5.3　监控：分域 validation loss
 
@@ -365,7 +412,7 @@ BF16 与 FP32 的指数位宽相同（动态范围相近），预训练里通常
 
 1. **坏 batch / 数据分片**——先看这次 spike 能否在同一个 batch/shard 上单独复现（这依赖 §2.8 的确定性分片、§2.10 的 sampler/cursor 状态和 lineage，否则连"是哪个 batch"都定位不到）；
 2. **LR 与 resume 状态**——一次配置错误的学习率调度、或者一次 resume 后学习率调度计数器被意外重置，都可能制造出实际步数与预期不符的异常更新；
-3. **梯度与激活**——梯度范数异常、激活范数爆炸、某层的 logit 量级失控——这几个量为什么会失控、norm/残差/初始化如何从机制上抑制这类失控，指路 `normalization_init_tutorial.md`（该 sibling 讲的是**稳定性机制本身**，不是一份现成的监控阈值/诊断指标操作手册；具体在自己的训练里用什么阈值触发告警，仍需工程上自行标定），本节只把这几个量列为排查项，不重新推导公式；
+3. **梯度与激活**——梯度范数异常、激活范数爆炸、某层的 logit 量级失控；失控机制指路 `normalization_init_tutorial.md`（该 sibling 的边界说明见 §5.6），本节只把这几个量列为排查项；
 4. **混合精度**——BF16/FP16 的溢出/下溢（§4.3）；
 5. **跨 rank 异常**——某个 DP/TP/PP rank 悄悄发散（例如某张卡硬件出问题）而其余 rank 表面正常，只有分别记录各 rank 的 loss/梯度统计才能看出来；
 6. **硬件故障**——ECC 错误、单卡故障、集合通信抖动。
@@ -579,9 +626,9 @@ assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) < 1e-6  # ~12
 
 - 目标：$\min L(N,D)=E+A/N^\alpha+B/D^\beta$ s.t. $C=kND$
 - 代入约束消掉一个变量，用 Lagrange 乘子或直接对 $\log N$ 求导找驻点，解得 $N_*=(\alpha A/\beta B)^{1/(\alpha+\beta)}(C/k)^{\beta/(\alpha+\beta)}$，$D_*=(\beta B/\alpha A)^{1/(\alpha+\beta)}(C/k)^{\alpha/(\alpha+\beta)}$
-- 代入 $\alpha=0.34,\beta=0.28$ 得指数 0.452/0.548；100 倍计算预算下 $N_*$ 约扩大 $100^{0.452}\approx 8.0$ 倍、$D_*$ 约扩大 $100^{0.548}\approx 12.5$ 倍——这条推导在固定 $A,B,\alpha,\beta,k$ 时数学上成立，但不能直接外推成"真实最优比例每 100 倍算力必然增长 1.56 倍"这一经验断言（§1.3、[D06]）
+- 代入 $\alpha=0.34,\beta=0.28$ 得指数 0.452/0.548；100 倍计算预算下 $N_*$ 约扩大 $100^{0.452}\approx 8.0$ 倍、$D_*$ 约扩大 $100^{0.548}\approx 12.5$ 倍——这条推导在固定 $A,B,\alpha,\beta,k$ 时数学上成立，但不能外推成经验断言（§1.3、[D06]）
 
-推不出指数是 $\beta/(\alpha+\beta)$ 和 $\alpha/(\alpha+\beta)$ 这个交叉形式（容易记反成 $\alpha/(\alpha+\beta)$ 对应 $N_*$），或者把这条数学推导误当成一个可以无条件外推的经验规律。
+指数是交叉形式：$N_*$ 对应 $\beta/(\alpha+\beta)$、$D_*$ 对应 $\alpha/(\alpha+\beta)$，最常见的失分是把它记反。
 
 </details>
 
@@ -634,7 +681,7 @@ assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) < 1e-6  # ~12
 - LSH 把签名分成 $b$ 个 band、每 band $r$ 行，在各 MinHash 行/哈希函数近似独立的理想化假设下，候选概率 $P=1-(1-s^r)^b$，只做候选召回
 - 候选对通常还要精确 Jaccard 复核，且 MinHash 估计的是集合重叠，不是语义相似度（§2.3、[D01]）
 
-把 LSH 候选直接当成"确认的近重复"，跳过精确 Jaccard 复核这一步，或者忽略候选概率公式本身依赖"各哈希行近似独立"这条理想化假设。
+把 LSH 候选直接当成"确认的近重复"，跳过精确 Jaccard 复核这一步。
 
 </details>
 
@@ -694,7 +741,7 @@ assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) < 1e-6  # ~12
 
 <summary>Q19. 设计一条从网页抓取到训练分片的完整数据流水线。</summary>
 
-- §2.1 的十一步给出的是一个**常见且顺序敏感的参考流程**，不是唯一固定顺序——真正的硬约束主要是一条：**去重簇必须先形成、再做 split**（cluster-level split 依赖已经算出的连通分量，§2.5）；隐私/安全处理、质量过滤在工程上常常前移、或者在流水线的多个阶段各跑一轮，不是必须卡死在表格里的固定位置
+- **§2.1 的十一步是参考流程，硬约束主要是一条：去重簇必须先形成、再做 cluster-level split**（依赖已经算出的连通分量，§2.5）；隐私/安全处理、质量过滤在工程上常常前移或在多个阶段各跑一轮，不必卡死在表格里的固定位置
 - raw-document 阶段之后还有一段常被漏答的 **tokenized 阶段**：tokenizer materialization（把 raw-document shards 实际跑一遍 tokenizer，产出 token stream，§2.8）、token 级 mixture 采样（校正文档级配额和实际 token 占比的偏差，§2.7）、长文档 chunk/truncate（§2.9）、以及决定训练时如何读取这些 tokenized shard 的 data-stream/sampler 层（shard shuffle、域采样 RNG、DP rank 互斥分片、worker/prefetch 状态、cursor 位置，§2.10）
 - 每步都要保留 lineage：源/快照版本/过滤器版本/去重簇 ID/split 归属/chunk 归属/最终 shard 位置（§2.1、§2.9）
 - benchmark 去污染针对评测集，和 train-val 切分是两回事（§2.4、§2.6）
@@ -708,7 +755,7 @@ assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) < 1e-6  # ~12
 <summary>Q20. 要做到"确定性 resume"，checkpoint 需要保存哪些状态？"确定性"具体是哪种确定性？</summary>
 
 - 先分清楚要哪一层（§5.2）：**可继续训练**只需模型权重+优化器状态（Adam 的 $m,v$）+ 学习率调度/已消费 token 计数；**样本序列一致**再加 RNG 状态、数据迭代器位置、shuffle epoch、sampler 状态、dataloader worker/prefetch 状态，多 rank 训练还要各 rank 的 checkpoint 元数据
-- **数值/bitwise 同轨迹**这一最强层次额外需要 AMP loss-scaler 状态、在途（未完成累积窗口的）pending 梯度、确定性 kernel 与完全相同的软件版本/通信拓扑——即便如此，world-size 改变通常仍无法保证逐 bit 相同的轨迹（重分片语义指路 `distributed_training_tutorial.md`，该 sibling 目前并未系统覆盖"重分片后仍逐 bit 复现"这类更强承诺）
+- **数值/bitwise 同轨迹**这一最强层次额外需要 AMP loss-scaler 状态、在途（未完成累积窗口的）pending 梯度、确定性 kernel 与完全相同的软件版本/通信拓扑——即便如此，world-size 改变通常仍无法保证逐 bit 相同的轨迹（重分片语义指路 `distributed_training_tutorial.md`）
 - 漏掉数据迭代器位置或 RNG 状态，直接跌出"样本序列一致"这一层；只满足前两层而漏掉 AMP scaler/pending 梯度/确定性 kernel，能"重启训练""顺序一致"，但达不到数值上的完全复现
 
 把"确定性 resume"当成非黑即白的单一承诺，说不出这三层强度分别对应什么必要状态，是这题真正的深水区。
@@ -719,11 +766,11 @@ assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) < 1e-6  # ~12
 
 <summary>Q21. 预训练突然 loss spike 或 NaN，怎么分层排查？</summary>
 
-- 这是一个**推荐的启发式排查顺序**（按"最便宜先查"排列），不是必须严格遵守的普遍强制流程——具体项目里如果已经有更强的先验（比如上次同类 spike 就是硬件问题），完全可以调整顺序：坏 batch/数据分片（能否在同一批次复现，依赖确定性分片+lineage）→ LR 与 resume 状态 → 梯度与激活（指路 normalization_init_tutorial.md 的诊断量）→ 混合精度溢出/下溢 → 跨 rank 异常（需分 rank 记录统计量）→ 硬件故障
+- 这是一个**推荐的启发式排查顺序**（按"最便宜先查"排列），不是强制流程，有更强先验时可以调整：坏 batch/数据分片（能否在同一批次复现，依赖确定性分片+lineage）→ LR 与 resume 状态 → 梯度与激活（指路 normalization_init_tutorial.md 的诊断量）→ 混合精度溢出/下溢 → 跨 rank 异常（需分 rank 记录统计量）→ 硬件故障
 - 保留可复现的 batch ID/step 号，用于事后回放定位
 - 自动化第一道防线：rolling median/MAD 检测器，负责标出"什么时候该开始排查"，不负责判断根因（§5.4、[D07]）
 
-上来就猜"肯定是学习率太大"，跳过"能否复现"这个最便宜也最该先做的第一步；或者把这条排查顺序当成必须逐层走完、不能调整的强制流程。
+上来就猜"肯定是学习率太大"，跳过"能否在同一 batch 复现"这个最便宜也最该先做的第一步。
 
 </details>
 
@@ -743,12 +790,9 @@ assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) < 1e-6  # ~12
 
 <summary>Q23. mixture 采样的"域权重"和模型实际看到的 token 权重，什么时候相等、什么时候不相等？</summary>
 
-- 不总是不相等——**如果配置的域权重本身就是按 token-level 目标占比定义的**（即配置项写的就是"这个域应该贡献多少比例的 token"），那么期望意义下两者可以相等；真正会脱节的是**按文档数/按文档权重**配置、却被当成 token 权重直接使用的情形——这时才会因为不同域平均文档长度不同而产生偏差（§2.7）
-- **区分两种不同的采样单位**（正文容易把这两者混说成同一件事）：
-  - **按文档采样**：不区分域，直接按文档池的抽取概率等概率/加权抽整篇文档；
-  - **先采域再采文档**：先按域权重选中一个域，再在该域内部选文档——这是两个不同的两阶段过程，第一层的"域权重"在这里才有明确含义；
-  与"按 token 采样"（直接从拼接后的 token 流切块，与文档边界解耦）一起构成三种不同的采样单位
-- 应对：采样后单独统计并汇报"实际 token 级占比"，而不是只报配置值；这也关联 scaling law 里 $D$ 的口径——重复采样/近重复残留会让"有效数据量"低于名义 $D$
+- **分两种情况，不做无条件断言**：域权重按 token-level 目标占比定义（配置项写的就是"这个域应该贡献多少比例的 token"）时，期望意义下两者可以相等；按文档数/文档权重配置、却被当成 token 权重直接使用时才会脱节——因为不同域的平均文档长度不同（§2.7）
+- **三种采样单位要分清**：按文档采样（不区分域，直接按文档池的抽取概率抽整篇）、先采域再采文档（两阶段过程，第一层的"域权重"在这里才有明确含义）、按 token 采样（直接从拼接后的 token 流切块，与文档边界解耦）
+- **应对**：采样后单独统计并汇报"实际 token 级占比"，而不是只报配置值；这也关联 scaling law 里 $D$ 的口径——重复采样/近重复残留会让"有效数据量"低于名义 $D$
 
 无条件断言"域权重肯定不等于 token 权重"，或者把"按文档采样"和"先采域再采文档"当成同一个概念混着讲，是这题最容易踩的两个坑。
 
@@ -758,11 +802,13 @@ assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) < 1e-6  # ~12
 
 <summary>Q24. "三种泄漏"（train-val 泄漏 / benchmark 污染 / packed 跨文档上下文）分别是什么，怎么应对？</summary>
 
-- **train-val 泄漏**：先切分再去重导致近重复内容跨 split → 用 cluster-level split **缓解**（§2.5）——但 MinHash/LSH+n-gram 检测本身会漏改写幅度较大的转述、跨语言翻译版本、或语义相同但表层完全不同的"答案变体"，不能认为 cluster split"解决"了泄漏，只是显著降低了表层重复导致的泄漏概率
-- **benchmark 污染**：训练语料含评测集内容 → 用 n-gram 重叠去污染检测**缓解**（§2.4）——同样的漏检问题在这里更严重（benchmark 经常被人工改写用于规避检测），而且对模板化、样板文本（如常见代码片段、法律模板）可能产生假阳性，把无关内容误判为"污染"
-- **packed 跨文档历史上下文**：普通 causal mask 让后文档读到前文档历史 → **这通常不是数据泄漏，是"跨样本上下文耦合"这一序列语义选择**，是否需要用 block-diagonal mask 切断取决于是否要求"文档独立"这条建模假设（§2.6、§3.4）
+| 类型 | 核心判断 | 方法边界 |
+| --- | --- | --- |
+| train-val 泄漏 | 先切分再去重导致近重复跨 split → cluster-level split **缓解**（§2.5） | MinHash/LSH+n-gram 会漏大幅改写、跨语言翻译、语义相同但表层不同的"答案变体"——只是显著降低表层重复泄漏概率，不是"解决" |
+| benchmark 污染 | 训练语料含评测集内容 → n-gram 重叠去污染**缓解**（§2.4） | 漏检更严重（benchmark 常被人工改写规避检测），且对模板化/样板文本（常见代码片段、法律模板）可能假阳性 |
+| packed 跨文档历史上下文 | **通常不是数据泄漏，是"跨样本上下文耦合"这一序列语义选择**（§2.6、§3.4） | 是否用 block-diagonal mask 切断，取决于是否要求"文档独立"这条建模假设 |
 
-把前两种泄漏检测说成能"彻底解决"、不知道 n-gram 方法本身有明显的漏检和假阳性边界，或者把第三种也当成"泄漏"一律要求切断，是这题的常见不完整回答。
+把前两种检测说成能"彻底解决"，或把第三种也当成泄漏一律要求切断，是这题的失分点。
 
 </details>
 
@@ -770,9 +816,10 @@ assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) < 1e-6  # ~12
 
 <summary>Q25. MoE 模型的计算预算和显存预算分别怎么算？</summary>
 
-- 计算预算（$6ND$ 里的 $N$）用 **active** 参数估算——真正参与该 token 前向/反向计算的专家参数；但这个 $6N_{active}D$ 本身还是近似，不包含 MoE 特有的 all-to-all 通信开销、专家间负载不均衡、以及 capacity padding（路由容量限制下超出 capacity 的 token 需要丢弃或额外处理）带来的额外计算，这些细节指路 `moe_tutorial.md`
-- **显存预算不能简单地说"按 total 参数算"**：模型的**聚合** checkpoint/model-state 大小确实随 total 参数增长（所有专家权重都要能完整存下来），但单张卡上实际占用的显存还取决于 EP（专家并行）/FSDP 等分片方式、参数 dtype、优化器状态（Adam 的 $m,v$ 通常也要按分片后的规模算）、梯度、以及 activation 显存——同样的 total 参数量，分片策略不同，单卡显存可以相差很大
-- 总 loss 里若有 router aux loss，量级通常远小于主 loss；routing/负载均衡机制本身指路 moe_tutorial.md（§1.2、§3.5、§5.6）
+- **计算预算用 active 参数**：$6ND$ 里的 $N$ 取真正参与该 token 前向/反向计算的专家参数
+- **$6N_{active}D$ 本身仍是近似**：不包含 MoE 特有的 all-to-all 通信开销、专家间负载不均衡、capacity padding（超出路由容量的 token 需丢弃或额外处理）的额外计算，细节指路 `moe_tutorial.md`
+- **聚合 checkpoint/model-state 大小随 total 参数增长**：所有专家权重都要能完整存下来
+- **单卡显存不能简单按 total 算**：还取决于 EP（专家并行）/FSDP 等分片方式、参数 dtype、优化器状态（Adam 的 $m,v$ 按分片后规模算）、梯度、activation 显存——同样的 total 参数量，分片策略不同单卡显存相差很大；总 loss 里若有 router aux loss，量级通常远小于主 loss（§1.2、§3.5、§5.6）
 
 把 active 和 total 参数用混，用 total 参数估算 $6ND$ 训练计算量会显著高估；反过来只用 total 参数简单除以卡数估算单卡显存，忽略分片方式和优化器/activation 占用，是这题另一个常见的过简化。
 
@@ -782,9 +829,9 @@ assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) < 1e-6  # ~12
 
 <summary>Q26. 设计一套数据 lineage 方案，支持"半年后审计某条训练数据的来源"。</summary>
 
-- 基础追溯链：源数据集/URL → 快照/爬取版本 → 抽取与过滤流水线版本（含阈值）→ 去重簇 ID → split 归属 → 最终 shard 文件+偏移量——这是一份**合格的最小 lineage**，但还不足以支撑一次真正严格的审计
-- 支撑强审计还需要额外记录：**sample/content hash**（样本内容本身的哈希，确认"现在的内容"和"当初写入时的内容"完全一致）、**原始快照 hash**（而不只是版本号）、**tokenizer/normalizer 的哈希**（确认 token 化时用的具体制品，而不只是版本字符串）、**代码/容器版本**（处理流水线本身的可执行环境）、**mixture 采样用的随机种子**、**shard checksum**（整个 shard 文件的完整性校验）、**document→segment/token 的精确映射**（一篇文档对应哪些 token 范围，尤其在有 chunking 的情况下，§2.9）、以及**许可证与删除请求（takedown）状态**
-- 这套更完整的记录同时服务于四个场景：benchmark 污染排查、loss spike 复现定位、模型输出可疑内容时的溯源，以及合规意义上的删除请求响应（§2.1、§2.8、§2.9、§5.4）
+- **最低追溯（合格底线，不足以支撑严格审计）**：源数据集/URL → 快照/爬取版本 → 抽取与过滤流水线版本（含阈值）→ 去重簇 ID → split 归属 → 最终 shard 文件+偏移量
+- **强审计（在最低追溯之上额外记录）**：sample/content hash（确认"现在的内容"和"当初写入时"一致）、原始快照 hash（不只是版本号）、tokenizer/normalizer 哈希（具体制品而非版本字符串）、代码/容器版本、mixture 采样随机种子、shard checksum、document→segment/token 精确映射（尤其有 chunking 时，§2.9）、许可证与删除请求（takedown）状态
+- 强审计记录服务四个场景：benchmark 污染排查、loss spike 复现定位、模型输出可疑内容溯源、合规删除请求响应（§2.1、§2.8、§2.9、§5.4）
 
 只存一个"来源 URL+版本号"就以为够了，说不出 content hash、tokenizer 哈希、mixture 种子、document→token 映射这些同样决定"这条样本现在长什么样"的中间状态，也说不出许可证/删除请求这条合规维度，是这道题的深水区。
 

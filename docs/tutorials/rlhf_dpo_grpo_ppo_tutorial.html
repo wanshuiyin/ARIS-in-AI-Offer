@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md">
 <meta name="aris:source-sha256" content="749b90c9c29c2b4e723c00b8d51134399952a8e103b8129123b1700fdfa71e94">
-<meta name="aris:generated-at" content="2026-07-12 04:20 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -611,7 +618,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>749b90c9c29c</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:20 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -623,11 +630,11 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>把 LLM 训练分成三段：</p>
 <ul><li><strong>Pretraining</strong>：next-token prediction on 万亿 token 语料 —— 学世界知识与语言模式</li><li><strong>SFT (Supervised Fine-Tuning)</strong>：在 instruction-response pair 上做 next-token —— 学指令格式与基础能力</li><li><strong>Alignment / RL post-training</strong>：让模型输出<strong>与人类偏好对齐</strong>（helpful / harmless / honest）—— 学"哪个回答更好"</li></ul>
 <p>为什么 SFT 不够？因为 SFT 只能模仿正例（"做得好的样子"），无法显式学<strong>对比信号</strong>（"A 比 B 好"）。RL post-training 提供了三种范式：</p>
-<table><thead><tr><th>范式</th><th>信号</th><th>代表</th><th>一句话</th></tr></thead><tbody><tr><td><strong>RLHF + PPO</strong></td><td>学一个 RM 模仿偏好，再 RL 优化 RM</td><td>InstructGPT, ChatGPT, Claude</td><td>RM-in-the-loop on-policy RL</td></tr><tr><td><strong>DPO 系</strong></td><td>跳过 RM，直接在偏好数据上做 contrastive 损失</td><td>DPO, IPO, SimPO, KTO, ORPO</td><td>offline，无需 sampling</td></tr><tr><td><strong>GRPO 系</strong></td><td>RM 在线打分但<strong>省 value model</strong>，组内归一化算 advantage</td><td>DeepSeek-R1, Kimi-K1.5</td><td>数学/代码任务首选</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>范式</th><th>信号</th><th>代表</th><th>一句话</th></tr></thead><tbody><tr><td><strong>RLHF + PPO</strong></td><td>学一个 RM 模仿偏好，再 RL 优化 RM</td><td>InstructGPT, ChatGPT, Claude</td><td>RM-in-the-loop on-policy RL</td></tr><tr><td><strong>DPO 系</strong></td><td>跳过 RM，直接在偏好数据上做 contrastive 损失</td><td>DPO, IPO, SimPO, KTO, ORPO</td><td>offline，无需 sampling</td></tr><tr><td><strong>GRPO 系</strong></td><td>RM 在线打分但<strong>省 value model</strong>，组内归一化算 advantage</td><td>DeepSeek-R1, Kimi-K1.5</td><td>数学/代码任务首选</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">为什么不用纯 reward？</div><p>如果你直接 maximize reward，model 会找 RM 的捷径（reward hacking）。KL penalty $\beta \cdot \text{KL}(\pi || \pi_\text{ref})$ 是"防漂移"的核心机制：让 RL 后的策略不要离 SFT base 太远，相当于一个隐式正则。</p></div>
 <h3 id="11-语言任务-rl-的特殊性">1.1　语言任务 RL 的特殊性</h3>
 <p>经典游戏 RL（Atari、Go）和 LLM RL 差异很大，面试时常被反问：</p>
-<table><thead><tr><th>维度</th><th>游戏 RL（PPO 经典场景）</th><th>LLM RL</th></tr></thead><tbody><tr><td><strong>状态空间</strong></td><td>图像 / 棋盘</td><td>token 序列，可 $\sim 10^4$ 长</td></tr><tr><td><strong>动作空间</strong></td><td>数十到数百离散动作</td><td>vocab 大（$\sim 10^5$）</td></tr><tr><td><strong>轨迹长度</strong></td><td>数千步</td><td>通常 1 个 response（整段 generation 后给一次 reward）</td></tr><tr><td><strong>Reward 稀疏度</strong></td><td>中间也有 reward</td><td>通常<strong>只有 terminal reward</strong>（response 末尾）</td></tr><tr><td><strong>环境</strong></td><td>独立 simulator</td><td>RM（也是个神经网络，<strong>会被 hack</strong>）</td></tr><tr><td><strong>on/off-policy</strong></td><td>on-policy（PPO）</td><td>RLHF: on-policy；DPO: 完全 offline</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>游戏 RL（PPO 经典场景）</th><th>LLM RL</th></tr></thead><tbody><tr><td><strong>状态空间</strong></td><td>图像 / 棋盘</td><td>token 序列，可 $\sim 10^4$ 长</td></tr><tr><td><strong>动作空间</strong></td><td>数十到数百离散动作</td><td>vocab 大（$\sim 10^5$）</td></tr><tr><td><strong>轨迹长度</strong></td><td>数千步</td><td>通常 1 个 response（整段 generation 后给一次 reward）</td></tr><tr><td><strong>Reward 稀疏度</strong></td><td>中间也有 reward</td><td>通常<strong>只有 terminal reward</strong>（response 末尾）</td></tr><tr><td><strong>环境</strong></td><td>独立 simulator</td><td>RM（也是个神经网络，<strong>会被 hack</strong>）</td></tr><tr><td><strong>on/off-policy</strong></td><td>on-policy（PPO）</td><td>RLHF: on-policy；DPO: 完全 offline</td></tr></tbody></table></div>
 <p>因为只有 terminal reward，<strong>LLM RL 的 advantage 估计常常用粗粒度方案</strong>：PPO+GAE 在每个 token 上分配 advantage（但 reward 大多数 token 是 0）；GRPO 直接用整段 response 的 reward，给所有 token 同一个组内归一化 advantage。</p>
 <h2 id="2-ppo-核心">§2 PPO 核心</h2>
 <h3 id="21-vanilla-policy-gradient-复盘">2.1　Vanilla policy gradient 复盘</h3>
@@ -953,7 +960,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <ul><li>$G$ 一般取 8/16/32：太小组内统计噪声大，太大显存爆。</li><li><code>std</code> 为 0 的退化情况（组内 reward 全相同，all-pass / all-fail）：加 $\epsilon$ 或丢掉该组。</li><li><strong>DAPO</strong> (ByteDance Seed, 2025 arXiv 2503.14476) 对 GRPO 做了多项改进：clip higher (打破对称 clip)、dynamic sampling（丢全对全错 group）、token-level loss、overlong shaping，是 GRPO 的工业级进阶。</li><li><strong>DeepSeek 在 R1 报告中也讨论了 GRPO 的限制</strong>：组内 baseline 在 reward 方差小或 group size 小的情况下会失效；后续工作（如 VAPO、CISPO）尝试改进。</li></ul>
 <h2 id="6-dpo-变体生态">§6 DPO 变体生态</h2>
 <p>DPO 之后 2024–2025 出现一大波改进，面试时常被问"X 和 Y 区别"。下表对<strong>核心损失差异</strong>做对比；记号统一为：$\pi$ = current policy, $\pi_\text{ref}$ = SFT model, $\beta$ = temperature 参数 / KL 正则系数（$\exp(r/\beta)$ 中 $\beta$ 越大分布越接近 $\pi_\text{ref}$，类比玻尔兹曼分布中的温度 $T$；$1/\beta$ 才对应严格物理学惯例中直接乘在能量/reward 前的 inverse temperature）, $r$ = implicit reward。</p>
-<table><thead><tr><th>方法</th><th>损失</th><th>关键变化</th><th>论文</th></tr></thead><tbody><tr><td><strong>DPO</strong></td><td>$-\log\sigma(\beta\log\tfrac{\pi(y_w)}{\pi_\text{ref}(y_w)} - \beta\log\tfrac{\pi(y_l)}{\pi_\text{ref}(y_l)})$</td><td>基础</td><td>Rafailov 2023 NeurIPS</td></tr><tr><td><strong>IPO</strong></td><td>$(\log\tfrac{\pi(y_w)/\pi_\text{ref}(y_w)}{\pi(y_l)/\pi_\text{ref}(y_l)} - \tfrac{1}{2\beta})^2$</td><td>sigmoid → squared loss，<strong>防止 reward overfitting</strong></td><td>Azar 2024 AISTATS</td></tr><tr><td><strong>KTO</strong></td><td>per-sample sigmoid loss，only need binary good/bad，<strong>不需 pair</strong></td><td>Kahneman-Tversky 启发，desirable/undesirable</td><td>Ethayarajh 2024 ICML</td></tr><tr><td><strong>SimPO</strong></td><td>$-\log\sigma(\beta\cdot\tfrac{1}{\lvert y_w\rvert}\log\pi(y_w) - \beta\cdot\tfrac{1}{\lvert y_l\rvert}\log\pi(y_l) - \gamma)$</td><td><strong>去 reference</strong>、length-normalized、加 margin $\gamma$</td><td>Meng 2024 NeurIPS</td></tr><tr><td><strong>ORPO</strong></td><td>$\mathcal{L}_\text{SFT}(y_w) + \lambda\cdot\mathcal{L}_\text{OR}$，odds-ratio 偏好</td><td><strong>SFT + preference 一阶段</strong>，无需 reference</td><td>Hong 2024 EMNLP</td></tr><tr><td><strong>RLOO</strong></td><td>REINFORCE + leave-one-out baseline 从 $k$ 个 sample</td><td>online RL，无 value，强 baseline</td><td>Ahmadian 2024 ACL</td></tr><tr><td><strong>ReMax</strong></td><td>REINFORCE + greedy baseline（同 prompt greedy decode 作 baseline）</td><td>进一步省 sample</td><td>Li 2024 ICML</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>方法</th><th>损失</th><th>关键变化</th><th>论文</th></tr></thead><tbody><tr><td><strong>DPO</strong></td><td>$-\log\sigma(\beta\log\tfrac{\pi(y_w)}{\pi_\text{ref}(y_w)} - \beta\log\tfrac{\pi(y_l)}{\pi_\text{ref}(y_l)})$</td><td>基础</td><td>Rafailov 2023 NeurIPS</td></tr><tr><td><strong>IPO</strong></td><td>$(\log\tfrac{\pi(y_w)/\pi_\text{ref}(y_w)}{\pi(y_l)/\pi_\text{ref}(y_l)} - \tfrac{1}{2\beta})^2$</td><td>sigmoid → squared loss，<strong>防止 reward overfitting</strong></td><td>Azar 2024 AISTATS</td></tr><tr><td><strong>KTO</strong></td><td>per-sample sigmoid loss，only need binary good/bad，<strong>不需 pair</strong></td><td>Kahneman-Tversky 启发，desirable/undesirable</td><td>Ethayarajh 2024 ICML</td></tr><tr><td><strong>SimPO</strong></td><td>$-\log\sigma(\beta\cdot\tfrac{1}{\lvert y_w\rvert}\log\pi(y_w) - \beta\cdot\tfrac{1}{\lvert y_l\rvert}\log\pi(y_l) - \gamma)$</td><td><strong>去 reference</strong>、length-normalized、加 margin $\gamma$</td><td>Meng 2024 NeurIPS</td></tr><tr><td><strong>ORPO</strong></td><td>$\mathcal{L}_\text{SFT}(y_w) + \lambda\cdot\mathcal{L}_\text{OR}$，odds-ratio 偏好</td><td><strong>SFT + preference 一阶段</strong>，无需 reference</td><td>Hong 2024 EMNLP</td></tr><tr><td><strong>RLOO</strong></td><td>REINFORCE + leave-one-out baseline 从 $k$ 个 sample</td><td>online RL，无 value，强 baseline</td><td>Ahmadian 2024 ACL</td></tr><tr><td><strong>ReMax</strong></td><td>REINFORCE + greedy baseline（同 prompt greedy decode 作 baseline）</td><td>进一步省 sample</td><td>Li 2024 ICML</td></tr></tbody></table></div>
 <h3 id="61-ipo防止-reward-overfit">6.1　IPO：防止 reward overfit</h3>
 <p>Azar et al. 2024 <em>A General Theoretical Paradigm to Understand Learning from Human Preferences</em> 指出：Bradley-Terry + DPO 在偏好 deterministic（"$y_w$ 总是赢"）时会让 implicit reward 无限放大，过拟合。<strong>IPO 把 sigmoid 换成 squared loss</strong>：</p>
 <p>$$\mathcal{L}_\text{IPO} = \mathbb{E}\!\left[\left(\log\frac{\pi(y_w)/\pi_\text{ref}(y_w)}{\pi(y_l)/\pi_\text{ref}(y_l)} - \frac{1}{2\beta}\right)^2\right]$$</p>
@@ -986,7 +993,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <ul><li><strong>GRPO</strong>：组内 mean+std 归一化（$z$-score）+ PPO-clip。</li><li><strong>RLOO</strong>：组内 leave-one-out 均值做 baseline + REINFORCE。</li><li><strong>ReMax</strong>：greedy decode 做 baseline + REINFORCE。</li><li>三者哲学一致：<strong>绕过 value model，用 sample baseline</strong>；区别不止 baseline 形式：GRPO 额外做 std 归一化（z-score，除均值外还除以标准差）而 RLOO/ReMax 通常只减均值；GRPO 采用 PPO-clip（重要性比+裁剪，可多 epoch 复用同一批 rollout），RLOO/ReMax 是纯 REINFORCE 形式（无重要性比裁剪，通常单次 on-policy 更新）。三者共同点仅是不用 value model/critic，而用采样得到的 baseline。</li></ul>
 <h2 id="7-reward-modeling-进阶">§7 Reward Modeling 进阶</h2>
 <h3 id="71-prm-vs-orm">7.1　PRM vs ORM</h3>
-<table><thead><tr><th>维度</th><th><strong>ORM</strong> (Outcome RM)</th><th><strong>PRM</strong> (Process RM)</th></tr></thead><tbody><tr><td><strong>打分粒度</strong></td><td>只看最终答案</td><td>每步 reasoning 都打分</td></tr><tr><td><strong>标注成本</strong></td><td>低（只看结果）</td><td>高（每步都要标）</td></tr><tr><td><strong>奖励信号</strong></td><td>sparse（轨迹末尾）</td><td>dense（每步）</td></tr><tr><td><strong>数学推理表现</strong></td><td>中</td><td><strong>好</strong></td></tr><tr><td><strong>典型用法</strong></td><td>Best-of-N + ORM 重排</td><td>PRM 用于 step-level search / RL</td></tr><tr><td><strong>代表论文</strong></td><td>InstructGPT (Ouyang 2022)</td><td>Let's Verify Step by Step (Lightman 2023 arXiv / 2024 ICLR)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th><strong>ORM</strong> (Outcome RM)</th><th><strong>PRM</strong> (Process RM)</th></tr></thead><tbody><tr><td><strong>打分粒度</strong></td><td>只看最终答案</td><td>每步 reasoning 都打分</td></tr><tr><td><strong>标注成本</strong></td><td>低（只看结果）</td><td>高（每步都要标）</td></tr><tr><td><strong>奖励信号</strong></td><td>sparse（轨迹末尾）</td><td>dense（每步）</td></tr><tr><td><strong>数学推理表现</strong></td><td>中</td><td><strong>好</strong></td></tr><tr><td><strong>典型用法</strong></td><td>Best-of-N + ORM 重排</td><td>PRM 用于 step-level search / RL</td></tr><tr><td><strong>代表论文</strong></td><td>InstructGPT (Ouyang 2022)</td><td>Let's Verify Step by Step (Lightman 2023 arXiv / 2024 ICLR)</td></tr></tbody></table></div>
 <p>Lightman et al. <em>Let's Verify Step by Step</em> (OpenAI arXiv 2305.20050, 2023; ICLR 2024) 在 MATH 数据集上对比 ORM 和 PRM：</p>
 <ul><li>PRM800K：80 万 step-level 标注（每步标 ✓ / ⚠️ / ✗）。</li><li>在 GPT-4 generator 上，PRM 重排 1860 个候选时 MATH 准确率 <strong>78.2%</strong>，明显高于 ORM 的 72.4%。</li></ul>
 <p><strong>Math-Shepherd</strong> (Wang et al. 2024 ACL <em>Math-Shepherd: Verify and Reinforce LLMs Step-by-Step without Human Annotations</em>) 用 <strong>rollout-based 自动标注 PRM</strong>：从每步出发跑 $K$ 次后续 generation，根据正确率自动给每步打 soft label，省去人工。</p>
@@ -1000,7 +1007,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <p>近几年（Coste 2024, Eisenstein 2024）发现：<strong>single RM 容易被 hacking</strong>，ensemble of RMs（5-7 个不同 seed 的 RM）配合 conservative aggregation（min / mean - $k\cdot$std）可以显著缓解 reward hacking 且不损失性能。代价是显存翻倍——所以工业部署多用 lightweight RM（如 6B 评 70B policy）。</p>
 <h2 id="8-reward-hacking--工程经验">§8 Reward Hacking &amp; 工程经验</h2>
 <p>Reward hacking 是 RL post-training 的核心痛点：model 找到 RM 的盲点拿高分，但人类觉得变差。常见症状：</p>
-<table><thead><tr><th>现象</th><th>原因</th><th>缓解</th></tr></thead><tbody><tr><td><strong>答案变长</strong></td><td>长答案在 RM 训练数据里通常分高（信息量、礼貌套话）</td><td>length penalty / length normalize (SimPO) / 长度回归校准</td></tr><tr><td><strong>谄媚 (sycophancy)</strong></td><td>用户喜欢被认同 → RM 学到"agree better"</td><td>sycophancy probe + 对抗数据</td></tr><tr><td><strong>重复 / 套话</strong></td><td>句尾"Hope this helps!" 类型在 RM 数据里高分</td><td>n-gram repetition penalty / 多样性 reward</td></tr><tr><td><strong>拒绝过度</strong></td><td>安全 RM 学到"拒绝就安全"</td><td>helpfulness vs harmlessness 双 RM 平衡</td></tr><tr><td><strong>格式 hack</strong></td><td>用 markdown / bullet / emoji 拿分</td><td>格式 normalization</td></tr><tr><td><strong>数字操作</strong></td><td>数学题硬编码常见答案分布</td><td>rule-based reward 替代 RM</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>现象</th><th>原因</th><th>缓解</th></tr></thead><tbody><tr><td><strong>答案变长</strong></td><td>长答案在 RM 训练数据里通常分高（信息量、礼貌套话）</td><td>length penalty / length normalize (SimPO) / 长度回归校准</td></tr><tr><td><strong>谄媚 (sycophancy)</strong></td><td>用户喜欢被认同 → RM 学到"agree better"</td><td>sycophancy probe + 对抗数据</td></tr><tr><td><strong>重复 / 套话</strong></td><td>句尾"Hope this helps!" 类型在 RM 数据里高分</td><td>n-gram repetition penalty / 多样性 reward</td></tr><tr><td><strong>拒绝过度</strong></td><td>安全 RM 学到"拒绝就安全"</td><td>helpfulness vs harmlessness 双 RM 平衡</td></tr><tr><td><strong>格式 hack</strong></td><td>用 markdown / bullet / emoji 拿分</td><td>格式 normalization</td></tr><tr><td><strong>数字操作</strong></td><td>数学题硬编码常见答案分布</td><td>rule-based reward 替代 RM</td></tr></tbody></table></div>
 <h3 id="81-核心缓解机制">8.1　核心缓解机制</h3>
 <ol><li><strong>KL penalty</strong> ($\beta \log\pi/\pi_\text{ref}$)：最基础的 anchor。</li><li><strong>Early stopping by KL budget</strong>：跑到 $\text{KL}(\pi || \pi_\text{ref}) &gt; K_\text{target}$ 时停。</li><li><strong>Reward model ensemble</strong> (Coste 2024 ICLR <em>Reward Model Ensembles Help Mitigate Overoptimization</em>)：多个 RM 取 min 或 mean - std。</li><li><strong>Reward shaping</strong>：把 reward 拆成多个项（helpfulness + length + diversity），单独 cap 每项。</li><li><strong>离线 + 在线混合</strong>：先 DPO / KTO 拿 70 分，再 PPO + 强 RM 跑最后一公里。</li><li><strong>Composite reward</strong>：rule-based + RM-based 加权，rule 部分通常比神经 RM 更难被 hack（但并非绝对——checker/单测覆盖不全或存在漏洞时同样可能被利用，如答案格式匹配、边界条件漏判等，见 §5.3）。</li></ol>
 <h3 id="82-gao-2023-scaling-law">8.2　Gao 2023 scaling law</h3>
@@ -1009,10 +1016,10 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
 <p><strong>面试 takeaway</strong>：reward hacking 不是 bug，是 RL 本质——proxy 与真目标分离的不可避免现象。</p>
 <h2 id="9-复杂度--资源-对比">§9 复杂度 / 资源 对比</h2>
 <h3 id="91-四种范式资源对比">9.1　四种范式资源对比</h3>
-<table><thead><tr><th>维度</th><th><strong>PPO RLHF</strong></th><th><strong>DPO 系</strong></th><th><strong>GRPO</strong></th><th><strong>RLOO/ReMax</strong></th></tr></thead><tbody><tr><td>需要 RM？</td><td>✅ frozen</td><td>❌ implicit</td><td>✅ frozen 或 rule</td><td>✅ frozen 或 rule</td></tr><tr><td>需要 value model？</td><td>✅ trainable</td><td>❌</td><td>❌</td><td>❌</td></tr><tr><td>需要 reference policy？</td><td>✅ frozen</td><td>✅ frozen (SimPO/ORPO 除外)</td><td>✅ frozen</td><td>✅ frozen 或不需</td></tr><tr><td>Online sampling?</td><td>✅ on-policy</td><td>❌ offline</td><td>✅ on-policy</td><td>✅ on-policy</td></tr><tr><td>模型副本数</td><td><strong>4</strong> (π, π_ref, RM, V)</td><td><strong>2</strong> (π, π_ref)</td><td><strong>3</strong> (π, π_ref, RM)</td><td><strong>3</strong></td></tr><tr><td>KL anchor</td><td>显式 reward 中</td><td>隐式 in loss</td><td>显式 loss 中</td><td>显式 reward 或 loss</td></tr><tr><td>主要瓶颈</td><td>显存 + on-policy 慢</td><td>偏好数据质量</td><td>sampling 多倍</td><td>sampling 多倍</td></tr><tr><td>调参难度</td><td><strong>高</strong> ($\beta, \epsilon, \lambda, c_v, c_e$)</td><td>中 ($\beta$)</td><td>中 ($\beta, G$)</td><td>低 ($\beta, k$)</td></tr><tr><td>代表</td><td>InstructGPT, Claude</td><td>Llama-3 instruct, Zephyr</td><td>DeepSeek-R1, Kimi-K1.5</td><td>Cohere Command R</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th><strong>PPO RLHF</strong></th><th><strong>DPO 系</strong></th><th><strong>GRPO</strong></th><th><strong>RLOO/ReMax</strong></th></tr></thead><tbody><tr><td>需要 RM？</td><td>✅ frozen</td><td>❌ implicit</td><td>✅ frozen 或 rule</td><td>✅ frozen 或 rule</td></tr><tr><td>需要 value model？</td><td>✅ trainable</td><td>❌</td><td>❌</td><td>❌</td></tr><tr><td>需要 reference policy？</td><td>✅ frozen</td><td>✅ frozen (SimPO/ORPO 除外)</td><td>✅ frozen</td><td>✅ frozen 或不需</td></tr><tr><td>Online sampling?</td><td>✅ on-policy</td><td>❌ offline</td><td>✅ on-policy</td><td>✅ on-policy</td></tr><tr><td>模型副本数</td><td><strong>4</strong> (π, π_ref, RM, V)</td><td><strong>2</strong> (π, π_ref)</td><td><strong>3</strong> (π, π_ref, RM)</td><td><strong>3</strong></td></tr><tr><td>KL anchor</td><td>显式 reward 中</td><td>隐式 in loss</td><td>显式 loss 中</td><td>显式 reward 或 loss</td></tr><tr><td>主要瓶颈</td><td>显存 + on-policy 慢</td><td>偏好数据质量</td><td>sampling 多倍</td><td>sampling 多倍</td></tr><tr><td>调参难度</td><td><strong>高</strong> ($\beta, \epsilon, \lambda, c_v, c_e$)</td><td>中 ($\beta$)</td><td>中 ($\beta, G$)</td><td>低 ($\beta, k$)</td></tr><tr><td>代表</td><td>InstructGPT, Claude</td><td>Llama-3 instruct, Zephyr</td><td>DeepSeek-R1, Kimi-K1.5</td><td>Cohere Command R</td></tr></tbody></table></div>
 <h3 id="92-llm-rlhf-训练显存粗算">9.2　LLM RLHF 训练显存粗算</h3>
 <p>以 7B base、fp16 forward + fp32 master、AdamW 为例（典型 RLHF）：</p>
-<table><thead><tr><th>副本</th><th>用途</th><th>bf16 权重 + 梯度</th><th>fp32 (master + Adam m,v)</th><th>合计</th></tr></thead><tbody><tr><td>Policy $\pi_\theta$</td><td>trainable</td><td>14+14=28 GB</td><td>28+28+28=84 GB</td><td><strong>112 GB</strong></td></tr><tr><td>Value $V_\phi$</td><td>trainable</td><td>28 GB</td><td>84 GB</td><td><strong>112 GB</strong></td></tr><tr><td>Reference $\pi_\text{ref}$</td><td>frozen</td><td>14 GB</td><td>—</td><td>14 GB</td></tr><tr><td>Reward $r_\psi$</td><td>frozen</td><td>14 GB</td><td>—</td><td>14 GB</td></tr><tr><td><strong>合计</strong></td><td></td><td></td><td></td><td><strong>~252 GB</strong>（每 trainable 模型 16 B/param ×7B = 112 GB；与分布式训练篇一致）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>副本</th><th>用途</th><th>bf16 权重 + 梯度</th><th>fp32 (master + Adam m,v)</th><th>合计</th></tr></thead><tbody><tr><td>Policy $\pi_\theta$</td><td>trainable</td><td>14+14=28 GB</td><td>28+28+28=84 GB</td><td><strong>112 GB</strong></td></tr><tr><td>Value $V_\phi$</td><td>trainable</td><td>28 GB</td><td>84 GB</td><td><strong>112 GB</strong></td></tr><tr><td>Reference $\pi_\text{ref}$</td><td>frozen</td><td>14 GB</td><td>—</td><td>14 GB</td></tr><tr><td>Reward $r_\psi$</td><td>frozen</td><td>14 GB</td><td>—</td><td>14 GB</td></tr><tr><td><strong>合计</strong></td><td></td><td></td><td></td><td><strong>~252 GB</strong>（每 trainable 模型 16 B/param ×7B = 112 GB；与分布式训练篇一致）</td></tr></tbody></table></div>
 <p>加上 activation、KV cache、generation buffer，单卡 80GB 极难放下；通常用 ZeRO-3 + offload 或多机分片。</p>
 <p><strong>DPO 同 base</strong>：只需 $\pi_\theta$ + $\pi_\text{ref}$ = 112 + 14 = <strong>126 GB</strong>（约为 PPO ~252GB 的一半）。</p>
 <p><strong>GRPO 同 base</strong>（神经 RM）：$\pi_\theta$ + $\pi_\text{ref}$ + RM = 112 + 14 + 14 = <strong>140 GB</strong>（省 value 一份）。</p>
@@ -1202,7 +1209,7 @@ def grpo_loss(policy, ref_policy, batch, eps_clip=0.2, beta=0.04):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md</code> ·
   SHA256 <code>749b90c9c29c</code> ·
-  generated at 2026-07-12 04:20 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

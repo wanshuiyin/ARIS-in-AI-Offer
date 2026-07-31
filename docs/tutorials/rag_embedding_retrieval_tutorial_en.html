@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/rag_embedding_retrieval_tutorial_en.md">
 <meta name="aris:source-sha256" content="0a2f735bd41483393909e65a77e36f9bf9e6e2c68b1bde854507950b0ca598ba">
-<meta name="aris:generated-at" content="2026-07-12 04:16 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -588,7 +595,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/rag_embedding_retrieval_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>0a2f735bd414</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:16 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -678,7 +685,7 @@ def info_nce_with_hard(q, d_pos, d_hard, tau=0.05):
 <div class="callout callout-info"><div class="callout-title">learned sparse: SPLADE</div><p>besides BM25 (terms) and dense (semantics) there's a middle path: <strong>SPLADE</strong> (Formal 2021) uses an MLM head to expand query/doc into <strong>sparse term vectors with learned weights</strong> (including synonyms/expansion terms) — it fits an inverted index (fast, interpretable) yet has semantic expansion, often a strong baseline or one leg of the hybrid.</p></div>
 <h2 id="6-reranking-cross-encoder">§6 Reranking: cross-encoder</h2>
 <p>Recall (bi-encoder + ANN) chases <strong>high recall, fast</strong>, but the precision of the top-k isn't enough. <strong>A reranker re-scores the recalled top-k (say 100) precisely and takes the top few</strong>.</p>
-<table><thead><tr><th></th><th>Bi-encoder</th><th>Cross-encoder</th><th>ColBERT (late interaction)</th></tr></thead><tbody><tr><td>Encoding</td><td>query, doc encoded <strong>separately</strong></td><td><code>[query; doc]</code> encoded <strong>together</strong></td><td>doc stores <strong>per-token</strong> vectors</td></tr><tr><td>Interaction</td><td>only a final dot product (no token-level interaction)</td><td>full attention throughout (early, strong)</td><td>token-level late interaction (MaxSim)</td></tr><tr><td>Precomputable doc</td><td>✅ (build an index)</td><td>❌ (every pair recomputed)</td><td>✅ (store token vectors, larger)</td></tr><tr><td>Speed / scale</td><td>fast / millions–billions</td><td>slow / rerank top-k only</td><td>mid / larger storage</td></tr><tr><td>Use</td><td><strong>recall</strong></td><td><strong>rerank</strong></td><td>recall+rerank compromise</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th></th><th>Bi-encoder</th><th>Cross-encoder</th><th>ColBERT (late interaction)</th></tr></thead><tbody><tr><td>Encoding</td><td>query, doc encoded <strong>separately</strong></td><td><code>[query; doc]</code> encoded <strong>together</strong></td><td>doc stores <strong>per-token</strong> vectors</td></tr><tr><td>Interaction</td><td>only a final dot product (no token-level interaction)</td><td>full attention throughout (early, strong)</td><td>token-level late interaction (MaxSim)</td></tr><tr><td>Precomputable doc</td><td>✅ (build an index)</td><td>❌ (every pair recomputed)</td><td>✅ (store token vectors, larger)</td></tr><tr><td>Speed / scale</td><td>fast / millions–billions</td><td>slow / rerank top-k only</td><td>mid / larger storage</td></tr><tr><td>Use</td><td><strong>recall</strong></td><td><strong>rerank</strong></td><td>recall+rerank compromise</td></tr></tbody></table></div>
 <p>Cross-encoder: $\text{score}(q,d) = \text{MLP}(\text{BERT}([q;d])_{\texttt{[CLS]}})$ — the query's and doc's tokens attend to each other throughout, hence accurate; the cost is <strong>it can't be precomputed</strong> (the doc representation depends on the query), so it only runs over a small number of recalled candidates.</p>
 <p><strong>ColBERT's late interaction</strong>: the doc stores each token's vector, and scoring uses MaxSim — each query token finds the most similar token in the doc and sums:</p>
 <p>$$\text{score}(q,d) = \sum_{i \in q} \max_{j \in d} \mathbf{E}_{q_i}^\top \mathbf{E}_{d_j}$$</p>
@@ -701,7 +708,7 @@ LLM generate + cite   ⑤ optional self-check: Self-RAG(generation reflection) �
 <h3 id="81-graphrag">8.1　GraphRAG</h3>
 <p>Naive RAG recalls passages independently and is weak at "global questions spanning many documents" (e.g. "the thematic thread of the whole report"). <strong>GraphRAG</strong> (Microsoft, Edge 2024) first uses an LLM to extract the corpus into an <strong>entity-relation knowledge graph + community summaries</strong>, and global questions go through "community summaries" rather than scattered passages. Strong at query-focused summarization; the cost is expensive graph building.</p>
 <h3 id="82-rag-vs-long-context-vs-fine-tuning">8.2　RAG vs long-context vs fine-tuning</h3>
-<table><thead><tr><th></th><th>RAG</th><th>Long-context</th><th>Fine-tuning</th></tr></thead><tbody><tr><td>What it injects</td><td>updatable <strong>external facts</strong></td><td>the full text stuffed in this time</td><td><strong>capability / style / format</strong></td></tr><tr><td>Knowledge update</td><td>update the store, traceable</td><td>re-stuff each time, no persistence</td><td>retrain, easily stale</td></tr><tr><td>Cost</td><td>retrieval + short prompt</td><td>long prompt, expensive, slow</td><td>training expensive, inference cheap</td></tr><tr><td>Weakness</td><td>wrong retrieval → wrong answer</td><td>lost-in-the-middle</td><td>bad at injecting massive new facts</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th></th><th>RAG</th><th>Long-context</th><th>Fine-tuning</th></tr></thead><tbody><tr><td>What it injects</td><td>updatable <strong>external facts</strong></td><td>the full text stuffed in this time</td><td><strong>capability / style / format</strong></td></tr><tr><td>Knowledge update</td><td>update the store, traceable</td><td>re-stuff each time, no persistence</td><td>retrain, easily stale</td></tr><tr><td>Cost</td><td>retrieval + short prompt</td><td>long prompt, expensive, slow</td><td>training expensive, inference cheap</td></tr><tr><td>Weakness</td><td>wrong retrieval → wrong answer</td><td>lost-in-the-middle</td><td>bad at injecting massive new facts</td></tr></tbody></table></div>
 <p>In practice the three are often combined: fine-tune for style + RAG for facts + moderate long-context to hold the recalled passages.</p>
 <h3 id="83-evaluation-dont-only-look-at-generation">8.3　Evaluation (don't only look at generation)</h3>
 <p>Evaluate in two layers:</p>
@@ -768,7 +775,7 @@ def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
 <ul><li><strong>Chunk size is the number-one knob</strong>: too large → coarse retrieval, too small → broken context; start with 256/512 token + 10–20% overlap, tune by evaluation.</li><li><strong>Higher-value than tuning chunk size</strong>: <strong>Contextual Retrieval</strong> (Anthropic 2024, prepend an LLM-generated whole-document context to each chunk before embedding) and <strong>late chunking</strong> (Jina 2024, run the full doc through a long-context encoder first, then chunk-pool) both target the root cause "plain chunking loses document-level context," often paying off more than just tuning chunk size.</li><li><strong>Match the embedding model to the domain</strong>: a generic embedding may be weak in specialized domains (medical/legal/code); consider domain fine-tuning or a matching model (BGE-M3 / E5 / domain models).</li><li><strong>Don't go pure dense</strong>: for entity/rare-word/exact-match scenarios always add BM25 hybrid, otherwise "you can't retrieve the one that's obviously there."</li><li><strong>Hard-negative false negatives</strong> (§2.3): dedup and filter when mining negatives, or you train it crooked.</li><li><strong>Lost in the middle</strong> (§7): put key passages at the head/tail of the context, not piled in the middle.</li><li><strong>Don't skip reranking</strong>: when recall is enough but precision isn't, a cross-encoder rerank of the top-k is often a high-ROI step (whether it is the highest depends on recall quality / latency budget / candidate scale).</li><li><strong>The index goes stale</strong>: after the store updates, incrementally re-embed / rebuild the index; a stale index = stale answers.</li><li><strong>Evaluate in layers</strong> (§8.3): attribute retrieval and generation separately, or you can't locate where the problem is.</li><li><strong>Temperature $\tau$ and batch</strong>: in contrastive learning a large batch (more in-batch negatives) + a suitable $\tau$ matter a lot; small batches perform poorly.</li></ul>
 <div class="callout callout-warn"><div class="callout-title">&quot;Still hallucinating with RAG&quot;</div><p>usually not the LLM's fault: the retrieval recalled an irrelevant/wrong passage and the LLM "faithfully" answered from it. Check retrieval first (recall@k, are the passages right), then suspect generation.</p></div>
 <h2 id="11-complexity-and-resources">§11 Complexity and resources</h2>
-<table><thead><tr><th>Stage</th><th>Compute</th><th>Note</th></tr></thead><tbody><tr><td>Embed docs (offline)</td><td>$O(N \cdot C_{\text{enc}})$</td><td>one-off, batchable; MRL can save storage</td></tr><tr><td>Build ANN index (HNSW)</td><td>$O(N \log N)$ build</td><td>memory for query speed</td></tr><tr><td>Dense recall (online)</td><td>empirically near-log / sublinear per query</td><td>ANN approximate, not exact, not a strict guarantee</td></tr><tr><td>BM25 recall</td><td>inverted index $O(\lvert q\rvert \cdot \text{postings})$</td><td>term-level</td></tr><tr><td>RRF fusion</td><td>$O(R \cdot k_{\text{recall}})$</td><td>ranks only, dirt cheap</td></tr><tr><td>Cross-encoder rerank</td><td>$O(k_{\text{recall}} \cdot C_{\text{enc}})$</td><td>one forward per candidate, <strong>top-k only</strong></td></tr><tr><td>LLM generation</td><td>$O(L_{\text{ctx}}^2)$ prefill</td><td>longer context costs more (see the attention sheet)</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Stage</th><th>Compute</th><th>Note</th></tr></thead><tbody><tr><td>Embed docs (offline)</td><td>$O(N \cdot C_{\text{enc}})$</td><td>one-off, batchable; MRL can save storage</td></tr><tr><td>Build ANN index (HNSW)</td><td>$O(N \log N)$ build</td><td>memory for query speed</td></tr><tr><td>Dense recall (online)</td><td>empirically near-log / sublinear per query</td><td>ANN approximate, not exact, not a strict guarantee</td></tr><tr><td>BM25 recall</td><td>inverted index $O(\lvert q\rvert \cdot \text{postings})$</td><td>term-level</td></tr><tr><td>RRF fusion</td><td>$O(R \cdot k_{\text{recall}})$</td><td>ranks only, dirt cheap</td></tr><tr><td>Cross-encoder rerank</td><td>$O(k_{\text{recall}} \cdot C_{\text{enc}})$</td><td>one forward per candidate, <strong>top-k only</strong></td></tr><tr><td>LLM generation</td><td>$O(L_{\text{ctx}}^2)$ prefill</td><td>longer context costs more (see the attention sheet)</td></tr></tbody></table></div>
 <p>The bi-encoder's core dividend: doc encoding is $O(N)$ but <strong>done offline once</strong>, and online each query is just one encode + an ANN query; the cross-encoder can't be precomputed, so it's <strong>only usable for top-k reranking</strong> and must never scan the whole base.</p>
 <h2 id="12-25-high-frequency-interview-questions">§12 25 high-frequency interview questions</h2>
 <p>Sorted into three tiers. Click to expand for answer points + pitfalls.</p>
@@ -951,7 +958,7 @@ all RAG / embedding sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/rag_embedding_retrieval_tutorial_en.md</code> ·
   SHA256 <code>0a2f735bd414</code> ·
-  generated at 2026-07-12 04:16 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

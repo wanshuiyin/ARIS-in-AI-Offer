@@ -1,18 +1,19 @@
 {
  "skill": "interview-cheatsheet (EN translation-fidelity)",
  "source": "docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md",
- "source_sha256": "541b8d03507e302ad96ddf1f5fe918992ae1664c1ac547718add0850aa439c8e",
+ "source_sha256": "065e8d0ada793023e81a4b92faf891056130996d51892d272e8c57d1ba16fde9",
  "output": "docs/tutorials/llm_evaluation_benchmarking_tutorial_en.html",
  "zh_source": "docs/tutorials/llm_evaluation_benchmarking_tutorial.md",
  "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
- "verdict": "PASS (after fixes)",
- "thread_id": "019f8897-ad48-7571-92b6-79bf495d095c",
- "translated_by": "subagent (general-purpose), incremental section-by-section Edit calls (19 edits, none over ~200 lines) to avoid the output-token-limit stall",
+ "verdict": "PASS (after 1 P1 fixed)",
+ "thread_id": "019fb619-c9a8-79a3-8ae5-c0b1c7189ddc",
+ "translated_by": "subagent, incremental section-by-section Edits (69 edits)",
  "translation_fidelity_review": {
-  "verdict": "PASS (1 P0 fixed, 3 P1 fixed, ~9 P2 style items fixed)",
-  "date": "2026-07-22",
-  "notes": "P0 fixed: §5.6's disconnected-graph paragraph originally said 'everything inside A beats everything inside B', which is self-contradicting (a real cross-component win would create a graph edge, contradicting the disconnected premise) — corrected to the intended meaning (cannot infer A is globally stronger merely from within-component results). P1s fixed: 'AUROC is optimistically biased' over-strengthened a qualitative 'can look misleading' into a technical bias claim; 'statistically-grounded tests' under-delivered the ZH's '有统计保证的检验' (has guarantees); PRDS was expanded incorrectly as 'positive regression dependency' instead of the standard 'positive regression dependence on a subset'. P2s fixed: pass@k math-label LaTeX spacing, several literal-translation phrasings (Bradley-Terry cyclic-data comment, Q2 title, ECE binning clarification, i.i.d. draw phrasing, self-preference-bias Q&A wording, episode/task nesting clarification in §5.7). pass@k's core unbiased-vs-biased distinction, all math formulas, and all 18 arXiv citations verified correct with no negation flips."
+  "verdict": "PASS (after 1 P1 fixed)",
+  "date": "2026-07-31",
+  "thread_id": "019fb619-c9a8-79a3-8ae5-c0b1c7189ddc",
+  "notes": "去冗余后全量重翻(69次逐节Edit)。保真审:0 P0,1 P1——PRDS展开又被译成非规范的'positive regression dependency'(与初版翻译同一处坑),已修正为'positive regression dependence on a subset'。pass@k偏差方向/BT强连通判据/'条件独立但不能替代跨prompt样本'均翻译正确。"
  },
- "structural_parity": "## 11/11 · ### 32/32 · fences 10/10 · $$ 13/13 · table dividers 3/3 · <details>/<summary> 25/25/25 · 878/878 lines; 0 residual CJK characters",
- "rendered_at": "2026-07-22"
+ "structural_parity": "## 11/11 · ### 32/32 · fences 10/10 · $$ 13/13 · table dividers 4/4 · <details> 25/25 · 862/862 lines; 0 residual CJK characters",
+ "rendered_at": "2026-07-31"
 }

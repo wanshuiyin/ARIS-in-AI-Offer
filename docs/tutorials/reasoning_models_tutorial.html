@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/reasoning_models_tutorial.md">
 <meta name="aris:source-sha256" content="d5acf172c183c0e653e0defd26f0abc79dde53328e6a5c2a0f27f50625c3da97">
-<meta name="aris:generated-at" content="2026-07-12 04:24 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -609,7 +616,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/reasoning_models_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>d5acf172c183</code></span>
-    <span><strong>Rendered:</strong> 2026-07-12 04:24 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -693,7 +700,7 @@ The answer is 11.</code></pre>
 <p>这些回溯 / 反思 token 在 base model 里很罕见，靠 RL <strong>反复采样 + reward 信号</strong> 才能放大成稳定行为。R1-Zero 报告的 "aha moment" 就是这种行为在 RL 训练中突然涌现的时刻。</p>
 <h2 id="3-prm-vs-ormreasoning-verifier-的两条路线">§3 PRM vs ORM：reasoning verifier 的两条路线</h2>
 <h3 id="31-定义">3.1　定义</h3>
-<table><thead><tr><th>维度</th><th>ORM（Outcome Reward Model）</th><th>PRM（Process Reward Model）</th></tr></thead><tbody><tr><td>监督粒度</td><td>整条 trace 一个 reward</td><td>每个 step 一个 reward</td></tr><tr><td>Label 来源</td><td>answer 对 → +1，错 → 0</td><td>人工标 (PRM800K) 或 MC completion rollout 估计 (Math-Shepherd)</td></tr><tr><td>训练目标</td><td>二分类交叉熵 $\mathcal{L}_\text{ORM} = -\log p_\phi(y{=}\text{correct}\mid\text{trace})$</td><td>逐 step 分类/回归损失 $\mathcal{L}_\text{PRM} = -\sum_t \log p_\phi(\ell_t \mid s_{\leq t})$（见 §3.2）</td></tr><tr><td>优势</td><td>标注便宜（只要 ground-truth answer）</td><td>信号密集；能定位错误步</td></tr><tr><td>劣势</td><td>稀疏 reward，credit assignment 难</td><td>标注昂贵；step boundary 难定义</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>ORM（Outcome Reward Model）</th><th>PRM（Process Reward Model）</th></tr></thead><tbody><tr><td>监督粒度</td><td>整条 trace 一个 reward</td><td>每个 step 一个 reward</td></tr><tr><td>Label 来源</td><td>answer 对 → +1，错 → 0</td><td>人工标 (PRM800K) 或 MC completion rollout 估计 (Math-Shepherd)</td></tr><tr><td>训练目标</td><td>二分类交叉熵 $\mathcal{L}_\text{ORM} = -\log p_\phi(y{=}\text{correct}\mid\text{trace})$</td><td>逐 step 分类/回归损失 $\mathcal{L}_\text{PRM} = -\sum_t \log p_\phi(\ell_t \mid s_{\leq t})$（见 §3.2）</td></tr><tr><td>优势</td><td>标注便宜（只要 ground-truth answer）</td><td>信号密集；能定位错误步</td></tr><tr><td>劣势</td><td>稀疏 reward，credit assignment 难</td><td>标注昂贵；step boundary 难定义</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">别把 reward model 训练目标和 RL policy 目标搞混</div><p>上表"训练目标"描述的是 reward model 自身怎么训（监督学习：分类/回归损失）；$\max \mathbb{E}[r(\text{trace})]$ 这类期望 reward 最大化是<strong>下游 RL policy</strong> 的优化目标，不是 ORM/PRM 自己的训练损失。</p></div>
 <h3 id="32-prm800k-lightman-et-al-2023-arxiv-230520050">3.2　PRM800K (Lightman et al. 2023, arXiv 2305.20050)</h3>
 <p>OpenAI 在 MATH 数据集上人工标了 80 万个 step-level 标签：每个 step 是 <code>positive</code> / <code>neutral</code> / <code>negative</code>。</p>
@@ -901,7 +908,7 @@ def grpo_loss(
 <div class="callout callout-info"><div class="callout-title">R1-Zero 历史意义</div><p>在 R1-Zero 之前，社区普遍认为 reasoning 能力必须靠 <strong>SFT cold start</strong>（先给模型看大量 demonstrated CoT）才能 RL bootstrap。R1-Zero 证明 base model + 纯规则 reward 也能做到——这是 LLM 训练历史上第一次大规模复现 "RL from scratch elicit reasoning"（对应 AlphaGo Zero 在 LLM 上的等价物，虽然 base 已 pretrained）。</p></div>
 <p><strong>问题</strong>：R1-Zero 的输出有 <strong>可读性问题</strong> —— 推理过程语言混杂（中英文 + 数学符号乱跳）、有时候不分段、人类读不懂。所以 R1 加了后续阶段。</p>
 <h3 id="62-r1-完整-4-阶段-pipeline">6.2　R1 完整 4 阶段 pipeline</h3>
-<table><thead><tr><th>阶段</th><th>输入</th><th>方法</th><th>目标</th></tr></thead><tbody><tr><td><strong>Stage 1: Cold-start SFT</strong></td><td>DeepSeek-V3-Base</td><td>数千条精选 long-CoT（部分来自 R1-Zero 输出 + 人工修正可读性）</td><td>让模型学到 "human-readable reasoning format"</td></tr><tr><td><strong>Stage 2: Reasoning-oriented RL</strong></td><td>Stage 1 模型</td><td>GRPO + rule-based reward + 语言一致性 reward（penalize 中英混杂）</td><td>提升推理能力</td></tr><tr><td><strong>Stage 3: Rejection sampling + SFT</strong></td><td>Stage 2 模型</td><td>用 Stage 2 模型大量 sample → 用规则/答案验证（数学、代码等可验证任务）+ DeepSeek-V3 generative judging 筛选（无 PRM 参与） → 60 万 reasoning + 20 万通用 数据再 SFT</td><td>扩展到非数学/代码领域；保留通用能力</td></tr><tr><td><strong>Stage 4: All-scenario RL</strong></td><td>Stage 3 模型</td><td>GRPO + (rule reward for math/code) + (RM for helpfulness/harmlessness)</td><td>全场景对齐</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>阶段</th><th>输入</th><th>方法</th><th>目标</th></tr></thead><tbody><tr><td><strong>Stage 1: Cold-start SFT</strong></td><td>DeepSeek-V3-Base</td><td>数千条精选 long-CoT（部分来自 R1-Zero 输出 + 人工修正可读性）</td><td>让模型学到 "human-readable reasoning format"</td></tr><tr><td><strong>Stage 2: Reasoning-oriented RL</strong></td><td>Stage 1 模型</td><td>GRPO + rule-based reward + 语言一致性 reward（penalize 中英混杂）</td><td>提升推理能力</td></tr><tr><td><strong>Stage 3: Rejection sampling + SFT</strong></td><td>Stage 2 模型</td><td>用 Stage 2 模型大量 sample → 用规则/答案验证（数学、代码等可验证任务）+ DeepSeek-V3 generative judging 筛选（无 PRM 参与） → 60 万 reasoning + 20 万通用 数据再 SFT</td><td>扩展到非数学/代码领域；保留通用能力</td></tr><tr><td><strong>Stage 4: All-scenario RL</strong></td><td>Stage 3 模型</td><td>GRPO + (rule reward for math/code) + (RM for helpfulness/harmlessness)</td><td>全场景对齐</td></tr></tbody></table></div>
 <p><strong>核心 insight</strong>：</p>
 <ul><li><strong>Stage 1 = readability injection</strong>，不是为了 reasoning（reasoning 来自 RL）</li><li><strong>Stage 3 = generalization injection</strong>，把数学/代码 RL 学到的推理能力 transfer 到非可验证领域（写作、对话、QA）</li><li><strong>Stage 4 = safety + helpfulness alignment</strong>，等价于 RLHF 收尾</li></ul>
 <h3 id="63-r1-distill把-r1-蒸到小模型">6.3　R1-Distill：把 R1 蒸到小模型</h3>
@@ -940,7 +947,7 @@ def grpo_loss(
 <div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>为什么 "Wait" 这么简单的 trick 有用？</strong></p></div>
 <ul><li>SFT 让 base model 学会了 <code>&lt;think&gt;...&lt;/think&gt;</code> 格式，但 reasoning 长度有 distribution（短题短推理）</li><li>强行注入 "Wait" 让模型停在 <code>&lt;/think&gt;</code> 的 boundary，激活其 in-context 的"反思"能力</li><li>等价于 forcing 模型留在 "thinking mode" 多 sample 几条推理路径</li><li>失败案例：base model 完全没见过反思 pattern 时，"Wait" 后面接的内容是 garbage——s1 的 1K SFT 数据已经隐含了反思 pattern</li></ul>
 <h3 id="73-sequential-vs-parallel-test-time-compute">7.3　Sequential vs Parallel test-time compute</h3>
-<table><thead><tr><th>维度</th><th>Parallel (BoN, Self-Consistency)</th><th>Sequential (long CoT, s1 budget forcing, o1)</th></tr></thead><tbody><tr><td>实现</td><td>Sample N 次，verifier/vote 选</td><td>单条 trace 拉长，模型自己反思</td></tr><tr><td>延迟</td><td>$N$ 倍延迟（并行可降低）</td><td>单条但很长（不可并行降低）</td></tr><tr><td>显存</td><td>KV cache × N 或顺序复用</td><td>单 KV cache 但 sequence 长</td></tr><tr><td>Plateau</td><td>早期饱和（N=8-16）</td><td>持续扩展（10K-100K token）</td></tr><tr><td>适合</td><td>浅推理（GSM8K、commonsense）</td><td>深推理（AIME、Codeforces）</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>Parallel (BoN, Self-Consistency)</th><th>Sequential (long CoT, s1 budget forcing, o1)</th></tr></thead><tbody><tr><td>实现</td><td>Sample N 次，verifier/vote 选</td><td>单条 trace 拉长，模型自己反思</td></tr><tr><td>延迟</td><td>$N$ 倍延迟（并行可降低）</td><td>单条但很长（不可并行降低）</td></tr><tr><td>显存</td><td>KV cache × N 或顺序复用</td><td>单 KV cache 但 sequence 长</td></tr><tr><td>Plateau</td><td>早期饱和（N=8-16）</td><td>持续扩展（10K-100K token）</td></tr><tr><td>适合</td><td>浅推理（GSM8K、commonsense）</td><td>深推理（AIME、Codeforces）</td></tr></tbody></table></div>
 <p>Snell 2024 报告：<strong>对简单题 sequential revision 更划算（不需探索多条思路），对难题 parallel sampling + verifier 显著更好</strong>（revision 易困在错误初始思路里走不出来）。compute-optimal 策略应按难度自适应调整 sequential:parallel 的比例——难度越高，parallel 占比应越高。</p>
 <h2 id="8-mcts-for-reasoningrstar-系列">§8 MCTS for Reasoning：rStar 系列</h2>
 <h3 id="81-puct-公式alphago--alphazero-起源">8.1　PUCT 公式（AlphaGo / AlphaZero 起源）</h3>
@@ -1080,7 +1087,7 @@ def prm_beam_search(
 <div class="callout callout-info"><div class="callout-title">beam search vs MCTS</div><p>beam search 是 <strong>deterministic + breadth-bounded</strong>（每层固定 b），不回溯；MCTS 是 <strong>stochastic + adaptive</strong>（visit count 决定深度），可回溯。前者快 5-10×，后者在搜索深的树时质量更高。Snell 2024 范围内的推荐仅到 PRM beam search（题难度中等偏难）；MCTS 并非 Snell 2024 评测/推荐的策略，其在 reasoning 上的应用应归功于 rStar / rStar-Math 等后续工作（见本文 §8）。</p></div>
 <h2 id="9-reasoning-model-全景对比">§9 Reasoning Model 全景对比</h2>
 <h3 id="91-主流-reasoning-model-对比表截至-2026">9.1　主流 reasoning model 对比表（截至 2026）</h3>
-<table><thead><tr><th>模型</th><th>厂商</th><th>发布</th><th>训练范式</th><th>推理控制</th><th>公开性</th></tr></thead><tbody><tr><td><strong>o1-preview / o1</strong></td><td>OpenAI</td><td>2024-09</td><td>RL on hidden CoT (细节闭源)</td><td>reasoning_effort: low/med/high</td><td>闭源</td></tr><tr><td><strong>o3</strong></td><td>OpenAI</td><td>2024-12 / 2025</td><td>o1 后继；ARC-AGI 75.7%/87.5%</td><td>推理 budget 可调；high-compute 172×</td><td>闭源</td></tr><tr><td><strong>DeepSeek-R1-Zero</strong></td><td>DeepSeek</td><td>2025-01</td><td>纯 RL (GRPO + 规则 reward)</td><td>自然停止</td><td>完全开源（权重 + 论文）</td></tr><tr><td><strong>DeepSeek-R1</strong></td><td>DeepSeek</td><td>2025-01</td><td>4 阶段：SFT cold-start + RL + rejection SFT + RL</td><td>自然停止</td><td>完全开源</td></tr><tr><td><strong>R1-Distill (1.5B-70B)</strong></td><td>DeepSeek</td><td>2025-01</td><td>SFT only on R1 reasoning data</td><td>自然停止</td><td>完全开源</td></tr><tr><td><strong>Claude 3.7 Sonnet</strong></td><td>Anthropic</td><td>2025-02</td><td>hybrid: standard + extended thinking</td><td>budget tokens 用户可设（up to 128K）</td><td>闭源，但 thinking 内容可见</td></tr><tr><td><strong>Gemini 2.0 Flash Thinking</strong></td><td>Google DeepMind</td><td>2024-12</td><td>推理优化 (具体方法未公布)</td><td>显式展示 thinking</td><td>闭源</td></tr><tr><td><strong>s1-32B</strong></td><td>Stanford/Allen AI</td><td>2025-02</td><td>1K-sample SFT + "Wait" budget forcing</td><td>budget forcing 控制 thinking 长度</td><td>完全开源（含 s1K 数据）</td></tr><tr><td><strong>rStar-Math</strong></td><td>Microsoft</td><td>2025-01</td><td>MCTS + PPM self-evolution</td><td>推理时显式 MCTS</td><td>部分开源</td></tr><tr><td><strong>DeepSeek-Prover-V2</strong></td><td>DeepSeek</td><td>2025-04</td><td>subgoal decomposition + Lean 4 + RL</td><td>Lean 形式化验证</td><td>完全开源</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>模型</th><th>厂商</th><th>发布</th><th>训练范式</th><th>推理控制</th><th>公开性</th></tr></thead><tbody><tr><td><strong>o1-preview / o1</strong></td><td>OpenAI</td><td>2024-09</td><td>RL on hidden CoT (细节闭源)</td><td>reasoning_effort: low/med/high</td><td>闭源</td></tr><tr><td><strong>o3</strong></td><td>OpenAI</td><td>2024-12 / 2025</td><td>o1 后继；ARC-AGI 75.7%/87.5%</td><td>推理 budget 可调；high-compute 172×</td><td>闭源</td></tr><tr><td><strong>DeepSeek-R1-Zero</strong></td><td>DeepSeek</td><td>2025-01</td><td>纯 RL (GRPO + 规则 reward)</td><td>自然停止</td><td>完全开源（权重 + 论文）</td></tr><tr><td><strong>DeepSeek-R1</strong></td><td>DeepSeek</td><td>2025-01</td><td>4 阶段：SFT cold-start + RL + rejection SFT + RL</td><td>自然停止</td><td>完全开源</td></tr><tr><td><strong>R1-Distill (1.5B-70B)</strong></td><td>DeepSeek</td><td>2025-01</td><td>SFT only on R1 reasoning data</td><td>自然停止</td><td>完全开源</td></tr><tr><td><strong>Claude 3.7 Sonnet</strong></td><td>Anthropic</td><td>2025-02</td><td>hybrid: standard + extended thinking</td><td>budget tokens 用户可设（up to 128K）</td><td>闭源，但 thinking 内容可见</td></tr><tr><td><strong>Gemini 2.0 Flash Thinking</strong></td><td>Google DeepMind</td><td>2024-12</td><td>推理优化 (具体方法未公布)</td><td>显式展示 thinking</td><td>闭源</td></tr><tr><td><strong>s1-32B</strong></td><td>Stanford/Allen AI</td><td>2025-02</td><td>1K-sample SFT + "Wait" budget forcing</td><td>budget forcing 控制 thinking 长度</td><td>完全开源（含 s1K 数据）</td></tr><tr><td><strong>rStar-Math</strong></td><td>Microsoft</td><td>2025-01</td><td>MCTS + PPM self-evolution</td><td>推理时显式 MCTS</td><td>部分开源</td></tr><tr><td><strong>DeepSeek-Prover-V2</strong></td><td>DeepSeek</td><td>2025-04</td><td>subgoal decomposition + Lean 4 + RL</td><td>Lean 形式化验证</td><td>完全开源</td></tr></tbody></table></div>
 <h3 id="92-选型决策树面试常问">9.2　选型决策树（面试常问）</h3>
 <pre class="diagram"><code>
 任务领域？
@@ -1269,7 +1276,7 @@ def prm_beam_search(
 </details>
 <h2 id="a-附录核心-paper-时间线--一句话总结">§A 附录：核心 paper 时间线 + 一句话总结</h2>
 <p>按时间倒序：</p>
-<table><thead><tr><th>日期</th><th>Paper</th><th>arXiv</th><th>一句话贡献</th></tr></thead><tbody><tr><td>2025-04</td><td>DeepSeek-Prover-V2</td><td>2504.21801</td><td>subgoal decomposition + Lean 4 RL，MiniF2F 88.9%</td></tr><tr><td>2025-02</td><td>Claude 3.7 Sonnet</td><td>(no arXiv)</td><td>hybrid 模型，extended thinking budget 用户可控</td></tr><tr><td>2025-02</td><td>s1: Simple Test-Time Scaling</td><td>2501.19393</td><td>1K SFT + "Wait" budget forcing 超 o1-preview</td></tr><tr><td>2025-01</td><td>DeepSeek-R1 / R1-Zero</td><td>2501.12948</td><td>纯 RL (GRPO + rule reward) 涌现推理；R1 = 4 阶段 pipeline</td></tr><tr><td>2025-01</td><td>rStar-Math</td><td>2501.04519</td><td>MCTS + PPM self-evolution, 7B 接近 o1-preview</td></tr><tr><td>2024-12</td><td>o3 (OpenAI)</td><td>(no arXiv)</td><td>ARC-AGI 75.7%-87.5%，首次抽象推理逼近人类</td></tr><tr><td>2024-12</td><td>Gemini 2.0 Flash Thinking</td><td>(no arXiv)</td><td>Google 首个推理模型，thinking 显式可见</td></tr><tr><td>2024-09</td><td>o1 (OpenAI)</td><td>(no arXiv)</td><td>首个商用 reasoning model，hidden CoT + RL</td></tr><tr><td>2024-08</td><td>Snell et al. Test-Time Compute</td><td>2408.03314</td><td>优化 test-time compute 可比拟 14×（FLOPs-matched 口径）模型 scaling</td></tr><tr><td>2024-08</td><td>rStar</td><td>2408.06195</td><td>MCTS + mutual reasoning，小 LM 大幅提升</td></tr><tr><td>2024-02</td><td>DeepSeekMath / GRPO</td><td>2402.03300</td><td>GRPO 算法首次提出，去除 critic</td></tr><tr><td>2023-12</td><td>Math-Shepherd</td><td>2312.08935</td><td>MC completion rollout 自动标 PRM label（非 MCTS tree search）</td></tr><tr><td>2023-05</td><td>Tree of Thoughts</td><td>2305.10601</td><td>显式 tree search + LLM evaluator</td></tr><tr><td>2023-05</td><td>Let's Verify Step by Step</td><td>2305.20050</td><td>PRM &gt; ORM &gt; majority vote；PRM800K 数据集</td></tr><tr><td>2022-03</td><td>Self-Consistency</td><td>2203.11171</td><td>sample N + 多数票，GSM8K +17.9%</td></tr><tr><td>2022-05</td><td>Zero-shot CoT (Kojima)</td><td>2205.11916</td><td>"Let's think step by step"，zero-shot 触发 CoT</td></tr><tr><td>2022-01</td><td>Chain-of-Thought (Wei)</td><td>2201.11903</td><td>few-shot step-by-step demonstration，CoT 在大模型上 emergent</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>日期</th><th>Paper</th><th>arXiv</th><th>一句话贡献</th></tr></thead><tbody><tr><td>2025-04</td><td>DeepSeek-Prover-V2</td><td>2504.21801</td><td>subgoal decomposition + Lean 4 RL，MiniF2F 88.9%</td></tr><tr><td>2025-02</td><td>Claude 3.7 Sonnet</td><td>(no arXiv)</td><td>hybrid 模型，extended thinking budget 用户可控</td></tr><tr><td>2025-02</td><td>s1: Simple Test-Time Scaling</td><td>2501.19393</td><td>1K SFT + "Wait" budget forcing 超 o1-preview</td></tr><tr><td>2025-01</td><td>DeepSeek-R1 / R1-Zero</td><td>2501.12948</td><td>纯 RL (GRPO + rule reward) 涌现推理；R1 = 4 阶段 pipeline</td></tr><tr><td>2025-01</td><td>rStar-Math</td><td>2501.04519</td><td>MCTS + PPM self-evolution, 7B 接近 o1-preview</td></tr><tr><td>2024-12</td><td>o3 (OpenAI)</td><td>(no arXiv)</td><td>ARC-AGI 75.7%-87.5%，首次抽象推理逼近人类</td></tr><tr><td>2024-12</td><td>Gemini 2.0 Flash Thinking</td><td>(no arXiv)</td><td>Google 首个推理模型，thinking 显式可见</td></tr><tr><td>2024-09</td><td>o1 (OpenAI)</td><td>(no arXiv)</td><td>首个商用 reasoning model，hidden CoT + RL</td></tr><tr><td>2024-08</td><td>Snell et al. Test-Time Compute</td><td>2408.03314</td><td>优化 test-time compute 可比拟 14×（FLOPs-matched 口径）模型 scaling</td></tr><tr><td>2024-08</td><td>rStar</td><td>2408.06195</td><td>MCTS + mutual reasoning，小 LM 大幅提升</td></tr><tr><td>2024-02</td><td>DeepSeekMath / GRPO</td><td>2402.03300</td><td>GRPO 算法首次提出，去除 critic</td></tr><tr><td>2023-12</td><td>Math-Shepherd</td><td>2312.08935</td><td>MC completion rollout 自动标 PRM label（非 MCTS tree search）</td></tr><tr><td>2023-05</td><td>Tree of Thoughts</td><td>2305.10601</td><td>显式 tree search + LLM evaluator</td></tr><tr><td>2023-05</td><td>Let's Verify Step by Step</td><td>2305.20050</td><td>PRM &gt; ORM &gt; majority vote；PRM800K 数据集</td></tr><tr><td>2022-03</td><td>Self-Consistency</td><td>2203.11171</td><td>sample N + 多数票，GSM8K +17.9%</td></tr><tr><td>2022-05</td><td>Zero-shot CoT (Kojima)</td><td>2205.11916</td><td>"Let's think step by step"，zero-shot 触发 CoT</td></tr><tr><td>2022-01</td><td>Chain-of-Thought (Wei)</td><td>2201.11903</td><td>few-shot step-by-step demonstration，CoT 在大模型上 emergent</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">建议精读 4 篇</div><p>准备面试时间有限时，按优先级读：</p></div>
 <ol><li>DeepSeek-R1 (2501.12948) —— 涵盖 GRPO + 4 阶段 + R1-Zero "aha moment"</li><li>DeepSeekMath (2402.03300) —— GRPO 算法原始论文</li><li>Let's Verify Step by Step (2305.20050) —— PRM 基础</li><li>Snell et al. (2408.03314) —— test-time compute scaling 范式</li></ol>
 <p>读完这 4 篇 + 本 cheat sheet，reasoning model 面试题目应能 80%+ 覆盖。</p>
@@ -1279,7 +1286,7 @@ def prm_beam_search(
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/reasoning_models_tutorial.md</code> ·
   SHA256 <code>d5acf172c183</code> ·
-  generated at 2026-07-12 04:24 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

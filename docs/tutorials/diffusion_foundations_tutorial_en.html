@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_foundations_tutorial_en.md">
 <meta name="aris:source-sha256" content="c059813e5a32fd9ba29b6dfeab017444a238828acc996bf821c78a8e41786d72">
-<meta name="aris:generated-at" content="2026-07-13 10:17 UTC">
+<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -238,14 +238,21 @@ pre.diagram {
 .callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
 .callout-bad .callout-title { color: var(--bad); }
 
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 thead { background: var(--primary); color: white; }
 th, td {
@@ -653,7 +660,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_foundations_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>c059813e5a32</code></span>
-    <span><strong>Rendered:</strong> 2026-07-13 10:17 UTC</span>
+    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
     
   </div>
 </header>
@@ -679,7 +686,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
                           s = -ε/σ_t,   v = α&#x27;x_0 + σ&#x27;ε,   ε = -σ s</code></pre>
 <div class="callout callout-info"><div class="callout-title">One-line interview answer</div><p>"DDPM is a special case of VP-SDE in discrete time; score-based is the equivalent parametrization in continuous time; Flow Matching carries the same information as score matching under VP/VE paths but parametrizes as $v$ instead of $s$. Rectified Flow steps outside the SDE framework, using a linear path to directly learn an ODE's vector field."</p></div>
 <h3 id="13-convention-used-throughout">1.3　Convention (used throughout)</h3>
-<table><thead><tr><th>Symbol</th><th>Meaning</th></tr></thead><tbody><tr><td>$x_0$</td><td>clean data sample</td></tr><tr><td>$x_t$, $t \in \{1,\dots,T\}$ or $t \in [0,T]$</td><td>noised sample</td></tr><tr><td>$\epsilon \sim \mathcal{N}(0, I)$</td><td>standard Gaussian noise</td></tr><tr><td>$\alpha_t, \beta_t = 1 - \alpha_t$</td><td>DDPM single-step forward coefficients</td></tr><tr><td>$\bar\alpha_t = \prod_{s=1}^t \alpha_s$</td><td>DDPM cumulative coefficient</td></tr><tr><td>$\sigma_t$</td><td>standard deviation (the "noise level" in NCSN / EDM view)</td></tr><tr><td>$s_\theta(x_t, t) \approx \nabla_{x_t}\log p_t(x_t)$</td><td>score</td></tr><tr><td>$\epsilon_\theta(x_t, t) \approx \epsilon$</td><td>the noise predicted in DDPM</td></tr><tr><td>$D_\theta(x; \sigma) \approx x_0$</td><td>EDM's denoiser output</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Symbol</th><th>Meaning</th></tr></thead><tbody><tr><td>$x_0$</td><td>clean data sample</td></tr><tr><td>$x_t$, $t \in \{1,\dots,T\}$ or $t \in [0,T]$</td><td>noised sample</td></tr><tr><td>$\epsilon \sim \mathcal{N}(0, I)$</td><td>standard Gaussian noise</td></tr><tr><td>$\alpha_t, \beta_t = 1 - \alpha_t$</td><td>DDPM single-step forward coefficients</td></tr><tr><td>$\bar\alpha_t = \prod_{s=1}^t \alpha_s$</td><td>DDPM cumulative coefficient</td></tr><tr><td>$\sigma_t$</td><td>standard deviation (the "noise level" in NCSN / EDM view)</td></tr><tr><td>$s_\theta(x_t, t) \approx \nabla_{x_t}\log p_t(x_t)$</td><td>score</td></tr><tr><td>$\epsilon_\theta(x_t, t) \approx \epsilon$</td><td>the noise predicted in DDPM</td></tr><tr><td>$D_\theta(x; \sigma) \approx x_0$</td><td>EDM's denoiser output</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">Time-direction pitfall</div><p>DDPM's paper has forward going $t = 0 \to T$ (data noised to pure noise) and reverse going $T \to 0$; FM papers often use $t = 0$ noise and $t = 1$ data. <strong>Before writing code in an interview always disambiguate the time direction</strong> — otherwise the sampler is easy to flip.</p></div>
 <h2 id="2-ddpm-forward-process">§2 DDPM Forward Process</h2>
 <h3 id="21-single-step-and-closed-form">2.1　Single step and closed form</h3>
@@ -770,7 +777,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="61-forward-sde">6.1　Forward SDE</h3>
 <p>Song et al. 2021 (ICLR) write all diffusions as a <strong>forward SDE</strong>:</p>
 <p>$$dx = f(x, t)\, dt + g(t)\, dW$$</p>
-<table><thead><tr><th>Type</th><th>$f(x, t)$</th><th>$g(t)$</th><th>Discrete counterpart</th></tr></thead><tbody><tr><td><strong>VP-SDE</strong> (variance preserving)</td><td>$-\frac{1}{2}\beta(t) x$</td><td>$\sqrt{\beta(t)}$</td><td>DDPM</td></tr><tr><td><strong>VE-SDE</strong> (variance exploding)</td><td>$0$</td><td>$\sqrt{d[\sigma^2(t)]/dt}$</td><td>SMLD / EDM</td></tr><tr><td><strong>sub-VP</strong></td><td>$-\frac{1}{2}\beta(t) x$</td><td>$\sqrt{\beta(t)(1-e^{-2\int_0^t \beta(s)ds})}$</td><td>between VP/VE, better likelihood</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Type</th><th>$f(x, t)$</th><th>$g(t)$</th><th>Discrete counterpart</th></tr></thead><tbody><tr><td><strong>VP-SDE</strong> (variance preserving)</td><td>$-\frac{1}{2}\beta(t) x$</td><td>$\sqrt{\beta(t)}$</td><td>DDPM</td></tr><tr><td><strong>VE-SDE</strong> (variance exploding)</td><td>$0$</td><td>$\sqrt{d[\sigma^2(t)]/dt}$</td><td>SMLD / EDM</td></tr><tr><td><strong>sub-VP</strong></td><td>$-\frac{1}{2}\beta(t) x$</td><td>$\sqrt{\beta(t)(1-e^{-2\int_0^t \beta(s)ds})}$</td><td>between VP/VE, better likelihood</td></tr></tbody></table></div>
 <p>VP-SDE satisfies $\text{Var}[x_t] \le 1$ (variance preserving); VE-SDE has unbounded variance growth (variance exploding).</p>
 <h3 id="62-reverse-sde-anderson-1982">6.2　Reverse SDE (Anderson 1982)</h3>
 <p>For any forward SDE, there exists a <strong>reverse-time SDE</strong>:</p>
@@ -795,7 +802,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>$$\frac{\partial p_t}{\partial t} = -\nabla \cdot \left[\left(f - \tfrac{1}{2} g^2 \nabla \log p_t\right) p_t\right]$$</p>
 <p>This is exactly the continuity equation for the ODE $dx/dt = f - \frac{1}{2} g^2 \nabla \log p_t$ — so their $p_t$ agree.</p>
 <h3 id="64-advantages-of-the-ode-view">6.4　Advantages of the ODE view</h3>
-<table><thead><tr><th>Advantage</th><th>Description</th></tr></thead><tbody><tr><td><strong>Deterministic</strong></td><td>same noise → same sample, enables image editing / interpolation</td></tr><tr><td><strong>NFE-friendly</strong></td><td>high-order ODE solvers (Heun / RK4 / DPM-Solver) need few steps</td></tr><tr><td><strong>Computable likelihood</strong></td><td>$\log p_0(x_0) = \log p_T(x_T) + \int_0^T \nabla \cdot v_t(x(t))\, dt$ (PF-ODE instantaneous change-of-variables, Chen et al. 2018), with div estimated via Hutchinson trace estimator</td></tr><tr><td><strong>Bridge to FM</strong></td><td>the route taken by RF / SD3 / FLUX</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Advantage</th><th>Description</th></tr></thead><tbody><tr><td><strong>Deterministic</strong></td><td>same noise → same sample, enables image editing / interpolation</td></tr><tr><td><strong>NFE-friendly</strong></td><td>high-order ODE solvers (Heun / RK4 / DPM-Solver) need few steps</td></tr><tr><td><strong>Computable likelihood</strong></td><td>$\log p_0(x_0) = \log p_T(x_T) + \int_0^T \nabla \cdot v_t(x(t))\, dt$ (PF-ODE instantaneous change-of-variables, Chen et al. 2018), with div estimated via Hutchinson trace estimator</td></tr><tr><td><strong>Bridge to FM</strong></td><td>the route taken by RF / SD3 / FLUX</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">SDE vs ODE trade-off</div><p>the stochastic perturbation in SDE sampling can "correct" early errors, <strong>typically yielding better sample quality</strong> but at higher NFE; ODE is deterministic but susceptible to solver-error accumulation and needs higher-order solvers. EDM proposes a middle ground: base ODE + small stochastic churn ("$S_\text{churn}$"), with better FID.</p></div>
 <h2 id="7-ddim-non-markovian-forward--deterministic-sampler">§7 DDIM: Non-Markovian forward → deterministic sampler</h2>
 <h3 id="71-motivation">7.1　Motivation</h3>
@@ -959,7 +966,7 @@ else:
 <p><strong>In practice</strong>: for any Gaussian path with $\alpha(t), \sigma(t)$, the three quantities $\{\epsilon_\theta, s_\theta, v_\theta\}$ are fully equivalent. So training DDPM / score-based / FM on VP/VE paths is the same task.</p>
 <h3 id="132-why-did-sd3--flux-switch-to-rectified-flow">13.2　Why did SD3 / FLUX switch to Rectified Flow?</h3>
 <p><strong>Rectified Flow path</strong>: $x_t = (1-t) x_0 + t x_1$ (linear noise→data interpolation), $v_t = x_1 - x_0$.</p>
-<table><thead><tr><th>Advantage</th><th>RF (linear)</th><th>VP/VE (curved)</th></tr></thead><tbody><tr><td>Conditional path</td><td>straight line (the marginal ODE trajectory can still curve under independent pairing, needs Reflow to straighten)</td><td>curved (needs higher-order solver)</td></tr><tr><td>Target $v_t$</td><td>doesn't depend on $t$</td><td>depends on $t$ (VP cosine path)</td></tr><tr><td>Few-step sampling</td><td>Euler works at 4-8 steps</td><td>Euler needs 30+ steps</td></tr><tr><td>Reflow compressible to 1-2 steps</td><td>✓ (InstaFlow; SD3-Turbo uses LADD, not reflow — see §12.4)</td><td>✗</td></tr><tr><td>Training stability</td><td>stable with logit-normal $t$ + RF</td><td>requires careful noise schedule</td></tr></tbody></table>
+<div class="table-wrap"><table><thead><tr><th>Advantage</th><th>RF (linear)</th><th>VP/VE (curved)</th></tr></thead><tbody><tr><td>Conditional path</td><td>straight line (the marginal ODE trajectory can still curve under independent pairing, needs Reflow to straighten)</td><td>curved (needs higher-order solver)</td></tr><tr><td>Target $v_t$</td><td>doesn't depend on $t$</td><td>depends on $t$ (VP cosine path)</td></tr><tr><td>Few-step sampling</td><td>Euler works at 4-8 steps</td><td>Euler needs 30+ steps</td></tr><tr><td>Reflow compressible to 1-2 steps</td><td>✓ (InstaFlow; SD3-Turbo uses LADD, not reflow — see §12.4)</td><td>✗</td></tr><tr><td>Training stability</td><td>stable with logit-normal $t$ + RF</td><td>requires careful noise schedule</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">One-sentence SD3 ablation conclusion</div><p>"Under the same DiT backbone, RF + logit-normal $t$ improves FID on ImageNet 256 by about 0.5-1.0 over VP + uniform $t$; on T2I tasks, GenEval text alignment is significantly better."</p></div>
 <h3 id="133-ddpmddimedmrfcm-full-picture">13.3　DDPM/DDIM/EDM/RF/CM full picture</h3>
 <pre class="diagram"><code>                Training objective    Sampling                Typical NFE
@@ -1431,7 +1438,7 @@ def pf_ode_sample_ddim_exact(eps_model, sched: DDPMSchedule, shape, device, num_
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_foundations_tutorial_en.md</code> ·
   SHA256 <code>c059813e5a32</code> ·
-  generated at 2026-07-13 10:17 UTC.
+  generated at 2026-07-31 02:58 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>
