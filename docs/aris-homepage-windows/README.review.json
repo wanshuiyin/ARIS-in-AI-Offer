@@ -1,0 +1,49 @@
+{
+  "skill": "none — hand-authored, not generated via /interview-cheatsheet or /render-html (same category as docs/blogs/*, which are documented in README.md as outside the audited pipeline)",
+  "source": "docs/aris-homepage-windows/README.md",
+  "source_sha256": "b41f48b44bdcf656ad67de5071f1ef3065216af00ca3d812ac517bdde324b578",
+  "output": null,
+  "purpose": "Community-contribution supplement to the main README.md's ARIS-Homepage 'Quick start' section: Windows/PowerShell-explicit command sequence (python-prefixed, no aris-homepage alias), the pip-system-certs SSL fix, and an explicit statement of how a CV-only site differs from the maintainer's live demo (no auto-fetched links/thumbnails).",
+  "author": "Claude (Sonnet 5), pair-authoring with the requesting user across a live Windows debugging session",
+  "reviewer": "codex gpt-5.4 (model_reasoning_effort=high; account did not support gpt-5.3-codex/gpt-5.2/xhigh — see notes), fresh thread, cwd=repo root, sandbox=read-only",
+  "factual_accuracy_review": {
+    "verdict": "PASS (after 2 fix rounds)",
+    "scope": "Independent verification of every technical claim in this file against tools/aris_homepage.py source, skills/homepage-generator/SKILL.md, skills/homepage-generator/PROFILE_SCHEMA.md, and README.md's ARIS-Homepage section (audited jointly with docs/aris-homepage-windows-quickstart_CN.md in the same thread since both describe the same tool). Reviewer was instructed not to trust the document and to check ground truth itself (function names + line numbers required as evidence).",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "PASS-with-fixes",
+        "thread_id": "019ffd05-cdb1-7a51-b10a-62b708a2bdcd",
+        "findings": [
+          {
+            "claim": "\"DBLP/arXiv fact-checking only verifies that a title/venue/year/author combination is correct\"",
+            "status": "WRONG",
+            "correction": "run_fact_check() (tools/aris_homepage.py ~L1373-1493) never checks author lists — only bibkey existence, DBLP title match, year mismatch, venue mismatch, and award-badge URL sanity."
+          },
+          {
+            "claim": "\"[Paper]/[Code]/[Slides] links only render if you put them yourself in publications.bib (url/eprint fields) or profile.yml's publications_meta.<bibkey>.links\"",
+            "status": "WRONG",
+            "correction": "build_publications_section() (tools/aris_homepage.py ~L904-986, esp. L928-958 and L978-982) reads links EXCLUSIVELY from profile.yml's publications_meta.<bibkey>.links — a url/eprint field in publications.bib is valid BibTeX but is never consumed for rendering link buttons."
+          }
+        ],
+        "confirmed_claims_summary": "Script filename/underscore (no installed aris-homepage command), the four-command pipeline (init -> agent fills extraction.json -> finalize -> render --persona theory-minimal) matching cmd_init/print_extraction_handoff/cmd_finalize, finalize's clear die() when extraction.json is missing, theory-minimal valid / active-researcher hard-disabled (PERSONAS + cmd_render), identity.photo local-base64/remote-URL embed with no fetching (build_photo_html), and the Windows-environment claims (.py file-association silence being external/not script-suppressed, python3 App Execution Alias stub, non-ASCII pdftotext path mangling as an external poppler-build limitation consistent with pdftotext being invoked as a subprocess arg, and CERTIFICATE_VERIFY_FAILED being consistent with the DBLP fetch path using urllib.request.urlopen, confirmed in dblp_search_title) — all CONFIRMED against source. One additional nuance surfaced (not an error in this file): cmd_finalize supports --out to target another workspace, cmd_render does not (always operates on cwd) — this file's examples already `cd` into the site dir before every command, so no fix was required for this point specifically."
+      },
+      {
+        "run": 2,
+        "verdict": "FAIL (one residual issue found)",
+        "thread_id": "019ffd05-cdb1-7a51-b10a-62b708a2bdcd",
+        "notes": "Targeted fixes for the two WRONG findings above were correct, but the closing sentence of the 'Your first CV-only site...' section still told users to add missing links/images in both profile.yml AND publications.bib — over-broad given the link-source finding."
+      },
+      {
+        "run": 3,
+        "verdict": "PASS",
+        "thread_id": "019ffd05-cdb1-7a51-b10a-62b708a2bdcd",
+        "notes": "Follow-up sentence tightened to point at profile.yml's publications_meta (links/thumbnail per bibkey) only. Reviewer re-read both audited files fresh from disk and confirmed no remaining issue from the audited claim set."
+      }
+    ]
+  },
+  "render_review": null,
+  "summary": "Windows-explicit quick-start supplement to README.md's ARIS-Homepage section, plus an SSL-fix note and an explicit 'why your CV-only site looks sparser than the demo' section grounded in the actual rendering code path. Independent codex gpt-5.4 audit against source caught 2 real overclaims (DBLP checking authors; bib url/eprint feeding link buttons) plus 1 residual instance of the link-source overclaim on the fix pass; all fixed and re-verified PASS in a 3rd round on the same thread.",
+  "reviewed_at": "2026-08-13",
+  "codex_environment_notes": "Codex MCP required a fresh chatgpt-account login + Claude Code window reload before the connection came back healthy (2 prior auth failures: expired refresh token, then stale session state). Once connected, the account's default model (gpt-5.3-codex) and gpt-5.2 were both rejected as unsupported for this ChatGPT-auth account; gpt-5.4 (this account's available non-mini model, per the models list returned by `codex exec`) was used instead, at reasoning effort=high (xhigh is not a supported enum value on this installed codex-cli build)."
+}
