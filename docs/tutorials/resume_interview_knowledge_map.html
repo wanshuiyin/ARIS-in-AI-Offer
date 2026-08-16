@@ -6,9 +6,9 @@
 <title>鞠少波秋招简历知识地图</title>
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
-<meta name="aris:source-path" content="RESUME_INTERVIEW_KNOWLEDGE_MAP_CN.md">
-<meta name="aris:source-sha256" content="9b2fafef5718780db2b1fbc4871bbfeac0b5780f2b919decb90a960b8669e808">
-<meta name="aris:generated-at" content="2026-08-10 09:13 UTC">
+<meta name="aris:source-path" content="docs/tutorials/resume_interview_knowledge_map.md">
+<meta name="aris:source-sha256" content="50583db34103c4a6590738612357a9cb5617cae38a14d08b58454104ee9a643d">
+<meta name="aris:generated-at" content="2026-08-16 17:03 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -761,9 +761,9 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <p class="subtitle">简历中每个技术名词、方法与数字的六步答法（是什么 · 为什么 · 怎么做 · 如何验证 · 局限 · 你的贡献）</p>
   
   <div class="meta">
-    <span><strong>Source:</strong> <code>RESUME_INTERVIEW_KNOWLEDGE_MAP_CN.md</code></span>
-    <span><strong>SHA256:</strong> <code>9b2fafef5718</code></span>
-    <span><strong>Rendered:</strong> 2026-08-10 09:13 UTC</span>
+    <span><strong>Source:</strong> <code>docs/tutorials/resume_interview_knowledge_map.md</code></span>
+    <span><strong>SHA256:</strong> <code>50583db34103</code></span>
+    <span><strong>Rendered:</strong> 2026-08-16 17:03 UTC</span>
     
   </div>
 </header>
@@ -790,14 +790,14 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>必须掌握：</p>
 <ul><li>ViT 的 patch embedding、2D position encoding、self-attention。</li><li>CLIP/SigLIP 式视觉预训练与生成式 VLM 的区别。</li><li>Projector、Q-Former、cross-attention、early/late fusion 的差别。</li><li>动态分辨率如何改变 patch 数和视觉 token 数。</li><li>图片、多图和视频如何插入文本序列，media placeholder 如何与实际媒体对齐。</li><li>causal mask、position ids、M-RoPE、padding mask。</li><li>视频帧数、分辨率、视觉 token 数、序列长度和 FLOPs/显存的关系。</li><li>训练时 teacher forcing 与推理时 autoregressive decoding 的差别。</li></ul>
 <p>对应教程：</p>
-<ul><li><a href="docs/tutorials/attention_tutorial.html">Attention</a></li><li><a href="docs/tutorials/transformer_block_tutorial.html">Transformer Block</a></li><li><a href="docs/tutorials/vlm_multimodal_tutorial.html">VLM / Multimodal</a></li><li><a href="docs/tutorials/tokenization_tutorial.html">Tokenization</a></li></ul>
+<ul><li><a href="./attention_tutorial.html">Attention</a></li><li><a href="./transformer_block_tutorial.html">Transformer Block</a></li><li><a href="./vlm_multimodal_tutorial.html">VLM / Multimodal</a></li><li><a href="./tokenization_tutorial.html">Tokenization</a></li></ul>
 <p>典型追问：</p>
 <ul><li>一张图片是如何变成 LLM token 的？</li><li>动态视觉 token 为什么能节省计算？</li><li>多图/视频的 position ids 怎么构造？</li><li>media placeholder 数量与视觉特征不一致会发生什么？</li><li>视觉 token 翻倍时，attention 计算量如何变化？</li></ul>
 <h2 id="2-transformer-与-qwen35-35a3b-moe">2. Transformer 与 Qwen3.5-35A3B MoE</h2>
 <p>必须掌握：</p>
 <ul><li>Pre-LN/RMSNorm Transformer block 的完整数据流。</li><li>MHA、MQA、GQA 的参数量、KV cache 和通信差别。</li><li>RoPE/M-RoPE 的作用和边界。</li><li>Dense FFN 与 MoE FFN 的区别。</li><li>Router logits、softmax、Top-K expert selection。</li><li>总参数量与激活参数量的区别：“35A3B”约表示 35B 总参数、每 token 激活约 3B 级参数。</li><li>routed expert 与 shared expert。</li><li>expert capacity、load balance、routing collapse。</li><li>EP 的 token dispatch/combine all-to-all。</li><li>为什么 <code>ep_size=1</code> 时仍然是 MoE，但没有 Expert Parallel 通信。</li><li>Qwen3.5 的 full attention 与 linear/gated attention 混合结构应如何理解。</li><li>若实际模型继承公开 Qwen3.5-35B-A3B recipe，必须以真实 config 为准核对层数、层内组织方式、routed expert 数、Top-K 与 shared expert 数。类似的混合架构（如公开 Qwen3-Next-80B-A3B）常见做法是按 <code>k × [3 × (Gated DeltaNet → MoE) + 1 × (Gated Attention → MoE)]</code> 的 3:1 比例堆叠，可作为理解混合结构的 参照，但<strong>不能把某个具体层数（例如 40 层）当作 DouyinVL 内部模型的既定事实</strong>；面试时应直接读 config， 并说明内部版本与公开配置是否一致。不能只根据模型名猜配置。</li></ul>
 <p>对应教程：</p>
-<ul><li><a href="docs/tutorials/transformer_block_tutorial.html">Transformer Block</a></li><li><a href="docs/tutorials/moe_tutorial.html">MoE</a></li><li><a href="docs/tutorials/linear_sparse_attention_tutorial.html">线性 / 稀疏注意力</a></li></ul>
+<ul><li><a href="./transformer_block_tutorial.html">Transformer Block</a></li><li><a href="./moe_tutorial.html">MoE</a></li><li><a href="./linear_sparse_attention_tutorial.html">线性 / 稀疏注意力</a></li></ul>
 <p>典型追问：</p>
 <ul><li>35B 总参数为什么只有约 3B 激活？</li><li>MoE 是省显存还是省计算？</li><li>Top-K router 如何训练？为什么会负载不均？</li><li>EP 与 FSDP 切 expert 参数有什么本质区别？</li><li>linear attention 为什么不能直接解释为标准 softmax attention map？</li></ul>
 <h2 id="3-训练目标与基本优化">3. 训练目标与基本优化</h2>
@@ -805,7 +805,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <ul><li><p>next-token prediction 和交叉熵：</p>
 <p>$$ \mathcal L_{\mathrm{NTP}} =-\sum_t \log p_\theta(x_t\mid x_{&lt;t}) $$</p></li><li>causal LM 的 label shift。</li><li>padding、prompt、媒体占位符是否进入 loss。</li><li>Adam/AdamW、weight decay、gradient clipping。</li><li>warmup、cosine decay、学习率与 global batch 的关系。</li><li>bf16/fp16/fp32 master states。</li><li>gradient accumulation。</li><li>activation checkpointing。</li><li>loss spike、gradient norm、NaN/Inf 的排查顺序。</li></ul>
 <p>对应教程：</p>
-<ul><li><a href="docs/tutorials/optimizer_lr_schedule_tutorial.html">优化器与 LR Schedule</a></li><li><a href="docs/tutorials/normalization_init_tutorial.html">归一化 / 残差 / 初始化</a></li><li><a href="docs/tutorials/llm_pretraining_pipeline_tutorial.html">LLM Pretraining Pipeline</a></li></ul>
+<ul><li><a href="./optimizer_lr_schedule_tutorial.html">优化器与 LR Schedule</a></li><li><a href="./normalization_init_tutorial.html">归一化 / 残差 / 初始化</a></li><li><a href="./llm_pretraining_pipeline_tutorial.html">LLM Pretraining Pipeline</a></li></ul>
 <hr />
 <h1 id="二p0douyinvl-千卡-cpt-项目">二、P0：DouyinVL 千卡 CPT 项目</h1>
 <h2 id="4-cpt-与-sft-的区别">4. CPT 与 SFT 的区别</h2>
@@ -865,7 +865,7 @@ global_batch_size = 2048</code></pre>
 <p>$$ 891K/1024\approx870\ \text{tokens/s/NPU} $$</p>
 <p><code>77B tokens/day × 12 days ≈ 924B</code>，与“约 1T tokens”是近似一致的量级。面试时应说明 77B/day 是项目吞吐口径，1T 和 12 天均为约数；若被要求精确核算，应回到训练日志区分有效 token、padding token、实际运行时间和停机时间。</p>
 <p>对应教程：</p>
-<ul><li><a href="docs/tutorials/distributed_training_tutorial.html">Distributed Training</a></li><li><a href="docs/tutorials/llm_pretraining_pipeline_tutorial.html">LLM Pretraining Pipeline</a></li></ul>
+<ul><li><a href="./distributed_training_tutorial.html">Distributed Training</a></li><li><a href="./llm_pretraining_pipeline_tutorial.html">LLM Pretraining Pipeline</a></li></ul>
 <p>典型追问：</p>
 <ul><li>为什么 35B 模型还要用 1024 卡？</li><li>FSDP2 与 ZeRO-3 有什么对应关系？</li><li>为什么选择 128-way shard + 8-way replicate？</li><li>all-gather、reduce-scatter 分别发生在哪？</li><li>为什么不用 EP？不用 Ulysses 的代价是什么？</li><li>训练 hang、loss spike、吞吐下降怎么排查？</li></ul>
 <h2 id="8-loader解码与训练稳定性">8. Loader、解码与训练稳定性</h2>
@@ -891,7 +891,7 @@ global_batch_size = 2048</code></pre>
 <p>数字归因：</p>
 <ul><li><code>79.28 → 79.87</code>、<code>79.72 → 82.37</code>需要能说明评测集合、聚合方式、对照版本和是否同一训练预算。</li><li><code>相对 Qwen3.5 基座综合 +10.98pt</code>属于团队版本结果。</li><li><code>抖音推理 Base→Instruct +46.91pt</code>需要解释 Base/Instruct 的版本、任务集合和为什么增益很大。</li><li>不要把团队最终指标说成个人单独实验结果。</li></ul>
 <p>对应教程：</p>
-<ul><li><a href="docs/tutorials/llm_evaluation_benchmarking_tutorial.html">LLM Evaluation &amp; Benchmarking</a></li></ul>
+<ul><li><a href="./llm_evaluation_benchmarking_tutorial.html">LLM Evaluation &amp; Benchmarking</a></li></ul>
 <hr />
 <h1 id="三p0post-train-完整链路">三、P0：Post-Train 完整链路</h1>
 <h2 id="10-cpt--long-cot-sft--reasoning-rl--general-rl">10. CPT → Long-CoT SFT → Reasoning RL → General RL</h2>
@@ -907,7 +907,7 @@ global_batch_size = 2048</code></pre>
 <p>个人边界：</p>
 <ul><li>可以完整解释团队 Post-Train 逻辑。</li><li>个人参与是协同/部分参与，不表述为全链路独立 owner。</li></ul>
 <p>对应教程：</p>
-<ul><li><a href="docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.html">RLHF / DPO / GRPO / PPO</a></li><li><a href="docs/tutorials/kl_divergence_rlhf_tutorial.html">KL Divergence in RLHF</a></li><li><a href="docs/tutorials/reasoning_models_tutorial.html">Reasoning Models</a></li></ul>
+<ul><li><a href="./rlhf_dpo_grpo_ppo_tutorial.html">RLHF / DPO / GRPO / PPO</a></li><li><a href="./kl_divergence_rlhf_tutorial.html">KL Divergence in RLHF</a></li><li><a href="./reasoning_models_tutorial.html">Reasoning Models</a></li></ul>
 <hr />
 <h1 id="四p0intent-caption-项目">四、P0：Intent Caption 项目</h1>
 <h2 id="11-条件证据压缩的问题定义">11. 条件证据压缩的问题定义</h2>
@@ -1067,7 +1067,7 @@ Student：
 <p>典型追问：</p>
 <ul><li>retrieval漏掉关键clip怎么办？</li><li>recall与压缩率如何权衡？</li><li>query变化是否需要重新编码视频？</li><li>与RAG的对应关系是什么？</li><li>peak score 为什么适合找 query-related semantic changes？</li><li>动态规划边界相比固定窗口或 shot boundary 有什么优势？</li><li>coarse-to-fine 的两类负例分别解决什么问题？</li></ul>
 <p>对应教程：</p>
-<ul><li><a href="docs/tutorials/rag_embedding_retrieval_tutorial.html">RAG + Embedding / Retrieval</a></li></ul>
+<ul><li><a href="./rag_embedding_retrieval_tutorial.html">RAG + Embedding / Retrieval</a></li></ul>
 <h2 id="26-xplaindf">26. XPlainDF</h2>
 <p>这是第五作者项目，优先掌握整体逻辑，不必冒充核心owner。</p>
 <p>至少要能解释：</p>
@@ -1339,9 +1339,9 @@ Student：
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
-  source path <code>RESUME_INTERVIEW_KNOWLEDGE_MAP_CN.md</code> ·
-  SHA256 <code>9b2fafef5718</code> ·
-  generated at 2026-08-10 09:13 UTC.
+  source path <code>docs/tutorials/resume_interview_knowledge_map.md</code> ·
+  SHA256 <code>50583db34103</code> ·
+  generated at 2026-08-16 17:03 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

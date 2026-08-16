@@ -1,8 +1,8 @@
 {
-  "RESUME_INTERVIEW_KNOWLEDGE_MAP_CN.html": {
+  "docs/tutorials/resume_interview_knowledge_map.html": {
     "eyebrow": "Interview Prep · Resume Knowledge Map",
     "lang": "zh-CN",
-    "md": "RESUME_INTERVIEW_KNOWLEDGE_MAP_CN.md",
+    "md": "docs/tutorials/resume_interview_knowledge_map.md",
     "subtitle": "简历中每个技术名词、方法与数字的六步答法（是什么 · 为什么 · 怎么做 · 如何验证 · 局限 · 你的贡献）",
     "title": "鞠少波秋招简历知识地图"
   },
@@ -10,8 +10,29 @@
     "eyebrow": "Study Roadmap · ARIS in AI Offer",
     "lang": "zh-CN",
     "md": "STUDY_DIRECTORY_CN.md",
-    "subtitle": "按依赖关系组织的 33 篇中文面试教程学习路径（打地基 → 专项能力 → 面试输出）",
+    "subtitle": "33 篇专题教程与 4 篇项目、面试专项资料的统一学习入口",
     "title": "ARIS AI 秋招学习目录"
+  },
+  "docs/tutorials/douyinvl_tutorial.html": {
+    "eyebrow": "Project Guide · DouyinVL",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/douyinvl_tutorial.md",
+    "subtitle": "从开源基座到抖音域 VLM：数据、CPT、Post-Training、Caption、稳定性排障与面试表达",
+    "title": "DouyinVL 项目指南"
+  },
+  "docs/tutorials/open_llm_tech_reports_tutorial.html": {
+    "eyebrow": "Frontier LLM · Technical Reports",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/open_llm_tech_reports_tutorial.md",
+    "subtitle": "近期代表性开源大模型的架构、训练、推理与工程要点",
+    "title": "最新开源 LLM 技术报告教程"
+  },
+  "docs/tutorials/leetcode_hot_100_tutorial.html": {
+    "eyebrow": "Interview Prep · Algorithms",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/leetcode_hot_100_tutorial.md",
+    "subtitle": "LeetCode HOT 100 Python 高频题型一天速记清单",
+    "title": "LeetCode HOT 100 一天速记"
   },
   "docs/index.html": {
     "lang": "zh-CN",

@@ -48,10 +48,10 @@
 
 对应教程：
 
-- [Attention](docs/tutorials/attention_tutorial.html)
-- [Transformer Block](docs/tutorials/transformer_block_tutorial.html)
-- [VLM / Multimodal](docs/tutorials/vlm_multimodal_tutorial.html)
-- [Tokenization](docs/tutorials/tokenization_tutorial.html)
+- [Attention](./attention_tutorial.html)
+- [Transformer Block](./transformer_block_tutorial.html)
+- [VLM / Multimodal](./vlm_multimodal_tutorial.html)
+- [Tokenization](./tokenization_tutorial.html)
 
 典型追问：
 
@@ -84,9 +84,9 @@
 
 对应教程：
 
-- [Transformer Block](docs/tutorials/transformer_block_tutorial.html)
-- [MoE](docs/tutorials/moe_tutorial.html)
-- [线性 / 稀疏注意力](docs/tutorials/linear_sparse_attention_tutorial.html)
+- [Transformer Block](./transformer_block_tutorial.html)
+- [MoE](./moe_tutorial.html)
+- [线性 / 稀疏注意力](./linear_sparse_attention_tutorial.html)
 
 典型追问：
 
@@ -118,9 +118,9 @@
 
 对应教程：
 
-- [优化器与 LR Schedule](docs/tutorials/optimizer_lr_schedule_tutorial.html)
-- [归一化 / 残差 / 初始化](docs/tutorials/normalization_init_tutorial.html)
-- [LLM Pretraining Pipeline](docs/tutorials/llm_pretraining_pipeline_tutorial.html)
+- [优化器与 LR Schedule](./optimizer_lr_schedule_tutorial.html)
+- [归一化 / 残差 / 初始化](./normalization_init_tutorial.html)
+- [LLM Pretraining Pipeline](./llm_pretraining_pipeline_tutorial.html)
 
 ---
 
@@ -292,8 +292,8 @@ $$
 
 对应教程：
 
-- [Distributed Training](docs/tutorials/distributed_training_tutorial.html)
-- [LLM Pretraining Pipeline](docs/tutorials/llm_pretraining_pipeline_tutorial.html)
+- [Distributed Training](./distributed_training_tutorial.html)
+- [LLM Pretraining Pipeline](./llm_pretraining_pipeline_tutorial.html)
 
 典型追问：
 
@@ -365,7 +365,7 @@ $$
 
 对应教程：
 
-- [LLM Evaluation & Benchmarking](docs/tutorials/llm_evaluation_benchmarking_tutorial.html)
+- [LLM Evaluation & Benchmarking](./llm_evaluation_benchmarking_tutorial.html)
 
 ---
 
@@ -404,9 +404,9 @@ $$
 
 对应教程：
 
-- [RLHF / DPO / GRPO / PPO](docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.html)
-- [KL Divergence in RLHF](docs/tutorials/kl_divergence_rlhf_tutorial.html)
-- [Reasoning Models](docs/tutorials/reasoning_models_tutorial.html)
+- [RLHF / DPO / GRPO / PPO](./rlhf_dpo_grpo_ppo_tutorial.html)
+- [KL Divergence in RLHF](./kl_divergence_rlhf_tutorial.html)
+- [Reasoning Models](./reasoning_models_tutorial.html)
 
 ---
 
@@ -863,7 +863,7 @@ Student：
 
 对应教程：
 
-- [RAG + Embedding / Retrieval](docs/tutorials/rag_embedding_retrieval_tutorial.html)
+- [RAG + Embedding / Retrieval](./rag_embedding_retrieval_tutorial.html)
 
 ## 26. XPlainDF
 

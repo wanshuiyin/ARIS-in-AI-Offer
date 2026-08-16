@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DouyinVL 项目指南</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/douyinvl_tutorial.md">
+<meta name="aris:source-sha256" content="803b92404bda6dec7bf56a74bed931b7bba3049693e71a7135a7df07e664778c">
+<meta name="aris:generated-at" content="2026-08-16 17:03 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet--十二句话讲完-douyinvl">§0 TL;DR Cheat Sheet — 十二句话讲完 DouyinVL</a>
+</li>
+<li><a href="#1-项目全景与技术主线">§1 项目全景与技术主线</a>
+<ul>
+<li><a href="#11-一句话定位">1.1 一句话定位</a></li>
+<li><a href="#12-为什么走开源基座--cpt--posttrain而不是从零训">1.2 为什么走&quot;开源基座 + CPT + PostTrain&quot;，而不是从零训</a></li>
+<li><a href="#13-端到端闭环文本流程图markdown-渲染兼容">1.3 端到端闭环（文本流程图，Markdown 渲染兼容）</a></li>
+<li><a href="#14-项目事实速览卡">1.4 项目事实速览卡</a></li>
+</ul>
+</li>
+<li><a href="#2-数据与-cpt-全链路">§2 数据与 CPT 全链路</a>
+<ul>
+<li><a href="#21-cpt-的目标口径">2.1 CPT 的目标口径</a></li>
+<li><a href="#22-数据规模配比与结构">2.2 数据规模、配比与结构</a></li>
+<li><a href="#23-质量治理option-shuffle文本-dropout-与脏活">2.3 质量治理：Option Shuffle、文本 Dropout 与&quot;脏活&quot;</a></li>
+<li><a href="#24-训练配置唯一的一张训练配置表">2.4 训练配置（唯一的一张训练配置表）</a></li>
+<li><a href="#25-cpt-结果口径团队级">2.5 CPT 结果口径（团队级）</a></li>
+</ul>
+</li>
+<li><a href="#3-千卡-910b-npu-训练与六类稳定性">§3 千卡 910B NPU 训练与六类稳定性</a>
+<ul>
+<li><a href="#31-hsdp-mesh-的物理与语义">3.1 HSDP mesh 的物理与语义</a></li>
+<li><a href="#32-关键量的相互约束">3.2 关键量的相互约束</a></li>
+<li><a href="#33-npu-算子适配已披露三层与通用推演">3.3 NPU 算子适配：已披露三层与通用推演</a></li>
+<li><a href="#34-六类稳定性问题诊断修复验证">3.4 六类稳定性问题：诊断→修复→验证</a></li>
+<li><a href="#35-稳定性治理的量化收益唯一权威的一组对比数">3.5 稳定性治理的量化收益（唯一权威的一组对比数）</a></li>
+</ul>
+</li>
+<li><a href="#4-posttrain-与-intent-caption-闭环">§4 PostTrain 与 Intent Caption 闭环</a>
+<ul>
+<li><a href="#41-三段课程为什么这样排">4.1 三段课程：为什么这样排</a></li>
+<li><a href="#42-混合奖励系统">4.2 混合奖励系统</a></li>
+<li><a href="#43-自动配比与业务对齐">4.3 自动配比与业务对齐</a></li>
+<li><a href="#44-intent-caption定义数据奖励训练">4.4 Intent Caption：定义、数据、奖励、训练</a></li>
+<li><a href="#45-intent-caption-benchmark-v1评测口径">4.5 Intent Caption Benchmark V1（评测口径）</a></li>
+</ul>
+</li>
+<li><a href="#5-评测体系与关键结果口径">§5 评测体系与关键结果口径</a>
+<ul>
+<li><a href="#51-136-任务--42-业务任务--四大域">5.1 136 任务 / 42 业务任务 / 四大域</a></li>
+<li><a href="#52-团队级增益一览">5.2 团队级增益一览</a></li>
+<li><a href="#53-结果解读的口径纪律">5.3 结果解读的口径纪律</a></li>
+</ul>
+</li>
+<li><a href="#6-贡献边界数字防守表与叙述模板">§6 贡献边界、数字防守表与叙述模板</a>
+<ul>
+<li><a href="#61-个人-vs-团队的可归因边界">6.1 个人 vs 团队的可归因边界</a></li>
+<li><a href="#62-数字防守表背下来">6.2 数字防守表（背下来）</a></li>
+<li><a href="#63-30-秒版本">6.3 30 秒版本</a></li>
+<li><a href="#64-3-分钟版本结构化叙述模板">6.4 3 分钟版本（结构化叙述模板）</a></li>
+</ul>
+</li>
+<li><a href="#7-关联知识点学习地图映射仓库其他教程">§7 关联知识点学习地图（映射仓库其他教程）</a>
+</li>
+<li><a href="#8-分级面试题与简答l1-必会--l2-进阶--l3-顶级追问">§8 分级面试题与简答（L1 必会 · L2 进阶 · L3 顶级追问）</a>
+<ul>
+<li><a href="#81-l1--必答项目事实">8.1 L1 · 必答（项目事实）</a></li>
+<li><a href="#82-l2--进阶机制与公式">8.2 L2 · 进阶（机制与公式）</a></li>
+<li><a href="#83-l3--顶级-lab-追问边界与判断">8.3 L3 · 顶级 lab 追问（边界与判断）</a></li>
+</ul>
+</li>
+<li><a href="#9-事实边界与待确认gaps-映射">§9 事实边界与待确认（gaps 映射）</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Project Guide · DouyinVL</div>
+  <h1>DouyinVL 项目指南</h1>
+  <p class="subtitle">从开源基座到抖音域 VLM：数据、CPT、Post-Training、Caption、稳定性排障与面试表达</p>
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/douyinvl_tutorial.md</code></span>
+    <span><strong>SHA256:</strong> <code>803b92404bda</code></span>
+    <span><strong>Rendered:</strong> 2026-08-16 17:03 UTC</span>
+    
+  </div>
+</header>
+
+<h1 id="douyinvl-项目指南从开源基座到抖音域-vlm-的全景与全部技术细节">DouyinVL 项目指南：从开源基座到抖音域 VLM 的全景与全部技术细节</h1>
+<blockquote><p><strong>阅读指引</strong> — 本文是 DouyinVL-v1 项目在鞠少波 offer 面试语境下的<strong>规范化教材</strong>。写作依据是七份内部飞书文档、<code>resume_interview_knowledge_map.md</code> 简历知识地图，以及同目录下 vlm/distributed/moe/rlhf 等平行教程。所有可归因结论都注明来源；未在文档中披露的口径统一标注 <strong>待确认</strong>，不做主观推断。<strong>团队级 benchmark 增益一律标注"团队版本"，个人贡献一律限定在数据/配比/稳定性/Caption 专项这几个可归因的窄口径上。</strong></p></blockquote>
+<blockquote><p><strong>本文档能回答的四类问题</strong>：(1) DouyinVL 是什么、为什么这么做；(2) 数据、CPT、后训练、Caption 每一环的机制、公式、口径；(3) 千卡 910B NPU 上遇到的六类稳定性故障如何定位、修复、验证；(4) 面试里怎么区分个人贡献与团队结果、怎么讲 30 秒 / 3 分钟版本、怎么答 L1/L2/L3 追问。</p></blockquote>
+<h2 id="0-tldr-cheat-sheet--十二句话讲完-douyinvl">§0 TL;DR Cheat Sheet — 十二句话讲完 DouyinVL</h2>
+<blockquote><p><strong>要点：一页速通版</strong>（详见 §1–§9 的推导、公式与故障复盘）。</p></blockquote>
+<ol><li><strong>技术范式</strong>：DouyinVL-v1 采用"<strong>开源模型 + CPT + PostTrain</strong>"多阶段范式，以 <strong>Qwen3.5-35B-MoE-A3B</strong> 作为能力基座（据《DouyinVL-v1 发版报告》）；相较从零训练同规模 VLM，这一路径通常成本与风险更低，属于<strong>通用机制推演，非项目成本测算</strong>。</li><li><strong>模型形态</strong>：发版模型是 <strong>DouyinVL-v1-35A3B-Base / Instruct</strong>；"35A3B"表示约 <strong>35B 总参数</strong>、每 token 激活约 <strong>3B</strong> 参数的 MoE，由 routed experts 与 shared experts 通过 Router 协作 《鞠少波秋招简历知识地图》。</li><li><strong>CPT 数据配方</strong>：CPT v9 配方池 <strong>1.547T tokens / 约 888.73M 样本</strong>，相较 Q1 版本新增约 <strong>2 TB / 200M+ 样本</strong>（据《DouyinVL 训练全流程梳理与简历写法建议》）。</li><li><strong>数据配比</strong>：token 视角下<strong>领域数据 ≈ 53.2%、通用开源 ≈ 46.8%</strong>；模态视角下<strong>多模态 ≈ 66.9%、纯文本 ≈ 30.3%、交错 ≈ 2.8%</strong>（据《训练全流程梳理》）。</li><li><strong>实际训练消费</strong>：CPT 阶段真实消费约 <strong>1T tokens</strong>，历时约 <strong>12 天</strong>，全局吞吐约 <strong>77B tokens/day</strong>，单卡约 <strong>870 tokens/s/NPU</strong>（据简历知识地图 &amp; 《训练全流程梳理》）。</li><li><strong>千卡拓扑</strong>：<strong>1024 张 910B NPU</strong>，二维 HSDP mesh = <strong>8 路复制 × 128 路 FSDP shard</strong>，<code>ulysses_size=1, ep_size=1, micro_bs=2, global_bs=2048</code>，因此<strong>梯度累积 = 1</strong>（据《训练全流程梳理》）。</li><li><strong>NPU 算子适配</strong>：不是"统一适配层"，而是<strong>分层 patch</strong>——模型注册表返回 <code>patched_modeling_*_npu.py</code>，把 <strong>RMSNorm / Gated RMSNorm / RoPE</strong> 直接替换为 <code>torch_npu</code> 算子，并处理 HCCL 通信兼容（据《uni-recipes 910B NPU 算子适配代码分析》）。Dense-2B 同 batch 下<strong>较 GPU 基线快约 12%</strong>；MoE-35A3B 未优化时会因<strong>利用率过低被调度频繁 kill</strong> 《鞠少波秋招简历知识地图》。</li><li><strong>六类稳定性故障</strong>：媒体解码（HEIF 静默损坏）、长视频采样（&gt;128f 均匀重采样）、<strong>媒体占位符与实际媒体数不一致</strong>（Tensor Mismatch，根因是 OCR 文本里未转义的 <code>&lt;image_pad&gt;</code>）、坏样本导致的 loss spike、Loader OOM（<code>Streaming loader → BytedLoader + Lance/blob</code>）、算子/通信兼容（据《六类稳定性问题深度排障》）。</li><li><strong>量化收益</strong>：Loader 切换 + HEIF/占位符/重采样修复后，<strong>2k step 端到端 9h46m → 9h15m，平均 NPU 利用率 64.76% → 70.34%，SMA 50.64 → 55.34</strong>（据《训练全流程梳理》）。</li><li><strong>PostTrain 三段课程</strong>：<strong>Long-CoT Cold-Start SFT → Reasoning RL → General RL</strong>，先恢复思维模式，再拉专项推理天花板，最后 General RL 兜底通用能力 《DouyinVL 后训练全解与简历对齐手册》；混合奖励按任务类型路由到<strong>规则评分 / LLM Judge / 专属 rubric</strong> 三条路径，并用 <code>reward_type</code> 分桶监控实时防 Reward Hacking 《DouyinVL 后训练全解与简历对齐手册》。</li><li><strong>Intent Caption</strong>：在<strong>固定文本预算</strong>下，按 Intent 保留"<strong>下游有用 × 视觉可验证 × 非冗余</strong>"的原子事实；数据链路是 9 类 Evidence QA + Visual QA + Blind QA + Claim Validation 多重门禁；训练用 <strong>GRPO</strong> + 多目标奖励 <strong>IEPR = w_r·R_evidence + w_p·R_precision + w_i·R_intent + w_l·R_length − w_d·R_redundancy</strong> 《鞠少波秋招简历知识地图》。</li><li><strong>评测口径</strong>：<strong>136 个独立评测任务、42 个业务任务</strong>，分四域（开源通用 / 抖音通用 / 抖音推理 / 抖音知识）（据《训练全流程梳理》）；<strong>DouyinVL-v1-35A3B-Instruct vs Qwen3.5 基座整体 +10.98pt、抖音推理 +46.91pt，为团队版本口径</strong>，个人贡献表述必须限定在数据 / 配比 / 稳定性 / Caption 专项 《鞠少波秋招简历知识地图》。</li></ol>
+<hr />
+<h2 id="1-项目全景与技术主线">§1 项目全景与技术主线</h2>
+<h3 id="11-一句话定位">1.1 一句话定位</h3>
+<p><strong>DouyinVL 是抖音域的多模态大模型（VLM）项目，目标是让一个"能看图、能看视频"的 LLM 具备抖音站内的搜索 / 推荐 / 问答能力</strong>。发版模型是 <code>DouyinVL-v1-35A3B-Base</code> 与 <code>DouyinVL-v1-35A3B-Instruct</code>，产物路径落在 <code>hdfs://haruna/home/byte_mlsys_ssd_lfrz_douyincud/DouyinVL-release/</code>（据《DouyinVL-v1 发版报告》）。</p>
+<h3 id="12-为什么走开源基座--cpt--posttrain而不是从零训">1.2 为什么走"开源基座 + CPT + PostTrain"，而不是从零训</h3>
+<p>三段式的<strong>判断依据</strong>：</p>
+<ul><li><strong>能力基座已经足够</strong>：Qwen3.5-35B-MoE-A3B 是成熟的开源能力基座；项目据此选择多阶段范式，而非从零训练同规模 VLM（据《DouyinVL-v1 发版报告》）。从零训练同规模模型通常成本显著高于在成熟基座上做 CPT，<strong>这是通用机制推演，并非发版报告披露的成本测算</strong>。</li><li><strong>CPT 只补"抖音域"这一块</strong>：CPT 的角色不是"重训能力"，而是"把开源模型的能力分布<strong>往抖音语料域拉近</strong>"；因此配方是<strong>领域数据 ≈ 53%、通用开源 ≈ 47%</strong>——既灌抖音域，也用 47% 通用开源做"通用能力防线"，避免灾难性遗忘（据《训练全流程梳理》）。</li><li><strong>PostTrain 走三段课程</strong>：Cold-Start SFT 恢复思维模式 → Reasoning RL 拉抖音推理天花板 → General RL 兜底通用能力，配合<strong>混合奖励</strong>避免单一 rubric 崩塌 《DouyinVL 后训练全解与简历对齐手册》。</li><li><strong>Intent Caption 是独立专项通路</strong>：用 MidTrain / SFT + GRPO 训一个"意图感知的视觉事实压缩器"，供下游搜索、推荐、问答复用 《鞠少波秋招简历知识地图》。</li></ul>
+<h3 id="13-端到端闭环文本流程图markdown-渲染兼容">1.3 端到端闭环（文本流程图，Markdown 渲染兼容）</h3>
+<pre><code class="language-mermaid">flowchart LR
+    A[开源基座&lt;br/&gt;Qwen3.5-35A3B-MoE] --&gt; B[CPT v9&lt;br/&gt;1.547T tokens 池&lt;br/&gt;实际消费~1T]
+    B --&gt; C[Base 模型&lt;br/&gt;DouyinVL-v1-35A3B-Base]
+    C --&gt; D[Long-CoT&lt;br/&gt;Cold-Start SFT]
+    D --&gt; E[Reasoning RL&lt;br/&gt;抖音站内 7 类推理]
+    E --&gt; F[General RL&lt;br/&gt;通用能力兜底]
+    F --&gt; G[Instruct 模型&lt;br/&gt;DouyinVL-v1-35A3B-Instruct]
+    C --&gt; H[Intent Caption&lt;br/&gt;MidTrain + GRPO/IEPR]
+    G --&gt; I[136 任务 BMK&lt;br/&gt;4 域评测]
+    H --&gt; I
+    I --&gt;|指标回流&lt;br/&gt;自动配比| B
+    I --&gt;|指标回流| D</code></pre>
+<blockquote><p><strong>要点：闭环的关键在"回流"</strong>——评测不是终点，而是<strong>下一轮数据配比（自动 token 配比、抖音知识图文 79.72 → 82.37）与后训练课程调整的输入</strong>（据《DouyinVL 后训练全解与简历对齐手册》）。</p></blockquote>
+<h3 id="14-项目事实速览卡">1.4 项目事实速览卡</h3>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>数值 / 内容</th><th>来源</th></tr></thead><tbody><tr><td>基座</td><td>Qwen3.5-35B-MoE-A3B（35B 总参 / 3B 激活）</td><td>发版报告 &amp; 《鞠少波秋招简历知识地图》</td></tr><tr><td>CPT 池</td><td>1.547T tokens / 888.73M 样本</td><td>《训练全流程梳理》</td></tr><tr><td>实际消费</td><td>~1T tokens / ~12 天 / 77B tokens/day</td><td>《训练全流程梳理》 &amp; 简历知识地图</td></tr><tr><td>集群</td><td>1024 张 910B NPU</td><td>《训练全流程梳理》</td></tr><tr><td>Mesh</td><td>8 replicate × 128 FSDP shard（HSDP）</td><td>《训练全流程梳理》</td></tr><tr><td>Batch</td><td>micro=2, global=2048, grad_accum=1</td><td>《训练全流程梳理》</td></tr><tr><td>后训练</td><td>Long-CoT SFT → Reasoning RL → General RL</td><td>《DouyinVL 后训练全解与简历对齐手册》</td></tr><tr><td>BMK</td><td>136 任务 / 42 业务任务 / 4 域 50 子维度</td><td>《训练全流程梳理》 &amp; 发版报告</td></tr><tr><td>团队增益</td><td>整体 +10.98pt；抖音推理 +46.91pt</td><td>发版报告</td></tr><tr><td>Intent Caption BMK</td><td>399 样本 / 2,127 图 / 2,692 QA / 187 世界知识</td><td>《抖音知识 Intent Caption Benchmark V1：构造方法、数据结构与评测口径》</td></tr></tbody></table></div>
+<hr />
+<h2 id="2-数据与-cpt-全链路">§2 数据与 CPT 全链路</h2>
+<h3 id="21-cpt-的目标口径">2.1 CPT 的目标口径</h3>
+<p>CPT（Continual Pre-Training）在 DouyinVL 里做<strong>三件事</strong>：(1) 把开源基座的知识分布拉到抖音域；(2) 用 Option Shuffle / 文本 Dropout 等策略消除位置偏置、迫使视觉依赖；(3) 建立稳定的 token 消费 pipeline 供后训练复用（据《训练全流程梳理》）。</p>
+<h3 id="22-数据规模配比与结构">2.2 数据规模、配比与结构</h3>
+<p><strong>总量</strong>：CPT v9 数据配方池 <strong>1.547T tokens、约 888.73M 样本</strong>，相较 Q1 版本新增约 <strong>2 TB / 200M+ 样本</strong>（据《训练全流程梳理》）。</p>
+<p><strong>双视角配比</strong>：按 token / 来源看，领域数据约 <strong>53.2%</strong>，通用开源约 <strong>46.8%</strong>；按 token / 模态看，多模态约 <strong>66.9%</strong>，纯文本约 <strong>30.3%</strong>，交错数据约 <strong>2.8%</strong>。领域数据包括抖音站内视频、图文、OCR/ASR 抽取；通用开源包括通用图文、通用视频与纯文本。来源：《训练全流程梳理》。</p>
+<blockquote><p><strong>口径纪律</strong>：<strong>"1.547T tokens"是数据池规模，"1T tokens"是实际训练消费量</strong>——两者不是同一个数字。<strong>面试时严禁把 1.547T 说成"训练消耗"</strong>（据《训练全流程梳理》 &amp; 简历知识地图）。</p></blockquote>
+<h3 id="23-质量治理option-shuffle文本-dropout-与脏活">2.3 质量治理：Option Shuffle、文本 Dropout 与"脏活"</h3>
+<p><strong>Option Shuffle</strong>：随机打乱 MCQ 选项并同步重写答案标签，破坏"答案总在 A"这类位置偏置（据《训练全流程梳理》）。</p>
+<p><strong>文本 Dropout</strong>：以一定概率丢弃 OCR / ASR / Title / Tags 等字段，<strong>迫使模型学会从视觉证据出发</strong>而不是把 OCR 抄一遍（据《训练全流程梳理》）。</p>
+<p><strong>"脏活"清单</strong>（据《训练全流程梳理》 &amp; 《六类稳定性问题深度排障》）：</p>
+<ul><li><strong>HEIF 解码</strong>：PIL 读 HEIF 图<strong>不报错但内容错误</strong>（静默损坏），需要显式修复。</li><li><strong>长视频均匀重采样</strong>：超过 <strong>128 帧</strong>的样本必须做均匀重采样，解决<strong>显存 / Token 预算超标</strong>。</li><li><strong>媒体数量 ↔ 占位符数量对齐</strong>：任意样本里 <code>&lt;image_pad&gt;</code> / <code>&lt;video_pad&gt;</code> 占位符个数必须等于实际 media 数；OCR 文本里出现的字面 <code>&lt;image_pad&gt;</code> 会导致运行时 Tensor Mismatch。</li></ul>
+<blockquote><p><strong>待确认（映射 gaps.md）</strong>：HEIF 修复的具体工程位置（替换解码后端 / 前置校验 / 绕开 PIL 用 libheif）、坏样本自动检测阈值、占位符一致性是离线清洗还是运行时 schema 校验——<strong>内部文档均未明说</strong>。面试时应表述为"知道要修、修完 SMA 上去了，具体实现细节以内部代码为准"。</p></blockquote>
+<h3 id="24-训练配置唯一的一张训练配置表">2.4 训练配置（唯一的一张训练配置表）</h3>
+<div class="table-wrap"><table><thead><tr><th>参数</th><th>值</th><th>说明</th></tr></thead><tbody><tr><td>集群</td><td>1024 × Ascend 910B NPU</td><td>团队产能上限</td></tr><tr><td>并行</td><td>FSDP2 full shard</td><td>权重 / 梯度 / 优化器都 shard</td></tr><tr><td><code>dp_replicate_size</code></td><td>8</td><td>HSDP 的"复制"维</td></tr><tr><td><code>dp_shard_size</code></td><td>128</td><td>HSDP 的"分片"维（1024 / 8）</td></tr><tr><td><code>ulysses_size</code></td><td>1</td><td>未启用 Ulysses SP</td></tr><tr><td><code>ep_size</code></td><td>1</td><td>未启用 Expert Parallel</td></tr><tr><td><code>micro_batch_size</code></td><td>2</td><td>单 rank 单 step</td></tr><tr><td><code>global_batch_size</code></td><td>2048</td><td>全局 batch</td></tr><tr><td><code>grad_accumulation</code></td><td>1</td><td>由 2048 / (1024·2) 推出</td></tr></tbody></table></div>
+<p>来源：《训练全流程梳理》与《鞠少波秋招简历知识地图》。</p>
+<p><strong>数字自洽验算</strong>： $$ \text{grad\_accum} = \frac{\text{global\_bs}}{\text{world\_size} \times \text{micro\_bs}} = \frac{2048}{1024 \times 2} = 1 $$ $$ \text{单卡吞吐} \approx \frac{77 \times 10^9\ \text{tokens/day}}{1024\ \text{NPU} \times 86400\ \text{s/day}} \approx 870\ \text{tokens/s/NPU} $$</p>
+<p>（单卡吞吐由全局吞吐与 NPU 数量换算，据《训练全流程梳理》。）</p>
+<h3 id="25-cpt-结果口径团队级">2.5 CPT 结果口径（团队级）</h3>
+<p><strong>DouyinVL-v1-35A3B-Instruct vs Qwen3.5 基座</strong>（据《DouyinVL-v1 发版报告》）：</p>
+<ul><li><strong>整体平均 +10.98pt</strong>。</li><li><strong>TikTok Reasoning +46.91pt</strong>（最强增益项，是 CPT + Reasoning RL 联合作用的结果）。</li></ul>
+<hr />
+<h2 id="3-千卡-910b-npu-训练与六类稳定性">§3 千卡 910B NPU 训练与六类稳定性</h2>
+<h3 id="31-hsdp-mesh-的物理与语义">3.1 HSDP mesh 的物理与语义</h3>
+<p><strong>结构</strong>：1024 NPU = <strong>8 replicated groups × 128-way FSDP shard</strong>（据《训练全流程梳理》与《鞠少波秋招简历知识地图》）。<strong>含义</strong>：</p>
+<ul><li><strong>shard 维（128）</strong>与 <strong>replicate 维（8）</strong>的项目事实仅限于上述 mesh 配置。</li></ul>
+<blockquote><p><strong>通用机制推演（项目文档未披露物理拓扑）</strong>：按 HSDP 的一般工作方式，shard 维会涉及参数 all-gather 与梯度 reduce-scatter，replicate 维会做梯度同步；把 shard 范围限制为 128 卡，理论上可避免 1024 卡全局分片的通信放大。但"是否位于同一高带宽域"、具体通信路径与收益量均须以实际拓扑和 profiling 为准。</p></blockquote>
+<p>$$ \text{world\_size} = \text{dp\_replicate\_size} \times \text{dp\_shard\_size} = 8 \times 128 = 1024 $$</p>
+<h3 id="32-关键量的相互约束">3.2 关键量的相互约束</h3>
+<p>关键约束可写为：全局 tokens/step = <strong>2048 × seq_len</strong>；<code>grad_accum = global_bs / (world_size × micro_bs) = 1</code>；由全局约 <strong>77B tokens/day</strong> 换算，单卡吞吐约 <strong>870 tokens/s/NPU</strong>。</p>
+<p><strong>为什么 grad_accum=1 重要</strong>：意味着<strong>一次 forward-backward 就完成一个 optimizer.step</strong>，通信与计算的 overlap 完全落在单个 step 内；也意味着<strong>任何单 step 的 loss spike 会立即反映在优化器状态里</strong>，坏样本治理必须在 loader 层解决。</p>
+<h3 id="33-npu-算子适配已披露三层与通用推演">3.3 NPU 算子适配：已披露三层与通用推演</h3>
+<p>据《uni-recipes 910B NPU 算子适配代码分析》，NPU 迁移<strong>不是</strong>在一个"统一适配层"里完成。现有证据明确披露至少三层：</p>
+<ol><li><strong>模型 registry 替换</strong>：训练脚本注册的 model type 返回 <code>patched_modeling_*_npu.py</code>，从入口切到 NPU 版实现。</li><li><strong>函数级 patch（关键算子）</strong>：<strong>RMSNorm、Gated RMSNorm、RoPE</strong> 替换为 <code>torch_npu</code> 算子。</li><li><strong>分布式兼容</strong>：处理 <strong>HCCL</strong> 通信兼容。</li></ol>
+<blockquote><p><strong>通用机制推演（内部代码为准）</strong>：配置分发与数值一致性通常也是异构设备适配需要处理的路径，但现有证据未披露其具体 hook、dtype 策略、误差阈值或复现要求，因此不能写成 DouyinVL 已披露的固定分层。</p></blockquote>
+<p><strong>收益量化</strong>：Dense-2B 通过 XPU 算子适配后，<strong>同 batch 下训练速度较 GPU 基线快约 12%</strong>；<strong>MoE-35A3B 未做适配时会因利用率过低被调度频繁 kill</strong>（据《六类稳定性问题深度排障》与《鞠少波秋招简历知识地图》）。</p>
+<blockquote><p><strong>待确认（gaps）</strong>：除 RMSNorm、Gated RMSNorm、RoPE 外，具体算子完整清单（GMM、Permute/Unpermute 等）、NPU vs GPU 单算子 / 单 step 的数值对齐误差阈值（如 FP16 bit-wise 要求）<strong>未在文档披露</strong>。面试时应表述为"已披露至少三层适配；配置分发与数值一致性仅按通用机制推演，具体实现以内部代码为准"。</p></blockquote>
+<h3 id="34-六类稳定性问题诊断修复验证">3.4 六类稳定性问题：诊断→修复→验证</h3>
+<p><strong>诊断信号（联合观测的四类量）</strong>：显著低利用率占比、平均 NPU 利用率、<strong>SMA（内部稳定性观测指标，缩写含义待确认）</strong>、2k step 端到端用时（据《六类稳定性问题深度排障》）。</p>
+<div class="table-wrap"><table><thead><tr><th>编号</th><th>问题类别</th><th>现象</th><th>诊断信号</th><th>修复动作</th><th>事实边界</th></tr></thead><tbody><tr><td>P1</td><td><strong>算子 / 通信</strong></td><td>MoE-35A3B 反复被 kill；利用率长时间低</td><td>平均利用率 &lt; 阈值、job hang</td><td>走 §3.3 已披露的三层适配；将 norm / RoPE 替换为 torch_npu 算子</td><td>待确认：单算子精度阈值未披露</td></tr><tr><td>P2</td><td><strong>媒体解码（HEIF）</strong></td><td>部分样本进模型后 loss 异常，图像看起来"糊"</td><td>单机 debug loader 复现；比对解码前后图像 hash</td><td>明确修复 HEIF 静默损坏（据《六类稳定性问题深度排障》）</td><td>修复位置（后端替换 / 前置校验 / libheif）未披露</td></tr><tr><td>P3</td><td><strong>长视频采样</strong></td><td>OOM / Token 预算爆掉</td><td>显存曲线尖峰、seq_len 超过预算</td><td><strong>&gt;128f 均匀重采样</strong></td><td>采样上限 128f 是硬约束</td></tr><tr><td>P4</td><td><strong>媒体占位符不一致</strong></td><td>运行时 <strong>Tensor Mismatch</strong></td><td>debug dataloader 单机复现问题 batch</td><td>定位到 OCR 文本里未转义的 <code>&lt;image_pad&gt;</code>；对齐 media 数与占位符数</td><td>校验落在离线 / 运行时哪一层未披露</td></tr><tr><td>P5</td><td><strong>坏样本 / loss spike</strong></td><td>单 step loss 异常放大</td><td>grad-norm 尖峰、loss curve 抖动</td><td>坏样本过滤（黑名单 / 特征过滤）</td><td>具体自动检测阈值与是否回滚未披露</td></tr><tr><td>P6</td><td><strong>Loader OOM</strong></td><td><code>num_workers=2</code> 触发 OOM</td><td>主机内存曲线；worker 进程 RSS 爆掉</td><td><strong><code>Streaming loader → BytedLoader + Lance（blob 存储）</code></strong></td><td>切换后收益可量化（§3.5）</td></tr></tbody></table></div>
+<blockquote><p><strong>要点：诊断顺序</strong>：先看 SMA / 利用率整体面（有没有系统性抖动） → 再看 grad-norm / loss 曲线（是不是坏样本） → 再看 host 内存 / dataloader 进程（是不是 Loader）→ 最后单机 debug loader 复现 problem batch（找占位符 / HEIF 这种静默错）。</p></blockquote>
+<h3 id="35-稳定性治理的量化收益唯一权威的一组对比数">3.5 稳定性治理的量化收益（唯一权威的一组对比数）</h3>
+<p><strong>Loader 切换 + HEIF / 重采样 / 占位符修复</strong>后，2k step 端到端用时由 <strong>9h46m 降至 9h15m（−31 min）</strong>，平均 NPU 利用率由 <strong>64.76% 升至 70.34%（+5.58 pt）</strong>，SMA 由 <strong>50.64 升至 55.34（+4.70 pt）</strong>（据《训练全流程梳理》）。</p>
+<p>这三个数字是"稳定性治理"贡献的<strong>权威口径</strong>——在简历和面试中以此为准，不要说成"提升吞吐"或"提升 MFU"这类容易被追问不清的表述。</p>
+<blockquote><p><strong>待确认（gaps）</strong>：显著低利用率占比的<strong>具体判定阈值</strong>、job hang 判定的<strong>超时时间</strong>、以及"平均利用率"是否包括 comm 时间——文档未披露，属于<strong>通用机制理解</strong>。</p></blockquote>
+<hr />
+<h2 id="4-posttrain-与-intent-caption-闭环">§4 PostTrain 与 Intent Caption 闭环</h2>
+<h3 id="41-三段课程为什么这样排">4.1 三段课程：为什么这样排</h3>
+<p>后训练课程被拆成三段递进 《DouyinVL 后训练全解与简历对齐手册》：</p>
+<ol><li><strong>Long-CoT Cold-Start SFT</strong>：先用长思维链 SFT 把"思考模式"<strong>恢复</strong>——CPT 后模型可能会失去主动生成 CoT 的分布，直接上 RL 会导致奖励信号无处附着。</li><li><strong>Reasoning RL</strong>：拉抖音站内 <strong>7 类推理任务</strong>（意图推理 / 关键词生成 / 不存在信息识别 / 证据定位 / 对比推理 / 忠实性判断 / 跨片段推理）的天花板（据《DouyinVL 后训练全解》）。</li><li><strong>General RL</strong>：兜底通用能力，防止"抖音专项掉通用"。</li></ol>
+<h3 id="42-混合奖励系统">4.2 混合奖励系统</h3>
+<p>据《DouyinVL 后训练全解》&amp; 《DouyinVL 后训练全解与简历对齐手册》，混合奖励按任务类型路由到三条打分路径：</p>
+<ul><li><strong>规则评分</strong>：客观题、证据定位这种可机械判分的任务。</li><li><strong>LLM Judge</strong>：Caption / 开放推理这种需要语义评估的任务。</li><li><strong>专属 rubric</strong>：Intent Caption 等专项任务用<strong>多目标 rubric</strong>（见 §4.4 IEPR）。</li></ul>
+<p><strong>Reward Hacking 兜底</strong>：使用 <code>reward_type</code> <strong>分桶监控</strong> 《DouyinVL 后训练全解与简历对齐手册》——把不同奖励类型的分数分布分开监控，一旦某个桶出现异常（如某类任务 reward 在几个 step 内飙升），实时触发人工审计。</p>
+<blockquote><p><strong>待确认（gaps）</strong>：具体的 <strong>RL 优化算法</strong>（PPO / GRPO / DPO 选型）、<strong>Thinking Reward vs Answer Reward 的融合权重</strong>、采样超参（rollout 数、温度、GAE 参数）、归一化区间——<strong>发版报告未披露</strong> 《DouyinVL 后训练全解与简历对齐手册》。<strong>面试时按"通用机制理解 + 以官方披露为准"表述</strong>。</p></blockquote>
+<h3 id="43-自动配比与业务对齐">4.3 自动配比与业务对齐</h3>
+<p><strong>自动 Token 配比</strong>在 CPT / PostTrain 之间形成回流：抖音知识图文指标 <strong>79.72 → 82.37（+2.65pt）</strong>，自动配比总平均 <strong>79.28 → 79.87</strong>（据《DouyinVL 后训练全解》）。</p>
+<p><strong>七类抖音站内推理任务</strong> 《DouyinVL 后训练全解与简历对齐手册》 覆盖搜索 / 推荐 / 问答的核心能力面，见 4.1 列表。</p>
+<p><strong>CoT 数据规模化生产</strong>：搭建了<strong>自动化 CoT 生产链路</strong>，按"问题复杂度 × 思考多样性"组织样本生成，并做<strong>批量代码自动迁移</strong>（把"能跑通的 demo"自动搬到实际数据流水线），以规模化上量（据《DouyinVL 后训练全解》）。</p>
+<h3 id="44-intent-caption定义数据奖励训练">4.4 Intent Caption：定义、数据、奖励、训练</h3>
+<p><strong>定义（严格版）</strong>：Intent Caption 是"<strong>在固定文本预算下，根据 Intent 保留对下游决策有用、视觉可验证、非冗余的原子事实</strong>" 《鞠少波秋招简历知识地图》。三个约束缺一不可：</p>
+<ul><li><strong>下游决策有用</strong>（intent-aware）——不是"看图说话"，是"这次要给推荐 / 搜索用"。</li><li><strong>视觉可验证</strong>（evidence-grounded）——每一条 claim 必须能落到 pixel / frame。</li><li><strong>非冗余</strong>（compact）——固定预算下不能重复。</li></ul>
+<p><strong>数据生产链路</strong> 《鞠少波秋招简历知识地图》：</p>
+<pre><code>源视觉样本 → Intent 构造 → 9 类 Evidence QA
+        → Visual QA 验证（视觉依赖：看图能答→合法）
+        → Blind QA 验证（不看图能答→踢除，避免&quot;文本可猜&quot;）
+        → Claim Validation（事实一致性）
+        → World Knowledge 标注</code></pre>
+<p><strong>MidTrain 数据构造</strong> 《Caption MidTrain 方案》：用<strong>多个 Judge 模型交替添加 claim</strong>，走"<strong>视觉事实池 → Caption</strong>"的逻辑，最终做<strong>双重质量门控</strong>：</p>
+<ul><li><strong>看图应答</strong>支持 → 证明该 claim 合法；</li><li><strong>不看图应答</strong>支持 → 证明该 claim 非法（否则说明它是"文本可猜"）。</li></ul>
+<p><strong>信息密度指标</strong> 《Caption MidTrain 方案》： $$ \text{Density} = \frac{\text{被 QA 或视觉证据支持的有效事实数}}{\text{Caption 字符数}} $$ 用它防止模型形成"长而空"的输出分布。</p>
+<p><strong>多目标奖励 IEPR（Intent-aware Evidence Preservation Reward）</strong> 《鞠少波秋招简历知识地图》： $$ R_{\text{IEPR}} = w_r R_{\text{evidence}} + w_p R_{\text{precision}} + w_i R_{\text{intent}} + w_l R_{\text{length}} - w_d R_{\text{redundancy}} $$</p>
+<ul><li>$R_{\text{evidence}}$：<strong>证据召回</strong>（覆盖了多少 gold facts）。</li><li>$R_{\text{precision}}$：<strong>准确率</strong>（生成的 claim 有几条能被视觉证据支持）。</li><li>$R_{\text{intent}}$：<strong>意图相关性</strong>（生成内容是否服务 intent）。</li><li>$R_{\text{length}}$：<strong>长度效率</strong>（每单位 token 的信息含量）。</li><li>$R_{\text{redundancy}}$：<strong>冗余惩罚</strong>（同义 claim 只算一次）。</li></ul>
+<blockquote><p><strong>待确认</strong>：IEPR 的具体 $w_*$ 权重、归一化区间在文档中未给出。面试按"多目标加权 - 冗余惩罚"讲机制，权重"以内部代码为准"。</p></blockquote>
+<p><strong>GRPO 训练</strong> 《鞠少波秋招简历知识地图》：对同一 prompt 采样一组响应，组内相对标准化 advantage： $$ A_i = \frac{r_i - \mu_G}{\sigma_G + \varepsilon} $$ 优点：<strong>无 value network</strong>（去 critic）、显存 / 计算成本低、天然吃"相对偏好"，与多目标 reward 组合稳定。</p>
+<h3 id="45-intent-caption-benchmark-v1评测口径">4.5 Intent Caption Benchmark V1（评测口径）</h3>
+<p>据《抖音知识 Intent Caption Benchmark V1：构造方法、数据结构与评测口径》：</p>
+<div class="table-wrap"><table><thead><tr><th>项</th><th>值</th></tr></thead><tbody><tr><td>样本数</td><td>399</td></tr><tr><td>图片数</td><td>2,127</td></tr><tr><td>通用 QA</td><td>2,692</td></tr><tr><td>世界知识题</td><td>187</td></tr></tbody></table></div>
+<p><strong>综合分权重</strong> 《抖音知识 Intent Caption Benchmark V1：构造方法、数据结构与评测口径》：<strong>Recall = 0.50（最高）</strong>，<strong>Precision = 0.30（门控）</strong>，<strong>Relevance = 0.20</strong>，<strong>Efficiency 仅做弱调节</strong>。</p>
+<blockquote><p><strong>已识别风险</strong>（据 《抖音知识 Intent Caption Benchmark V1：构造方法、数据结构与评测口径》）：BMK V1 仍存在 <strong>Intent 泄漏</strong>风险（gold intent 与 gold caption 相互泄漏）、<strong>世界知识目标与视觉事实目标混杂</strong>（部分题需要外部知识才能答）。<strong>解读结果时应按分项指标而非只看总分</strong>。</p></blockquote>
+<p><strong>训练指标趋势</strong>（据 《鞠少波秋招简历知识地图》）：Intent Caption 训练前后 <strong>Reward +13.22pp、QA Recall +16.75pp、幻觉率 −2.63pp</strong>。</p>
+<blockquote><p><strong>口径 caveat</strong>：这些数字来自<strong>单次迭代过程中的前后对比</strong>（trend），<strong>缺乏 held-out 上严格配对的 Step0 vs StepN 因果增益</strong>（据 gaps 《鞠少波秋招简历知识地图》）。面试表述："在训练观测口径下 Reward 提了 +13.22pp、QA Recall 提了 +16.75pp、幻觉率降了 −2.63pp；严格 held-out 因果分析仍在补齐"。</p></blockquote>
+<hr />
+<h2 id="5-评测体系与关键结果口径">§5 评测体系与关键结果口径</h2>
+<h3 id="51-136-任务--42-业务任务--四大域">5.1 136 任务 / 42 业务任务 / 四大域</h3>
+<p>据《训练全流程梳理》 &amp; 发版报告：<strong>136 个独立评测任务、42 个业务任务</strong>，分为四类评测域：</p>
+<ul><li><strong>开源图像</strong>：通用能力"防线"（防灾难遗忘）。</li><li><strong>开源视频</strong>：通用能力"防线"。</li><li><strong>抖音通用 / 抖音推理 / 抖音知识</strong>：作为"进攻性指标"，衡量抖音域能力。</li></ul>
+<p><strong>50 个子维度</strong>围绕通用 / 知识 / 推理三大类展开（据发版报告）。</p>
+<h3 id="52-团队级增益一览">5.2 团队级增益一览</h3>
+<div class="table-wrap"><table><thead><tr><th>域</th><th>Δ vs Qwen3.5 基座</th><th>说明</th></tr></thead><tbody><tr><td>整体平均</td><td><strong>+10.98pt</strong></td><td>团队版本</td></tr><tr><td><strong>抖音推理</strong></td><td><strong>+46.91pt</strong></td><td>最强增益项</td></tr></tbody></table></div>
+<p><strong>其它子项</strong>：抖音知识图文经自动配比 <strong>79.72 → 82.37</strong>（+2.65pt）；自动配比总平均 <strong>79.28 → 79.87</strong>（据《DouyinVL 后训练全解》）。</p>
+<h3 id="53-结果解读的口径纪律">5.3 结果解读的口径纪律</h3>
+<ul><li><strong>"整体 +10.98pt / 抖音推理 +46.91pt"是团队版本</strong>——包含 CPT、SFT、RL、稳定性、数据配比的<strong>联合贡献</strong>，不是任何单人可归因的增益 《鞠少波秋招简历知识地图》。</li><li><strong>个人可归因的窄口径</strong>：数据链路 / 配比优化 / 稳定性治理 / Caption 专项这四条通路（详见 §6）。</li></ul>
+<hr />
+<h2 id="6-贡献边界数字防守表与叙述模板">§6 贡献边界、数字防守表与叙述模板</h2>
+<h3 id="61-个人-vs-团队的可归因边界">6.1 个人 vs 团队的可归因边界</h3>
+<p>据《鞠少波秋招简历知识地图》的原话："<strong>DouyinVL 最终 benchmark 增益是团队版本结果。个人参与是协同 / 部分参与，不表述为全链路独立 owner</strong>"。据此：</p>
+<p><strong>个人可归因（表述为"我做了 X，量化收益 Y"）</strong>：</p>
+<ul><li><strong>数据链路</strong>：参与 CPT v9 数据配方、Option Shuffle、文本 Dropout 策略与脏活修复；对应 v9 池 <strong>1.547T tokens / 888.73M 样本</strong>，相对 Q1 新增约 <strong>2 TB</strong>。</li><li><strong>配比优化</strong>：参与自动 token 配比机制；抖音知识图文 <strong>79.72 → 82.37</strong>，自动配比总平均 <strong>79.28 → 79.87</strong>。</li><li><strong>稳定性治理</strong>：参与 Loader 切换及 HEIF / 重采样 / 占位符修复；2k step <strong>9h46m → 9h15m</strong>，利用率 <strong>64.76 → 70.34</strong>，SMA <strong>50.64 → 55.34</strong>。</li><li><strong>Intent Caption 专项</strong>：参与 MidTrain 数据、IEPR、GRPO 训练；Reward <strong>+13.22pp</strong>、QA Recall <strong>+16.75pp</strong>、幻觉 <strong>−2.63pp</strong>（trend 口径）。</li></ul>
+<p><strong>团队可归因</strong>：团队版本 DouyinVL-v1 相对基座整体 <strong>+10.98pt</strong>、抖音推理 <strong>+46.91pt</strong>；BMK 建设覆盖 <strong>136 任务 / 42 业务任务 / 4 域 50 子维度</strong>。</p>
+<p><strong>不可归因（不要主动认领）</strong>：Reasoning RL 具体算法选型、Thinking / Answer Reward 融合权重、NPU 融合算子精确清单——<strong>这些是 gaps 里的空白</strong>，官方口径没披露。</p>
+<h3 id="62-数字防守表背下来">6.2 数字防守表（背下来）</h3>
+<div class="table-wrap"><table><thead><tr><th>数字</th><th>出处</th><th>边界</th><th>常见错误说法</th></tr></thead><tbody><tr><td>1024 NPU</td><td>集群规模</td><td>910B，非 A100</td><td>说成"1024 GPU"</td></tr><tr><td>8 × 128 HSDP</td><td>mesh 拓扑</td><td>dp_replicate × dp_shard</td><td>说成"1024 全局 FSDP"</td></tr><tr><td>micro=2 / global=2048 / accum=1</td><td>训练配置</td><td>由 2048/(1024·2) 推导</td><td>说 "accum &gt; 1"</td></tr><tr><td>1.547T tokens</td><td>CPT 池</td><td><strong>配方池规模</strong></td><td>说成"训练消耗"</td></tr><tr><td>1T tokens</td><td>实际消费</td><td><strong>真实训练消费</strong></td><td>说成"数据总量"</td></tr><tr><td>12 天 / 77B tokens/day</td><td>训练时长 / 吞吐</td><td>全局吞吐</td><td>说成单卡吞吐</td></tr><tr><td>~870 tokens/s/NPU</td><td>单卡吞吐</td><td>77B / (1024·86400)</td><td>记不清就现推</td></tr><tr><td>Loader 收益 9h46→9h15 / 64.76→70.34 / 50.64→55.34</td><td>稳定性收益</td><td>权威三组数</td><td>不要口径含糊</td></tr><tr><td>+10.98pt / +46.91pt</td><td>团队增益</td><td>Instruct vs Qwen3.5 基座</td><td><strong>说成个人成绩</strong></td></tr><tr><td>136 任务 / 42 业务任务</td><td>BMK</td><td>四域 / 50 子维度</td><td>说成"136 benchmarks"</td></tr><tr><td>399 / 2,127 / 2,692 / 187</td><td>Intent Caption BMK</td><td>《抖音知识 Intent Caption Benchmark V1：构造方法、数据结构与评测口径》</td><td>与 CPT 数据混说</td></tr><tr><td>+13.22pp / +16.75pp / −2.63pp</td><td>Intent Caption trend</td><td>单次迭代前后</td><td>说成"held-out 因果收益"</td></tr></tbody></table></div>
+<h3 id="63-30-秒版本">6.3 30 秒版本</h3>
+<blockquote><p>"DouyinVL 是抖音域的多模态大模型，走<strong>开源 Qwen3.5-35A3B MoE 基座 + CPT + PostTrain</strong> 三段范式。我在<strong>1024 张 910B NPU</strong> 上参与了 <strong>CPT v9 数据配方（1.547T tokens 池、实际消费 ~1T）、稳定性治理（Loader 切换 + HEIF / 长视频重采样 / 媒体占位符修复，把 2k step 从 9h46 降到 9h15、平均利用率从 64.76 提到 70.34、SMA 从 50.64 提到 55.34）</strong>，以及 <strong>Intent Caption 专项（MidTrain 数据 + IEPR 多目标奖励 + GRPO 训练）</strong>。团队版本相对基座整体 +10.98pt、抖音推理 +46.91pt；个人贡献限定在数据 / 配比 / 稳定性 / Caption 这四条通路。"</p></blockquote>
+<h3 id="64-3-分钟版本结构化叙述模板">6.4 3 分钟版本（结构化叙述模板）</h3>
+<ol><li><strong>【项目定位 · 30s】</strong> 我参与的是 DouyinVL-v1，抖音域多模态大模型。选型上没有从零训，而是走"开源 Qwen3.5-35B-MoE-A3B 基座 + CPT + PostTrain"三段范式。发版报告披露的是采用成熟开源模型作为能力基座；"从零训练同规模模型成本显著更高"属于通用机制推演，不是项目成本测算。</li><li><strong>【训练规模 · 40s】</strong> CPT 用 1024 张 910B NPU、8 复制 × 128 FSDP shard 的 HSDP mesh，micro=2、global=2048、grad_accum=1，实际消费 ~1T tokens、12 天、单卡约 870 tokens/s。数据配方池 1.547T tokens、888.73M 样本，token 视角领域 53.2% / 通用 46.8%，模态视角多模态 66.9% / 纯文本 30.3%。</li><li><strong>【稳定性 · 40s】</strong> CPT 期间遇到六类问题：算子 / 通信（已披露模型 registry、关键算子 patch、HCCL 兼容至少三层；配置分发与数值一致性是通用推演）、HEIF 静默损坏、&gt;128f 长视频均匀重采样、OCR 里未转义 <code>&lt;image_pad&gt;</code> 导致 Tensor Mismatch、坏样本 loss spike、Streaming loader OOM。修复后端到端 2k step 从 9h46 降到 9h15、利用率从 64.76 提到 70.34、SMA 从 50.64 提到 55.34。</li><li><strong>【后训练 · 40s】</strong> PostTrain 走 Long-CoT SFT → Reasoning RL → General RL 三段课程，混合奖励按任务类型路由到规则 / LLM Judge / 专属 rubric，用 <code>reward_type</code> 分桶防 Reward Hacking。Intent Caption 是我参与的专项：MidTrain 用视觉事实池 + 双重质量门控生产数据，训练用 GRPO + IEPR 多目标奖励（证据召回、准确率、意图相关性、长度效率、冗余惩罚）。</li><li><strong>【结果 · 30s】</strong> 团队版本相对基座整体 +10.98pt、抖音推理 +46.91pt，136 任务 / 42 业务任务 / 4 域评测。Intent Caption BMK 399 样本、Reward +13.22pp、QA Recall +16.75pp、幻觉 −2.63pp（trend 口径）。</li><li><strong>【贡献边界 · 20s】</strong> 团队增益是团队结果；我个人可归因的是数据链路、配比、稳定性、Caption 专项这四条通路；RL 具体算法选型、融合权重等 gap 项以内部披露为准，不主观补全。</li></ol>
+<hr />
+<h2 id="7-关联知识点学习地图映射仓库其他教程">§7 关联知识点学习地图（映射仓库其他教程）</h2>
+<p>DouyinVL 涉及的知识都在仓库现有教程里能找到平行素材：</p>
+<div class="table-wrap"><table><thead><tr><th>知识点</th><th>DouyinVL 里的位置</th><th>仓库对应教程</th></tr></thead><tbody><tr><td>ViT / patch tokenize / 动态分辨率 / M-RoPE</td><td>视觉编码链路 《鞠少波秋招简历知识地图》</td><td><code>vlm_multimodal_tutorial.md</code> §2 / §10</td></tr><tr><td>CLIP / SigLIP 对齐机制</td><td>Intent Caption 视觉依赖验证</td><td><code>vlm_multimodal_tutorial.md</code> §3 / §4</td></tr><tr><td>LLaVA projector / 2-stage 训练</td><td>Base → Instruct 阶段</td><td><code>vlm_multimodal_tutorial.md</code> §6</td></tr><tr><td>MoE Router / 激活参数</td><td>35A3B 架构本身 《鞠少波秋招简历知识地图》</td><td><code>moe_tutorial.md</code></td></tr><tr><td>FSDP / HSDP / grad_accum</td><td>千卡训练配置</td><td><code>distributed_training_tutorial.md</code></td></tr><tr><td>RMSNorm / RoPE</td><td>NPU 已披露关键算子 patch</td><td><code>normalization_init_tutorial.md</code> / <code>long_context_rope_yarn_mla_tutorial.md</code></td></tr><tr><td>PPO / GRPO / DPO / KL</td><td>Reasoning RL + Intent Caption GRPO</td><td><code>rlhf_dpo_grpo_ppo_tutorial.md</code> / <code>kl_divergence_rlhf_tutorial.md</code></td></tr><tr><td>Reward Hacking / LLM Judge</td><td>混合奖励系统 《DouyinVL 后训练全解与简历对齐手册》</td><td><code>rlhf_dpo_grpo_ppo_tutorial.md</code> / <code>llm_evaluation_benchmarking_tutorial.md</code></td></tr><tr><td>Long-CoT / Reasoning 模型</td><td>Long-CoT Cold-Start SFT</td><td><code>reasoning_models_tutorial.md</code></td></tr><tr><td>长视频采样 / 视觉 token 压缩</td><td>&gt;128f 重采样、ForestPrune 《鞠少波秋招简历知识地图》</td><td><code>vlm_multimodal_tutorial.md</code> §11</td></tr><tr><td>蒸馏 / CAPD</td><td>反事实影响校准 On-Policy 蒸馏 《鞠少波秋招简历知识地图》</td><td><code>diffusion_distillation_tutorial.md</code>（方法论平行）</td></tr></tbody></table></div>
+<p><strong>推荐阅读顺序</strong>（面试前一周）：<code>moe_tutorial</code> → <code>distributed_training_tutorial</code> → <code>vlm_multimodal_tutorial</code> → <code>rlhf_dpo_grpo_ppo_tutorial</code> → 本文（DouyinVL 项目指南）→ 简历知识地图（复盘个人贡献）。</p>
+<p><strong>外围技术亮点（可选谈资）</strong> 《鞠少波秋招简历知识地图》：</p>
+<ul><li><strong>ForestPrune</strong>：跨帧视频视觉 token 压缩方法，构建 token trees / forest，用树深与节点角色估计重要性，<strong>压缩 90% 保留 95.8% 平均准确率</strong>。</li><li><strong>CAPD（Counterfactual-Aware Policy Distillation）</strong>：逐组移除连续时间片段 x\g，计算影响 $I_g = D(p_{\text{full}}, p_{\text{minus\_g}})$，用 $I_g$ 校准 teacher 的 attention policy，从而把"时间定位"能力迁给 student。</li></ul>
+<hr />
+<h2 id="8-分级面试题与简答l1-必会--l2-进阶--l3-顶级追问">§8 分级面试题与简答（L1 必会 · L2 进阶 · L3 顶级追问）</h2>
+<h3 id="81-l1--必答项目事实">8.1 L1 · 必答（项目事实）</h3>
+<p><strong>Q1. DouyinVL 是什么？为什么选 Qwen3.5-35B-MoE-A3B？</strong> A. 抖音域 VLM，走"开源基座 + CPT + PostTrain"。选 35A3B 是因为它总参 35B / 激活 3B，训练 / 推理都有 MoE 的稀疏红利，同时通用能力已经很强，CPT 补抖音域即可（据发版报告 &amp; 《鞠少波秋招简历知识地图》）。</p>
+<p><strong>Q2. CPT 用了多少卡多少数据多久？</strong> A. 1024 张 910B NPU、CPT v9 池 1.547T tokens / 888.73M 样本，实际消费 ~1T tokens、12 天、全局吞吐 ~77B tokens/day、单卡 ~870 tokens/s（据《训练全流程梳理》&amp; 简历知识地图）。</p>
+<p><strong>Q3. 团队 benchmark 增益？</strong> A. 团队版本 DouyinVL-v1-35A3B-Instruct 相对 Qwen3.5 基座整体 +10.98pt、抖音推理 +46.91pt；136 任务 / 42 业务任务 / 4 域评测（据发版报告与《训练全流程梳理》）。<strong>这是团队版本口径</strong>。</p>
+<p><strong>Q4. 你个人做了什么？</strong> A. 参与 CPT v9 数据配方（Option Shuffle、文本 Dropout、脏活修复）、自动 token 配比（抖音知识图文 79.72 → 82.37）、稳定性治理（Loader 切换 + HEIF / 重采样 / 占位符修复，2k step 9h46 → 9h15、利用率 64.76 → 70.34、SMA 50.64 → 55.34）、Intent Caption 专项（MidTrain 数据 + IEPR + GRPO）。<strong>团队增益不认领为个人成绩</strong> 《鞠少波秋招简历知识地图》。</p>
+<h3 id="82-l2--进阶机制与公式">8.2 L2 · 进阶（机制与公式）</h3>
+<p><strong>Q5. HSDP 为什么 8 × 128 而不是 1024 全局 FSDP？</strong> A. 项目证据只披露 <strong>8 × 128 HSDP mesh</strong>。<strong>通用机制推演</strong>：限制 shard 规模通常可减少相对 1024 卡全局 FSDP 的通信放大，但具体通信域、路径和收益需要结合实际物理拓扑与 profiling 验证。</p>
+<p><strong>Q6. grad_accum=1 是什么意思？为什么可以取 1？</strong> A. $\text{grad\_accum} = \text{global\_bs}/(\text{world\_size} \cdot \text{micro\_bs}) = 2048/(1024\cdot 2) = 1$。因为 world_size 已经够大，单 step 就能达到 global_bs=2048，不需要靠时间维累积。</p>
+<p><strong>Q7. 六类稳定性问题按什么顺序排查？</strong> A. 先看 SMA / 利用率（面）→ 再看 grad-norm / loss 曲线（坏样本）→ 再看 host 内存 / worker RSS（Loader）→ 最后单机 debug loader 复现问题 batch，找 HEIF、占位符这类静默错（据《六类稳定性问题深度排障》）。</p>
+<p><strong>Q8. NPU 算子适配具体做了什么？</strong> A. <strong>不是</strong>统一适配层。项目证据明确披露至少三层：模型 registry 替换、函数级 patch（RMSNorm / Gated RMSNorm / RoPE 替换为 torch_npu 算子）、HCCL 通信兼容。配置分发与数值一致性仅是<strong>通用适配机制推演</strong>，具体实现以内部代码为准。Dense-2B 同 batch 较 GPU 基线快约 12%；MoE-35A3B 未优化时会因利用率过低被调度终止（据《uni-recipes 910B NPU 算子适配代码分析》与《六类稳定性问题深度排障》）。</p>
+<p><strong>Q9. Loader 切换的收益怎么量化？</strong> A. <strong>三个权威数字</strong>：2k step 9h46 → 9h15、平均利用率 64.76 → 70.34、SMA 50.64 → 55.34（据《训练全流程梳理》）。</p>
+<p><strong>Q10. Intent Caption 是什么？IEPR 长什么样？</strong> A. 固定文本预算下，按 Intent 保留下游有用 × 视觉可验证 × 非冗余的原子事实。IEPR = $w_r R_{\text{evidence}} + w_p R_{\text{precision}} + w_i R_{\text{intent}} + w_l R_{\text{length}} - w_d R_{\text{redundancy}}$，具体权重以内部代码为准（《鞠少波秋招简历知识地图》）。</p>
+<p><strong>Q11. GRPO 和 PPO 有什么区别？为什么 Intent Caption 用 GRPO？</strong> A. GRPO 无 value network，通过组内相对标准化 $A_i = (r_i - \mu_G) / (\sigma_G + \varepsilon)$ 估计 advantage；显存 / 计算成本低、天然吃相对偏好，与多目标 reward 组合稳定。PPO 需要 critic，训练资源开销大（据 《鞠少波秋招简历知识地图》 &amp; 平行 rlhf_dpo_grpo_ppo_tutorial）。</p>
+<p><strong>Q12. Intent Caption Benchmark V1 怎么算综合分？</strong> A. Recall = 0.50、Precision = 0.30（门控）、Relevance = 0.20，Efficiency 弱调节。BMK V1 已知存在 Intent 泄漏与世界知识 / 视觉事实混杂风险，解读要看分项（《抖音知识 Intent Caption Benchmark V1：构造方法、数据结构与评测口径》）。</p>
+<h3 id="83-l3--顶级-lab-追问边界与判断">8.3 L3 · 顶级 lab 追问（边界与判断）</h3>
+<p><strong>Q13. Reasoning RL 用的是 PPO 还是 GRPO？Thinking Reward 和 Answer Reward 怎么融合？</strong> A. <strong>发版报告未披露</strong> 《DouyinVL 后训练全解与简历对齐手册》。我按"通用机制理解"讲：通常会做加权融合并做归一化，具体选型以官方口径为准，不做主观补全（据 gaps）。</p>
+<p><strong>Q14. NPU 融合算子完整清单是什么？误差阈值是多少？</strong> A. 已知命中 RMSNorm / Gated RMSNorm / RoPE 这三个热点算子；GMM / Permute / Unpermute 等<strong>未在文档披露完整清单</strong>。数值误差阈值（FP16 bit-wise 对齐 vs 数值区间容忍）也未披露。以内部代码为准（据 gaps）。</p>
+<p><strong>Q15. Intent Caption 的 +13.22pp Reward 提升是不是显著的？</strong> A. <strong>口径 caveat 要主动说</strong>：这是单次迭代过程中的前后对比（trend），<strong>不是 held-out 上严格配对的因果增益</strong>（据 gaps 《鞠少波秋招简历知识地图》）；严格证明还需要 fixed held-out + Step0 vs StepN 对照。</p>
+<p><strong>Q16. 如果让你重新设计稳定性诊断，你会加什么？</strong> A. 现有四类信号（低利用率占比、平均利用率、SMA、2k step 用时）偏"面 + 时长"，缺<strong>样本级</strong>归因链路。可以补：per-batch loss / grad-norm 分布 + 采样若干 batch 做<strong>离线自动 replay</strong>、坏样本自动黑名单 + 自动 rollback 机制、占位符校验放到离线数据入库前置（把 gap 里 P4/P5 的空白补齐）。</p>
+<p><strong>Q17. HSDP 里 replicate 维 = 8 是怎么选的？</strong> A. 项目证据只披露 <code>dp_replicate=8</code>、<code>dp_shard=128</code>，没有披露物理布线和选型过程。<strong>通用机制推演</strong>：<code>dp_replicate</code> 与 <code>dp_shard</code> 分别约束复制维和分片维的通信范围，实际取值通常需结合互联拓扑、内存与 profiling 决定；不能据现有证据断言 128 卡对应某个特定高速互联域。</p>
+<p><strong>Q18. 为什么 Streaming loader 会 OOM 而 BytedLoader+Lance 不会？</strong> A. <strong>已披露事实</strong>：Streaming loader 在 <code>num_workers=2</code> 时触发 OOM，切换到 BytedLoader + Lance（blob）后解决（据《六类稳定性问题深度排障》）。<strong>通用机制推演（内部实现为准）</strong>：多 worker 重复持有解码 buffer 可能放大 host 内存占用，而 blob 的按需读取可能减少重复驻留；现有证据未披露 buffer 生命周期、切片方式或进程间共享机制。</p>
+<p><strong>Q19. 你怎么保证 CPT 结束后模型没有灾难性遗忘？</strong> A. <strong>数据层</strong>：46.8% 通用开源 + 30.3% 纯文本作为"防线"；<strong>评测层</strong>：开源图像 / 开源视频作为"通用能力防线"域，136 任务里同时看抖音进攻性指标和开源防线指标（据《训练全流程梳理》）。</p>
+<hr />
+<h2 id="9-事实边界与待确认gaps-映射">§9 事实边界与待确认（gaps 映射）</h2>
+<p>按"什么已披露 / 什么以官方为准 / 什么按通用机制答"三档整理：</p>
+<p><strong>A. 已披露的权威事实</strong>（面试时直接给数字）：</p>
+<ul><li>集群与拓扑：1024 NPU / 8 × 128 HSDP / micro=2 / global=2048 / grad_accum=1。</li><li>训练消费：~1T tokens / 12 天 / 77B tokens/day / ~870 tokens/s/NPU。</li><li>CPT 池：1.547T / 888.73M / +2TB vs Q1；配比 53.2% 领域 vs 46.8% 通用。</li><li>稳定性收益：2k step 9h46 → 9h15；利用率 64.76 → 70.34；SMA 50.64 → 55.34。</li><li>团队结果：整体 +10.98pt、抖音推理 +46.91pt、136 任务 / 42 业务任务。</li><li>Intent Caption BMK：399 / 2,127 / 2,692 / 187；Recall 0.50 / Precision 0.30（门控）/ Relevance 0.20。</li></ul>
+<p><strong>B. 待确认（以内部披露为准，不主动补全）</strong>：</p>
+<ul><li><strong>Reasoning RL 具体算法选型</strong>（PPO / GRPO / DPO）、rollout 数、采样温度、GAE 参数（《DouyinVL 后训练全解与简历对齐手册》，gaps g_01001）。</li><li><strong>Thinking Reward vs Answer Reward 融合权重、归一化区间</strong>（gaps g_01002）。</li><li><strong>NPU 融合算子完整清单</strong>、数值对齐误差阈值（如 FP16 bit-wise）（gaps g_01003）。</li><li><strong>HEIF 修复的具体工程位置</strong>（替换后端 / 前置校验 / libheif）。</li><li><strong>坏样本自动检测阈值 / 是否配套 rollback</strong>。</li><li><strong>占位符一致性校验是离线还是运行时 schema</strong>。</li><li><strong>显著低利用率占比阈值 / job hang 判定超时</strong>。</li></ul>
+<p><strong>C. 属于"通用机制"的答法</strong>（讲原理 + 声明以官方为准）：</p>
+<ul><li>从零训练同规模 35B MoE 相对在成熟基座上做 CPT 的成本 / 风险比较；项目未披露具体成本测算。</li><li>HSDP mesh 的<strong>通信 / 计算 trade-off</strong>分析；项目未披露物理拓扑与通信收益量。</li><li>Loader OOM 的多 worker buffer 与 blob 按需读取机制；项目只披露 OOM 现象与切换方案。</li><li>NPU 适配中的配置分发与数值一致性路径；项目已披露至少三层，其余实现以内部代码为准。</li><li>六类稳定性问题的<strong>诊断顺序</strong>（面 → 曲线 → host → debug loader）。</li><li>GRPO 相对 PPO 的<strong>去 critic</strong> 优势与显存曲线。</li><li>Reward Hacking 的<strong>分桶监控</strong>思路。</li><li>Intent Caption <strong>信息密度</strong>与 IEPR 的<strong>多目标结构</strong>。</li></ul>
+<p><strong>D. Intent Caption trend 数字的口径 caveat</strong> 《鞠少波秋招简历知识地图》：</p>
+<ul><li>Reward +13.22pp / QA Recall +16.75pp / 幻觉 −2.63pp 是<strong>训练过程 trend</strong>，不是 held-out 严格配对因果增益；面试主动说清。</li></ul>
+<hr />
+<blockquote><p><strong>给读者的最后一句话</strong> — 这份指南把 DouyinVL-v1 的<strong>事实</strong>（数字与配置）、<strong>机制</strong>（HSDP、算子 patch、混合奖励、GRPO、IEPR）、<strong>故障复盘</strong>（六类稳定性）、<strong>评测口径</strong>（136 / 42 / 4 域）、<strong>贡献边界</strong>（个人 vs 团队）与<strong>面试语言</strong>（30s / 3min / L1-L3）打包在一处。<strong>只讲文档披露过的、能量化的、能溯源的；对未披露的，用"通用机制 + 以官方为准"稳态表达</strong>——这既是学术训练的一部分，也是工程 credibility 的基线。</p></blockquote>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/douyinvl_tutorial.md</code> ·
+  SHA256 <code>803b92404bda</code> ·
+  generated at 2026-08-16 17:03 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

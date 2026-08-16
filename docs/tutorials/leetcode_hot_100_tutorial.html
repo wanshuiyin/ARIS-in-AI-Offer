@@ -1,0 +1,3407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeetCode HOT 100 一天速记</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/leetcode_hot_100_tutorial.md">
+<meta name="aris:source-sha256" content="0543ff9daa592b039677f87821c9f6b51c81934844f9c7b5af4603c839ec8288">
+<meta name="aris:generated-at" content="2026-08-16 17:03 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#一天怎么用">一天怎么用</a>
+</li>
+<li><a href="#15-个母模板优先背">15 个母模板（优先背）</a>
+<ul>
+<li><a href="#1-哈希边遍历边查询">1\. 哈希：边遍历边查询 ⭐⭐⭐</a></li>
+<li><a href="#2-可变滑动窗口">2\. 可变滑动窗口 ⭐⭐⭐</a></li>
+<li><a href="#3-前缀和--哈希">3\. 前缀和 \+ 哈希 ⭐⭐⭐</a></li>
+<li><a href="#4-单调栈">4\. 单调栈 ⭐⭐⭐</a></li>
+<li><a href="#5-单调队列窗口最大值">5\. 单调队列（窗口最大值）⭐⭐⭐</a></li>
+<li><a href="#6-二分左边界">6\. 二分：左边界 ⭐⭐⭐</a></li>
+<li><a href="#7-链表反转--虚拟头">7\. 链表反转 \+ 虚拟头 ⭐⭐⭐</a></li>
+<li><a href="#8-链表快慢指针">8\. 链表快慢指针 ⭐⭐⭐</a></li>
+<li><a href="#9-二叉树-dfs先定义返回值">9\. 二叉树 DFS：先定义返回值 ⭐⭐⭐</a></li>
+<li><a href="#10-bfs--拓扑排序">10\. BFS / 拓扑排序 ⭐⭐⭐</a></li>
+<li><a href="#11-回溯">11\. 回溯 ⭐⭐⭐</a></li>
+<li><a href="#12-一维-dp--0-1-背包">12\. 一维 DP / 0\-1 背包 ⭐⭐⭐</a></li>
+<li><a href="#13-区间-dp--二维-dp">13\. 区间 DP / 二维 DP ⭐⭐</a></li>
+<li><a href="#14-堆维护-top-k">14\. 堆：维护 Top K ⭐⭐</a></li>
+<li><a href="#15-贪心遍历时维护当前最优可达边界">15\. 贪心：遍历时维护“当前最优可达边界” ⭐⭐</a></li>
+</ul>
+</li>
+<li><a href="#100-题闪回清单">100 题闪回清单</a>
+<ul>
+<li><a href="#一哈希3">一、哈希（3）</a></li>
+<li><a href="#二双指针4">二、双指针（4）</a></li>
+<li><a href="#三滑动窗口2">三、滑动窗口（2）</a></li>
+<li><a href="#四子串3">四、子串（3）</a></li>
+<li><a href="#五普通数组5">五、普通数组（5）</a></li>
+<li><a href="#六矩阵4">六、矩阵（4）</a></li>
+<li><a href="#七链表14">七、链表（14）</a></li>
+<li><a href="#八二叉树15">八、二叉树（15）</a></li>
+<li><a href="#九图论4">九、图论（4）</a></li>
+<li><a href="#十回溯8">十、回溯（8）</a></li>
+<li><a href="#十一二分查找6">十一、二分查找（6）</a></li>
+<li><a href="#十二栈5">十二、栈（5）</a></li>
+<li><a href="#十三堆3">十三、堆（3）</a></li>
+<li><a href="#十四贪心4">十四、贪心（4）</a></li>
+<li><a href="#十五动态规划10">十五、动态规划（10）</a></li>
+<li><a href="#十六多维动态规划5">十六、多维动态规划（5）</a></li>
+<li><a href="#十七技巧5">十七、技巧（5）</a></li>
+</ul>
+</li>
+<li><a href="#最后-60-分钟只默写这-24-题">最后 60 分钟：只默写这 24 题</a>
+</li>
+<li><a href="#闭卷验收标准">闭卷验收标准</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Interview Prep · Algorithms</div>
+  <h1>LeetCode HOT 100 一天速记</h1>
+  <p class="subtitle">LeetCode HOT 100 Python 高频题型一天速记清单</p>
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/leetcode_hot_100_tutorial.md</code></span>
+    <span><strong>SHA256:</strong> <code>0543ff9daa59</code></span>
+    <span><strong>Rendered:</strong> 2026-08-16 17:03 UTC</span>
+    
+  </div>
+</header>
+
+<h1 id="leetcode-hot-100一天速记清单python">LeetCode HOT 100：一天速记清单（Python）</h1>
+<blockquote><p>目标不是一天重新做完 100 题，而是：看到题名后，能在 10 秒内说出算法、关键不变量和复杂度；重点题能默写骨架。</p>
+<p>标记：⭐⭐⭐ 必须默写；⭐⭐ 能独立讲清并补出关键代码；⭐ 只需恢复思路。官方题单：<a href="https://leetcode.cn/studyplan/top-100-liked/">LeetCode 热题 100</a></p></blockquote>
+<h2 id="一天怎么用">一天怎么用</h2>
+<ul><li><strong>08:30–09:00</strong>：读“15 个母模板”，遮住代码口述不变量。</li><li><strong>09:00–11:00</strong>：哈希、双指针、滑窗、子串、数组、矩阵（21 题）。</li><li><strong>11:10–12:20</strong>：链表（14 题）。重点手写反转、快慢指针、归并、LRU。</li><li><strong>13:30–15:10</strong>：二叉树、图（19 题）。重点手写 DFS 返回值、BFS、拓扑排序。</li><li><strong>15:20–16:20</strong>：回溯、二分（14 题）。统一套模板，不逐题死背。</li><li><strong>16:30–17:20</strong>：栈、堆、贪心（12 题）。重点单调栈、双堆、区间边界。</li><li><strong>18:30–20:10</strong>：动态规划、多维 DP（15 题）。每题只说清状态、转移、初始化、遍历顺序。</li><li><strong>20:20–20:50</strong>：技巧（5 题）。</li><li><strong>21:00–22:00</strong>：只默写所有 ⭐⭐⭐；卡住超过 3 分钟立刻看答案并重写。</li><li><strong>22:00–22:20</strong>：100 题闪回验收：每题 10 秒，只说“识别信号 → 算法 → 关键坑”。</li></ul>
+<h2 id="15-个母模板优先背">15 个母模板（优先背）</h2>
+<h3 id="1-哈希边遍历边查询">1\. 哈希：边遍历边查询 ⭐⭐⭐</h3>
+<pre><code class="language-python">seen = {}
+for i, x in enumerate(nums):
+    if target - x in seen:
+        return [seen[target - x], i]
+    seen[x] = i</code></pre>
+<h3 id="2-可变滑动窗口">2\. 可变滑动窗口 ⭐⭐⭐</h3>
+<pre><code class="language-python">left = 0
+for right, x in enumerate(s):
+    # 把 x 纳入窗口
+    while 窗口不合法:
+        # 移出 s[left]
+        left += 1
+    ans = max(ans, right - left + 1)</code></pre>
+<p>最小覆盖类：<code>right</code> 扩到满足，<code>left</code> 尽量缩；无重复类：一旦冲突就缩到合法。</p>
+<h3 id="3-前缀和--哈希">3\. 前缀和 \+ 哈希 ⭐⭐⭐</h3>
+<pre><code class="language-python">cnt = {0: 1}
+pre = ans = 0
+for x in nums:
+    pre += x
+    ans += cnt.get(pre - k, 0)
+    cnt[pre] = cnt.get(pre, 0) + 1</code></pre>
+<h3 id="4-单调栈">4\. 单调栈 ⭐⭐⭐</h3>
+<pre><code class="language-python">st = []                         # 下标；保持对应值单调
+for i, x in enumerate(nums):
+    while st and nums[st[-1]] &lt; x:
+        j = st.pop()
+        ans[j] = i - j
+    st.append(i)</code></pre>
+<h3 id="5-单调队列窗口最大值">5\. 单调队列（窗口最大值）⭐⭐⭐</h3>
+<pre><code class="language-python">from collections import deque
+q = deque()                     # 下标；值递减
+for i, x in enumerate(nums):
+    while q and nums[q[-1]] &lt;= x: q.pop()
+    q.append(i)
+    if q[0] &lt;= i - k: q.popleft()
+    if i &gt;= k - 1: ans.append(nums[q[0]])</code></pre>
+<h3 id="6-二分左边界">6\. 二分：左边界 ⭐⭐⭐</h3>
+<pre><code class="language-python">l, r = 0, len(nums)             # [l, r)
+while l &lt; r:
+    m = (l + r) // 2
+    if nums[m] &gt;= target: r = m
+    else: l = m + 1
+# l 是第一个 &gt;= target 的位置</code></pre>
+<h3 id="7-链表反转--虚拟头">7\. 链表反转 \+ 虚拟头 ⭐⭐⭐</h3>
+<pre><code class="language-python">prev, cur = None, head
+while cur:
+    nxt = cur.next
+    cur.next = prev
+    prev, cur = cur, nxt
+return prev
+
+dummy = ListNode(0, head)        # 删除/拼接头节点时先想 dummy</code></pre>
+<h3 id="8-链表快慢指针">8\. 链表快慢指针 ⭐⭐⭐</h3>
+<pre><code class="language-python">slow = fast = head
+while fast and fast.next:
+    slow, fast = slow.next, fast.next.next</code></pre>
+<p>判环后求入口：相遇时另设 <code>p=head</code>，<code>p</code> 与 <code>slow</code> 同速走，再相遇即入口。</p>
+<h3 id="9-二叉树-dfs先定义返回值">9\. 二叉树 DFS：先定义返回值 ⭐⭐⭐</h3>
+<pre><code class="language-python">def dfs(node):
+    if not node: return 空树值
+    left = dfs(node.left)
+    right = dfs(node.right)
+    # 用 left/right 更新全局答案
+    return 当前子树要交给父节点的值</code></pre>
+<h3 id="10-bfs--拓扑排序">10\. BFS / 拓扑排序 ⭐⭐⭐</h3>
+<pre><code class="language-python">from collections import deque
+q = deque(所有起点)
+while q:
+    for _ in range(len(q)):
+        x = q.popleft()
+        for y in neighbors(x):
+            if 未访问或入度降为0: q.append(y)</code></pre>
+<h3 id="11-回溯">11\. 回溯 ⭐⭐⭐</h3>
+<pre><code class="language-python">def dfs(start, path):
+    if 满足答案条件:
+        ans.append(path[:])
+        return
+    for i in range(start, len(nums)):
+        if 需要剪枝: continue
+        path.append(nums[i])
+        dfs(下一状态, path)
+        path.pop()</code></pre>
+<p>排列用 <code>used</code>；组合/子集用 <code>start</code>；棋盘搜索额外做“标记—递归—恢复”。</p>
+<h3 id="12-一维-dp--0-1-背包">12\. 一维 DP / 0\-1 背包 ⭐⭐⭐</h3>
+<pre><code class="language-python">dp = [False] * (target + 1)
+dp[0] = True
+for x in nums:
+    for j in range(target, x - 1, -1):  # 倒序：每个 x 只用一次
+        dp[j] |= dp[j - x]</code></pre>
+<p>完全背包若物品可重复，容量通常正序。</p>
+<h3 id="13-区间-dp--二维-dp">13\. 区间 DP / 二维 DP ⭐⭐</h3>
+<pre><code class="language-python">for length in range(2, n + 1):
+    for l in range(n - length + 1):
+        r = l + length - 1
+        dp[l][r] = ...</code></pre>
+<h3 id="14-堆维护-top-k">14\. 堆：维护 Top K ⭐⭐</h3>
+<pre><code class="language-python">import heapq
+h = []
+for x in stream:
+    heapq.heappush(h, x)
+    if len(h) &gt; k: heapq.heappop(h)</code></pre>
+<h3 id="15-贪心遍历时维护当前最优可达边界">15\. 贪心：遍历时维护“当前最优可达边界” ⭐⭐</h3>
+<pre><code class="language-python">far = 0
+for i, step in enumerate(nums):
+    if i &gt; far: return False
+    far = max(far, i + step)
+return True</code></pre>
+<hr />
+<h2 id="100-题闪回清单">100 题闪回清单</h2>
+<h3 id="一哈希3">一、哈希（3）</h3>
+<h4 id="1-两数之和思路详解与标准代码">1\. 两数之和｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>1\. 两数之和</strong>：边扫边查 <code>target-x</code>；必须先查后存，避免复用自己。$O(n)$。</li></ul>
+<p><strong>思路：</strong>看到“两个数凑目标且要返回下标”，优先边遍历边查询哈希表。哈希表始终只保存当前元素之前的值到下标；先查 target\-x，再存当前值，命中即返回。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>必须先查后存，避免同一元素复用</li><li>重复值应保留可形成答案的历史下标</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def twoSum(self, nums: List[int], target: int) -&gt; List[int]:
+        seen = {}
+        for i, value in enumerate(nums):
+            complement = target - value
+            if complement in seen:
+                return [seen[complement], i]
+            seen[value] = i
+        return []</code></pre>
+<h4 id="49-字母异位词分组思路详解与标准代码">49\. 字母异位词分组｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>49\. 字母异位词分组</strong>：用排序串或 26 维计数元组作 key；相同 key 入同组。</li></ul>
+<p><strong>思路：</strong>看到“按字母组成分组”，应构造与排列无关的规范键。将每个字符串排序后的结果作为键，把原串追加到同一列表。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>键必须可哈希</li><li>空字符串也应正确归组</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n·k log k\)，额外空间 O\(nk\)，k 为字符串最大长度</p>
+<pre><code class="language-python">from typing import List, Optional
+from collections import Counter, defaultdict, deque
+from bisect import bisect_left
+from math import inf, sqrt
+from itertools import pairwise
+from functools import cache, reduce
+from operator import xor
+import heapq
+
+class Solution:
+    def groupAnagrams(self, strs: List[str]) -&gt; List[List[str]]:
+        d = defaultdict(list)
+        for s in strs:
+            k = &#x27;&#x27;.join(sorted(s))
+            d[k].append(s)
+        return list(d.values())</code></pre>
+<h4 id="128-最长连续序列思路详解与标准代码">128\. 最长连续序列｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>128\. 最长连续序列</strong>：放入集合，只从 <code>x-1</code> 不存在的序列起点向右数；别从每个数重复扩展。$O(n)$ 期望。</li></ul>
+<p><strong>思路：</strong>看到“无序数组中的连续整数长度”，用集合获得常数期望查询。只从 x\-1 不在集合的序列起点向右扩展，保证每个数至多被有效扫描一次。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>先去重</li><li>只从序列起点扩展</li><li>空数组返回 0</li></ul>
+<p><strong>复杂度：</strong>期望时间 O\(n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from typing import List, Optional
+from collections import Counter, defaultdict, deque
+from bisect import bisect_left
+from math import inf, sqrt
+from itertools import pairwise
+from functools import cache, reduce
+from operator import xor
+import heapq
+
+class Solution:
+    def longestConsecutive(self, nums: List[int]) -&gt; int:
+        s = set(nums)
+        ans = 0
+        d = defaultdict(int)
+        for x in nums:
+            y = x
+            while y in s:
+                s.remove(y)
+                y += 1
+            d[x] = d[y] + y - x
+            ans = max(ans, d[x])
+        return ans</code></pre>
+<h3 id="二双指针4">二、双指针（4）</h3>
+<h4 id="283-移动零思路详解与标准代码">283\. 移动零｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>283\. 移动零</strong>：<code>slow</code> 指向下一个非零落点，<code>fast</code> 扫描并交换；保持相对顺序。</li></ul>
+<p><strong>思路：</strong>看到“原地移动且保持非零相对顺序”，使用快慢指针稳定压缩。fast 扫描非零元素，slow 指向下一个落点，交换后推进 slow。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>必须原地修改</li><li>保持非零元素相对顺序</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List, Optional
+from collections import Counter, defaultdict, deque
+from bisect import bisect_left
+from math import inf, sqrt
+from itertools import pairwise
+from functools import cache, reduce
+from operator import xor
+import heapq
+
+class Solution:
+    def moveZeroes(self, nums: List[int]) -&gt; None:
+        k = 0
+        for i, x in enumerate(nums):
+            if x:
+                nums[k], nums[i] = nums[i], nums[k]
+                k += 1</code></pre>
+<h4 id="11-盛最多水的容器思路详解与标准代码">11\. 盛最多水的容器｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>11\. 盛最多水的容器</strong>：面积由短板决定；计算后移动短板，移动长板不可能变优。</li></ul>
+<p><strong>思路：</strong>看到面积由两端距离和短板决定，从最宽区间开始双指针收缩。每轮更新面积后只移动较短的一端，因为移动长板无法突破当前短板上限。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>先计算再移动</li><li>相等时移动任一端都正确</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def maxArea(self, height: List[int]) -&gt; int:
+        l, r = 0, len(height) - 1
+        ans = 0
+        while l &lt; r:
+            t = min(height[l], height[r]) * (r - l)
+            ans = max(ans, t)
+            if height[l] &lt; height[r]:
+                l += 1
+            else:
+                r -= 1
+        return ans</code></pre>
+<h4 id="15-三数之和思路详解与标准代码">15\. 三数之和｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>15\. 三数之和</strong>：排序；固定 <code>i</code>，左右夹逼；<code>i/l/r</code> 都要去重，和大右移、和小左移。</li></ul>
+<p><strong>思路：</strong>看到三元组求和且答案需去重，先排序再固定一个数做双指针。固定值、左值和右值都按层去重，并依据当前和移动边界。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>外层和内层都要去重</li><li>排序后 nums\[i\]\&gt;0 可提前结束</li><li>返回值不能含重复三元组</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n²\)，除结果外额外空间 O\(log n\)（排序栈）</p>
+<pre><code class="language-python">from typing import List, Optional
+from collections import Counter, defaultdict, deque
+from bisect import bisect_left
+from math import inf, sqrt
+from itertools import pairwise
+from functools import cache, reduce
+from operator import xor
+import heapq
+
+class Solution:
+    def threeSum(self, nums: List[int]) -&gt; List[List[int]]:
+        nums.sort()
+        n = len(nums)
+        ans = []
+        for i in range(n - 2):
+            if nums[i] &gt; 0:
+                break
+            if i and nums[i] == nums[i - 1]:
+                continue
+            j, k = i + 1, n - 1
+            while j &lt; k:
+                x = nums[i] + nums[j] + nums[k]
+                if x &lt; 0:
+                    j += 1
+                elif x &gt; 0:
+                    k -= 1
+                else:
+                    ans.append([nums[i], nums[j], nums[k]])
+                    j, k = j + 1, k - 1
+                    while j &lt; k and nums[j] == nums[j - 1]:
+                        j += 1
+                    while j &lt; k and nums[k] == nums[k + 1]:
+                        k -= 1
+        return ans</code></pre>
+<h4 id="42-接雨水思路详解与标准代码">42\. 接雨水｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>42\. 接雨水</strong>：左右最大值双指针；较小一侧的上界已确定，累加 <code>边界-当前高度</code>。</li></ul>
+<p><strong>思路：</strong>看到每列积水取决于左右最高柱，使用双指针维护 left\_max 与 right\_max。当左侧上界较小时左列水量已经确定，否则处理右列，随后向内收缩。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>先更新对应侧最大值再计算水量</li><li>空数组和短数组自然返回 0</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def trap(self, height: List[int]) -&gt; int:
+        left, right = 0, len(height) - 1
+        left_max = right_max = 0
+        water = 0
+        while left &lt;= right:
+            if left_max &lt;= right_max:
+                left_max = max(left_max, height[left])
+                water += left_max - height[left]
+                left += 1
+            else:
+                right_max = max(right_max, height[right])
+                water += right_max - height[right]
+                right -= 1
+        return water</code></pre>
+<h3 id="三滑动窗口2">三、滑动窗口（2）</h3>
+<h4 id="3-无重复字符的最长子串思路详解与标准代码">3\. 无重复字符的最长子串｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>3\. 无重复字符的最长子串</strong>：右扩，重复时左缩；或记录字符最后位置并令 <code>left=max(left,last+1)</code>。</li></ul>
+<p><strong>思路：</strong>看到“最长且窗口内无重复”，用字符最后出现位置维护可行窗口。右端扫描字符，left 只能向右跳到 last\[ch\]\+1，窗口始终无重复。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>left 必须取 max，不能回退</li><li>答案用 right\-left\+1</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(min\(n, 字符集大小\)\)</p>
+<pre><code class="language-python">from typing import List, Optional
+from collections import Counter, defaultdict, deque
+from bisect import bisect_left
+from math import inf, sqrt
+from itertools import pairwise
+from functools import cache, reduce
+from operator import xor
+import heapq
+
+class Solution:
+    def lengthOfLongestSubstring(self, s: str) -&gt; int:
+        cnt = Counter()
+        ans = l = 0
+        for r, c in enumerate(s):
+            cnt[c] += 1
+            while cnt[c] &gt; 1:
+                cnt[s[l]] -= 1
+                l += 1
+            ans = max(ans, r - l + 1)
+        return ans</code></pre>
+<h4 id="438-找到字符串中所有字母异位词思路详解与标准代码">438\. 找到字符串中所有字母异位词｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>438\. 找到字符串中所有字母异位词</strong>：固定长度窗口维护 26 计数/差值；窗口长度等于 <code>p</code> 时判相等。</li></ul>
+<p><strong>思路：</strong>看到“固定模式串的所有排列起点”，使用长度固定为 len\(p\) 的滑动窗口。右侧加入、超长时移出左侧，窗口计数与目标计数一致就记录起点。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>p 比 s 长时返回空</li><li>记录的是窗口左端下标</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(字符集大小\)</p>
+<pre><code class="language-python">from typing import List
+from collections import Counter
+
+class Solution:
+    def findAnagrams(self, s: str, p: str) -&gt; List[int]:
+        m, n = len(s), len(p)
+        ans = []
+        if m &lt; n:
+            return ans
+        cnt1 = Counter(p)
+        cnt2 = Counter(s[: n - 1])
+        for i in range(n - 1, m):
+            cnt2[s[i]] += 1
+            if cnt1 == cnt2:
+                ans.append(i - n + 1)
+            cnt2[s[i - n + 1]] -= 1
+        return ans</code></pre>
+<h3 id="四子串3">四、子串（3）</h3>
+<h4 id="560-和为-k-的子数组思路详解与标准代码">560\. 和为 K 的子数组｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>560\. 和为 K 的子数组</strong>：前缀和；此前每个 <code>pre-k</code> 都形成一个答案，故哈希存“次数”而非位置。</li></ul>
+<p><strong>思路：</strong>看到“连续子数组和等于 k”且元素可为负数，使用前缀和频次哈希。扫描到前缀和 pre 时，所有历史 pre\-k 都能形成答案，再把 pre 计数加入哈希。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>初始化 count\[0\]=1</li><li>哈希存频次而非单个位置</li><li>先统计答案再加入当前前缀和</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from typing import List
+from collections import defaultdict
+
+class Solution:
+    def subarraySum(self, nums: List[int], k: int) -&gt; int:
+        count = defaultdict(int)
+        count[0] = 1
+        prefix = 0
+        answer = 0
+        for value in nums:
+            prefix += value
+            answer += count[prefix - k]
+            count[prefix] += 1
+        return answer</code></pre>
+<h4 id="239-滑动窗口最大值思路详解与标准代码">239\. 滑动窗口最大值｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>239\. 滑动窗口最大值</strong>：递减双端队列存下标；队首过期弹，队尾不大于新值弹。</li></ul>
+<p><strong>思路：</strong>看到固定窗口反复求最大值，用存下标的单调递减双端队列。每个右端到来时先移除过期队首，再弹出不大于新值的队尾，窗口形成后读取队首。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>队列必须存下标以判断过期</li><li>相等值可弹旧留新</li><li>仅在 i\&gt;=k\-1 时输出</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(k\)</p>
+<pre><code class="language-python">from typing import List
+from collections import deque
+
+class Solution:
+    def maxSlidingWindow(self, nums: List[int], k: int) -&gt; List[int]:
+        queue = deque()
+        answer = []
+        for i, value in enumerate(nums):
+            while queue and queue[0] &lt;= i - k:
+                queue.popleft()
+            while queue and nums[queue[-1]] &lt;= value:
+                queue.pop()
+            queue.append(i)
+            if i &gt;= k - 1:
+                answer.append(nums[queue[0]])
+        return answer</code></pre>
+<h4 id="76-最小覆盖子串思路详解与标准代码">76\. 最小覆盖子串｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>76\. 最小覆盖子串</strong>：计数窗口；满足全部种类后不断缩左并更新最短，缩坏后再扩右。</li></ul>
+<p><strong>思路：</strong>看到“包含目标全部字符且允许重复”的最短子串，使用可变滑动窗口和需求计数。右端扩张使缺失总数归零后，左端尽量收缩并更新最短答案；移出必需字符后恢复扩张。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>按字符总数而非字符种类判断满足</li><li>更新答案必须在缩坏之前</li><li>无解返回空串</li></ul>
+<p><strong>复杂度：</strong>时间 O\(len\(s\)\+len\(t\)\)，额外空间 O\(字符集大小\)</p>
+<pre><code class="language-python">from collections import Counter
+
+class Solution:
+    def minWindow(self, s: str, t: str) -&gt; str:
+        if not t or not s:
+            return &quot;&quot;
+        need = Counter(t)
+        missing = len(t)
+        left = 0
+        best_start, best_len = 0, float(&#x27;inf&#x27;)
+        for right, ch in enumerate(s):
+            if need[ch] &gt; 0:
+                missing -= 1
+            need[ch] -= 1
+            while missing == 0:
+                window_len = right - left + 1
+                if window_len &lt; best_len:
+                    best_start, best_len = left, window_len
+                left_ch = s[left]
+                need[left_ch] += 1
+                if need[left_ch] &gt; 0:
+                    missing += 1
+                left += 1
+        if best_len == float(&#x27;inf&#x27;):
+            return &quot;&quot;
+        return s[best_start:best_start + best_len]</code></pre>
+<h3 id="五普通数组5">五、普通数组（5）</h3>
+<h4 id="53-最大子数组和思路详解与标准代码">53\. 最大子数组和｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>53\. 最大子数组和</strong>：<code>cur=max(x,cur+x)</code>，<code>ans=max(ans,cur)</code>；负贡献就从当前重启。</li></ul>
+<p><strong>思路：</strong>看到连续子数组最大和，使用 Kadane 状态。cur 表示必须以当前位置结尾的最大和，取“单独开始”与“接在前面”较大者，并同步更新全局答案。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>答案不能初始化为 0，否则全负数组错误</li><li>空输入不在题目约束内</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def maxSubArray(self, nums: List[int]) -&gt; int:
+        ans = f = nums[0]
+        for x in nums[1:]:
+            f = max(f, 0) + x
+            ans = max(ans, f)
+        return ans</code></pre>
+<h4 id="56-合并区间思路详解与标准代码">56\. 合并区间｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>56\. 合并区间</strong>：按左端点排序；新区间左端点 <code>&gt; 当前右端点</code> 才断开，否则扩右端点。</li></ul>
+<p><strong>思路：</strong>看到重叠区间合并，先按左端点排序。结果末区间与新区间不相交时追加，否则只扩展末区间右端点。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>端点相接属于重叠</li><li>右端点取 max，不能直接覆盖</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n log n\)，额外空间 O\(n\)（含输出）</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def merge(self, intervals: List[List[int]]) -&gt; List[List[int]]:
+        intervals.sort()
+        ans = []
+        st, ed = intervals[0]
+        for s, e in intervals[1:]:
+            if ed &lt; s:
+                ans.append([st, ed])
+                st, ed = s, e
+            else:
+                ed = max(ed, e)
+        ans.append([st, ed])
+        return ans</code></pre>
+<h4 id="189-轮转数组思路详解与标准代码">189\. 轮转数组｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>189\. 轮转数组</strong>：<code>k%=n</code>；整体反转，再反转前 <code>k</code> 与后 <code>n-k</code>。</li></ul>
+<p><strong>思路：</strong>看到原地右轮转，利用三次反转把后 k 个元素搬到前面。先令 k 对 n 取模，再整体反转并分别反转前后两段。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>必须先 k%=n</li><li>题目保证 n\&gt;0</li><li>原地修改无返回值</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def rotate(self, nums: List[int], k: int) -&gt; None:
+        def reverse(i: int, j: int):
+            while i &lt; j:
+                nums[i], nums[j] = nums[j], nums[i]
+                i, j = i + 1, j - 1
+
+        n = len(nums)
+        k %= n
+        reverse(0, n - 1)
+        reverse(0, k - 1)
+        reverse(k, n - 1)</code></pre>
+<h4 id="238-除自身以外数组的乘积思路详解与标准代码">238\. 除自身以外数组的乘积｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>238\. 除自身以外数组的乘积</strong>：答案先存左乘积，再用一个变量从右累乘；不用除法，$O(1)$ 额外空间。</li></ul>
+<p><strong>思路：</strong>看到不能除法且要求线性时间，用前后缀乘积。答案先写入每个位置左侧乘积，再从右向左用一个变量乘上右侧乘积。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>正确处理一个或多个 0</li><li>额外空间不计输出数组</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，除输出外额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def productExceptSelf(self, nums: List[int]) -&gt; List[int]:
+        n = len(nums)
+        ans = [0] * n
+        left = right = 1
+        for i, x in enumerate(nums):
+            ans[i] = left
+            left *= x
+        for i in range(n - 1, -1, -1):
+            ans[i] *= right
+            right *= nums[i]
+        return ans</code></pre>
+<h4 id="41-缺失的第一个正数思路详解与标准代码">41\. 缺失的第一个正数｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>41\. 缺失的第一个正数</strong>：原地把 <code>x∈[1,n]</code> 放到 <code>nums[x-1]</code>；最后首个错位下标 <code>i</code> 答 <code>i+1</code>。</li></ul>
+<p><strong>思路：</strong>看到“最小缺失正数、线性时间、常数空间”，把数组当作下标哈希。通过循环交换把值 x 放到 nums\[x\-1\]；最后第一个 nums\[i\]\!=i\+1 的位置就是答案。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>只处理 1\&lt;=x\&lt;=n</li><li>交换前判断目标位置值不同以防死循环</li><li>重复值和负数不能作为下标</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def firstMissingPositive(self, nums: List[int]) -&gt; int:
+        n = len(nums)
+        for i in range(n):
+            while 1 &lt;= nums[i] &lt;= n and nums[nums[i] - 1] != nums[i]:
+                target = nums[i] - 1
+                nums[i], nums[target] = nums[target], nums[i]
+        for i, value in enumerate(nums):
+            if value != i + 1:
+                return i + 1
+        return n + 1</code></pre>
+<h3 id="六矩阵4">六、矩阵（4）</h3>
+<h4 id="73-矩阵置零思路详解与标准代码">73\. 矩阵置零｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>73\. 矩阵置零</strong>：首行首列充当标记，另存首列是否应清零；先标记、再清内部、最后清边界。</li></ul>
+<p><strong>思路：</strong>看到原地把含零行列清零，用首行首列保存标记。先单独记录首列是否含零，再标记内部，按标记清内部，最后处理首行首列。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>标记阶段不能提前清零</li><li>首行和首列状态要分开保存</li></ul>
+<p><strong>复杂度：</strong>时间 O\(mn\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def setZeroes(self, matrix: List[List[int]]) -&gt; None:
+        if not matrix or not matrix[0]:
+            return
+        rows, cols = len(matrix), len(matrix[0])
+        first_col_zero = any(matrix[row][0] == 0 for row in range(rows))
+        for row in range(rows):
+            for col in range(1, cols):
+                if matrix[row][col] == 0:
+                    matrix[row][0] = 0
+                    matrix[0][col] = 0
+        for row in range(1, rows):
+            for col in range(1, cols):
+                if matrix[row][0] == 0 or matrix[0][col] == 0:
+                    matrix[row][col] = 0
+        if matrix[0][0] == 0:
+            for col in range(cols):
+                matrix[0][col] = 0
+        if first_col_zero:
+            for row in range(rows):
+                matrix[row][0] = 0</code></pre>
+<h4 id="54-螺旋矩阵思路详解与标准代码">54\. 螺旋矩阵｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>54\. 螺旋矩阵</strong>：维护 <code>top/bottom/left/right</code>；走完一边就收缩，后两边前检查边界。</li></ul>
+<p><strong>思路：</strong>看到按圈遍历矩阵，维护 top、bottom、left、right 四条边界。每走完一条边就收缩，遍历下边和左边前再次确认边界仍有效。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>单行或单列不能重复访问</li><li>后两条边必须检查边界</li></ul>
+<p><strong>复杂度：</strong>时间 O\(mn\)，额外空间 O\(1\)（不计输出）</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def spiralOrder(self, matrix: List[List[int]]) -&gt; List[int]:
+        if not matrix or not matrix[0]:
+            return []
+        top, bottom = 0, len(matrix) - 1
+        left, right = 0, len(matrix[0]) - 1
+        answer = []
+        while top &lt;= bottom and left &lt;= right:
+            for col in range(left, right + 1):
+                answer.append(matrix[top][col])
+            top += 1
+            for row in range(top, bottom + 1):
+                answer.append(matrix[row][right])
+            right -= 1
+            if top &lt;= bottom:
+                for col in range(right, left - 1, -1):
+                    answer.append(matrix[bottom][col])
+                bottom -= 1
+            if left &lt;= right:
+                for row in range(bottom, top - 1, -1):
+                    answer.append(matrix[row][left])
+                left += 1
+        return answer</code></pre>
+<h4 id="48-旋转图像思路详解与标准代码">48\. 旋转图像｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>48\. 旋转图像</strong>：先沿主对角线转置，再逐行反转（顺时针 90°）。</li></ul>
+<p><strong>思路：</strong>看到方阵原地顺时针旋转 90°，可分解为主对角线转置后逐行反转。两个操作都在原矩阵上执行。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>仅适用于方阵</li><li>方法原地修改且不返回矩阵</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n²\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def rotate(self, matrix: List[List[int]]) -&gt; None:
+        n = len(matrix)
+        for i in range(n):
+            for j in range(i + 1, n):
+                matrix[i][j], matrix[j][i] = matrix[j][i], matrix[i][j]
+        for row in matrix:
+            row.reverse()</code></pre>
+<h4 id="240-搜索二维矩阵-ii思路详解与标准代码">240\. 搜索二维矩阵 II｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>240\. 搜索二维矩阵 II</strong>：从右上角走；目标小则左，目标大则下，每步排除一行/列。</li></ul>
+<p><strong>思路：</strong>看到每行每列递增，从右上角开始阶梯搜索。当前值过大就左移、过小就下移，每步排除一整行或列。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>空矩阵返回 False</li><li>不要误用第 74 题的一维整体有序条件</li></ul>
+<p><strong>复杂度：</strong>时间 O\(m\+n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def searchMatrix(self, matrix: List[List[int]], target: int) -&gt; bool:
+        if not matrix or not matrix[0]:
+            return False
+        row, col = 0, len(matrix[0]) - 1
+        while row &lt; len(matrix) and col &gt;= 0:
+            value = matrix[row][col]
+            if value == target:
+                return True
+            if value &gt; target:
+                col -= 1
+            else:
+                row += 1
+        return False</code></pre>
+<h3 id="七链表14">七、链表（14）</h3>
+<h4 id="160-相交链表思路详解与标准代码">160\. 相交链表｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>160\. 相交链表</strong>：<code>a</code> 到尾转 <code>headB</code>，<code>b</code> 到尾转 <code>headA</code>；走过相同总路程后相遇。</li></ul>
+<p><strong>思路：</strong>看到两个单链表找引用相同的交点，用双指针消除长度差。a 走完 A 后转 B，b 走完 B 后转 A，最终在交点或 None 相遇。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>比较节点身份而非节点值</li><li>无交点时二者会同时为 None</li></ul>
+<p><strong>复杂度：</strong>时间 O\(m\+n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python"># Definition for singly-linked list.
+# class ListNode:
+#     def __init__(self, x):
+#         self.val = x
+#         self.next = None
+
+
+class Solution:
+    def getIntersectionNode(self, headA: ListNode, headB: ListNode) -&gt; ListNode:
+        a, b = headA, headB
+        while a != b:
+            a = a.next if a else headB
+            b = b.next if b else headA
+        return a</code></pre>
+<h4 id="206-反转链表思路详解与标准代码">206\. 反转链表｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>206\. 反转链表</strong>：保存 <code>next</code>，改 <code>cur.next=prev</code>，整体前进；三个指针必须能默写。</li></ul>
+<p><strong>思路：</strong>看到单链表原地反转，维护 prev、cur、next 三个指针。先保存后继，再反向当前指针，最后整体前进。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>必须先保存 next</li><li>返回新的头 prev</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python"># Definition for singly-linked list.
+# class ListNode:
+#     def __init__(self, val=0, next=None):
+#         self.val = val
+#         self.next = next
+class Solution:
+    def reverseList(self, head: ListNode) -&gt; ListNode:
+        dummy = ListNode()
+        curr = head
+        while curr:
+            next = curr.next
+            curr.next = dummy.next
+            dummy.next = curr
+            curr = next
+        return dummy.next</code></pre>
+<h4 id="234-回文链表思路详解与标准代码">234\. 回文链表｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>234\. 回文链表</strong>：快慢找中点，反转后半段，再逐个比较；若要求无副作用则恢复。</li></ul>
+<p><strong>思路：</strong>看到链表回文且要求常数空间，快慢指针找中点并反转后半段。逐节点比较前半段与反转后的后半段；实现可在结束后恢复链表。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>奇数长度跳过中点也可直接反转 slow 后比较</li><li>比较节点值</li><li>注意空链表</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for singly-linked list.
+# class ListNode:
+#     def __init__(self, val=0, next=None):
+#         self.val = val
+#         self.next = next
+class Solution:
+    def isPalindrome(self, head: Optional[ListNode]) -&gt; bool:
+        slow, fast = head, head.next
+        while fast and fast.next:
+            slow, fast = slow.next, fast.next.next
+        pre, cur = None, slow.next
+        while cur:
+            t = cur.next
+            cur.next = pre
+            pre, cur = cur, t
+        while pre:
+            if pre.val != head.val:
+                return False
+            pre, head = pre.next, head.next
+        return True</code></pre>
+<h4 id="141-环形链表思路详解与标准代码">141\. 环形链表｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>141\. 环形链表</strong>：快慢指针；快指针追上慢指针即有环。</li></ul>
+<p><strong>思路：</strong>看到判断链表是否有环，使用 Floyd 快慢指针。slow 每次一步、fast 每次两步，相遇则有环，fast 到尾则无环。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>循环条件要检查 fast 和 fast\.next</li><li>比较节点身份</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for singly-linked list.
+# class ListNode:
+#     def __init__(self, x):
+#         self.val = x
+#         self.next = None
+
+
+class Solution:
+    def hasCycle(self, head: Optional[ListNode]) -&gt; bool:
+        s = set()
+        while head:
+            if head in s:
+                return True
+            s.add(head)
+            head = head.next
+        return False</code></pre>
+<h4 id="142-环形链表-ii思路详解与标准代码">142\. 环形链表 II｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>142\. 环形链表 II</strong>：快慢相遇后，头指针与相遇指针同速走，相遇点即入口。</li></ul>
+<p><strong>思路：</strong>看到要返回环入口，先用快慢指针确认相遇。相遇后一个指针回到头部，两者同速前进，再次相遇处即入口。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>无环返回 None</li><li>第二阶段两个指针都每次走一步</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for singly-linked list.
+# class ListNode:
+#     def __init__(self, x):
+#         self.val = x
+#         self.next = None
+
+
+class Solution:
+    def detectCycle(self, head: Optional[ListNode]) -&gt; Optional[ListNode]:
+        fast = slow = head
+        while fast and fast.next:
+            slow = slow.next
+            fast = fast.next.next
+            if slow == fast:
+                ans = head
+                while ans != slow:
+                    ans = ans.next
+                    slow = slow.next
+                return ans</code></pre>
+<h4 id="21-合并两个有序链表思路详解与标准代码">21\. 合并两个有序链表｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>21\. 合并两个有序链表</strong>：虚拟头 \+ 尾指针，每次接较小节点，最后接剩余部分。</li></ul>
+<p><strong>思路：</strong>看到两个有序链表合并，用虚拟头和尾指针逐个接入较小节点。任一链表耗尽后直接接上另一条剩余链。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>最后要接剩余部分</li><li>返回 dummy\.next</li></ul>
+<p><strong>复杂度：</strong>时间 O\(m\+n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for singly-linked list.
+# class ListNode:
+#     def __init__(self, val=0, next=None):
+#         self.val = val
+#         self.next = next
+class Solution:
+    def mergeTwoLists(
+        self, list1: Optional[ListNode], list2: Optional[ListNode]
+    ) -&gt; Optional[ListNode]:
+        if list1 is None or list2 is None:
+            return list1 or list2
+        if list1.val &lt;= list2.val:
+            list1.next = self.mergeTwoLists(list1.next, list2)
+            return list1
+        else:
+            list2.next = self.mergeTwoLists(list1, list2.next)
+            return list2</code></pre>
+<h4 id="2-两数相加思路详解与标准代码">2\. 两数相加｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>2\. 两数相加</strong>：同步遍历两链表和进位；循环条件包含 <code>carry</code>。</li></ul>
+<p><strong>思路：</strong>看到逆序数字链表相加，按位同步遍历并维护进位。每轮把两个当前值和 carry 相加，生成个位节点并更新进位，直到链表和进位都为空。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>循环条件必须包含 carry</li><li>长短链表缺位按 0</li><li>返回虚拟头之后的链表</li></ul>
+<p><strong>复杂度：</strong>时间 O\(max\(m,n\)\)，额外空间 O\(max\(m,n\)\)（结果链表）</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for singly-linked list.
+# class ListNode:
+#     def __init__(self, val=0, next=None):
+#         self.val = val
+#         self.next = next
+class Solution:
+    def addTwoNumbers(
+        self, l1: Optional[ListNode], l2: Optional[ListNode]
+    ) -&gt; Optional[ListNode]:
+        dummy = ListNode()
+        carry, curr = 0, dummy
+        while l1 or l2 or carry:
+            s = (l1.val if l1 else 0) + (l2.val if l2 else 0) + carry
+            carry, val = divmod(s, 10)
+            curr.next = ListNode(val)
+            curr = curr.next
+            l1 = l1.next if l1 else None
+            l2 = l2.next if l2 else None
+        return dummy.next</code></pre>
+<h4 id="19-删除倒数第-n-个结点思路详解与标准代码">19\. 删除倒数第 N 个结点｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>19\. 删除倒数第 N 个结点</strong>：虚拟头；<code>fast</code> 先走 <code>n</code>，再同步，<code>slow</code> 停在待删节点前。</li></ul>
+<p><strong>思路：</strong>看到删除倒数第 n 个节点，用虚拟头规避删除头节点特判。fast 先从虚拟头走 n\+1 步，再与 slow 同步，slow 最终停在待删节点前。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>虚拟头统一处理删除头节点</li><li>快慢间距需保证 slow 停在前驱</li></ul>
+<p><strong>复杂度：</strong>时间 O\(L\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for singly-linked list.
+# class ListNode:
+#     def __init__(self, val=0, next=None):
+#         self.val = val
+#         self.next = next
+class Solution:
+    def removeNthFromEnd(self, head: Optional[ListNode], n: int) -&gt; Optional[ListNode]:
+        dummy = ListNode(next=head)
+        fast = slow = dummy
+        for _ in range(n):
+            fast = fast.next
+        while fast.next:
+            slow, fast = slow.next, fast.next
+        slow.next = slow.next.next
+        return dummy.next</code></pre>
+<h4 id="24-两两交换链表节点思路详解与标准代码">24\. 两两交换链表节点｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>24\. 两两交换链表节点</strong>：虚拟头；每轮保存 <code>a,b,next</code>，重连 <code>prev→b→a→next</code>。</li></ul>
+<p><strong>思路：</strong>看到按相邻两节点原地交换，用虚拟头保存每组前驱。每轮取 a、b 与下一组头，重连 prev→b→a→next，再把 prev 移到 a。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>交换的是节点而非值</li><li>奇数个节点末尾保持不变</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for singly-linked list.
+# class ListNode:
+#     def __init__(self, val=0, next=None):
+#         self.val = val
+#         self.next = next
+class Solution:
+    def swapPairs(self, head: Optional[ListNode]) -&gt; Optional[ListNode]:
+        if head is None or head.next is None:
+            return head
+        t = self.swapPairs(head.next.next)
+        p = head.next
+        p.next = head
+        head.next = t
+        return p</code></pre>
+<h4 id="25-k-个一组翻转链表思路详解与标准代码">25\. K 个一组翻转链表｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>25\. K 个一组翻转链表</strong>：先找第 <code>k</code> 个节点，不足则结束；保存组后节点，反转 <code>[groupPrev.next, groupNext)</code>。</li></ul>
+<p><strong>思路：</strong>看到固定 k 个节点分组反转，先从 group\_prev 探测第 k 个节点，避免不足一组时误改。保存 group\_next 后反转半开区间 \[group\_prev\.next, group\_next\)，再把旧组头作为下一组前驱。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>不足 k 个必须原样保留</li><li>反转时 prev 初值应为 group\_next</li><li>每组结束后正确更新 group\_prev</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import Optional
+
+class Solution:
+    def reverseKGroup(self, head: Optional[ListNode], k: int) -&gt; Optional[ListNode]:
+        dummy = ListNode(0, head)
+        group_prev = dummy
+        while True:
+            kth = group_prev
+            for _ in range(k):
+                kth = kth.next
+                if kth is None:
+                    return dummy.next
+            group_next = kth.next
+            prev, cur = group_next, group_prev.next
+            while cur is not group_next:
+                nxt = cur.next
+                cur.next = prev
+                prev = cur
+                cur = nxt
+            old_group_head = group_prev.next
+            group_prev.next = kth
+            group_prev = old_group_head</code></pre>
+<h4 id="138-随机链表的复制思路详解与标准代码">138\. 随机链表的复制｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>138\. 随机链表的复制</strong>：哈希 <code>old→new</code> 两遍连边；进阶是复制节点穿插原链表再拆分。</li></ul>
+<p><strong>思路：</strong>看到节点含 next 和 random 两种引用，需要保持图结构映射。第一遍为每个旧节点创建新节点，第二遍通过 old→new 哈希连接 next 与 random。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>None 映射要安全处理</li><li>random 可能指向自身或任意节点</li><li>不能复用原节点</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from typing import Optional
+
+class Solution:
+    def copyRandomList(self, head: Optional[Node]) -&gt; Optional[Node]:
+        if head is None:
+            return None
+        copies = {None: None}
+        cur = head
+        while cur is not None:
+            copies[cur] = Node(cur.val)
+            cur = cur.next
+        cur = head
+        while cur is not None:
+            copies[cur].next = copies[cur.next]
+            copies[cur].random = copies[cur.random]
+            cur = cur.next
+        return copies[head]</code></pre>
+<h4 id="148-排序链表思路详解与标准代码">148\. 排序链表｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>148\. 排序链表</strong>：快慢切半 \+ 归并排序；注意切断 <code>slow.next=None</code>。$O(n\log n)$。</li></ul>
+<p><strong>思路：</strong>看到链表排序且要求 O\(n log n\)，使用归并排序。快慢指针切成两半并断链，递归排序后用虚拟头合并两条有序链表。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>切分后必须断开 slow\.next</li><li>递归基线是空或单节点</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n log n\)，递归栈额外空间 O\(log n\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for singly-linked list.
+# class ListNode:
+#     def __init__(self, val=0, next=None):
+#         self.val = val
+#         self.next = next
+class Solution:
+    def sortList(self, head: Optional[ListNode]) -&gt; Optional[ListNode]:
+        if head is None or head.next is None:
+            return head
+        slow, fast = head, head.next
+        while fast and fast.next:
+            slow = slow.next
+            fast = fast.next.next
+        l1, l2 = head, slow.next
+        slow.next = None
+        l1, l2 = self.sortList(l1), self.sortList(l2)
+        dummy = ListNode()
+        tail = dummy
+        while l1 and l2:
+            if l1.val &lt;= l2.val:
+                tail.next = l1
+                l1 = l1.next
+            else:
+                tail.next = l2
+                l2 = l2.next
+            tail = tail.next
+        tail.next = l1 or l2
+        return dummy.next</code></pre>
+<h4 id="23-合并-k-个升序链表思路详解与标准代码">23\. 合并 K 个升序链表｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>23\. 合并 K 个升序链表</strong>：最小堆存 <code>(值,序号,节点)</code> 或两两归并；每弹一个就推其后继。</li></ul>
+<p><strong>思路：</strong>看到 k 条有序链表合并，用最小堆维护每条链当前头。堆元素加入唯一序号避免节点值相等时比较 ListNode；每弹出一个节点就推入它的后继。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>堆元组必须有可比较的唯一序号</li><li>空链表不要入堆</li><li>弹出节点后推进其后继</li></ul>
+<p><strong>复杂度：</strong>时间 O\(N log k\)，额外空间 O\(k\)</p>
+<pre><code class="language-python">from typing import List, Optional
+import heapq
+
+class Solution:
+    def mergeKLists(self, lists: List[Optional[ListNode]]) -&gt; Optional[ListNode]:
+        heap = []
+        sequence = 0
+        for node in lists:
+            if node is not None:
+                heapq.heappush(heap, (node.val, sequence, node))
+                sequence += 1
+        dummy = ListNode(0)
+        tail = dummy
+        while heap:
+            _, _, node = heapq.heappop(heap)
+            tail.next = node
+            tail = node
+            if node.next is not None:
+                heapq.heappush(heap, (node.next.val, sequence, node.next))
+                sequence += 1
+        return dummy.next</code></pre>
+<h4 id="146-lru-缓存思路详解与标准代码">146\. LRU 缓存｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>146\. LRU 缓存</strong>：哈希定位 \+ 双向链表维护新旧；访问移到头，超容量删尾；所有操作 $O(1)$。</li></ul>
+<p><strong>思路：</strong>看到 get/put 都要求 O\(1\) 且要淘汰最久未使用项，组合哈希表与双向链表。哈希定位节点，链表头侧表示最新、尾侧表示最旧；访问或更新移到头，超容量删除尾节点。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>get 命中也必须更新新旧顺序</li><li>put 已存在键不能增加 size</li><li>淘汰时同时删除哈希映射</li></ul>
+<p><strong>复杂度：</strong>每次 get/put 时间 O\(1\)，额外空间 O\(capacity\)</p>
+<pre><code class="language-python">class Node:
+    def __init__(self, key: int = 0, value: int = 0):
+        self.key = key
+        self.value = value
+        self.prev = None
+        self.next = None
+
+class LRUCache:
+    def __init__(self, capacity: int):
+        self.capacity = capacity
+        self.cache = {}
+        self.head = Node()
+        self.tail = Node()
+        self.head.next = self.tail
+        self.tail.prev = self.head
+
+    def _remove(self, node: Node) -&gt; None:
+        node.prev.next = node.next
+        node.next.prev = node.prev
+
+    def _add_first(self, node: Node) -&gt; None:
+        node.next = self.head.next
+        node.prev = self.head
+        self.head.next.prev = node
+        self.head.next = node
+
+    def get(self, key: int) -&gt; int:
+        if key not in self.cache:
+            return -1
+        node = self.cache[key]
+        self._remove(node)
+        self._add_first(node)
+        return node.value
+
+    def put(self, key: int, value: int) -&gt; None:
+        if key in self.cache:
+            node = self.cache[key]
+            node.value = value
+            self._remove(node)
+            self._add_first(node)
+            return
+        node = Node(key, value)
+        self.cache[key] = node
+        self._add_first(node)
+        if len(self.cache) &gt; self.capacity:
+            oldest = self.tail.prev
+            self._remove(oldest)
+            del self.cache[oldest.key]</code></pre>
+<h3 id="八二叉树15">八、二叉树（15）</h3>
+<h4 id="94-二叉树的中序遍历思路详解与标准代码">94\. 二叉树的中序遍历｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>94\. 二叉树的中序遍历</strong>：迭代时一路压左；弹出访问，再转右。BST 中序有序。</li></ul>
+<p><strong>思路：</strong>看到中序遍历，迭代栈模拟“左—根—右”。当前节点一路压左，弹栈访问后转向右子树。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>外层条件是 root 或 stack</li><li>BST 中序严格有序仅在键不重复时成立</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(h\)</p>
+<pre><code class="language-python">from typing import List, Optional
+
+# Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def inorderTraversal(self, root: Optional[TreeNode]) -&gt; List[int]:
+        def dfs(root):
+            if root is None:
+                return
+            dfs(root.left)
+            ans.append(root.val)
+            dfs(root.right)
+
+        ans = []
+        dfs(root)
+        return ans</code></pre>
+<h4 id="104-二叉树的最大深度思路详解与标准代码">104\. 二叉树的最大深度｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐ <strong>104\. 二叉树的最大深度</strong>：<code>1+max(left,right)</code>，空树 0。</li></ul>
+<p><strong>思路：</strong>看到树高，定义 DFS 返回当前子树最大深度。空节点返回 0，非空节点返回 1 加左右子树深度较大值。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>空树返回 0</li><li>深度包含当前节点</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，递归栈额外空间 O\(h\)</p>
+<pre><code class="language-python"># Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def maxDepth(self, root: TreeNode) -&gt; int:
+        if root is None:
+            return 0
+        l, r = self.maxDepth(root.left), self.maxDepth(root.right)
+        return 1 + max(l, r)</code></pre>
+<h4 id="226-翻转二叉树思路详解与标准代码">226\. 翻转二叉树｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐ <strong>226\. 翻转二叉树</strong>：递归交换左右子树；返回根。</li></ul>
+<p><strong>思路：</strong>看到镜像翻转，递归处理左右子树并交换。每个节点只交换一次，最终返回原根节点。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>空节点直接返回 None</li><li>交换的是子树引用</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，递归栈额外空间 O\(h\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def invertTree(self, root: Optional[TreeNode]) -&gt; Optional[TreeNode]:
+        if root is None:
+            return None
+        l, r = self.invertTree(root.left), self.invertTree(root.right)
+        root.left, root.right = r, l
+        return root</code></pre>
+<h4 id="101-对称二叉树思路详解与标准代码">101\. 对称二叉树｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>101\. 对称二叉树</strong>：递归比较 <code>(left.left,right.right)</code> 与 <code>(left.right,right.left)</code>。</li></ul>
+<p><strong>思路：</strong>看到判断镜像对称，递归比较一对镜像位置节点。两者都空为真、仅一方空或值不同为假，随后交叉比较外侧与内侧子树。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>必须交叉比较</li><li>空树视为对称</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，递归栈额外空间 O\(h\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def isSymmetric(self, root: Optional[TreeNode]) -&gt; bool:
+        def dfs(root1: Optional[TreeNode], root2: Optional[TreeNode]) -&gt; bool:
+            if root1 == root2:
+                return True
+            if root1 is None or root2 is None or root1.val != root2.val:
+                return False
+            return dfs(root1.left, root2.right) and dfs(root1.right, root2.left)
+
+        return dfs(root.left, root.right)</code></pre>
+<h4 id="543-二叉树的直径思路详解与标准代码">543\. 二叉树的直径｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>543\. 二叉树的直径</strong>：DFS 返回向下最大深度；全局更新 <code>leftDepth+rightDepth</code>。</li></ul>
+<p><strong>思路：</strong>看到任意两节点最长路径，后序 DFS 返回向下最大深度。每个节点以 left\+right 更新经过它的最长边数，再向父节点返回 1\+max\(left,right\)。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>题目答案按边数而非节点数</li><li>全局答案初值为 0</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，递归栈额外空间 O\(h\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def diameterOfBinaryTree(self, root: Optional[TreeNode]) -&gt; int:
+        def dfs(root: Optional[TreeNode]) -&gt; int:
+            if root is None:
+                return 0
+            l, r = dfs(root.left), dfs(root.right)
+            nonlocal ans
+            ans = max(ans, l + r)
+            return 1 + max(l, r)
+
+        ans = 0
+        dfs(root)
+        return ans</code></pre>
+<h4 id="102-二叉树的层序遍历思路详解与标准代码">102\. 二叉树的层序遍历｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>102\. 二叉树的层序遍历</strong>：队列；每轮固定读取当前 <code>len(q)</code> 个节点形成一层。</li></ul>
+<p><strong>思路：</strong>看到按层输出，使用队列 BFS。每轮固定读取进入该轮时的队列长度，将这些节点组成一层并把孩子入队。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>空树返回空列表</li><li>每轮必须固定层大小</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(w\)，w 为最大层宽</p>
+<pre><code class="language-python">from typing import List, Optional
+from collections import deque
+
+# Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def levelOrder(self, root: Optional[TreeNode]) -&gt; List[List[int]]:
+        ans = []
+        if root is None:
+            return ans
+        q = deque([root])
+        while q:
+            t = []
+            for _ in range(len(q)):
+                node = q.popleft()
+                t.append(node.val)
+                if node.left:
+                    q.append(node.left)
+                if node.right:
+                    q.append(node.right)
+            ans.append(t)
+        return ans</code></pre>
+<h4 id="108-将有序数组转换为二叉搜索树思路详解与标准代码">108\. 将有序数组转换为二叉搜索树｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐ <strong>108\. 将有序数组转换为 BST</strong>：取中点为根，递归左右半区；天然高度平衡。</li></ul>
+<p><strong>思路：</strong>看到有序数组构造高度平衡 BST，递归取区间中点为根。中点左右区间分别构造左右子树，区间为空返回 None。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>边界应统一为闭区间或半开区间</li><li>偶数长度任选中间节点都可</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，递归栈额外空间 O\(log n\)</p>
+<pre><code class="language-python">from typing import List, Optional
+
+# Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def sortedArrayToBST(self, nums: List[int]) -&gt; Optional[TreeNode]:
+        def dfs(l: int, r: int) -&gt; Optional[TreeNode]:
+            if l &gt; r:
+                return None
+            mid = (l + r) &gt;&gt; 1
+            return TreeNode(nums[mid], dfs(l, mid - 1), dfs(mid + 1, r))
+
+        return dfs(0, len(nums) - 1)</code></pre>
+<h4 id="98-验证二叉搜索树思路详解与标准代码">98\. 验证二叉搜索树｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>98\. 验证 BST</strong>：递归传严格上下界，或中序必须严格递增；不能只比较父子。</li></ul>
+<p><strong>思路：</strong>看到验证整棵 BST，递归传递每个节点允许的严格上下界。节点值必须落在 \(low, high\) 内，左子树收紧上界，右子树收紧下界。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>必须使用严格不等号</li><li>不能只比较父子节点</li><li>初始边界可用正负无穷</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，递归栈额外空间 O\(h\)</p>
+<pre><code class="language-python">from typing import Optional
+from math import inf
+
+# Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def isValidBST(self, root: Optional[TreeNode]) -&gt; bool:
+        def dfs(root: Optional[TreeNode]) -&gt; bool:
+            if root is None:
+                return True
+            if not dfs(root.left):
+                return False
+            nonlocal prev
+            if prev &gt;= root.val:
+                return False
+            prev = root.val
+            return dfs(root.right)
+
+        prev = -inf
+        return dfs(root)</code></pre>
+<h4 id="230-二叉搜索树中第-k-小的元素思路详解与标准代码">230\. 二叉搜索树中第 K 小的元素｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>230\. BST 第 K 小</strong>：中序遍历计数，第 <code>k</code> 个即答案；可提前退出。</li></ul>
+<p><strong>思路：</strong>看到 BST 第 k 小，利用中序遍历按升序访问。迭代栈每弹出一个节点就递减 k，k 为 0 时立即返回该值。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>k 从 1 开始</li><li>利用提前返回避免遍历全树</li></ul>
+<p><strong>复杂度：</strong>时间 O\(h\+k\)，额外空间 O\(h\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def kthSmallest(self, root: Optional[TreeNode], k: int) -&gt; int:
+        stk = []
+        while root or stk:
+            if root:
+                stk.append(root)
+                root = root.left
+            else:
+                root = stk.pop()
+                k -= 1
+                if k == 0:
+                    return root.val
+                root = root.right</code></pre>
+<h4 id="199-二叉树的右视图思路详解与标准代码">199\. 二叉树的右视图｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>199\. 二叉树右视图</strong>：层序每层取最后一个；或 DFS 先右后左、首次到达该深度记录。</li></ul>
+<p><strong>思路：</strong>看到每层最右节点，使用层序 BFS。每层固定处理当前节点数，并把该层最后一个出队节点的值加入答案。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>空树返回空列表</li><li>取的是每层最后一个而非全局最右坐标</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(w\)</p>
+<pre><code class="language-python">from typing import List, Optional
+from collections import deque
+
+# Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def rightSideView(self, root: Optional[TreeNode]) -&gt; List[int]:
+        ans = []
+        if root is None:
+            return ans
+        q = deque([root])
+        while q:
+            ans.append(q[0].val)
+            for _ in range(len(q)):
+                node = q.popleft()
+                if node.right:
+                    q.append(node.right)
+                if node.left:
+                    q.append(node.left)
+        return ans</code></pre>
+<h4 id="114-二叉树展开为链表思路详解与标准代码">114\. 二叉树展开为链表｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>114\. 二叉树展开为链表</strong>：逆前序（右→左→根），令 <code>root.right=prev, root.left=None</code>。</li></ul>
+<p><strong>思路：</strong>看到按前序原地展开，使用逆前序“右—左—根”递归。维护已展开后缀 prev，处理当前节点时令 right 指向 prev、left 置空，再更新 prev。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>必须先递归右再递归左</li><li>每个 left 最终都为 None</li><li>方法原地修改</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，递归栈额外空间 O\(h\)</p>
+<pre><code class="language-python">from typing import Optional
+
+# Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, val=0, left=None, right=None):
+#         self.val = val
+#         self.left = left
+#         self.right = right
+class Solution:
+    def flatten(self, root: Optional[TreeNode]) -&gt; None:
+        &quot;&quot;&quot;
+        Do not return anything, modify root in-place instead.
+        &quot;&quot;&quot;
+        while root:
+            if root.left:
+                pre = root.left
+                while pre.right:
+                    pre = pre.right
+                pre.right = root.right
+                root.right = root.left
+                root.left = None
+            root = root.right</code></pre>
+<h4 id="105-从前序与中序遍历序列构造二叉树思路详解与标准代码">105\. 从前序与中序遍历序列构造二叉树｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>105\. 前序与中序构造二叉树</strong>：前序首个为根；哈希定位中序根，按左子树长度切分。</li></ul>
+<p><strong>思路：</strong>看到前序和中序且节点值互异，用哈希记录中序位置。递归状态用前序根下标和中序闭区间；由根在中序中的位置计算左子树长度，再定位两个子树。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>题目保证节点值唯一</li><li>切片会引入 O\(n²\) 开销，应传下标</li><li>空区间返回 None</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from typing import List, Optional
+
+class Solution:
+    def buildTree(self, preorder: List[int], inorder: List[int]) -&gt; Optional[TreeNode]:
+        index = {value: i for i, value in enumerate(inorder)}
+
+        def build(pre_root: int, in_left: int, in_right: int) -&gt; Optional[TreeNode]:
+            if in_left &gt; in_right:
+                return None
+            root_value = preorder[pre_root]
+            in_root = index[root_value]
+            left_size = in_root - in_left
+            root = TreeNode(root_value)
+            root.left = build(pre_root + 1, in_left, in_root - 1)
+            root.right = build(pre_root + left_size + 1, in_root + 1, in_right)
+            return root
+
+        return build(0, 0, len(inorder) - 1)</code></pre>
+<h4 id="437-路径总和-iii思路详解与标准代码">437\. 路径总和 III｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>437\. 路径总和 III</strong>：树上前缀和；进入节点先查 <code>pre-target</code>，计数 \+1，离开时必须 \-1。</li></ul>
+<p><strong>思路：</strong>看到路径必须向下但可从任意节点开始，使用树上前缀和频次。进入节点后累加前缀和，用 count\[pre\-target\] 统计以当前节点结尾的路径；递归返回前必须撤销当前前缀和。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>初始化 count\[0\]=1</li><li>先查询再增加当前前缀和</li><li>回溯时必须减一避免串到兄弟子树</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(h\)</p>
+<pre><code class="language-python">from typing import Optional
+from collections import defaultdict
+
+class Solution:
+    def pathSum(self, root: Optional[TreeNode], targetSum: int) -&gt; int:
+        count = defaultdict(int)
+        count[0] = 1
+
+        def dfs(node: Optional[TreeNode], prefix: int) -&gt; int:
+            if node is None:
+                return 0
+            prefix += node.val
+            answer = count[prefix - targetSum]
+            count[prefix] += 1
+            answer += dfs(node.left, prefix)
+            answer += dfs(node.right, prefix)
+            count[prefix] -= 1
+            return answer
+
+        return dfs(root, 0)</code></pre>
+<h4 id="236-二叉树的最近公共祖先思路详解与标准代码">236\. 二叉树的最近公共祖先｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>236\. 二叉树最近公共祖先</strong>：左右递归返回目标；若左右都非空当前即 LCA，否则返回非空一侧。</li></ul>
+<p><strong>思路：</strong>看到普通二叉树两节点 LCA，用后序递归让函数返回当前子树找到的目标或祖先。当前为 p/q 就返回自身；左右都非空则当前为 LCA，否则向上传递非空侧。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>比较节点身份</li><li>题目保证 p、q 存在</li><li>不能套用 BST 大小关系</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，递归栈额外空间 O\(h\)</p>
+<pre><code class="language-python"># Definition for a binary tree node.
+# class TreeNode:
+#     def __init__(self, x):
+#         self.val = x
+#         self.left = None
+#         self.right = None
+
+
+class Solution:
+    def lowestCommonAncestor(
+        self, root: &quot;TreeNode&quot;, p: &quot;TreeNode&quot;, q: &quot;TreeNode&quot;
+    ) -&gt; &quot;TreeNode&quot;:
+        if root in (None, p, q):
+            return root
+        left = self.lowestCommonAncestor(root.left, p, q)
+        right = self.lowestCommonAncestor(root.right, p, q)
+        return root if left and right else (left or right)</code></pre>
+<h4 id="124-二叉树中的最大路径和思路详解与标准代码">124\. 二叉树中的最大路径和｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>124\. 二叉树最大路径和</strong>：DFS 返回“从当前向下单边最大贡献”；负贡献取 0，全局更新 <code>node+l+r</code>。</li></ul>
+<p><strong>思路：</strong>看到路径可从任意节点起止但不能分叉后再向父延伸，后序 DFS 返回单边最大贡献。左右负贡献截为 0，以 node\+left\+right 更新全局答案，再返回 node\+max\(left,right\)。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>全局答案应初始化为负无穷以处理全负树</li><li>返回父节点时只能选一侧</li><li>节点值必须计入路径</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，递归栈额外空间 O\(h\)</p>
+<pre><code class="language-python">from typing import Optional
+
+class Solution:
+    def maxPathSum(self, root: Optional[TreeNode]) -&gt; int:
+        answer = float(&#x27;-inf&#x27;)
+
+        def gain(node: Optional[TreeNode]) -&gt; int:
+            nonlocal answer
+            if node is None:
+                return 0
+            left = max(gain(node.left), 0)
+            right = max(gain(node.right), 0)
+            answer = max(answer, node.val + left + right)
+            return node.val + max(left, right)
+
+        gain(root)
+        return int(answer)</code></pre>
+<h3 id="九图论4">九、图论（4）</h3>
+<h4 id="200-岛屿数量思路详解与标准代码">200\. 岛屿数量｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>200\. 岛屿数量</strong>：遇陆地答案 \+1，从它 DFS/BFS 淹没整个连通块；注意边界和访问标记。</li></ul>
+<p><strong>思路：</strong>看到网格连通块计数，遍历每个格子，遇到未访问陆地就增加答案并 DFS 淹没整个岛。访问时直接把陆地改成水，避免额外 visited。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>先做边界检查</li><li>每块陆地只访问一次</li><li>方法会修改输入网格</li></ul>
+<p><strong>复杂度：</strong>时间 O\(mn\)，递归栈最坏额外空间 O\(mn\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def numIslands(self, grid: List[List[str]]) -&gt; int:
+        if not grid or not grid[0]:
+            return 0
+        rows, cols = len(grid), len(grid[0])
+        answer = 0
+
+        def dfs(row: int, col: int) -&gt; None:
+            if row &lt; 0 or row &gt;= rows or col &lt; 0 or col &gt;= cols:
+                return
+            if grid[row][col] != &#x27;1&#x27;:
+                return
+            grid[row][col] = &#x27;0&#x27;
+            dfs(row + 1, col)
+            dfs(row - 1, col)
+            dfs(row, col + 1)
+            dfs(row, col - 1)
+
+        for row in range(rows):
+            for col in range(cols):
+                if grid[row][col] == &#x27;1&#x27;:
+                    answer += 1
+                    dfs(row, col)
+        return answer</code></pre>
+<h4 id="994-腐烂的橘子思路详解与标准代码">994\. 腐烂的橘子｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>994\. 腐烂的橘子</strong>：多源 BFS；所有腐橘同时入队，每层一分钟，最后检查是否仍有新鲜橘。</li></ul>
+<p><strong>思路：</strong>看到多个源点同步扩散，用多源 BFS。所有腐橘先入队并统计新鲜橘，每轮传播一层代表一分钟；新鲜数归零时返回分钟数，否则无解。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>无新鲜橘应返回 0</li><li>分钟只在本层实际腐烂新橘时增加</li><li>最终仍有新鲜橘返回 \-1</li></ul>
+<p><strong>复杂度：</strong>时间 O\(mn\)，额外空间 O\(mn\)</p>
+<pre><code class="language-python">from typing import List
+from collections import deque
+
+class Solution:
+    def orangesRotting(self, grid: List[List[int]]) -&gt; int:
+        if not grid or not grid[0]:
+            return 0
+        rows, cols = len(grid), len(grid[0])
+        queue = deque()
+        fresh = 0
+        for row in range(rows):
+            for col in range(cols):
+                if grid[row][col] == 2:
+                    queue.append((row, col))
+                elif grid[row][col] == 1:
+                    fresh += 1
+        minutes = 0
+        while queue and fresh &gt; 0:
+            for _ in range(len(queue)):
+                row, col = queue.popleft()
+                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nr, nc = row + dr, col + dc
+                    if 0 &lt;= nr &lt; rows and 0 &lt;= nc &lt; cols and grid[nr][nc] == 1:
+                        grid[nr][nc] = 2
+                        fresh -= 1
+                        queue.append((nr, nc))
+            minutes += 1
+        return minutes if fresh == 0 else -1</code></pre>
+<h4 id="207-课程表思路详解与标准代码">207\. 课程表｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>207\. 课程表</strong>：建图与入度；Kahn 拓扑 BFS，最终处理节点数等于课程数则无环。</li></ul>
+<p><strong>思路：</strong>看到先修关系能否完成，本质是检测有向图是否有环。建立从先修课到后续课的邻接表与入度，Kahn BFS 不断移除入度为 0 的节点，处理数等于课程数则可行。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>边方向应为 prerequisite→course</li><li>孤立课程也计入总数</li><li>最终比较处理节点数</li></ul>
+<p><strong>复杂度：</strong>时间 O\(V\+E\)，额外空间 O\(V\+E\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def canFinish(self, numCourses: int, prerequisites: List[List[int]]) -&gt; bool:
+        g = [[] for _ in range(numCourses)]
+        indeg = [0] * numCourses
+        for a, b in prerequisites:
+            g[b].append(a)
+            indeg[a] += 1
+        q = [i for i, x in enumerate(indeg) if x == 0]
+        for i in q:
+            numCourses -= 1
+            for j in g[i]:
+                indeg[j] -= 1
+                if indeg[j] == 0:
+                    q.append(j)
+        return numCourses == 0</code></pre>
+<h4 id="208-实现-trie前缀树思路详解与标准代码">208\. 实现 Trie（前缀树）｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>208\. 实现 Trie</strong>：节点含 <code>children</code> 与 <code>is_end</code>；插入逐字符建边，查前缀不要求 <code>is_end</code>。</li></ul>
+<p><strong>思路：</strong>看到大量单词插入、整词查询和前缀查询，使用 Trie 逐字符共享路径。每个节点保存 children 映射和结束标记；search 需检查结束标记，startsWith 只需路径存在。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>整词与前缀语义不同</li><li>插入结束必须标记 is\_end</li><li>空前缀应能匹配</li></ul>
+<p><strong>复杂度：</strong>每次操作时间 O\(L\)，额外空间 O\(所有插入字符总数\)</p>
+<pre><code class="language-python">class Trie:
+    def __init__(self):
+        self.children = {}
+        self.is_end = False
+
+    def insert(self, word: str) -&gt; None:
+        node = self
+        for ch in word:
+            if ch not in node.children:
+                node.children[ch] = Trie()
+            node = node.children[ch]
+        node.is_end = True
+
+    def search(self, word: str) -&gt; bool:
+        node = self._find(word)
+        return node is not None and node.is_end
+
+    def startsWith(self, prefix: str) -&gt; bool:
+        return self._find(prefix) is not None
+
+    def _find(self, text: str):
+        node = self
+        for ch in text:
+            if ch not in node.children:
+                return None
+            node = node.children[ch]
+        return node</code></pre>
+<h3 id="十回溯8">十、回溯（8）</h3>
+<h4 id="46-全排列思路详解与标准代码">46\. 全排列｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>46\. 全排列</strong>：路径长度为 <code>n</code> 收集；每层枚举未使用元素，<code>used</code> 标记后恢复。</li></ul>
+<p><strong>思路：</strong>看到使用全部互异元素的所有排列，回溯维护路径与 used 标记。每层选择一个未使用元素，路径长度达到 n 时复制收集，返回后恢复状态。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>收集时复制 path</li><li>回溯必须恢复 used 和路径</li><li>题目元素互异</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n·n\!\)，额外空间 O\(n\)（不计输出）</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def permute(self, nums: List[int]) -&gt; List[List[int]]:
+        def dfs(i: int):
+            if i &gt;= n:
+                ans.append(t[:])
+                return
+            for j, x in enumerate(nums):
+                if not vis[j]:
+                    vis[j] = True
+                    t[i] = x
+                    dfs(i + 1)
+                    vis[j] = False
+
+        n = len(nums)
+        vis = [False] * n
+        t = [0] * n
+        ans = []
+        dfs(0)
+        return ans</code></pre>
+<h4 id="78-子集思路详解与标准代码">78\. 子集｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>78\. 子集</strong>：每个递归节点都收集；从 <code>start</code> 往后选，天然避免重复位置。</li></ul>
+<p><strong>思路：</strong>看到互异数组的所有子集，回溯用 start 限制后续选择。每个递归节点都代表一个合法子集并立即复制收集，再枚举后续元素。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>空集必须包含</li><li>使用 start 避免同一组合不同顺序</li><li>收集时复制路径</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n·2ⁿ\)，额外空间 O\(n\)（不计输出）</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def subsets(self, nums: List[int]) -&gt; List[List[int]]:
+        def dfs(i: int):
+            if i == len(nums):
+                ans.append(t[:])
+                return
+            dfs(i + 1)
+            t.append(nums[i])
+            dfs(i + 1)
+            t.pop()
+
+        ans = []
+        t = []
+        dfs(0)
+        return ans</code></pre>
+<h4 id="17-电话号码的字母组合思路详解与标准代码">17\. 电话号码的字母组合｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>17\. 电话号码的字母组合</strong>：第 <code>i</code> 位枚举映射中的字母；到 <code>len(digits)</code> 收集。</li></ul>
+<p><strong>思路：</strong>看到每位数字对应若干字母，按数字位置回溯。第 i 层枚举该数字映射的每个字母，走到末尾时拼接路径收集。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>空 digits 返回空列表而非含空串</li><li>映射仅覆盖 2 到 9</li></ul>
+<p><strong>复杂度：</strong>时间 O\(4ⁿ·n\)，额外空间 O\(n\)（不计输出）</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def letterCombinations(self, digits: str) -&gt; List[str]:
+        if not digits:
+            return []
+        d = [&quot;abc&quot;, &quot;def&quot;, &quot;ghi&quot;, &quot;jkl&quot;, &quot;mno&quot;, &quot;pqrs&quot;, &quot;tuv&quot;, &quot;wxyz&quot;]
+        ans = [&quot;&quot;]
+        for i in digits:
+            s = d[int(i) - 2]
+            ans = [a + b for a in ans for b in s]
+        return ans</code></pre>
+<h4 id="39-组合总和思路详解与标准代码">39\. 组合总和｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>39\. 组合总和</strong>：排序可剪枝；递归仍传 <code>i</code> 表示同一数字可重复选。</li></ul>
+<p><strong>思路：</strong>看到候选数可重复使用且组合不计顺序，排序后以 start 回溯。每层从 start 向后选数，选中后仍传当前下标；当前数超过剩余目标时剪枝。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>重复使用时递归传 i 而非 i\+1</li><li>用 start 避免排列重复</li><li>题目候选数互异</li></ul>
+<p><strong>复杂度：</strong>最坏时间 O\(n^\(target/min\)\)，递归栈额外空间 O\(target/min\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def combinationSum(self, candidates: List[int], target: int) -&gt; List[List[int]]:
+        def dfs(i: int, s: int):
+            if s == 0:
+                ans.append(t[:])
+                return
+            if s &lt; candidates[i]:
+                return
+            for j in range(i, len(candidates)):
+                t.append(candidates[j])
+                dfs(j, s - candidates[j])
+                t.pop()
+
+        candidates.sort()
+        t = []
+        ans = []
+        dfs(0, target)
+        return ans</code></pre>
+<h4 id="22-括号生成思路详解与标准代码">22\. 括号生成｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>22\. 括号生成</strong>：左括号数 <code>&lt;n</code> 可加左；右括号数 <code>&lt;左括号数</code> 才可加右。</li></ul>
+<p><strong>思路：</strong>看到生成所有合法括号串，回溯维护已用左右括号数。left\&lt;n 时可加左括号，right\&lt;left 时才可加右括号，长度达到 2n 时收集。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>任何前缀都必须满足 right\&lt;=left</li><li>收集条件为长度 2n</li></ul>
+<p><strong>复杂度：</strong>时间 O\(Cn·n\)，额外空间 O\(n\)（不计输出），Cn 为第 n 个卡特兰数</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def generateParenthesis(self, n: int) -&gt; List[str]:
+        def dfs(l: int, r: int, t: str):
+            if l &gt; n or r &gt; n or l &lt; r:
+                return
+            if l == n and r == n:
+                ans.append(t)
+                return
+            dfs(l + 1, r, t + &quot;(&quot;)
+            dfs(l, r + 1, t + &quot;)&quot;)
+
+        ans = []
+        dfs(0, 0, &quot;&quot;)
+        return ans</code></pre>
+<h4 id="79-单词搜索思路详解与标准代码">79\. 单词搜索｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>79\. 单词搜索</strong>：从每格启动 DFS；字符匹配后临时标记访问，四向搜索，返回前恢复。</li></ul>
+<p><strong>思路：</strong>看到网格中按四方向且单格不可重复组成单词，从每个可能起点 DFS。匹配当前字符后临时标记该格，递归四邻，失败返回前恢复。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>同一路径不能重复用格子</li><li>成功提前返回时也应保持实现语义安全</li><li>空网格需防越界</li></ul>
+<p><strong>复杂度：</strong>时间 O\(mn·3^L\)，递归栈额外空间 O\(L\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def exist(self, board: List[List[str]], word: str) -&gt; bool:
+        if not word:
+            return True
+        if not board or not board[0]:
+            return False
+        rows, cols = len(board), len(board[0])
+
+        def dfs(row: int, col: int, index: int) -&gt; bool:
+            if board[row][col] != word[index]:
+                return False
+            if index == len(word) - 1:
+                return True
+            saved = board[row][col]
+            board[row][col] = &#x27;#&#x27;
+            found = False
+            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nr, nc = row + dr, col + dc
+                if 0 &lt;= nr &lt; rows and 0 &lt;= nc &lt; cols and board[nr][nc] != &#x27;#&#x27;:
+                    if dfs(nr, nc, index + 1):
+                        found = True
+                        break
+            board[row][col] = saved
+            return found
+
+        for row in range(rows):
+            for col in range(cols):
+                if dfs(row, col, 0):
+                    return True
+        return False</code></pre>
+<h4 id="131-分割回文串思路详解与标准代码">131\. 分割回文串｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>131\. 分割回文串</strong>：枚举下一段终点，只有子串为回文才递归；到字符串末尾收集。</li></ul>
+<p><strong>思路：</strong>看到把字符串分成所有回文片段，回溯枚举下一段终点。只有 s\[start:end\] 为回文时才加入路径并继续，start 到末尾时复制答案。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>终点边界要包含到 len\(s\)</li><li>收集时复制路径</li><li>空串有一个空分割</li></ul>
+<p><strong>复杂度：</strong>最坏时间 O\(n·2ⁿ\)，递归栈额外空间 O\(n\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def partition(self, s: str) -&gt; List[List[str]]:
+        def dfs(i: int):
+            if i == n:
+                ans.append(t[:])
+                return
+            for j in range(i, n):
+                if f[i][j]:
+                    t.append(s[i : j + 1])
+                    dfs(j + 1)
+                    t.pop()
+
+        n = len(s)
+        f = [[True] * n for _ in range(n)]
+        for i in range(n - 1, -1, -1):
+            for j in range(i + 1, n):
+                f[i][j] = s[i] == s[j] and f[i + 1][j - 1]
+        ans = []
+        t = []
+        dfs(0)
+        return ans</code></pre>
+<h4 id="51-n-皇后思路详解与标准代码">51\. N 皇后｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>51\. N 皇后</strong>：逐行放置；集合维护列、<code>row-col</code>、<code>row+col</code>，放置后回溯恢复。</li></ul>
+<p><strong>思路：</strong>看到每行每列及两条对角线不能冲突，逐行回溯放皇后。用列、row\-col、row\+col 三个集合维护占用，放置后递归下一行并恢复。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>两类对角线标识不能混淆</li><li>每行恰放一个</li><li>回溯要同步恢复棋盘和集合</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\!\)，额外空间 O\(n²\)（棋盘与递归状态）</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def solveNQueens(self, n: int) -&gt; List[List[str]]:
+        def dfs(i: int):
+            if i == n:
+                ans.append([&quot;&quot;.join(row) for row in g])
+                return
+            for j in range(n):
+                if col[j] + dg[i + j] + udg[n - i + j] == 0:
+                    g[i][j] = &quot;Q&quot;
+                    col[j] = dg[i + j] = udg[n - i + j] = 1
+                    dfs(i + 1)
+                    col[j] = dg[i + j] = udg[n - i + j] = 0
+                    g[i][j] = &quot;.&quot;
+
+        ans = []
+        g = [[&quot;.&quot;] * n for _ in range(n)]
+        col = [0] * n
+        dg = [0] * (n &lt;&lt; 1)
+        udg = [0] * (n &lt;&lt; 1)
+        dfs(0)
+        return ans</code></pre>
+<h3 id="十一二分查找6">十一、二分查找（6）</h3>
+<h4 id="35-搜索插入位置思路详解与标准代码">35\. 搜索插入位置｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>35\. 搜索插入位置</strong>：找第一个 <code>&gt;= target</code> 的下标，即标准左边界。</li></ul>
+<p><strong>思路：</strong>看到有序数组中查找或插入位置，求第一个大于等于 target 的下标。维护半开区间 \[left,right\)，根据 nums\[mid\] 是否小于 target 丢弃一半，最终 left 即答案。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>右边界可取 len\(nums\)</li><li>空数组返回 0</li><li>循环与返回边界模板要一致</li></ul>
+<p><strong>复杂度：</strong>时间 O\(log n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def searchInsert(self, nums: List[int], target: int) -&gt; int:
+        l, r = 0, len(nums)
+        while l &lt; r:
+            mid = (l + r) &gt;&gt; 1
+            if nums[mid] &gt;= target:
+                r = mid
+            else:
+                l = mid + 1
+        return l</code></pre>
+<h4 id="74-搜索二维矩阵思路详解与标准代码">74\. 搜索二维矩阵｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>74\. 搜索二维矩阵</strong>：把矩阵视为长度 <code>m*n</code> 的一维有序数组，<code>mid→[mid//n][mid%n]</code>。</li></ul>
+<p><strong>思路：</strong>看到矩阵每行有序且下一行首元素大于上一行末元素，可视为整体一维有序数组。对 \[0,mn\) 二分，通过 mid//n 和 mid%n 映射回行列。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>空矩阵返回 False</li><li>列数 n 用于下标映射</li><li>不要与第 240 题条件混淆</li></ul>
+<p><strong>复杂度：</strong>时间 O\(log\(mn\)\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def searchMatrix(self, matrix: List[List[int]], target: int) -&gt; bool:
+        if not matrix or not matrix[0]:
+            return False
+        rows, cols = len(matrix), len(matrix[0])
+        left, right = 0, rows * cols
+        while left &lt; right:
+            mid = (left + right) // 2
+            value = matrix[mid // cols][mid % cols]
+            if value &lt; target:
+                left = mid + 1
+            else:
+                right = mid
+        return left &lt; rows * cols and matrix[left // cols][left % cols] == target</code></pre>
+<h4 id="34-在排序数组中查找元素的第一个和最后一个位置思路详解与标准代码">34\. 在排序数组中查找元素的第一个和最后一个位置｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>34\. 在排序数组中查找首尾位置</strong>：左端=<code>lower_bound(target)</code>；右端=<code>lower_bound(target+1)-1</code>。</li></ul>
+<p><strong>思路：</strong>看到有序数组目标区间，分别寻找 target 的左边界与第一个大于 target 的位置。若左边界越界或不等于 target 返回 \[\-1,\-1\]，否则右端为 upper\_bound\-1。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>不能用 target\+1 规避整型边界，直接写 upper\_bound 更稳</li><li>先验证目标是否存在</li></ul>
+<p><strong>复杂度：</strong>时间 O\(log n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def searchRange(self, nums: List[int], target: int) -&gt; List[int]:
+        def lower_bound(value: int) -&gt; int:
+            left, right = 0, len(nums)
+            while left &lt; right:
+                mid = (left + right) // 2
+                if nums[mid] &lt; value:
+                    left = mid + 1
+                else:
+                    right = mid
+            return left
+
+        def upper_bound(value: int) -&gt; int:
+            left, right = 0, len(nums)
+            while left &lt; right:
+                mid = (left + right) // 2
+                if nums[mid] &lt;= value:
+                    left = mid + 1
+                else:
+                    right = mid
+            return left
+
+        first = lower_bound(target)
+        if first == len(nums) or nums[first] != target:
+            return [-1, -1]
+        return [first, upper_bound(target) - 1]</code></pre>
+<h4 id="33-搜索旋转排序数组思路详解与标准代码">33\. 搜索旋转排序数组｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>33\. 搜索旋转排序数组</strong>：每轮至少一半有序；判断目标是否落在有序半边，保留对应区间。</li></ul>
+<p><strong>思路：</strong>看到无重复旋转有序数组，每轮至少有一半仍有序。判断 mid 落在哪个有序半边，再检查 target 是否位于该半边范围，保留可能区间。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>题目无重复元素</li><li>区间比较的等号必须统一</li><li>找不到返回 \-1</li></ul>
+<p><strong>复杂度：</strong>时间 O\(log n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def search(self, nums: List[int], target: int) -&gt; int:
+        n = len(nums)
+        left, right = 0, n - 1
+        while left &lt; right:
+            mid = (left + right) &gt;&gt; 1
+            if nums[0] &lt;= nums[mid]:
+                if nums[0] &lt;= target &lt;= nums[mid]:
+                    right = mid
+                else:
+                    left = mid + 1
+            else:
+                if nums[mid] &lt; target &lt;= nums[n - 1]:
+                    left = mid + 1
+                else:
+                    right = mid
+        return left if nums[left] == target else -1</code></pre>
+<h4 id="153-寻找旋转排序数组中的最小值思路详解与标准代码">153\. 寻找旋转排序数组中的最小值｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>153\. 寻找旋转排序数组中的最小值</strong>：比较 <code>nums[mid]</code> 与 <code>nums[right]</code>；大于则最小值在右，否则含 mid 的左侧。</li></ul>
+<p><strong>思路：</strong>看到无重复旋转数组求最小值，用 mid 与 right 比较。若 nums\[mid\]\&gt;nums\[right\]，最小值严格在 mid 右侧；否则最小值在含 mid 的左半边。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>右侧更新为 mid 而非 mid\-1</li><li>题目数组非空且无重复</li></ul>
+<p><strong>复杂度：</strong>时间 O\(log n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def findMin(self, nums: List[int]) -&gt; int:
+        l, r = 0, len(nums) - 1
+        while l &lt; r:
+            mid = (l + r) &gt;&gt; 1
+            if nums[mid] &gt; nums[-1]:
+                l = mid + 1
+            else:
+                r = mid
+        return nums[l]</code></pre>
+<h4 id="4-寻找两个正序数组的中位数思路详解与标准代码">4\. 寻找两个正序数组的中位数｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐ <strong>4\. 寻找两个正序数组的中位数</strong>：在短数组二分切分点，使左半元素数固定且 <code>Aleft≤Bright, Bleft≤Aright</code>。</li></ul>
+<p><strong>思路：</strong>看到两个有序数组且要求对数时间，应在较短数组上二分分割线。保持左半总元素数固定，寻找 Aleft\&lt;=Bright 且 Bleft\&lt;=Aright 的分割；根据总长度奇偶返回左侧最大值或两侧中间值均值。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>必须保证在较短数组二分</li><li>分割到边界时使用正负无穷</li><li>偶数长度返回浮点均值</li></ul>
+<p><strong>复杂度：</strong>时间 O\(log\(min\(m,n\)\)\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+from math import inf
+
+class Solution:
+    def findMedianSortedArrays(self, nums1: List[int], nums2: List[int]) -&gt; float:
+        if len(nums1) &gt; len(nums2):
+            nums1, nums2 = nums2, nums1
+        m, n = len(nums1), len(nums2)
+        left_size = (m + n + 1) // 2
+        left, right = 0, m
+        while left &lt;= right:
+            i = (left + right) // 2
+            j = left_size - i
+            a_left = nums1[i - 1] if i &gt; 0 else -inf
+            a_right = nums1[i] if i &lt; m else inf
+            b_left = nums2[j - 1] if j &gt; 0 else -inf
+            b_right = nums2[j] if j &lt; n else inf
+            if a_left &lt;= b_right and b_left &lt;= a_right:
+                if (m + n) % 2:
+                    return float(max(a_left, b_left))
+                return (max(a_left, b_left) + min(a_right, b_right)) / 2.0
+            if a_left &gt; b_right:
+                right = i - 1
+            else:
+                left = i + 1
+        raise ValueError(&quot;Input arrays must be sorted&quot;)</code></pre>
+<h3 id="十二栈5">十二、栈（5）</h3>
+<h4 id="20-有效的括号思路详解与标准代码">20\. 有效的括号｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐ <strong>20\. 有效的括号</strong>：右括号到来时检查栈顶匹配；最后栈必须空。</li></ul>
+<p><strong>思路：</strong>看到括号嵌套合法性，使用栈保存尚未匹配的左括号。遇右括号时栈不能为空且栈顶必须对应，扫描结束后栈也必须为空。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>右括号到来时先判空</li><li>最终残留左括号也不合法</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">class Solution:
+    def isValid(self, s: str) -&gt; bool:
+        stk = []
+        d = {&#x27;()&#x27;, &#x27;[]&#x27;, &#x27;{}&#x27;}
+        for c in s:
+            if c in &#x27;({[&#x27;:
+                stk.append(c)
+            elif not stk or stk.pop() + c not in d:
+                return False
+        return not stk</code></pre>
+<h4 id="155-最小栈思路详解与标准代码">155\. 最小栈｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>155\. 最小栈</strong>：数据栈 \+ 最小栈；最小栈压入当前最小值，弹出同步。</li></ul>
+<p><strong>思路：</strong>看到栈操作与取最小值都要求 O\(1\)，为每个入栈元素同步保存当时最小值。push 同时压入值和当前最小值，pop 同步弹出，getMin 读取辅助栈顶。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>重复最小值也必须同步压栈</li><li>题目保证查询时栈非空</li></ul>
+<p><strong>复杂度：</strong>每次操作时间 O\(1\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from math import inf
+
+class MinStack:
+    def __init__(self):
+        self.stk1 = []
+        self.stk2 = [inf]
+
+    def push(self, val: int) -&gt; None:
+        self.stk1.append(val)
+        self.stk2.append(min(val, self.stk2[-1]))
+
+    def pop(self) -&gt; None:
+        self.stk1.pop()
+        self.stk2.pop()
+
+    def top(self) -&gt; int:
+        return self.stk1[-1]
+
+    def getMin(self) -&gt; int:
+        return self.stk2[-1]
+
+
+# Your MinStack object will be instantiated and called as such:
+# obj = MinStack()
+# obj.push(val)
+# obj.pop()
+# param_3 = obj.top()
+# param_4 = obj.getMin()</code></pre>
+<h4 id="394-字符串解码思路详解与标准代码">394\. 字符串解码｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>394\. 字符串解码</strong>：遇 <code>[</code> 保存当前次数和字符串并重置；遇 <code>]</code> 出栈并展开拼接。</li></ul>
+<p><strong>思路：</strong>看到 k\[encoded\] 可嵌套，扫描字符串并用栈保存进入括号前的字符串和重复次数。数字连续累积，遇 \[ 入栈并重置，遇 \] 出栈组合，字母追加到当前串。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>重复次数可能多位</li><li>嵌套时保存次数和前缀</li><li>括号内字符串可含多段</li></ul>
+<p><strong>复杂度：</strong>时间 O\(展开后字符串长度\)，额外空间 O\(嵌套深度与输出长度\)</p>
+<pre><code class="language-python">class Solution:
+    def decodeString(self, s: str) -&gt; str:
+        s1, s2 = [], []
+        num, res = 0, &#x27;&#x27;
+        for c in s:
+            if c.isdigit():
+                num = num * 10 + int(c)
+            elif c == &#x27;[&#x27;:
+                s1.append(num)
+                s2.append(res)
+                num, res = 0, &#x27;&#x27;
+            elif c == &#x27;]&#x27;:
+                res = s2.pop() + res * s1.pop()
+            else:
+                res += c
+        return res</code></pre>
+<h4 id="739-每日温度思路详解与标准代码">739\. 每日温度｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>739\. 每日温度</strong>：递减栈存未找到更高温度的下标；新温度更高时弹出并填距离。</li></ul>
+<p><strong>思路：</strong>看到每个位置右侧第一个更大值距离，使用存下标的单调递减栈。新温度高于栈顶对应温度时不断弹栈，并用当前下标差填写答案。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>严格更高才弹，相等不能结算</li><li>栈存下标而非温度</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def dailyTemperatures(self, temperatures: List[int]) -&gt; List[int]:
+        stk = []
+        n = len(temperatures)
+        ans = [0] * n
+        for i in range(n - 1, -1, -1):
+            while stk and temperatures[stk[-1]] &lt;= temperatures[i]:
+                stk.pop()
+            if stk:
+                ans[i] = stk[-1] - i
+            stk.append(i)
+        return ans</code></pre>
+<h4 id="84-柱状图中最大的矩形思路详解与标准代码">84\. 柱状图中最大的矩形｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>84\. 柱状图中最大矩形</strong>：递增栈 \+ 两端哨兵 0；弹出高度时，宽度为 <code>i-st[-1]-1</code>。</li></ul>
+<p><strong>思路：</strong>看到每根柱向左右延伸到首个更矮柱，使用单调递增下标栈。给两端加 0 哨兵；遇更矮高度时弹出柱高，其可用宽度为 i\-stack\[\-1\]\-1，并更新面积。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>栈必须存下标</li><li>弹出后的新栈顶才是左侧更矮边界</li><li>尾部哨兵负责清空剩余柱子</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def largestRectangleArea(self, heights: List[int]) -&gt; int:
+        values = [0] + heights + [0]
+        stack = [0]
+        answer = 0
+        for i in range(1, len(values)):
+            while values[stack[-1]] &gt; values[i]:
+                height = values[stack.pop()]
+                width = i - stack[-1] - 1
+                answer = max(answer, height * width)
+            stack.append(i)
+        return answer</code></pre>
+<h3 id="十三堆3">十三、堆（3）</h3>
+<h4 id="215-数组中的第-k-个最大元素思路详解与标准代码">215\. 数组中的第 K 个最大元素｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>215\. 数组中的第 K 个最大元素</strong>：大小为 <code>k</code> 的最小堆；或 Quickselect，只递归包含目标下标的一侧。</li></ul>
+<p><strong>思路：</strong>看到第 k 大且无需完整排序，用大小为 k 的最小堆。依次加入元素，堆超过 k 就弹出最小值，最终堆顶是第 k 大。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>k 合法且从 1 开始</li><li>最小堆维护最大的 k 个元素</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n log k\)，额外空间 O\(k\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def findKthLargest(self, nums: List[int], k: int) -&gt; int:
+        def quick_sort(l: int, r: int) -&gt; int:
+            if l == r:
+                return nums[l]
+            i, j = l - 1, r + 1
+            x = nums[(l + r) &gt;&gt; 1]
+            while i &lt; j:
+                while 1:
+                    i += 1
+                    if nums[i] &gt;= x:
+                        break
+                while 1:
+                    j -= 1
+                    if nums[j] &lt;= x:
+                        break
+                if i &lt; j:
+                    nums[i], nums[j] = nums[j], nums[i]
+            if j &lt; k:
+                return quick_sort(j + 1, r)
+            return quick_sort(l, j)
+
+        n = len(nums)
+        k = n - k
+        return quick_sort(0, n - 1)</code></pre>
+<h4 id="347-前-k-个高频元素思路详解与标准代码">347\. 前 K 个高频元素｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>347\. 前 K 个高频元素</strong>：计数后用大小为 <code>k</code> 的最小堆，或按频次桶排序。</li></ul>
+<p><strong>思路：</strong>看到按频次取前 k 个，先用哈希计数，再按频次建立桶。频次最高不超过 n，从高频桶向低频收集，达到 k 个停止。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>同频元素顺序不要求</li><li>桶下标是频次</li><li>答案恰好 k 个</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from typing import List
+from collections import Counter
+
+class Solution:
+    def topKFrequent(self, nums: List[int], k: int) -&gt; List[int]:
+        cnt = Counter(nums)
+        return [x for x, _ in cnt.most_common(k)]</code></pre>
+<h4 id="295-数据流的中位数思路详解与标准代码">295\. 数据流的中位数｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>295\. 数据流的中位数</strong>：大根堆存较小一半、小根堆存较大一半；平衡使长度差不超过 1。</li></ul>
+<p><strong>思路：</strong>看到数据流动态加入并随时取中位数，用两个堆维护有序分区。大根堆保存较小一半、小根堆保存较大一半，始终保证两边大小差不超过 1 且大根堆元素不大于小根堆元素。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>Python 大根堆用负数模拟</li><li>每次加入后必须重平衡</li><li>偶数个元素取两堆顶均值</li></ul>
+<p><strong>复杂度：</strong>addNum 时间 O\(log n\)，findMedian 时间 O\(1\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">import heapq
+
+class MedianFinder:
+    def __init__(self):
+        self.lower = []
+        self.upper = []
+
+    def addNum(self, num: int) -&gt; None:
+        heapq.heappush(self.lower, -num)
+        heapq.heappush(self.upper, -heapq.heappop(self.lower))
+        if len(self.upper) &gt; len(self.lower):
+            heapq.heappush(self.lower, -heapq.heappop(self.upper))
+
+    def findMedian(self) -&gt; float:
+        if len(self.lower) &gt; len(self.upper):
+            return float(-self.lower[0])
+        return (-self.lower[0] + self.upper[0]) / 2.0</code></pre>
+<h3 id="十四贪心4">十四、贪心（4）</h3>
+<h4 id="121-买卖股票的最佳时机思路详解与标准代码">121\. 买卖股票的最佳时机｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>121\. 买卖股票的最佳时机</strong>：维护历史最低价；当天卖出的收益 <code>price-minPrice</code> 更新答案。</li></ul>
+<p><strong>思路：</strong>看到只能先买后卖一次，扫描时维护此前最低价格。以当天作为卖出日计算 price\-min\_price 更新答案，再更新最低价。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>不能在卖出日之后买入</li><li>无利润时返回 0</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+from math import inf
+
+class Solution:
+    def maxProfit(self, prices: List[int]) -&gt; int:
+        ans, mi = 0, inf
+        for v in prices:
+            ans = max(ans, v - mi)
+            mi = min(mi, v)
+        return ans</code></pre>
+<h4 id="55-跳跃游戏思路详解与标准代码">55\. 跳跃游戏｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>55\. 跳跃游戏</strong>：维护最远可达 <code>far</code>；若 <code>i&gt;far</code> 立即失败。</li></ul>
+<p><strong>思路：</strong>看到能否到达末尾，贪心维护已知最远可达下标 far。扫描到 i 时若 i\&gt;far 说明出现断点，否则用 i\+nums\[i\] 扩展 far。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>先判断当前位置是否可达</li><li>far 到达 n\-1 可提前返回</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def canJump(self, nums: List[int]) -&gt; bool:
+        mx = 0
+        for i, x in enumerate(nums):
+            if mx &lt; i:
+                return False
+            mx = max(mx, i + x)
+        return True</code></pre>
+<h4 id="45-跳跃游戏-ii思路详解与标准代码">45\. 跳跃游戏 II｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>45\. 跳跃游戏 II</strong>：在当前层边界内更新下一层最远点；走到当前边界时步数 \+1 并换边界。</li></ul>
+<p><strong>思路：</strong>看到保证可达且求最少跳数，把当前可达区间视为 BFS 一层。扫描当前层时维护下一层最远位置，走到当前层右边界就增加一步并更新边界。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>只扫描到 n\-2，避免终点再加一步</li><li>题目保证可达</li><li>next\_end 在层内取最大值</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def jump(self, nums: List[int]) -&gt; int:
+        ans = mx = last = 0
+        for i, x in enumerate(nums[:-1]):
+            mx = max(mx, i + x)
+            if last == i:
+                ans += 1
+                last = mx
+        return ans</code></pre>
+<h4 id="763-划分字母区间思路详解与标准代码">763\. 划分字母区间｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>763\. 划分字母区间</strong>：预存每字符最后位置；扫描扩展当前右界，到达右界就切一段。</li></ul>
+<p><strong>思路：</strong>看到同一字符只能出现在一个片段，先记录每个字符最后位置。扫描当前片段时不断扩展 right 到所见字符的最远末位，i 到达 right 时切分。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>片段长度是 right\-start\+1</li><li>切分后 start 更新为 i\+1</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(字符集大小\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def partitionLabels(self, s: str) -&gt; List[int]:
+        last = {c: i for i, c in enumerate(s)}
+        mx = j = 0
+        ans = []
+        for i, c in enumerate(s):
+            mx = max(mx, last[c])
+            if mx == i:
+                ans.append(i - j + 1)
+                j = i + 1
+        return ans</code></pre>
+<h3 id="十五动态规划10">十五、动态规划（10）</h3>
+<h4 id="70-爬楼梯思路详解与标准代码">70\. 爬楼梯｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐ <strong>70\. 爬楼梯</strong>：<code>dp[i]=dp[i-1]+dp[i-2]</code>；滚动变量即可。</li></ul>
+<p><strong>思路：</strong>看到每次走 1 或 2 阶的方案数，状态等同斐波那契递推。滚动维护到前两阶的方案数，迭代到 n。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>n=1 时返回 1</li><li>滚动变量含义要一致</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">class Solution:
+    def climbStairs(self, n: int) -&gt; int:
+        a, b = 0, 1
+        for _ in range(n):
+            a, b = b, a + b
+        return b</code></pre>
+<h4 id="118-杨辉三角思路详解与标准代码">118\. 杨辉三角｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐ <strong>118\. 杨辉三角</strong>：每行两端为 1，中间由上一行相邻两数之和得到。</li></ul>
+<p><strong>思路：</strong>看到生成前 numRows 行杨辉三角，逐行构造。每行两端为 1，中间位置由上一行相邻两个数相加得到。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>numRows=1 正确</li><li>每行长度为行号加一</li></ul>
+<p><strong>复杂度：</strong>时间 O\(numRows²\)，额外空间 O\(numRows²\)（输出）</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def generate(self, numRows: int) -&gt; List[List[int]]:
+        triangle = []
+        for row_index in range(numRows):
+            row = [1] * (row_index + 1)
+            for col in range(1, row_index):
+                row[col] = triangle[-1][col - 1] + triangle[-1][col]
+            triangle.append(row)
+        return triangle</code></pre>
+<h4 id="198-打家劫舍思路详解与标准代码">198\. 打家劫舍｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>198\. 打家劫舍</strong>：<code>dp[i]=max(dp[i-1],dp[i-2]+nums[i])</code>；“不偷/偷当前”二选一。</li></ul>
+<p><strong>思路：</strong>看到相邻元素不能同时选择，滚动 DP 维护前一位置最优和前两位置最优。当前最优取“不偷当前”和“偷当前加前两位最优”的较大值。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>空数组返回 0</li><li>更新滚动变量时不能覆盖旧的前一状态</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def rob(self, nums: List[int]) -&gt; int:
+        two_back = 0
+        one_back = 0
+        for value in nums:
+            current = max(one_back, two_back + value)
+            two_back, one_back = one_back, current
+        return one_back</code></pre>
+<h4 id="279-完全平方数思路详解与标准代码">279\. 完全平方数｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>279\. 完全平方数</strong>：完全背包/最短路；<code>dp[j]=min(dp[j],dp[j-square]+1)</code>。</li></ul>
+<p><strong>思路：</strong>看到用最少完全平方数凑 n，使用完全背包 DP。dp\[x\] 表示凑成 x 的最少个数，对每个 x 枚举不超过它的平方数并取 dp\[x\-square\]\+1 最小值。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>dp\[0\]=0</li><li>平方数可重复使用</li><li>n 为正整数</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n√n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from math import inf, sqrt
+
+class Solution:
+    def numSquares(self, n: int) -&gt; int:
+        m = int(sqrt(n))
+        f = [[inf] * (n + 1) for _ in range(m + 1)]
+        f[0][0] = 0
+        for i in range(1, m + 1):
+            for j in range(n + 1):
+                f[i][j] = f[i - 1][j]
+                if j &gt;= i * i:
+                    f[i][j] = min(f[i][j], f[i][j - i * i] + 1)
+        return f[m][n]</code></pre>
+<h4 id="322-零钱兑换思路详解与标准代码">322\. 零钱兑换｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>322\. 零钱兑换</strong>：完全背包求最少个数；初始化无穷，<code>dp[0]=0</code>，硬币可重复。</li></ul>
+<p><strong>思路：</strong>看到硬币可重复且求最少数量，使用完全背包 DP。dp\[x\] 表示组成金额 x 的最少硬币数，从 dp\[0\]=0 向上转移，无穷仍保留表示不可达。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>amount=0 返回 0</li><li>不可达返回 \-1</li><li>不要把组合数递推混入最少值问题</li></ul>
+<p><strong>复杂度：</strong>时间 O\(amount·硬币数\)，额外空间 O\(amount\)</p>
+<pre><code class="language-python">from typing import List
+from math import inf
+
+class Solution:
+    def coinChange(self, coins: List[int], amount: int) -&gt; int:
+        m, n = len(coins), amount
+        f = [[inf] * (n + 1) for _ in range(m + 1)]
+        f[0][0] = 0
+        for i, x in enumerate(coins, 1):
+            for j in range(n + 1):
+                f[i][j] = f[i - 1][j]
+                if j &gt;= x:
+                    f[i][j] = min(f[i][j], f[i][j - x] + 1)
+        return -1 if f[m][n] &gt;= inf else f[m][n]</code></pre>
+<h4 id="139-单词拆分思路详解与标准代码">139\. 单词拆分｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>139\. 单词拆分</strong>：<code>dp[i]</code> 表示前 <code>i</code> 字符可拆；枚举断点 <code>j</code>，要求 <code>dp[j]</code> 且 <code>s[j:i]</code> 在集合。</li></ul>
+<p><strong>思路：</strong>看到字符串能否由词典词连续拼接，定义 dp\[i\] 为前 i 个字符可拆分。枚举结尾 i 和断点 j，只有 dp\[j\] 为真且 s\[j:i\] 在词典时才能令 dp\[i\] 为真。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>dp\[0\]=True</li><li>词典转集合</li><li>可按最大词长减少无效枚举</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n²\)（切片成本视实现而定），额外空间 O\(n\+词典大小\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def wordBreak(self, s: str, wordDict: List[str]) -&gt; bool:
+        words = set(wordDict)
+        n = len(s)
+        f = [True] + [False] * n
+        for i in range(1, n + 1):
+            f[i] = any(f[j] and s[j:i] in words for j in range(i))
+        return f[n]</code></pre>
+<h4 id="300-最长递增子序列思路详解与标准代码">300\. 最长递增子序列｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>300\. 最长递增子序列</strong>：<code>tails</code> 维护各长度最小结尾；对每个数做 <code>lower_bound</code> 替换。$O(n\log n)$。</li></ul>
+<p><strong>思路：</strong>看到严格递增子序列长度，维护 tails\[len\-1\] 为该长度的最小结尾。对每个数用 lower\_bound 找第一个大于等于它的位置替换，若不存在则追加。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>严格递增必须用 lower\_bound</li><li>tails 本身不一定是原数组子序列</li><li>空数组返回 0</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n log n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def lengthOfLIS(self, nums: List[int]) -&gt; int:
+        n = len(nums)
+        f = [1] * n
+        for i in range(1, n):
+            for j in range(i):
+                if nums[j] &lt; nums[i]:
+                    f[i] = max(f[i], f[j] + 1)
+        return max(f)</code></pre>
+<h4 id="152-乘积最大子数组思路详解与标准代码">152\. 乘积最大子数组｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>152\. 乘积最大子数组</strong>：同时维护以当前结尾的最大/最小乘积；负数会交换二者角色。</li></ul>
+<p><strong>思路：</strong>看到连续乘积且存在负数，必须同时维护以当前位置结尾的最大值与最小值。当前数为负时二者角色交换，再分别决定从当前重启或接续，更新全局最大值。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>负数会让最大最小互换</li><li>0 会自然重启</li><li>答案不能初始化为 0 以免全负单元素出错</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def maxProduct(self, nums: List[int]) -&gt; int:
+        ans = f = g = nums[0]
+        for x in nums[1:]:
+            ff, gg = f, g
+            f = max(x, ff * x, gg * x)
+            g = min(x, ff * x, gg * x)
+            ans = max(ans, f)
+        return ans</code></pre>
+<h4 id="416-分割等和子集思路详解与标准代码">416\. 分割等和子集｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>416\. 分割等和子集</strong>：总和为奇数直接否；转为容量 <code>sum/2</code> 的 0\-1 背包，容量倒序。</li></ul>
+<p><strong>思路：</strong>看到能否分成和相等的两组，先把问题转成选若干数凑总和一半。总和为奇数直接失败；用 0\-1 背包布尔 DP，并让容量倒序更新避免重复使用元素。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>总和奇数立即返回 False</li><li>容量必须倒序</li><li>dp\[0\]=True</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n·sum\)，额外空间 O\(sum\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def canPartition(self, nums: List[int]) -&gt; bool:
+        m, mod = divmod(sum(nums), 2)
+        if mod:
+            return False
+        n = len(nums)
+        f = [[False] * (m + 1) for _ in range(n + 1)]
+        f[0][0] = True
+        for i, x in enumerate(nums, 1):
+            for j in range(m + 1):
+                f[i][j] = f[i - 1][j] or (j &gt;= x and f[i - 1][j - x])
+        return f[n][m]</code></pre>
+<h4 id="32-最长有效括号思路详解与标准代码">32\. 最长有效括号｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>32\. 最长有效括号</strong>：DP：以 <code>i</code> 结尾，若 <code>s[i]=&#x27;)&#x27;</code>，定位可能匹配的左括号并接上前段。</li></ul>
+<p><strong>思路：</strong>看到最长连续合法括号，定义 dp\[i\] 为以 i 结尾的最长有效长度。仅当 s\[i\] 为右括号时，令 j=i\-dp\[i\-1\]\-1 定位可能配对的左括号；匹配后接上内部段和 j 前面的有效段。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>j 必须先判非负</li><li>前段使用 dp\[j\-1\] 且 j=0 时为 0</li><li>答案取所有 dp\[i\] 最大值</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">class Solution:
+    def longestValidParentheses(self, s: str) -&gt; int:
+        n = len(s)
+        dp = [0] * n
+        answer = 0
+        for i in range(1, n):
+            if s[i] == &#x27;)&#x27;:
+                j = i - dp[i - 1] - 1
+                if j &gt;= 0 and s[j] == &#x27;(&#x27;:
+                    dp[i] = dp[i - 1] + 2
+                    if j &gt; 0:
+                        dp[i] += dp[j - 1]
+                    answer = max(answer, dp[i])
+        return answer</code></pre>
+<h3 id="十六多维动态规划5">十六、多维动态规划（5）</h3>
+<h4 id="62-不同路径思路详解与标准代码">62\. 不同路径｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>62\. 不同路径</strong>：<code>dp[i][j]=上+左</code>；可压成一维，障碍不存在时也可组合数。</li></ul>
+<p><strong>思路：</strong>看到只能向右或向下走的路径计数，网格 DP 的每格来自上方与左方。用一维 dp 压缩，初始化为 1，逐行令 dp\[j\]\+=dp\[j\-1\]。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>首行首列都只有一种走法</li><li>m、n 均为正</li></ul>
+<p><strong>复杂度：</strong>时间 O\(mn\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">class Solution:
+    def uniquePaths(self, m: int, n: int) -&gt; int:
+        f = [[0] * n for _ in range(m)]
+        f[0][0] = 1
+        for i in range(m):
+            for j in range(n):
+                if i:
+                    f[i][j] += f[i - 1][j]
+                if j:
+                    f[i][j] += f[i][j - 1]
+        return f[-1][-1]</code></pre>
+<h4 id="64-最小路径和思路详解与标准代码">64\. 最小路径和｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>64\. 最小路径和</strong>：<code>dp[i][j]=grid[i][j]+min(上,左)</code>；首行首列单独初始化。</li></ul>
+<p><strong>思路：</strong>看到只能右移或下移且求最小代价，状态为到达每格的最小路径和。可原地累加：首行首列只有单一来源，其余格加上上方与左方较小值。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>首行首列需单独处理</li><li>原地方案会修改 grid</li></ul>
+<p><strong>复杂度：</strong>时间 O\(mn\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def minPathSum(self, grid: List[List[int]]) -&gt; int:
+        if not grid or not grid[0]:
+            return 0
+        rows, cols = len(grid), len(grid[0])
+        for row in range(1, rows):
+            grid[row][0] += grid[row - 1][0]
+        for col in range(1, cols):
+            grid[0][col] += grid[0][col - 1]
+        for row in range(1, rows):
+            for col in range(1, cols):
+                grid[row][col] += min(grid[row - 1][col], grid[row][col - 1])
+        return grid[-1][-1]</code></pre>
+<h4 id="5-最长回文子串思路详解与标准代码">5\. 最长回文子串｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>5\. 最长回文子串</strong>：中心扩展枚举奇/偶中心；或区间 DP，记录最长边界。</li></ul>
+<p><strong>思路：</strong>看到最长连续回文子串，枚举每个奇数与偶数中心向两侧扩展。字符相等时继续扩大并更新最长边界，任一中心总扩展次数受字符串长度限制。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>必须同时处理奇偶中心</li><li>空串返回空串</li><li>相同最长长度返回任一均可</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n²\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">class Solution:
+    def longestPalindrome(self, s: str) -&gt; str:
+        n = len(s)
+        f = [[True] * n for _ in range(n)]
+        k, mx = 0, 1
+        for i in range(n - 2, -1, -1):
+            for j in range(i + 1, n):
+                f[i][j] = False
+                if s[i] == s[j]:
+                    f[i][j] = f[i + 1][j - 1]
+                    if f[i][j] and mx &lt; j - i + 1:
+                        k, mx = i, j - i + 1
+        return s[k : k + mx]</code></pre>
+<h4 id="1143-最长公共子序列思路详解与标准代码">1143\. 最长公共子序列｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>1143\. 最长公共子序列</strong>：字符相等取左上 \+1，否则取上/左最大；明确是子序列非子串。</li></ul>
+<p><strong>思路：</strong>看到两个字符串的最长子序列，DP 比较前缀。字符相等时取左上状态加一，否则取去掉任一末字符后的较大值；可用一维数组压缩。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>子序列不要求连续</li><li>一维压缩时要保存左上旧值</li></ul>
+<p><strong>复杂度：</strong>时间 O\(mn\)，额外空间 O\(n\)</p>
+<pre><code class="language-python">class Solution:
+    def longestCommonSubsequence(self, text1: str, text2: str) -&gt; int:
+        m, n = len(text1), len(text2)
+        f = [[0] * (n + 1) for _ in range(m + 1)]
+        for i in range(1, m + 1):
+            for j in range(1, n + 1):
+                if text1[i - 1] == text2[j - 1]:
+                    f[i][j] = f[i - 1][j - 1] + 1
+                else:
+                    f[i][j] = max(f[i - 1][j], f[i][j - 1])
+        return f[m][n]</code></pre>
+<h4 id="72-编辑距离思路详解与标准代码">72\. 编辑距离｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>72\. 编辑距离</strong>：<code>dp[i][j]</code> 为前缀距离；相同取左上，否则 <code>1+min(删、增、改)</code>。</li></ul>
+<p><strong>思路：</strong>看到插入、删除、替换的最少次数，定义 dp\[i\]\[j\] 为两个前缀的编辑距离。末字符相同取左上，否则在删除、插入、替换三个前驱中取最小值加一。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>首行首列分别初始化为前缀长度</li><li>三种操作对应的前驱不能混淆</li></ul>
+<p><strong>复杂度：</strong>时间 O\(mn\)，额外空间 O\(mn\)</p>
+<pre><code class="language-python">class Solution:
+    def minDistance(self, word1: str, word2: str) -&gt; int:
+        m, n = len(word1), len(word2)
+        f = [[0] * (n + 1) for _ in range(m + 1)]
+        for j in range(1, n + 1):
+            f[0][j] = j
+        for i, a in enumerate(word1, 1):
+            f[i][0] = i
+            for j, b in enumerate(word2, 1):
+                if a == b:
+                    f[i][j] = f[i - 1][j - 1]
+                else:
+                    f[i][j] = min(f[i - 1][j], f[i][j - 1], f[i - 1][j - 1]) + 1
+        return f[m][n]</code></pre>
+<h3 id="十七技巧5">十七、技巧（5）</h3>
+<h4 id="136-只出现一次的数字思路详解与标准代码">136\. 只出现一次的数字｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐ <strong>136\. 只出现一次的数字</strong>：所有数异或；相同数抵消，<code>0^x=x</code>。</li></ul>
+<p><strong>思路：</strong>看到其余元素都出现两次，利用异或的交换律和 x^x=0。把全部元素异或，成对元素抵消后即得到唯一元素。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>初值为 0</li><li>负数同样适用</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def singleNumber(self, nums: List[int]) -&gt; int:
+        answer = 0
+        for value in nums:
+            answer ^= value
+        return answer</code></pre>
+<h4 id="169-多数元素思路详解与标准代码">169\. 多数元素｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>169\. 多数元素</strong>：Boyer–Moore 投票；相同加一、不同抵消，多数元素最终留下。</li></ul>
+<p><strong>思路：</strong>看到某元素出现次数超过一半，使用 Boyer–Moore 投票。计数归零时更换候选，相同加一、不同减一；多数元素与其他元素抵消后仍会留下。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>题目保证多数元素存在</li><li>若不保证需第二遍验证</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def majorityElement(self, nums: List[int]) -&gt; int:
+        cnt = m = 0
+        for x in nums:
+            if cnt == 0:
+                m, cnt = x, 1
+            else:
+                cnt += 1 if m == x else -1
+        return m</code></pre>
+<h4 id="75-颜色分类思路详解与标准代码">75\. 颜色分类｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>75\. 颜色分类</strong>：荷兰国旗；<code>[0,l)</code> 是 0，<code>[l,i)</code> 是 1，<code>(r,n)</code> 是 2；换来 2 时 <code>i</code> 不前进。</li></ul>
+<p><strong>思路：</strong>看到只含 0、1、2 且要求原地一次遍历，使用荷兰国旗三指针。维护 \[0,left\) 为 0、\[left,i\) 为 1、\(right,n\) 为 2；遇 0 左换并前进，遇 2 右换但 i 不动。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>换入当前位置的右侧元素尚未检查</li><li>边界采用 left\&lt;=right 或 i\&lt;=right 要一致</li><li>原地修改</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def sortColors(self, nums: List[int]) -&gt; None:
+        i, j, k = -1, len(nums), 0
+        while k &lt; j:
+            if nums[k] == 0:
+                i += 1
+                nums[i], nums[k] = nums[k], nums[i]
+                k += 1
+            elif nums[k] == 2:
+                j -= 1
+                nums[j], nums[k] = nums[k], nums[j]
+            else:
+                k += 1</code></pre>
+<h4 id="31-下一个排列思路详解与标准代码">31\. 下一个排列｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐⭐ <strong>31\. 下一个排列</strong>：从右找首个下降位 <code>i</code>；从右找首个大于它的数交换；反转后缀为最小。</li></ul>
+<p><strong>思路：</strong>看到求字典序紧邻的更大排列，从右找首个 nums\[i\]\&lt;nums\[i\+1\] 的枢轴。再从右找首个大于枢轴的元素交换，并反转原本非递增的后缀使其最小；若无枢轴则整体反转。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>必须从右找严格大于枢轴的元素</li><li>后缀用反转即可</li><li>完全降序时回到最小排列</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+
+class Solution:
+    def nextPermutation(self, nums: List[int]) -&gt; None:
+        n = len(nums)
+        i = next((i for i in range(n - 2, -1, -1) if nums[i] &lt; nums[i + 1]), -1)
+        if ~i:
+            j = next((j for j in range(n - 1, i, -1) if nums[j] &gt; nums[i]))
+            nums[i], nums[j] = nums[j], nums[i]
+        nums[i + 1 :] = nums[i + 1 :][::-1]</code></pre>
+<h4 id="287-寻找重复数思路详解与标准代码">287\. 寻找重复数｜思路详解与标准代码</h4>
+<ul><li>[ ] ⭐⭐ <strong>287\. 寻找重复数</strong>：把 <code>i→nums[i]</code> 看成链表，重复值是环入口；Floyd 快慢指针。</li></ul>
+<p><strong>思路：</strong>看到 n\+1 个值落在 \[1,n\] 且不能改数组，把 i→nums\[i\] 视为带环链表。Floyd 第一阶段让快慢指针相遇，第二阶段从起点与相遇点同速前进，环入口值就是重复数。</p>
+<p><strong>易错点：</strong></p>
+<ul><li>起点使用 nums\[0\] 或 0 的模板要前后一致</li><li>不能修改原数组</li><li>重复值可能出现多次</li></ul>
+<p><strong>复杂度：</strong>时间 O\(n\)，额外空间 O\(1\)</p>
+<pre><code class="language-python">from typing import List
+from bisect import bisect_left
+
+class Solution:
+    def findDuplicate(self, nums: List[int]) -&gt; int:
+        def f(x: int) -&gt; bool:
+            return sum(v &lt;= x for v in nums) &gt; x
+
+        return bisect_left(range(len(nums)), True, key=f)</code></pre>
+<hr />
+<h2 id="最后-60-分钟只默写这-24-题">最后 60 分钟：只默写这 24 题</h2>
+<ol><li>3 无重复字符（滑窗）</li><li>15 三数之和（排序双指针）</li><li>42 接雨水（左右最大值）</li><li>76 最小覆盖子串（滑窗计数）</li><li>239 窗口最大值（单调队列）</li><li>560 和为 K（前缀和哈希）</li><li>41 缺失正数（原地哈希）</li><li>206 反转链表</li><li>142 环入口</li><li>25 K 组反转</li><li>148 链表归并排序</li><li>146 LRU</li><li>105 构造二叉树</li><li>124 最大路径和</li><li>437 树上前缀和</li><li>207 拓扑排序</li><li>46 全排列</li><li>79 单词搜索</li><li>34 二分左右边界</li><li>84 柱状图最大矩形</li><li>295 数据流中位数</li><li>300 LIS</li><li>416 0\-1 背包</li><li>72 编辑距离</li></ol>
+<h2 id="闭卷验收标准">闭卷验收标准</h2>
+<p>对每道题依次回答下面 5 句，答不出就把复选框留空：</p>
+<ol><li><strong>识别信号</strong>：题目哪个词让我想到这个算法？</li><li><strong>状态/不变量</strong>：指针、窗口、栈、DFS 返回值或 DP 状态代表什么？</li><li><strong>一次迭代</strong>：每轮具体更新什么，顺序为什么不能换？</li><li><strong>边界坑</strong>：空输入、重复值、越界、初始化、恢复现场，最可能错哪一个？</li><li><strong>复杂度</strong>：时间与额外空间是多少？</li></ol>
+<p>如果一题能在 <strong>10 秒内说出算法，30 秒内说出关键不变量，3 分钟内写出骨架</strong>，就算“被提醒能想起来”。</p>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/leetcode_hot_100_tutorial.md</code> ·
+  SHA256 <code>0543ff9daa59</code> ·
+  generated at 2026-08-16 17:03 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>
