@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CPT 数据自动配比与课程学习：从 278 个数据集到可执行 Schedule</title>
+<meta name="generator" content="ARIS academic tutorial">
+<style>
+:root {
+  --bg:#fdfcf7; --bg-soft:#f4f1ea; --bg-code:#f8f5ec; --ink:#1a1a1a;
+  --ink-soft:#4a4a4a; --ink-muted:#6b6b6b; --primary:#1a4a8c; --accent:#b8390e;
+  --warn:#b45309; --warn-bg:#fef3c7; --info-bg:#dbeafe; --good-bg:#d1fae5;
+  --good:#065f46; --bad-bg:#fee2e2; --bad:#991b1b; --border:#d6d0c0; --border-soft:#e8e3d5;
+  --l0:#264653; --l1:#2a9d8f; --l2:#8ab17d; --l3:#e9c46a; --l4:#f4a261; --l5:#e76f51;
+}
+*{box-sizing:border-box} html{scroll-behavior:smooth}
+body{font-family:"Source Serif Pro","Source Serif 4","Georgia","Songti SC","STSong",serif;line-height:1.68;color:var(--ink);background:var(--bg);margin:0;font-size:16px}
+.layout{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:260px 1fr;gap:48px;padding:40px 32px}
+nav.toc{position:sticky;top:24px;align-self:start;font-size:13px;max-height:calc(100vh - 48px);overflow-y:auto;border-right:1px solid var(--border-soft);padding-right:16px}
+nav.toc h3{margin:0 0 12px;font-size:12px;letter-spacing:.08em;color:var(--ink-muted);font-weight:600;text-transform:uppercase}
+nav.toc ol{list-style:none;padding:0;margin:0;counter-reset:toc} nav.toc li{margin:6px 0;counter-increment:toc}
+nav.toc li::before{content:counter(toc) ". ";color:var(--ink-muted);margin-right:4px} nav.toc a{color:var(--ink-soft);text-decoration:none;border-bottom:1px dotted transparent}
+nav.toc a:hover,nav.toc a.active{color:var(--accent);border-bottom-color:var(--accent)} main{min-width:0}
+header.hero{border-bottom:3px double var(--primary);padding-bottom:24px;margin-bottom:32px}
+.eyebrow{color:var(--ink-muted);font-size:13px;margin-bottom:8px}.hero h1{font-size:32px;line-height:1.2;margin:0 0 12px}.subtitle{font-size:16px;color:var(--ink-soft);font-style:italic;margin:0 0 16px}
+.meta{display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:var(--ink-muted);border-top:1px solid var(--border-soft);padding-top:14px}
+h2{font-size:24px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)} h2 .num{color:var(--primary);margin-right:8px}
+h3{font-size:19px;margin:28px 0 10px;color:var(--primary)} h4{font-size:16px;margin:20px 0 8px} p{margin:10px 0}
+ul,ol{padding-left:22px} li{margin:4px 0} strong{color:var(--accent);font-weight:600}
+code{font-family:"JetBrains Mono","SF Mono",Menlo,monospace;font-size:.86em;background:var(--bg-code);padding:1px 5px;border:1px solid var(--border-soft);border-radius:3px;color:var(--accent)}
+pre{background:#fafaf6;border:1px solid var(--border);border-left:4px solid var(--primary);padding:14px 18px;overflow:auto;border-radius:4px;font-size:13px;line-height:1.55} pre code{border:0;padding:0;color:var(--ink);background:transparent}
+.callout{margin:16px 0;padding:12px 16px;border-radius:4px;border-left:4px solid;font-size:15px}.callout-title{font-weight:600;margin-bottom:6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.info{background:var(--info-bg);border-color:var(--primary)}.good{background:var(--good-bg);border-color:var(--good)}.warn{background:var(--warn-bg);border-color:var(--warn)}.bad{background:var(--bad-bg);border-color:var(--bad)}
+.table-wrap{overflow-x:auto;margin:16px 0;border:1px solid var(--border);border-radius:4px}table{width:100%;border-collapse:collapse;font-size:14px}thead{background:var(--primary);color:white}th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border-soft);vertical-align:top}tbody tr:nth-child(even){background:var(--bg-soft)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.kpi{border:1px solid var(--border);background:white;padding:14px;border-radius:5px}.kpi b{display:block;color:var(--primary);font-size:24px}.kpi span{font-size:12px;color:var(--ink-muted)}
+.bucket-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.bucket{background:white;border:1px solid var(--border-soft);border-top:5px solid;padding:14px;border-radius:5px}.bucket h4{margin:0 0 4px}.bucket .stat{font-size:12px;color:var(--ink-muted)}
+.L0{border-color:var(--l0)}.L1{border-color:var(--l1)}.L2{border-color:var(--l2)}.L3{border-color:var(--l3)}.L4{border-color:var(--l4)}.L5{border-color:var(--l5)}
+.stack{display:flex;height:30px;width:100%;border-radius:4px;overflow:hidden;margin:6px 0 2px;background:#eee}.stack span{display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:11px;color:white;min-width:0}.stack .light{color:#423b2e}.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin:10px 0}.dot{display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:2px}
+.stage{margin:18px 0;padding:14px;background:white;border:1px solid var(--border-soft);border-radius:5px}.stage-head{display:flex;justify-content:space-between;gap:16px;align-items:baseline}.stage-head strong{color:var(--primary)}.stage-head small{color:var(--ink-muted)}
+.formula{text-align:center;font-family:"Times New Roman",serif;font-size:20px;padding:18px;background:var(--bg-soft);border:1px solid var(--border);margin:16px 0}.formula .under{font-size:13px;color:var(--ink-muted);font-family:inherit;margin-top:8px}
+.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:18px 0}.step{position:relative;padding:12px;background:white;border:1px solid var(--border);border-radius:4px;font-size:13px}.step:not(:last-child)::after{content:"→";position:absolute;right:-15px;top:35%;color:var(--accent);z-index:2;font-weight:bold}
+.calculator{background:white;border:1px solid var(--border);padding:16px;border-radius:5px}.calculator label{font-weight:600}.calculator input{font:inherit;width:120px;margin:0 8px;padding:6px 8px;border:1px solid var(--border);border-radius:4px}.calc-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}.calc-item{background:var(--bg-soft);padding:10px;border-radius:4px;font-size:13px}.calc-item b{display:block;color:var(--primary)}
+details{background:white;border:1px solid var(--border-soft);border-radius:6px;margin:10px 0}summary{cursor:pointer;padding:10px 14px;font-weight:600;color:var(--primary)}details>div{padding:0 14px 12px}
+footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--border);font-size:12px;color:var(--ink-muted)}
+@media(max-width:900px){.layout{grid-template-columns:1fr;padding:20px 16px}.toc{position:static!important;border-right:0!important;border-bottom:1px solid var(--border-soft);padding-bottom:14px}.kpis,.bucket-grid{grid-template-columns:repeat(2,1fr)}.pipeline,.calc-grid{grid-template-columns:1fr}.step:not(:last-child)::after{content:"↓";right:50%;top:auto;bottom:-18px}.hero h1{font-size:25px}}
+@media(max-width:560px){.kpis,.bucket-grid{grid-template-columns:1fr}.stack span{font-size:0}}
+@media print{nav.toc{display:none}.layout{grid-template-columns:1fr;padding:0}body{background:white}}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc"><h3>Contents</h3><ol>
+<li><a href="#tldr">TL;DR</a></li><li><a href="#problem">为什么需要自动配比</a></li><li><a href="#buckets">L0–L5 分桶体系</a></li><li><a href="#algorithm">核心换算算法</a></li><li><a href="#schedule">30B 五阶段课程</a></li><li><a href="#variants">四组消融变体</a></li><li><a href="#engineering">配置生成与训练接入</a></li><li><a href="#quality">校验与观测</a></li><li><a href="#risks">边界、风险与改进</a></li><li><a href="#interview">面试表达</a></li>
+</ol></nav>
+<main>
+<header class="hero">
+<div class="eyebrow">CPT Data Engineering · Curriculum Learning · Multimodal Training</div>
+<h1>CPT 数据自动配比与课程学习</h1>
+<p class="subtitle">从 278 个异构数据集到 L0–L5 分桶、逐 token 调度与可复现实验矩阵</p>
+<div class="meta"><span><strong>案例：</strong>Qwen3.5-2B-Base CPT</span><span><strong>规模：</strong>30B tokens</span><span><strong>数据版本：</strong>v2d15</span><span><strong>作者：</strong>鞠少波</span></div>
+</header>
+
+<h2 id="tldr"><span class="num">§0</span>TL;DR：这套脚本真正自动化了什么</h2>
+<div class="kpis"><div class="kpi"><b>278</b><span>数据源，一一校验名称、路径和权重</span></div><div class="kpi"><b>6</b><span>难度与模态桶：L0–L5</span></div><div class="kpi"><b>5</b><span>主课程阶段，按累计 token 切换</span></div><div class="kpi"><b>4</b><span>可直接切换的消融变体</span></div></div>
+<div class="callout info"><div class="callout-title">一句话结论</div>系统不是手工填写 278 个数据集在每个阶段的权重，而是只维护<strong>数据集基准权重、固定分桶、阶段 bucket 目标占比</strong>三层信息，再自动展开为训练框架可消费的 278 维权重 schedule。</div>
+<p>核心设计是“<strong>桶间重配、桶内保形</strong>”。课程只改变 L0–L5 六个桶在训练中的宏观份额；同一桶内数据集的相对权重沿用 v2d15 基线。这样既能控制课程方向，又避免为每个阶段手调 278 个数字。</p>
+
+<h2 id="problem"><span class="num">§1</span>为什么 CPT 数据配比不能靠手工</h2>
+<p>多模态 CPT 的数据源同时覆盖纯文本、图像问答、文档 OCR、多图、视频、内部业务数据和复杂推理。不同源的样本长度、视觉帧数、质量、难度与领域价值差异很大。只用静态混合会带来三个问题：训练早期被长视频和硬推理扰动；训练后期仍被大量简单开放数据稀释；每次改总 token 数或做消融都要重算大量权重。</p>
+<div class="pipeline"><div class="step"><strong>数据画像</strong><br>模态、来源、任务、平均 token</div><div class="step"><strong>固定分桶</strong><br>L0–L5 难度阶梯</div><div class="step"><strong>阶段目标</strong><br>每阶段 6 个占比</div><div class="step"><strong>自动展开</strong><br>生成 278 维权重</div><div class="step"><strong>训练调度</strong><br>按 token 平滑变化</div></div>
+<p>脚本把配置入口收敛为 <code>TRAIN_SIZE</code>、<code>CURRICULUM_LEVEL</code> 和 <code>CURRICULUM_VARIANT</code>。实验名、输出目录与 W&amp;B 名称也从同一组参数自动派生，降低“训练配置正确、实验记录却串了”的风险。</p>
+
+<h2 id="buckets"><span class="num">§2</span>L0–L5：把 278 维问题压缩成 6 维控制面</h2>
+<p>分桶来自 v2d15 的类型、数据类型、任务类型与平均 token 等画像列，随后固化为 <code>BUCKET_BY_NAME</code>。固定映射很重要：同一实验矩阵中，课程变体只能改变配比，不能悄悄改变数据定义。</p>
+<div class="bucket-grid">
+<div class="bucket L0"><h4>L0 · 文本预热</h4><div class="stat">15 源 · 基线 15.96%</div><p>开源纯文本、语料与通用 QA；短 token、低成本，用于建立语言与指令基础。</p></div>
+<div class="bucket L1"><h4>L1 · 短多模态主干</h4><div class="stat">193 源 · 基线 46.49%</div><p>开源短图像、多模态 QA 与 caption；数量最多，是稳定训练的主体。</p></div>
+<div class="bucket L2"><h4>L2 · 结构化长多模态</h4><div class="stat">18 源 · 基线 3.25%</div><p>多图、文档、OCR、网页与高 token 结构化任务，逐步提升上下文复杂度。</p></div>
+<div class="bucket L3"><h4>L3 · 开源视频</h4><div class="stat">7 源 · 基线 8.03%</div><p>视频 caption 与 QA，引入更多帧和更长上下文，但仍保持开源分布。</p></div>
+<div class="bucket L4"><h4>L4 · 内部中难度</h4><div class="stat">9 源 · 基线 8.36%</div><p>内部图像/文本结构化 QA、OCR 等闭源数据，承担域适配过渡。</p></div>
+<div class="bucket L5"><h4>L5 · 内部硬尾</h4><div class="stat">36 源 · 基线 17.91%</div><p>内部视频、长上下文、grounding、world knowledge 与复杂推理，训练后段强化。</p></div>
+</div>
+<div class="callout warn"><div class="callout-title">分桶原则</div>“难度”不是单一标签，而是来源、模态、序列成本、结构复杂度和任务推理强度的联合工程判断。脚本只保存最终分桶，不保存原始画像列，因此版本升级时应在外部保留可审计的分桶生成表。</div>
+
+<h2 id="algorithm"><span class="num">§3</span>核心算法：桶间重配，桶内相对权重不变</h2>
+<p>记数据集 <em>i</em> 的基准权重为 <em>bᵢ</em>，所属桶为 <em>g(i)</em>，全体基准权重和为 <em>T</em>，桶 <em>g</em> 的基准权重和为 <em>B<sub>g</sub></em>，某阶段对该桶的目标占比为 <em>q<sub>g</sub></em>。自动生成的新权重为：</p>
+<div class="formula">wᵢ = bᵢ × q<sub>g(i)</sub> × T / B<sub>g(i)</sub><div class="under">脚本数值：T = 3652.79786；若 q<sub>g</sub> = 0，则该桶全部数据集权重置 0。</div></div>
+<p>这个公式同时满足两条不变量。第一，桶内任意两个数据集的新权重比仍等于基准权重比，即 <em>wᵢ / wⱼ = bᵢ / bⱼ</em>。第二，每个桶的新权重和精确等于 <em>q<sub>g</sub>T</em>，所以六个桶的总权重仍为 <em>T</em>。</p>
+<pre><code class="language-python">def weights_for_targets(targets):
+    base_sums = bucket_sums(BASE_WEIGHTS)
+    result = []
+    for name, base_weight in zip(NAMES, BASE_WEIGHTS):
+        bucket = BUCKET_BY_NAME[name]
+        target_share = targets[bucket]
+        if target_share &lt;= 0:
+            result.append(0.0)
+        else:
+            scale = target_share * TARGET_WEIGHT_SUM / base_sums[bucket]
+            result.append(base_weight * scale)
+    return result</code></pre>
+<div class="callout good"><div class="callout-title">为什么这比手工权重更稳</div>新增阶段只需要写 6 个目标占比；替换训练规模只需要改总 token；基准表升级只需要替换基准权重与分桶映射。课程逻辑与数据集细节被解耦，变更面从“278 × 阶段数”缩小到“6 × 阶段数”。</div>
+
+<h2 id="schedule"><span class="num">§4</span>curriculum_full：30B token 的五阶段课程</h2>
+<p>第一阶段使用常量权重；第二阶段开始，每个区间从上一阶段目标线性变化到当前阶段目标。边界以累计 token 而不是 step 定义，因此 global batch、动态 batch 或样本长度变化时，课程仍与实际训练量对齐。</p>
+<div class="legend"><span><i class="dot" style="background:var(--l0)"></i>L0</span><span><i class="dot" style="background:var(--l1)"></i>L1</span><span><i class="dot" style="background:var(--l2)"></i>L2</span><span><i class="dot" style="background:var(--l3)"></i>L3</span><span><i class="dot" style="background:var(--l4)"></i>L4</span><span><i class="dot" style="background:var(--l5)"></i>L5</span></div>
+<div class="stage"><div class="stage-head"><strong>S1 开放短数据预热</strong><small>0–3B · 训练进度 0–10% · 内部数据 0%</small></div><div class="stack"><span style="width:24%;background:var(--l0)">24</span><span style="width:62%;background:var(--l1)">62</span><span style="width:6%;background:var(--l2)">6</span><span class="light" style="width:8%;background:var(--l3)">8</span></div><p>完全屏蔽 L4/L5，先用 L0/L1 建立稳定基础；少量 L2/L3 让模型提前接触结构化和视频形态。</p></div>
+<div class="stage"><div class="stage-head"><strong>S2 开放结构能力建设</strong><small>3–10.5B · 10–35% · 内部数据 8%</small></div><div class="stack"><span style="width:20%;background:var(--l0)">20</span><span style="width:55%;background:var(--l1)">55</span><span style="width:7%;background:var(--l2)">7</span><span class="light" style="width:10%;background:var(--l3)">10</span><span class="light" style="width:5%;background:var(--l4)">5</span><span style="width:3%;background:var(--l5)">3</span></div><p>开始少量引入内部数据，但主干仍由开放短多模态数据支撑。</p></div>
+<div class="stage"><div class="stage-head"><strong>S3 视频与内部域引入</strong><small>10.5–19.5B · 35–65% · 内部数据 17%</small></div><div class="stack"><span style="width:16%;background:var(--l0)">16</span><span style="width:47%;background:var(--l1)">47</span><span style="width:8%;background:var(--l2)">8</span><span class="light" style="width:12%;background:var(--l3)">12</span><span class="light" style="width:8%;background:var(--l4)">8</span><span style="width:9%;background:var(--l5)">9</span></div><p>这是最长的 9B 区间，开放主干与内部域适配进入相对均衡的过渡期。</p></div>
+<div class="stage"><div class="stage-head"><strong>S4 长上下文适配</strong><small>19.5–25.5B · 65–85% · 内部数据 29%</small></div><div class="stack"><span style="width:12%;background:var(--l0)">12</span><span style="width:38%;background:var(--l1)">38</span><span style="width:8%;background:var(--l2)">8</span><span class="light" style="width:13%;background:var(--l3)">13</span><span class="light" style="width:12%;background:var(--l4)">12</span><span style="width:17%;background:var(--l5)">17</span></div><p>L3–L5 合计达到 42%，强化视频、长上下文与闭源任务适配。</p></div>
+<div class="stage"><div class="stage-head"><strong>S5 内部硬尾强化</strong><small>25.5–30B · 85–100% · 内部数据 38%</small></div><div class="stack"><span style="width:10%;background:var(--l0)">10</span><span style="width:32%;background:var(--l1)">32</span><span style="width:8%;background:var(--l2)">8</span><span class="light" style="width:12%;background:var(--l3)">12</span><span class="light" style="width:15%;background:var(--l4)">15</span><span style="width:23%;background:var(--l5)">23</span></div><p>最终混合保留 50% 的 L0/L1 稳定底座，同时把 L4/L5 提升到 38%，完成内部域与复杂能力收口。</p></div>
+<div class="calculator"><label for="tokens">换算任意训练规模：</label><input id="tokens" type="number" min="0.1" step="1" value="30">B tokens<div class="calc-grid" id="calc"></div></div>
+
+<h2 id="variants"><span class="num">§5</span>四组预设：把经验判断变成可证伪实验</h2>
+<div class="table-wrap"><table><thead><tr><th>变体</th><th>控制变量</th><th>要回答的问题</th><th>终态</th></tr></thead><tbody>
+<tr><td><code>fixed_v2d15</code></td><td>沿用原始 v2d15 桶占比</td><td>自动课程是否优于历史静态基线？</td><td>基线：15.96/46.49/3.25/8.03/8.36/17.91%</td></tr>
+<tr><td><code>curriculum_full</code></td><td>先开放、后内部，五阶段渐变</td><td>完整课程是否同时改善稳定性和最终域能力？</td><td>10/32/8/12/15/23%</td></tr>
+<tr><td><code>no_curriculum_final_mix</code></td><td>从第一个 token 起固定使用终态</td><td>收益来自最终配比，还是来自课程顺序？</td><td>同 curriculum_full</td></tr>
+<tr><td><code>earlier_closed</code></td><td>S1 即引入 10% L4/L5，之后更快增加</td><td>闭源域数据是否应该更早进入？</td><td>同 curriculum_full</td></tr>
+<tr><td><code>lower_closed_final</code></td><td>内部数据增长更慢，终态仅 28%</td><td>38% 内部数据是否过强、是否损害通用能力？</td><td>14/42/8/8/12/16%</td></tr>
+</tbody></table></div>
+<p>最关键的一对是 <code>curriculum_full</code> 与 <code>no_curriculum_final_mix</code>：两者终态完全一致，差别只有“是否逐步引入”，因此最适合隔离课程学习本身的贡献。</p>
+
+<h2 id="engineering"><span class="num">§6</span>从 Bash 到训练框架：配置如何闭环</h2>
+<h3>6.1 单一 CONFIG 区域</h3>
+<pre><code class="language-bash">TRAIN_SIZE=${TRAIN_SIZE:-30000000000}
+CURRICULUM_LEVEL="${CURRICULUM_LEVEL:-token}"
+CURRICULUM_VARIANT="${CURRICULUM_VARIANT:-curriculum_full}"
+RUN_NAME="${MODEL_TAG}_${LR_TAG}_${DATA_VERSION}_${EXP_TAG}_${CURRICULUM_VARIANT}_${TRAIN_SIZE_TAG}_${BACKEND_TAG}"</code></pre>
+<p><code>TOTAL_TOKENS</code> 与变体通过环境变量传给内嵌 Python。Python 负责校验和计算，输出 <code>data_config.yaml</code>；Bash 再生成 <code>training_config.yaml</code> 并把前者作为 <code>train_path</code> 接入流式多源数据集。</p>
+<h3>6.2 Schedule 语义</h3>
+<pre><code class="language-yaml">level: token
+boundary_type: token
+schedule:
+  - init_token: 0
+    end_token: 3000000000
+    schedule_type: const
+    weights: [278 个 S1 权重]
+  - init_token: 3000000000
+    end_token: 10500000000
+    schedule_type: changing
+    init_weights: [278 个 S1 权重]
+    end_weights: [278 个 S2 权重]</code></pre>
+<p><code>changing</code> 表示区间内从上一目标向下一目标连续变化，而不是边界处突然跳变。脚本设置 <code>level: token</code>，并明确记录 WeightedMultiSourceDataset 会根据运行时平均 token 长度重加权采样；因此应同时观测“配置权重”和“实际消费 token 占比”。</p>
+<h3>6.3 训练侧配套</h3>
+<p>案例使用 32K 最大序列、128 帧、global batch 128、micro batch 1、FSDP2 full shard、动态 batch buffer 和 DCP 自动续训。数据调度与模型训练参数分层生成，避免为了改数据课程误改后端或并行配置。</p>
+
+<h2 id="quality"><span class="num">§7</span>自动配比必须自带的质量门禁</h2>
+<div class="table-wrap"><table><thead><tr><th>门禁</th><th>脚本已有检查</th><th>避免的问题</th></tr></thead><tbody>
+<tr><td>长度一致</td><td><code>SOURCES</code>、<code>NAMES</code>、<code>BASE_WEIGHTS</code> 均为 278</td><td>路径、名称与权重错位</td></tr>
+<tr><td>唯一性</td><td>source 和 name 分别无重复</td><td>同一数据被隐式加倍</td></tr>
+<tr><td>分桶完整</td><td>每个 name 必须存在 bucket</td><td>新增数据漏配导致静默丢失</td></tr>
+<tr><td>占比守恒</td><td>每阶段六桶 targets 之和为 1</td><td>配比漂移或总量不守恒</td></tr>
+<tr><td>零桶安全</td><td>目标为 0 时权重置零；目标非零但基线和为零则报错</td><td>除零或空桶伪配比</td></tr>
+<tr><td>实验隔离</td><td>RUN_NAME 必须带 backend，目录与 W&amp;B 同名</td><td>NPU/GPU 结果覆盖、记录串线</td></tr>
+</tbody></table></div>
+<div class="callout info"><div class="callout-title">建议补充的运行时观测</div>每个阶段记录实际 token、样本数、图像数、帧数和平均序列长度的 bucket/source 分布；比较目标占比与实耗占比；同时按阶段监控 loss、梯度范数、吞吐、OOM/坏样本率和通用/内部评测。只有这样才能判断偏差来自 sampler、长度重加权、数据质量还是课程设计。</div>
+
+<h2 id="risks"><span class="num">§8</span>边界、风险与下一版改进</h2>
+<h3>8.1 当前方案的边界</h3>
+<ul><li><strong>分桶是离线固定规则</strong>：不会根据训练 loss 或能力掌握度自适应调整，因此属于预设课程，不是在线 curriculum。</li><li><strong>桶内只保留历史相对权重</strong>：若某个源质量显著变化，宏观 bucket 调度无法自动发现。</li><li><strong>配置权重不等于实际 token 占比</strong>：token-level sampler、动态 batch、长视频与坏样本过滤都可能造成偏差。</li><li><strong>阶段目标是经验先验</strong>：必须依靠静态基线、无课程终态、提前闭源和降低闭源等消融验证。</li></ul>
+<h3>8.2 推荐的自动配比 2.0</h3>
+<p>下一版可以保持现有“六桶控制面”，增加三层反馈：数据画像层按版本自动生成分桶审计报告；采样层根据前一窗口实际 token 偏差做有界校正；实验层用多目标评分选择变体，目标同时考虑通用能力、内部域能力、训练稳定性和单位算力收益。在线校正要设置最大步长与冻结窗口，避免 sampler 与模型学习动态互相放大。</p>
+<div class="callout warn"><div class="callout-title">不要直接做无约束 loss-based sampling</div>高 loss 可能表示“更有学习价值”，也可能表示脏数据、错标或不可学习样本。自动上调前必须结合质量分、重复率、异常率和梯度影响，且设置单源上限。</div>
+
+<h2 id="interview"><span class="num">§9</span>项目与面试表达</h2>
+<div class="callout good"><div class="callout-title">60 秒版本</div>我把 278 个异构 CPT 数据源按来源、模态、序列成本和任务难度固化为 L0–L5 六个桶，只在 bucket 级定义五阶段 token curriculum。系统用归一化缩放公式把六维目标自动展开成 278 维权重，同时保持桶内历史相对配比不变。课程从开放短文本/图像数据预热，逐步引入视频、内部域和复杂推理，内部数据占比从 0% 增至 38%。我还设计了静态基线、无课程终态、提前引入闭源、降低闭源终态四类消融，并用长度一致、占比守恒、分桶完整、实验命名隔离等门禁保证配置可复现。</div>
+<details><summary>L1：为什么不直接给 278 个数据集分别设计 schedule？</summary><div><p>参数空间过大、难审计且难做公平消融。六桶控制把业务意图映射为少量可解释参数，再由公式保持桶内相对权重，既降低维护成本，也保留历史数据配比知识。</p></div></details>
+<details><summary>L2：如何证明课程学习有效，而不是最终配比有效？</summary><div><p>比较 <code>curriculum_full</code> 与 <code>no_curriculum_final_mix</code>。两者最终目标相同，唯一区别是前者逐步变化、后者从头固定，因此可隔离顺序和渐变带来的增益。</p></div></details>
+<details><summary>L2：为什么按 token 而不是 step 划阶段？</summary><div><p>多模态样本长度和帧数差异大，动态 batch 下每 step 的真实训练量不恒定。token 边界更接近模型实际消费的计算与信息量，也让不同 batch 配置的实验更可比。</p></div></details>
+<details><summary>L3：如何处理目标占比与实际消费占比不一致？</summary><div><p>先按 source/bucket 统计窗口级实际 token，定位长度重加权、过滤和数据可用性造成的偏差；再在不改变课程宏观趋势的前提下做有界反馈校正。任何自动校正都应保留原始目标、修正量和生效窗口，保证可回放。</p></div></details>
+
+<footer>基于 Qwen3.5-2B CPT NPU 提交脚本整理。数据统计直接来自脚本中的 278 个名称、基准权重和固定分桶；本文聚焦可迁移的自动配比方法，不展开内部路径与提交环境细节。</footer>
+</main></div>
+<script>
+const ratios=[0,.1,.35,.65,.85,1], names=['S1 预热','S2 结构建设','S3 域引入','S4 长上下文','S5 硬尾强化'];
+function renderCalc(){const total=Math.max(0,Number(document.getElementById('tokens').value)||0);document.getElementById('calc').innerHTML=names.map((n,i)=>`<div class="calc-item"><b>${n}</b>${(total*ratios[i]).toFixed(2)}B → ${(total*ratios[i+1]).toFixed(2)}B<br>区间 ${(total*(ratios[i+1]-ratios[i])).toFixed(2)}B</div>`).join('')}
+document.getElementById('tokens').addEventListener('input',renderCalc);renderCalc();
+const links=[...document.querySelectorAll('.toc a')], sections=links.map(a=>document.querySelector(a.getAttribute('href')));
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){links.forEach(a=>a.classList.remove('active'));const a=links.find(x=>x.getAttribute('href')==='#'+e.target.id);if(a)a.classList.add('active')}}),{rootMargin:'-10% 0px -75%'});sections.forEach(s=>s&&io.observe(s));
+</script>
+</body>
+</html>

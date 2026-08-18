@@ -17,7 +17,7 @@ window.MathJax = {
   options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
 };
 </script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
 
 <!-- highlight.js -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
@@ -653,7 +653,9 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="24-训练配置唯一的一张训练配置表">2.4 训练配置（唯一的一张训练配置表）</h3>
 <div class="table-wrap"><table><thead><tr><th>参数</th><th>值</th><th>说明</th></tr></thead><tbody><tr><td>集群</td><td>1024 × Ascend 910B NPU</td><td>团队产能上限</td></tr><tr><td>并行</td><td>FSDP2 full shard</td><td>权重 / 梯度 / 优化器都 shard</td></tr><tr><td><code>dp_replicate_size</code></td><td>8</td><td>HSDP 的"复制"维</td></tr><tr><td><code>dp_shard_size</code></td><td>128</td><td>HSDP 的"分片"维（1024 / 8）</td></tr><tr><td><code>ulysses_size</code></td><td>1</td><td>未启用 Ulysses SP</td></tr><tr><td><code>ep_size</code></td><td>1</td><td>未启用 Expert Parallel</td></tr><tr><td><code>micro_batch_size</code></td><td>2</td><td>单 rank 单 step</td></tr><tr><td><code>global_batch_size</code></td><td>2048</td><td>全局 batch</td></tr><tr><td><code>grad_accumulation</code></td><td>1</td><td>由 2048 / (1024·2) 推出</td></tr></tbody></table></div>
 <p>来源：《训练全流程梳理》与《鞠少波秋招简历知识地图》。</p>
-<p><strong>数字自洽验算</strong>： $$ \text{grad\_accum} = \frac{\text{global\_bs}}{\text{world\_size} \times \text{micro\_bs}} = \frac{2048}{1024 \times 2} = 1 $$ $$ \text{单卡吞吐} \approx \frac{77 \times 10^9\ \text{tokens/day}}{1024\ \text{NPU} \times 86400\ \text{s/day}} \approx 870\ \text{tokens/s/NPU} $$</p>
+<p><strong>数字自洽验算</strong>：</p>
+<div>$$ \text{grad\_accum} = \frac{\text{global\_bs}}{\text{world\_size} \times \text{micro\_bs}} = \frac{2048}{1024 \times 2} = 1 $$</div>
+<div>$$ \text{单卡吞吐} \approx \frac{77 \times 10^9\ \text{tokens/day}}{1024\ \text{NPU} \times 86400\ \text{s/day}} \approx 870\ \text{tokens/s/NPU} $$</div>
 <p>（单卡吞吐由全局吞吐与 NPU 数量换算，据《训练全流程梳理》。）</p>
 <h3 id="25-cpt-结果口径团队级">2.5 CPT 结果口径（团队级）</h3>
 <p><strong>DouyinVL-v1-35A3B-Instruct vs Qwen3.5 基座</strong>（据《DouyinVL-v1 发版报告》）：</p>
@@ -664,7 +666,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p><strong>结构</strong>：1024 NPU = <strong>8 replicated groups × 128-way FSDP shard</strong>（据《训练全流程梳理》与《鞠少波秋招简历知识地图》）。<strong>含义</strong>：</p>
 <ul><li><strong>shard 维（128）</strong>与 <strong>replicate 维（8）</strong>的项目事实仅限于上述 mesh 配置。</li></ul>
 <blockquote><p><strong>通用机制推演（项目文档未披露物理拓扑）</strong>：按 HSDP 的一般工作方式，shard 维会涉及参数 all-gather 与梯度 reduce-scatter，replicate 维会做梯度同步；把 shard 范围限制为 128 卡，理论上可避免 1024 卡全局分片的通信放大。但"是否位于同一高带宽域"、具体通信路径与收益量均须以实际拓扑和 profiling 为准。</p></blockquote>
-<p>$$ \text{world\_size} = \text{dp\_replicate\_size} \times \text{dp\_shard\_size} = 8 \times 128 = 1024 $$</p>
+<div>$$ \text{world\_size} = \text{dp\_replicate\_size} \times \text{dp\_shard\_size} = 8 \times 128 = 1024 $$</div>
 <h3 id="32-关键量的相互约束">3.2 关键量的相互约束</h3>
 <p>关键约束可写为：全局 tokens/step = <strong>2048 × seq_len</strong>；<code>grad_accum = global_bs / (world_size × micro_bs) = 1</code>；由全局约 <strong>77B tokens/day</strong> 换算，单卡吞吐约 <strong>870 tokens/s/NPU</strong>。</p>
 <p><strong>为什么 grad_accum=1 重要</strong>：意味着<strong>一次 forward-backward 就完成一个 optimizer.step</strong>，通信与计算的 overlap 完全落在单个 step 内；也意味着<strong>任何单 step 的 loss spike 会立即反映在优化器状态里</strong>，坏样本治理必须在 loader 层解决。</p>
@@ -707,11 +709,16 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
         → World Knowledge 标注</code></pre>
 <p><strong>MidTrain 数据构造</strong> 《Caption MidTrain 方案》：用<strong>多个 Judge 模型交替添加 claim</strong>，走"<strong>视觉事实池 → Caption</strong>"的逻辑，最终做<strong>双重质量门控</strong>：</p>
 <ul><li><strong>看图应答</strong>支持 → 证明该 claim 合法；</li><li><strong>不看图应答</strong>支持 → 证明该 claim 非法（否则说明它是"文本可猜"）。</li></ul>
-<p><strong>信息密度指标</strong> 《Caption MidTrain 方案》： $$ \text{Density} = \frac{\text{被 QA 或视觉证据支持的有效事实数}}{\text{Caption 字符数}} $$ 用它防止模型形成"长而空"的输出分布。</p>
-<p><strong>多目标奖励 IEPR（Intent-aware Evidence Preservation Reward）</strong> 《鞠少波秋招简历知识地图》： $$ R_{\text{IEPR}} = w_r R_{\text{evidence}} + w_p R_{\text{precision}} + w_i R_{\text{intent}} + w_l R_{\text{length}} - w_d R_{\text{redundancy}} $$</p>
+<p><strong>信息密度指标</strong> 《Caption MidTrain 方案》：</p>
+<div>$$ \text{Density} = \frac{\text{被 QA 或视觉证据支持的有效事实数}}{\text{Caption 字符数}} $$</div>
+<p>用它防止模型形成"长而空"的输出分布。</p>
+<p><strong>多目标奖励 IEPR（Intent-aware Evidence Preservation Reward）</strong> 《鞠少波秋招简历知识地图》：</p>
+<div>$$ R_{\text{IEPR}} = w_r R_{\text{evidence}} + w_p R_{\text{precision}} + w_i R_{\text{intent}} + w_l R_{\text{length}} - w_d R_{\text{redundancy}} $$</div>
 <ul><li>$R_{\text{evidence}}$：<strong>证据召回</strong>（覆盖了多少 gold facts）。</li><li>$R_{\text{precision}}$：<strong>准确率</strong>（生成的 claim 有几条能被视觉证据支持）。</li><li>$R_{\text{intent}}$：<strong>意图相关性</strong>（生成内容是否服务 intent）。</li><li>$R_{\text{length}}$：<strong>长度效率</strong>（每单位 token 的信息含量）。</li><li>$R_{\text{redundancy}}$：<strong>冗余惩罚</strong>（同义 claim 只算一次）。</li></ul>
 <blockquote><p><strong>待确认</strong>：IEPR 的具体 $w_*$ 权重、归一化区间在文档中未给出。面试按"多目标加权 - 冗余惩罚"讲机制，权重"以内部代码为准"。</p></blockquote>
-<p><strong>GRPO 训练</strong> 《鞠少波秋招简历知识地图》：对同一 prompt 采样一组响应，组内相对标准化 advantage： $$ A_i = \frac{r_i - \mu_G}{\sigma_G + \varepsilon} $$ 优点：<strong>无 value network</strong>（去 critic）、显存 / 计算成本低、天然吃"相对偏好"，与多目标 reward 组合稳定。</p>
+<p><strong>GRPO 训练</strong> 《鞠少波秋招简历知识地图》：对同一 prompt 采样一组响应，组内相对标准化 advantage：</p>
+<div>$$ A_i = \frac{r_i - \mu_G}{\sigma_G + \varepsilon} $$</div>
+<p>优点：<strong>无 value network</strong>（去 critic）、显存 / 计算成本低、天然吃"相对偏好"，与多目标 reward 组合稳定。</p>
 <h3 id="45-intent-caption-benchmark-v1评测口径">4.5 Intent Caption Benchmark V1（评测口径）</h3>
 <p>据《抖音知识 Intent Caption Benchmark V1：构造方法、数据结构与评测口径》：</p>
 <div class="table-wrap"><table><thead><tr><th>项</th><th>值</th></tr></thead><tbody><tr><td>样本数</td><td>399</td></tr><tr><td>图片数</td><td>2,127</td></tr><tr><td>通用 QA</td><td>2,692</td></tr><tr><td>世界知识题</td><td>187</td></tr></tbody></table></div>

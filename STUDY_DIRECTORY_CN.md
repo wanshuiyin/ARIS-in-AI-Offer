@@ -1,13 +1,14 @@
 # ARIS AI 秋招学习目录
 
-这份目录不是按文件名罗列，而是按“先打地基，再形成专项能力，最后面试输出”的依赖关系组织。仓库当前的主体是 **33 篇中英文成对的专题教程**，并补充 **4 篇中文项目与面试专项资料**；每篇通常包含 TL;DR、公式与直觉、实现或工程细节、对比与易错点，以及分级面试题（L1 / L2 / L3）。同名 `_en` 文件是英文版，`.review.json` 是审阅记录，不需要重复学习。本目录中的教程链接统一指向 `.html` 渲染版（点开即为网页），同名 `.md` 为 Markdown 源文件。
+这份目录不是按文件名罗列，而是按“先打地基，再形成专项能力，最后面试输出”的依赖关系组织。仓库当前的主体是 **33 篇中英文成对的专题教程**，并补充 **5 篇中文项目与面试专项资料**；每篇通常包含 TL;DR、公式与直觉、实现或工程细节、对比与易错点，以及分级面试题（L1 / L2 / L3）。同名 `_en` 文件是英文版，`.review.json` 是审阅记录，不需要重复学习。本目录中的教程链接统一指向 `.html` 渲染版（点开即为网页），同名 `.md` 为 Markdown 源文件。
 
 ## 专项资料入口
 
 1. [DouyinVL 项目指南](docs/tutorials/douyinvl_tutorial.html) — 从开源基座到抖音域 VLM，覆盖数据、CPT、后训练、Caption、稳定性排障与面试表达。
-2. [鞠少波秋招简历知识地图](docs/tutorials/resume_interview_knowledge_map.html) — 按“是什么、为什么、怎么做、如何验证、局限、个人贡献”系统拆解简历技术点。
-3. [最新开源 LLM 技术报告教程](docs/tutorials/open_llm_tech_reports_tutorial.html) — 跟踪近期代表性开源模型的架构、训练与工程要点。
-4. [LeetCode HOT 100 一天速记](docs/tutorials/leetcode_hot_100_tutorial.html) — Python 高频算法题型的短时复习清单。
+2. [CPT 数据自动配比与课程学习](docs/tutorials/cpt_auto_mixing_curriculum_tutorial.html) — 基于 278 个多模态数据源，拆解 L0–L5 分桶、桶间重配、逐 token 调度、消融实验与质量门禁。
+3. [鞠少波秋招简历知识地图](docs/tutorials/resume_interview_knowledge_map.html) — 按“是什么、为什么、怎么做、如何验证、局限、个人贡献”系统拆解简历技术点。
+4. [最新开源 LLM 技术报告教程](docs/tutorials/open_llm_tech_reports_tutorial.html) — 跟踪近期代表性开源模型的架构、训练与工程要点。
+5. [LeetCode HOT 100 一天速记](docs/tutorials/leetcode_hot_100_tutorial.html) — Python 高频算法题型的短时复习清单。
 
 ## 0. 怎么使用这套资料
 
@@ -37,11 +38,12 @@
 
 前置：完成主干必修，尤其是优化器、预训练和评估。
 
-1. [LoRA / PEFT](docs/tutorials/lora_peft_tutorial.html) — LoRA/QLoRA/DoRA/rsLoRA，参数效率与 merge。
-2. [RLHF / DPO / GRPO / PPO](docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.html) — 奖励模型、策略优化、偏好优化及工程取舍。
-3. [KL Divergence in RLHF](docs/tutorials/kl_divergence_rlhf_tutorial.html) — KL 估计量、放置位置与梯度偏差；用于补强 RLHF 数学细节。
-4. [Reasoning Models](docs/tutorials/reasoning_models_tutorial.html) — o1/R1、test-time compute、PRM、推理训练与验证。
-5. [LLM On-Policy Distillation](docs/tutorials/llm_opd_tutorial.html) — MiniLLM、GKD、on-policy 数据分布与蒸馏。
+1. [CPT 数据自动配比与课程学习](docs/tutorials/cpt_auto_mixing_curriculum_tutorial.html) — 278 个异构数据源如何压缩成 L0–L5 六维控制面，并自动展开为逐 token 权重 schedule。
+2. [LoRA / PEFT](docs/tutorials/lora_peft_tutorial.html) — LoRA/QLoRA/DoRA/rsLoRA，参数效率与 merge。
+3. [RLHF / DPO / GRPO / PPO](docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.html) — 奖励模型、策略优化、偏好优化及工程取舍。
+4. [KL Divergence in RLHF](docs/tutorials/kl_divergence_rlhf_tutorial.html) — KL 估计量、放置位置与梯度偏差；用于补强 RLHF 数学细节。
+5. [Reasoning Models](docs/tutorials/reasoning_models_tutorial.html) — o1/R1、test-time compute、PRM、推理训练与验证。
+6. [LLM On-Policy Distillation](docs/tutorials/llm_opd_tutorial.html) — MiniLLM、GKD、on-policy 数据分布与蒸馏。
 
 核心面试链路：`SFT → reward/preference data → RM 或直接偏好目标 → policy update → KL/稳定性约束 → offline/online evaluation`。
 
@@ -138,7 +140,7 @@
 
 ### 路线 B：LLM 系统 / Infra
 
-主干 1–6 → MoE → Distributed Training → Long Context → Quantization → KV Cache/Speculative Decoding → Inference Serving。
+主干 1–6 → CPT 数据自动配比与课程学习 → MoE → Distributed Training → Long Context → Quantization → KV Cache/Speculative Decoding → Inference Serving。
 
 ### 路线 C：多模态 / VLM
 
