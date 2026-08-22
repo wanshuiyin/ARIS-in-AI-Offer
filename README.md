@@ -87,7 +87,7 @@ Phone on the subway, iPad at a café, laptop in the library — same HTML link o
 - **2026-05-28** — ![POLISH](https://img.shields.io/badge/POLISH-blue?style=flat-square) ⚡ **`render-html` P0 polish + all 23 tutorials regenerated** — academic template gained 7 interactive features: print degradation fix (PDF no longer loses `<details>` content), TOC sidebar scrollspy (current section auto-highlights as you scroll), figure lightbox (native `<dialog>` with focus trap + Esc), long-code auto-collapse (`<pre>` ≥30 lines wrapped in `<details class="code-card">`, per-block override via ` ```python {collapsed}` / `{open}` fence flags), paper citation popover (new `[[key]]` MD syntax + `--papers <papers.json>` sidecar), eyebrow cleanup (marketing uppercase → body-serif gray), `--blog-mode` infrastructure (opt-in `aris-blog` body class). XSS-hardened script injection via `json_for_script()` (escapes `</script>` break-out). All 23 bilingual tutorial pairs (= 46 HTMLs) regenerated to pick up the new template shell — source MDs untouched. Codex GPT-5.5 xhigh 4-round review (design × 2 → code × 1 → spot-check × 1). Try it: scroll [`attention_tutorial.html`](docs/tutorials/attention_tutorial.html) and watch the TOC sidebar follow ([b79c57d](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/b79c57d), [8793f40](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/8793f40)).
 - **2026-05-26** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🐍 **5 runnable PyTorch tutorial scripts** — first runnable-code contribution in [`docs/tutorials/code/`](docs/tutorials/code/): [`mha.py`](docs/tutorials/code/mha.py) (MHA + causal mask) · [`axial_attention.py`](docs/tutorials/code/axial_attention.py) (H/W axial + complexity table) · [`flow_matching.py`](docs/tutorials/code/flow_matching.py) (Rectified Flow on 2D moons) · [`mmdit_block.py`](docs/tutorials/code/mmdit_block.py) (double-stream MMDiT block) · [`toy_mmdit_t2i_pipeline.py`](docs/tutorials/code/toy_mmdit_t2i_pipeline.py) (end-to-end T2I skeleton). Pure PyTorch, CPU-runnable in seconds, every script ships with built-in `assert` sanity checks (shape parity, numerical agreement with `nn.MultiheadAttention` where applicable). Pairs with [`attention_tutorial.md`](docs/tutorials/attention_tutorial.md) / [`flow_matching_tutorial.md`](docs/tutorials/flow_matching_tutorial.md) / [`image_generation_systems_tutorial.md`](docs/tutorials/image_generation_systems_tutorial.md) ([f63f468](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/f63f468)).
 - **2026-05-24** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🐙 **ARIS-Homepage v1.1: `--from-repos`** — snapshot user-selected `owner/repo` list via `gh` CLI; LLM agent merges repo timelines into homepage News + `featured_projects[].github`. Private repos skipped by default. Closes [#2](https://github.com/wanshuiyin/ARIS-in-AI-Offer/issues/2) by [@Yafei-Liu99](https://github.com/Yafei-Liu99) ([cdcf9a2](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/cdcf9a2)).
-- **2026-05-23** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🌐 **ARIS-Homepage v1 shipped** — CV → fact-checked academic homepage (DBLP / arXiv audit blocks wrong venue / year / author). Single-file HTML; Codex / Gemini reviews optional. Live demo: [wanshuiyin.github.io](https://wanshuiyin.github.io/). Skill: [`skills/homepage-generator/SKILL.md`](skills/homepage-generator/SKILL.md) ([b818c1d](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/b818c1d)).
+- **2026-05-23** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🌐 **ARIS-Homepage v1 shipped** — CV → fact-checked academic homepage (DBLP audit blocks wrong venue / year). Single-file HTML; Codex / Gemini reviews optional. Live demo: [wanshuiyin.github.io](https://wanshuiyin.github.io/). Skill: [`skills/homepage-generator/SKILL.md`](skills/homepage-generator/SKILL.md) ([b818c1d](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/b818c1d)).
 - **2026-05-22** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🦾 **Featured community contribution: 具身智能高频面试题库** by [@WinstonJQ](https://github.com/WinstonJQ) — 413 questions across 8 卷 (VLA / 模仿学习 / RL / 世界模型 / 工程落地 / 腿足控制 / 3D 感知 / 系统设计). Hosted externally; linked from the new "🦾 Embodied AI" category in the Tutorial Index ([b1ebb6f](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/b1ebb6f)).
 - **2026-05** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 📚 **4 new bilingual cheat sheets**: KL Divergence in RLHF (k1/k2/k3 · placement gradient bias), LLM On-Policy Distillation (MiniLLM / GKD / Qwen3 / Tinker), Diffusion Post-Training (DDPO / DPOK / DRaFT / AlignProp / Diffusion-DPO / Flow-GRPO), Diffusion / Flow Distillation (CM / iCT / sCM / CTM / LCM / DMD/DMD2 / ADD/LADD). Total now: **23 first-party cheat sheets**.
 - **2026-05** — ![DOCS](https://img.shields.io/badge/DOCS-blue?style=flat-square) 📖 **README restructure** — preview-strip banner, ARIS credentials at top (badges + 10K-star foundation paragraph), shared WeChat community QR with the [main ARIS repo](https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep).
@@ -210,19 +210,21 @@ Cross-model adversarial review (executor ≠ reviewer family) is ARIS's core inv
 
 > **The only personal-site generator that fact-checks your CV before publishing.**
 
-A new skill in this repo: `/homepage-generator` turns your CV (`.docx` / `.pdf` / `.txt`) into a polished single-file academic homepage. Cross-model factual audit runs against DBLP / arXiv — wrong venue / year / author / fabricated awards block ship until corrected or explicitly overridden.
+A new skill in this repo: `/homepage-generator` turns your CV (`.docx` / `.pdf` / `.txt`) into a polished single-file academic homepage. A DBLP audit runs on every render unless you pass `--no-audit` — a wrong venue or year, or a Best Paper / Spotlight / Oral / Outstanding badge asserted without a link to the paper, blocks the render until corrected or explicitly overridden. (It does not check author lists.)
 
 **Live demo**: [wanshuiyin.github.io](https://wanshuiyin.github.io/) — generated by this skill from a CV + the maintainer's previous manual page as editorial reference. Preview strip is near the top of this README.
 
 ### Quick start
 
+There is no `aris-homepage` executable — this repo ships no installer, so call the script directly. The path is relative to where you are standing, which changes at the `cd`:
+
 ```bash
-aris-homepage init --from-cv ./cv.pdf --out ./site
+python tools/aris_homepage.py init --from-cv ./cv.pdf --out ./site
 cd ./site
 # Calling agent fills .aris-homepage/extraction.json per EXTRACTION_HANDOFF.md
-aris-homepage finalize
+python ../tools/aris_homepage.py finalize
 $EDITOR profile.yml             # tweak editorial choices
-aris-homepage render --persona theory-minimal
+python ../tools/aris_homepage.py render --persona theory-minimal
 ```
 
 > 🪟 **On Windows?** `aris-homepage` is not an installed command — invoke the script explicitly as `python .\tools\aris_homepage.py ...`. Full walkthrough incl. Python/poppler/SSL pitfalls: [`WINDOWS_en.md`](skills/homepage-generator/WINDOWS_en.md) ([中文](skills/homepage-generator/WINDOWS.md)).
@@ -270,9 +272,9 @@ Output: `index.html` + `audit-report.md`. Drop the HTML on GitHub Pages, S3, uni
               ▼               ▼               ▼
         ┌──────────┐    ┌──────────┐    ┌──────────────┐
         │ Layer-1  │    │ Layer-2  │    │ Layer-2      │
-        │ DBLP /   │    │ Codex MCP│    │ Gemini       │
-        │ arXiv    │    │ adv-rev  │    │ visual       │
-        │ fact-chk │    │ (opt.)   │    │ critique     │
+        │ DBLP     │    │ Codex MCP│    │ Gemini       │
+        │ fact-chk │    │ adv-rev  │    │ visual       │
+        │          │    │ (opt.)   │    │ critique     │
         │ (always) │    │          │    │ (opt.)       │
         └─────┬────┘    └──────────┘    └──────────────┘
               │
@@ -284,13 +286,13 @@ Output: `index.html` + `audit-report.md`. Drop the HTML on GitHub Pages, S3, uni
         └──────────────┘
 
    Typical flow (7 steps, ~5 minutes):
-     1. aris-homepage init --from-cv ./cv.pdf --out ./site
+     1. python tools/aris_homepage.py init --from-cv ./cv.pdf --out ./site
      2. (calling agent) read .aris-homepage/EXTRACTION_HANDOFF.md
         → fill .aris-homepage/extraction.json
-     3. aris-homepage finalize
+     3. cd ./site && python ../tools/aris_homepage.py finalize
      4. $EDITOR profile.yml publications.bib bio.md news.md
-     5. aris-homepage check --strict        # fact-check only
-     6. aris-homepage render --persona theory-minimal
+     5. python ../tools/aris_homepage.py check --strict   # fact-check only
+     6. python ../tools/aris_homepage.py render --persona theory-minimal
      7. inspect audit-report.md; fix → re-render OR --override-all
 
    Minimum runtime: Python + a calling LLM agent.
