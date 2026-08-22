@@ -275,7 +275,7 @@ Output: `index.html` + `audit-report.md`. Drop the HTML on GitHub Pages, S3, uni
         │ DBLP     │    │ Codex MCP│    │ Gemini       │
         │ fact-chk │    │ adv-rev  │    │ visual       │
         │          │    │ (opt.)   │    │ critique     │
-        │ (always) │    │          │    │ (opt.)       │
+        │ (default)│    │          │    │ (opt.)       │
         └─────┬────┘    └──────────┘    └──────────────┘
               │
               ▼

@@ -210,7 +210,7 @@
 
 > **唯一一个发布前 fact-check 你 CV 的个人主页生成器。**
 
-本仓库新增的 skill：`/homepage-generator` 把你的 CV（`.docx` / `.pdf` / `.txt`）变成一个 polished 单文件学术主页。每次 render 都会跑一遍 DBLP 核对（除非加 `--no-audit`）——venue 或年份对不上、声称了 Best Paper / Spotlight / Oral / Outstanding 却没填指向论文的链接，都会硬阻断,除非你改对或显式 override。（不核对作者名单。）
+本仓库新增的 skill：`/homepage-generator` 把你的 CV（`.docx` / `.pdf` / `.txt`）变成一个 polished 单文件学术主页。每次 render 都会跑一遍 DBLP 核对（除非加 `--no-audit`）——venue 或年份对不上、声称了 Best Paper / Spotlight / Oral / Outstanding 却没填指向论文的链接，都会硬阻断，除非你改对或显式 override。（不核对作者名单。）
 
 **Live demo**：[wanshuiyin.github.io](https://wanshuiyin.github.io/) —— 这就是用这个 skill 跑 CV + 维护者之前 manual 主页（作 editorial reference）生成的。预览 strip 在 README 顶部。
 

@@ -1,14 +1,14 @@
 ---
 name: homepage-generator
 description: "Generate a fact-checked academic personal homepage from a CV, optionally augmented by an existing manual homepage and an assets directory. Produces editable structured source files (profile.yml + publications.bib + bio.md + news.md) and a single-file HTML page. Uses Codex MCP for independent factual review against DBLP. Optionally uses Gemini multimodal for screenshot critique when available. Use when the user says '做个学术主页', '从CV生成主页', 'aris-homepage', 'generate academic homepage from CV', 'PhD homepage', 'GitHub Pages personal site', or wants a fact-checked academic site."
-argument-hint: init --from-cv <cv.docx|cv.pdf|cv.txt> [--from-repos owner/repo,...] [--include-private] [--manual-homepage <url>] [--assets-dir <path>] [--out <dir>] [--force|--merge] | finalize | render --persona theory-minimal [--out <html>] [--override-all] [--no-audit] [--offline] | check [--strict] | doctor
+argument-hint: init --from-cv <cv.docx|cv.pdf|cv.txt> [--from-repos owner/repo,...] [--include-private] [--out <dir>] [--force] | finalize | render --persona theory-minimal [--out <html>] [--override-all] [--no-audit] [--offline] | check [--strict] | doctor
 allowed-tools: Bash(*), Read, Write, Edit, WebFetch, mcp__codex__codex
 ---
 
 # /homepage-generator — fact-checked academic homepage from CV
 
 > **The only personal-site generator that fact-checks your CV before publishing.**
-> Cross-model adversarial review: the LLM that drafts your homepage never grades it — a fresh Codex thread audits your publication claims against DBLP before the HTML is signed off.
+> Cross-model adversarial review: the LLM that drafts your homepage never grades it. A deterministic Python pass checks your publication claims against DBLP on every render; an optional fresh Codex thread then reviews the prose and framing.
 
 ## When to use
 
@@ -68,7 +68,7 @@ The `init` CLI only handles the CV → text conversion. The other two inputs are
 
 ## Commands
 
-Paths below are written from the repo root. `finalize`, `render` and `check` act on the **site workspace**, so from inside it the script is one level up — `python ../tools/aris_homepage.py ...`.
+`init` and `doctor` run from anywhere; the paths below assume the repo root. `finalize`, `render` and `check` act on the **site workspace** — `cd` into it first, which is why the script is one level up in those lines.
 
 ```bash
 python tools/aris_homepage.py init --from-cv <file> [--from-repos owner/repo,...] [--include-private] [--out DIR] [--force|--merge]
@@ -80,19 +80,20 @@ python tools/aris_homepage.py init --from-cv <file> [--from-repos owner/repo,...
   # Step 2.  Emit .aris-homepage/EXTRACTION_HANDOFF.md describing what the calling
   #          LLM agent should write to .aris-homepage/extraction.json
   #          (handoff doc auto-includes guidance on github_repos.json if present).
-  # --force: backup *.bak-TIMESTAMP and overwrite; --merge: fill-only (v1.2)
-  # NOTE: --manual-homepage and --assets-dir flags coming in v1.2; for now,
-  #       the calling agent handles those sources via prompt context.
+  # --force: backup *.bak-TIMESTAMP and overwrite.
+  # --merge is parsed but not implemented — it exits with a clear message.
+  # NOTE: --manual-homepage / --assets-dir do not exist yet; for now the
+  #       calling agent handles those sources via prompt context.
 
-python tools/aris_homepage.py finalize [--out DIR]
+python ../tools/aris_homepage.py finalize        # or from elsewhere: --out DIR
   # Ingest .aris-homepage/extraction.json → profile.yml + publications.bib +
   # bio.md + news.md + EXTRACTION_REVIEW.md.
 
-python tools/aris_homepage.py render --persona theory-minimal [--out index.html] [--override-all] [--no-audit] [--offline]
+python ../tools/aris_homepage.py render --persona theory-minimal [--out index.html] [--override-all] [--no-audit] [--offline]
   # Run fact-check (unless --no-audit) and render. Hard-fail blocks ship unless
   # --override-all (loudly logged in audit-report.md).
 
-python tools/aris_homepage.py check [--strict]
+python ../tools/aris_homepage.py check [--strict]
   # Fact-check only; updates audit-report.md. --strict treats WARN as FAIL.
 
 python tools/aris_homepage.py doctor
@@ -129,7 +130,7 @@ Core schema groups (read `PROFILE_SCHEMA.md` for the exact field shapes):
 - **`selected_publications`**: flat list OR ordered topic groups (`[{group: "Topic Title", keys: [bibkey1, ...]}]`)
 - **`publications`**: `preamble` (intro sentence before first H3)
 - **`publications_meta.<bibkey>`**: `thumbnail`, `description` (blue blurb box), `awards` (list of badges), `co_first` (equal-contribution markers), `links` (arXiv / paper / code / slides / openreview / etc. — any key supported)
-- **`audit.overrides.<bibkey>`**: per-paper, per-field bypass with required `reason` and optional `expires: YYYY-MM-DD`
+- **`audit.overrides.<bibkey>`**: per-paper bypass — any non-empty, unexpired object skips that paper's DBLP checks. `reason` is recorded, not enforced; `expires: YYYY-MM-DD` becomes a hard failure once past
 - **`ship`**: `persona`, `accent_color`, `lang`, `awards_heading` (override "Awards" → custom string)
 
 ## Fact-check protocol
@@ -152,7 +153,7 @@ Runs automatically during every `render` (unless `--no-audit`). Three outcomes p
 
 Two distinct review layers; do not confuse them:
 
-**Layer 1 — automated factual audit (always runs)**
+**Layer 1 — automated factual audit (default; skipped only with `--no-audit`)**
 `render` and `check` run a deterministic Python pipeline that queries DBLP (with a 4-attempt backoff + local cache at `.aris-homepage/dblp-cache.json`). Nothing queries arXiv: a DBLP miss is a WARN either way, and an `eprint` / `archiveprefix` field already in your BibTeX only changes how that warning is labelled. No external LLM needed. This is the **floor** of fact-check, and it works with **zero** AI-runtime dependencies beyond Python + the calling shell.
 
 **Layer 2 — optional adversarial LLM review (recommended for high-stakes)**
@@ -242,7 +243,7 @@ The public demo at `wanshuiyin.github.io` is the **only exception** — it's an 
 ## Acceptance criteria (v1 done)
 
 1. `python tools/aris_homepage.py init --from-cv` produces editable scaffolding from any user's CV (single-file `.docx` or `.pdf`).
-2. `python tools/aris_homepage.py render --persona theory-minimal` produces a single HTML file ≤500KB (no images) or ≤2MB (with photo + thumbnails inline), or smaller still when images are referenced via remote URLs.
+2. `python ../tools/aris_homepage.py render --persona theory-minimal` (from the site workspace) produces a single HTML file ≤500KB (no images) or ≤2MB (with photo + thumbnails inline), or smaller still when images are referenced via remote URLs.
 3. Fact-check correctly hard-fails on a corrupted profile.yml (e.g., venue swap NeurIPS↔ICML) and passes when corrected.
 4. The HTML is publishable on GitHub Pages / Netlify / S3 / any static host without a build step.
 5. `python tools/aris_homepage.py doctor` accurately reports environment readiness.

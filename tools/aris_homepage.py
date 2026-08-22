@@ -595,7 +595,8 @@ Write the JSON output to:
   .aris-homepage/extraction.json
 
 Then run:
-  {invocation()} finalize --out {short_path(out_dir)}
+  cd {short_path(out_dir)}
+  {invocation(out_dir)} finalize
 
 …to persist the structured fields into profile.yml + publications.bib + bio.md + news.md.
 
@@ -616,13 +617,14 @@ Then run:
 > - Do NOT invent claims. If the CV doesn't say something, leave the field null/empty.
 > - Identify the CV owner. Their name goes in profile.identity.name + name_native (if bilingual).
 {('> - If github_repos.json exists, merge its timeline into news_md following the rules in the section above.' + chr(10)) if repos_block else ''}>
-> After writing the JSON, instruct the user to run `{invocation()} finalize --out {short_path(out_dir)}`.
+> After writing the JSON, instruct the user to `cd` into `{short_path(out_dir)}` and run `{invocation(out_dir)} finalize`.
 """, encoding="utf-8")
     print(f"✓ CV text extracted to: {txt_path}")
     print(f"✓ Extraction handoff written to: {handoff_path}")
     print()
-    print("Next: read the handoff doc and fill .aris-homepage/extraction.json,")
-    print(f"      then run `{invocation()} finalize --out {short_path(out_dir)}` to persist the structured files.")
+    print("Next: read the handoff doc and fill .aris-homepage/extraction.json, then:")
+    print(f"  cd {short_path(out_dir)}")
+    print(f"  {invocation(out_dir)} finalize")
 
 
 def cmd_finalize(args: argparse.Namespace) -> int:
