@@ -225,6 +225,8 @@ $EDITOR profile.yml             # 调整编辑选择
 aris-homepage render --persona theory-minimal
 ```
 
+> 🪟 **Windows 用户**：`aris-homepage` 不是一个已安装的命令，要显式写成 `python .\tools\aris_homepage.py ...`。零基础完整走一遍（Python / poppler / SSL 各种坑）见 [`WINDOWS.md`](skills/homepage-generator/WINDOWS.md)（[English](skills/homepage-generator/WINDOWS_en.md)）。
+
 输出：`index.html` + `audit-report.md`。HTML 扔 GitHub Pages、S3、学校 `~user/public_html/`、邮箱附件都行——零 build server。**最小运行时只要 Python + 调用方 LLM agent**；Codex MCP 可选（增强 adversarial 跨模型 review），Gemini 可选（多模态视觉 critique）。
 
 ### 工作流程
