@@ -44,6 +44,8 @@ $EDITOR profile.yml publications.bib bio.md news.md EXTRACTION_REVIEW.md
 aris-homepage render --persona theory-minimal
 ```
 
+> **Windows note.** `aris-homepage` is not an installed command on any platform — this repo ships no installer, so every invocation is `python <path>\aris_homepage.py <subcommand>`. See [`WINDOWS_en.md`](WINDOWS_en.md) / [`WINDOWS.md`](WINDOWS.md) for the Windows-specific pitfalls (`python3` alias stub, `.py` file association, non-ASCII `pdftotext` paths, SSL certificate store).
+
 ## Input model — three sources for the LLM agent
 
 The `init` CLI only handles the CV → text conversion. The other two inputs are consumed by the **calling LLM agent** when it fills `extraction.json`. Recommend supplying all three for best results:

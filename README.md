@@ -225,6 +225,8 @@ $EDITOR profile.yml             # tweak editorial choices
 aris-homepage render --persona theory-minimal
 ```
 
+> 🪟 **On Windows?** `aris-homepage` is not an installed command — invoke the script explicitly as `python .\tools\aris_homepage.py ...`. Full walkthrough incl. Python/poppler/SSL pitfalls: [`WINDOWS_en.md`](skills/homepage-generator/WINDOWS_en.md) ([中文](skills/homepage-generator/WINDOWS.md)).
+
 Output: `index.html` + `audit-report.md`. Drop the HTML on GitHub Pages, S3, university `~user/public_html/`, or attach to email — no build server. **Minimum runtime is just Python + a calling LLM agent**; Codex MCP optional for adversarial cross-model review; Gemini multimodal optional for visual critique.
 
 ### How it works
