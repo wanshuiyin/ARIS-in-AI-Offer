@@ -145,7 +145,7 @@ Runs automatically during every `render` (unless `--no-audit`). Three outcomes p
 
 **Override two-layer**:
 - Per-paper in profile.yml: `audit.overrides.<bibkey>` — any non-empty, unexpired override object skips the DBLP checks for that paper entirely (it is not enforced per-field). `reason:` is recorded in the report but not required; `expires:` is, once past, a hard failure
-- CLI emergency: `python tools/aris_homepage.py render --override-all` (every override loudly logged)
+- CLI emergency: `python ../tools/aris_homepage.py render --override-all` (every override loudly logged)
 
 **Honest scope of fact-check**: DBLP lookups cover only the papers listed in `selected_publications`; the award-badge sweep covers every entry in `publications_meta`. It catches venue/year mismatch and award badges asserted without a link. It does **not** check author lists at all, and it never compares the title DBLP returned — the title is only the search query. Does NOT verify: workshop papers without DBLP entries, industry tech reports, blog/talk content, OSS star counts, or arbitrary claims in the bio. Treat the audit as a **diagnostic floor**, not a guarantee.
 
