@@ -227,7 +227,7 @@ $EDITOR profile.yml             # 调整编辑选择
 python ../tools/aris_homepage.py render --persona theory-minimal
 ```
 
-> 🪟 **Windows 用户**：`aris-homepage` 不是一个已安装的命令，要显式写成 `python .\tools\aris_homepage.py ...`。零基础完整走一遍（Python / poppler / SSL 各种坑）见 [`WINDOWS.md`](skills/homepage-generator/WINDOWS.md)（[English](skills/homepage-generator/WINDOWS_en.md)）。
+> 🪟 **Windows 用户**：上面的路径分隔符换成 `\`，另外还有几个 Windows 独有的坑 —— `python3` 空壳别名、`.py` 文件关联静默、`pdftotext` 中文路径、SSL 证书库。零基础完整走一遍见 [`WINDOWS.md`](skills/homepage-generator/WINDOWS.md)（[English](skills/homepage-generator/WINDOWS_en.md)）。
 
 输出：`index.html` + `audit-report.md`。HTML 扔 GitHub Pages、S3、学校 `~user/public_html/`、邮箱附件都行——零 build server。**最小运行时只要 Python + 调用方 LLM agent**；Codex MCP 可选（增强 adversarial 跨模型 review），Gemini 可选（多模态视觉 critique）。
 

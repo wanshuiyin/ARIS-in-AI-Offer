@@ -227,7 +227,7 @@ $EDITOR profile.yml             # tweak editorial choices
 python ../tools/aris_homepage.py render --persona theory-minimal
 ```
 
-> 🪟 **On Windows?** `aris-homepage` is not an installed command — invoke the script explicitly as `python .\tools\aris_homepage.py ...`. Full walkthrough incl. Python/poppler/SSL pitfalls: [`WINDOWS_en.md`](skills/homepage-generator/WINDOWS_en.md) ([中文](skills/homepage-generator/WINDOWS.md)).
+> 🪟 **On Windows?** Use `\` in the paths above, and mind the Windows-only traps — the `python3` alias stub, silent `.py` file association, non-ASCII `pdftotext` paths, SSL certificates. Full walkthrough: [`WINDOWS_en.md`](skills/homepage-generator/WINDOWS_en.md) ([中文](skills/homepage-generator/WINDOWS.md)).
 
 Output: `index.html` + `audit-report.md`. Drop the HTML on GitHub Pages, S3, university `~user/public_html/`, or attach to email — no build server. **Minimum runtime is just Python + a calling LLM agent**; Codex MCP optional for adversarial cross-model review; Gemini multimodal optional for visual critique.
 

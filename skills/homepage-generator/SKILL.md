@@ -24,7 +24,7 @@ A real-world dogfood example: **https://wanshuiyin.github.io/** — homepage gen
 
 ## Quick start
 
-> This repo ships **no installer** — there is no `aris-homepage` executable on any platform. Every invocation is `python <path>/aris_homepage.py`, and the path is relative to wherever you are standing (note the `cd ./site` below).
+> This repo ships **no installer** — there is no `aris-homepage` executable on any platform. Every invocation is `python <path>/aris_homepage.py`, and the path is relative to wherever you are standing (note the `cd ./site` below). On Windows also read [`WINDOWS_en.md`](WINDOWS_en.md) / [`WINDOWS.md`](WINDOWS.md).
 
 ```bash
 # Step 1 — bootstrap workspace from CV
@@ -47,7 +47,7 @@ $EDITOR profile.yml publications.bib bio.md news.md EXTRACTION_REVIEW.md
 python ../tools/aris_homepage.py render --persona theory-minimal
 ```
 
-> **Windows note.** `aris-homepage` is not an installed command on any platform — this repo ships no installer, so every invocation is `python <path>\aris_homepage.py <subcommand>`. See [`WINDOWS_en.md`](WINDOWS_en.md) / [`WINDOWS.md`](WINDOWS.md) for the Windows-specific pitfalls (`python3` alias stub, `.py` file association, non-ASCII `pdftotext` paths, SSL certificate store).
+> **Windows note.** Beyond the invocation form above, Windows has its own traps: the `python3` alias stub, silent `.py` file association, non-ASCII `pdftotext` paths, and the SSL certificate store. [`WINDOWS_en.md`](WINDOWS_en.md) / [`WINDOWS.md`](WINDOWS.md) walk through all of them.
 
 ## Input model — three sources for the LLM agent
 

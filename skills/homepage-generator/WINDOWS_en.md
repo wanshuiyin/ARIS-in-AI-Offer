@@ -60,7 +60,7 @@ python .\tools\aris_homepage.py <subcommand> <args...>
 
 ❌ **Don't** use `python3` (see step 1).
 
-❌ **Don't** type `aris-homepage`. Despite what the main README's quick start shows, there is no such command — the repo ships no installer, so the script is only ever reachable as `python <path>\aris_homepage.py`. Note the **underscore** in the filename, not a hyphen.
+❌ **Don't** type `aris-homepage`. No such command exists — the repo ships no installer, so the script is only ever reachable as `python <path>\aris_homepage.py`. If you find that form in an older doc or blog post, it is stale. Note the **underscore** in the filename, not a hyphen.
 
 ✅ Correct:
 

@@ -60,7 +60,7 @@ python .\tools\aris_homepage.py <子命令> <参数...>
 
 ❌ **不要**用 `python3`（原因见第 1 步）。
 
-❌ **不要**照着主 README 的 quick start 敲 `aris-homepage` —— 这个命令不存在。仓库没有提供任何安装器，脚本永远只能用 `python <路径>\aris_homepage.py` 的方式调。另外注意文件名是**下划线** `aris_homepage.py`，不是连字符。
+❌ **不要**敲 `aris-homepage` —— 这个命令不存在。仓库没有提供任何安装器，脚本永远只能用 `python <路径>\aris_homepage.py` 的方式调。旧文档或博客里如果看到这种写法，那是过时的。另外注意文件名是**下划线** `aris_homepage.py`，不是连字符。
 
 ✅ 正确示例：
 
