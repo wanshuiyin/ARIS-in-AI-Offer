@@ -1,14 +1,14 @@
 ---
 name: homepage-generator
-description: "Generate a fact-checked academic personal homepage from a CV, optionally augmented by an existing manual homepage and an assets directory. Produces editable structured source files (profile.yml + publications.bib + bio.md + news.md) and a single-file HTML page. Uses Codex MCP for independent factual review against DBLP / arXiv. Optionally uses Gemini multimodal for screenshot critique when available. Use when the user says '做个学术主页', '从CV生成主页', 'aris-homepage', 'generate academic homepage from CV', 'PhD homepage', 'GitHub Pages personal site', or wants a fact-checked academic site."
-argument-hint: init --from-cv <cv.docx|cv.pdf|cv.txt> [--from-repos owner/repo,...] [--include-private] [--manual-homepage <url>] [--assets-dir <path>] [--out <dir>] [--force|--merge] | finalize | render --persona theory-minimal [--out <html>] [--override-all] [--no-audit] [--offline] | check [--strict] | doctor
+description: "Generate a fact-checked academic personal homepage from a CV, optionally augmented by an existing manual homepage and an assets directory. Produces editable structured source files (profile.yml + publications.bib + bio.md + news.md) and a single-file HTML page. Uses Codex MCP for independent factual review against DBLP. Optionally uses Gemini multimodal for screenshot critique when available. Use when the user says '做个学术主页', '从CV生成主页', 'aris-homepage', 'generate academic homepage from CV', 'PhD homepage', 'GitHub Pages personal site', or wants a fact-checked academic site."
+argument-hint: init --from-cv <cv.docx|cv.pdf|cv.txt> [--from-repos owner/repo,...] [--include-private] [--out <dir>] [--force] | finalize | render --persona theory-minimal [--out <html>] [--override-all] [--no-audit] [--offline] | check [--strict] | doctor
 allowed-tools: Bash(*), Read, Write, Edit, WebFetch, mcp__codex__codex
 ---
 
 # /homepage-generator — fact-checked academic homepage from CV
 
 > **The only personal-site generator that fact-checks your CV before publishing.**
-> Cross-model adversarial review: the LLM that drafts your homepage never grades it — a fresh Codex thread audits every claim against DBLP / arXiv before the HTML is signed off.
+> Cross-model adversarial review: the LLM that drafts your homepage never grades it. A deterministic Python pass checks your publication claims against DBLP on every render; an optional fresh Codex thread then reviews the prose and framing.
 
 ## When to use
 
@@ -24,9 +24,11 @@ A real-world dogfood example: **https://wanshuiyin.github.io/** — homepage gen
 
 ## Quick start
 
+> This repo ships **no installer** — there is no `aris-homepage` executable on any platform. Every invocation is `python <path>/aris_homepage.py`, and the path is relative to wherever you are standing (note the `cd ./site` below). On Windows also read [`WINDOWS_en.md`](WINDOWS_en.md) / [`WINDOWS.md`](WINDOWS.md).
+
 ```bash
 # Step 1 — bootstrap workspace from CV
-aris-homepage init --from-cv ./cv.pdf --out ./site
+python tools/aris_homepage.py init --from-cv ./cv.pdf --out ./site
 cd ./site
 
 # Step 2 — calling LLM agent (Claude / your agent) reads .aris-homepage/EXTRACTION_HANDOFF.md,
@@ -35,16 +37,17 @@ cd ./site
 #          can use richer context (manual homepage URL, asset folder, your judgement).
 
 # Step 3 — persist the extracted JSON into editable source files
-aris-homepage finalize
+#          (we cd'd into ./site above, so the script is one level up now)
+python ../tools/aris_homepage.py finalize
 
 # Step 4 — review + tweak
 $EDITOR profile.yml publications.bib bio.md news.md EXTRACTION_REVIEW.md
 
 # Step 5 — render with fact-check (writes index.html + audit-report.md)
-aris-homepage render --persona theory-minimal
+python ../tools/aris_homepage.py render --persona theory-minimal
 ```
 
-> **Windows note.** `aris-homepage` is not an installed command on any platform — this repo ships no installer, so every invocation is `python <path>\aris_homepage.py <subcommand>`. See [`WINDOWS_en.md`](WINDOWS_en.md) / [`WINDOWS.md`](WINDOWS.md) for the Windows-specific pitfalls (`python3` alias stub, `.py` file association, non-ASCII `pdftotext` paths, SSL certificate store).
+> **Windows note.** Beyond the invocation form above, Windows has its own traps: the `python3` alias stub, silent `.py` file association, non-ASCII `pdftotext` paths, and the SSL certificate store. [`WINDOWS_en.md`](WINDOWS_en.md) / [`WINDOWS.md`](WINDOWS.md) walk through all of them.
 
 ## Input model — three sources for the LLM agent
 
@@ -65,8 +68,10 @@ The `init` CLI only handles the CV → text conversion. The other two inputs are
 
 ## Commands
 
+`init` and `doctor` run from anywhere; the paths below assume the repo root. `finalize`, `render` and `check` act on the **site workspace** — `cd` into it first, which is why the script is one level up in those lines.
+
 ```bash
-aris-homepage init --from-cv <file> [--from-repos owner/repo,...] [--include-private] [--out DIR] [--force|--merge]
+python tools/aris_homepage.py init --from-cv <file> [--from-repos owner/repo,...] [--include-private] [--out DIR] [--force|--merge]
   # Step 1. Extract CV to plain text (via textutil / python-docx / pdftotext).
   # Step 1b. (v1.1) If --from-repos given, snapshot each repo via `gh` CLI
   #          (GraphQL metadata + REST README, truncated 20KB) →
@@ -75,22 +80,23 @@ aris-homepage init --from-cv <file> [--from-repos owner/repo,...] [--include-pri
   # Step 2.  Emit .aris-homepage/EXTRACTION_HANDOFF.md describing what the calling
   #          LLM agent should write to .aris-homepage/extraction.json
   #          (handoff doc auto-includes guidance on github_repos.json if present).
-  # --force: backup *.bak-TIMESTAMP and overwrite; --merge: fill-only (v1.2)
-  # NOTE: --manual-homepage and --assets-dir flags coming in v1.2; for now,
-  #       the calling agent handles those sources via prompt context.
+  # --force: backup *.bak-TIMESTAMP and overwrite.
+  # --merge is parsed but not implemented — it exits with a clear message.
+  # NOTE: --manual-homepage / --assets-dir do not exist yet; for now the
+  #       calling agent handles those sources via prompt context.
 
-aris-homepage finalize [--out DIR]
+python ../tools/aris_homepage.py finalize        # or from elsewhere: --out DIR
   # Ingest .aris-homepage/extraction.json → profile.yml + publications.bib +
   # bio.md + news.md + EXTRACTION_REVIEW.md.
 
-aris-homepage render --persona theory-minimal [--out index.html] [--override-all] [--no-audit] [--offline]
+python ../tools/aris_homepage.py render --persona theory-minimal [--out index.html] [--override-all] [--no-audit] [--offline]
   # Run fact-check (unless --no-audit) and render. Hard-fail blocks ship unless
   # --override-all (loudly logged in audit-report.md).
 
-aris-homepage check [--strict]
+python ../tools/aris_homepage.py check [--strict]
   # Fact-check only; updates audit-report.md. --strict treats WARN as FAIL.
 
-aris-homepage doctor
+python tools/aris_homepage.py doctor
   # Environment + dependency diagnostic (Python, pyyaml, textutil, DBLP reachability).
 ```
 
@@ -124,7 +130,7 @@ Core schema groups (read `PROFILE_SCHEMA.md` for the exact field shapes):
 - **`selected_publications`**: flat list OR ordered topic groups (`[{group: "Topic Title", keys: [bibkey1, ...]}]`)
 - **`publications`**: `preamble` (intro sentence before first H3)
 - **`publications_meta.<bibkey>`**: `thumbnail`, `description` (blue blurb box), `awards` (list of badges), `co_first` (equal-contribution markers), `links` (arXiv / paper / code / slides / openreview / etc. — any key supported)
-- **`audit.overrides.<bibkey>`**: per-paper, per-field bypass with required `reason` and optional `expires: YYYY-MM-DD`
+- **`audit.overrides.<bibkey>`**: per-paper bypass — any non-empty, unexpired object skips that paper's DBLP checks. `reason` is recorded, not enforced; `expires: YYYY-MM-DD` becomes a hard failure once past
 - **`ship`**: `persona`, `accent_color`, `lang`, `awards_heading` (override "Awards" → custom string)
 
 ## Fact-check protocol
@@ -133,22 +139,22 @@ Runs automatically during every `render` (unless `--no-audit`). Three outcomes p
 
 | Outcome | Trigger | Effect |
 |---|---|---|
-| **PASS (silent)** | Title fuzzy-matches DBLP; venue + year + author set agree | No mention in audit-report |
-| **WARN (soft)** | DBLP returns 0 hits OR ≥2 ambiguous; arXiv-only paper; award has no external URL | Render proceeds; logged in audit-report |
-| **FAIL (hard)** | DBLP venue ≠ profile venue; year mismatch; author list missing user; fabricated award badge; missing bibkey in publications.bib | HTML still renders but verdict = `BLOCKED`; user must `--override-all` to ship |
+| **PASS** | Title hits DBLP and nothing below fires. Year and venue are only compared when both the BibTeX entry and the DBLP hit carry them | Listed under `## ✅ Verified` in audit-report |
+| **WARN (soft)** | DBLP returns 0 hits OR ≥2 ambiguous; entry has an arXiv eprint but no DBLP record; BibTeX entry has no title | Render proceeds; logged in audit-report |
+| **FAIL (hard)** | DBLP venue ≠ the BibTeX `booktitle`/`journal`; year mismatch; a `best paper` / `spotlight` / `oral` / `outstanding` badge with no `arxiv`/`paper`/`pdf`/`project`/`openreview` link; bibkey in `selected_publications` missing from publications.bib; expired override | Verdict = `BLOCKED` and **`render` exits without writing the HTML**; `audit-report.md` is still written. `--override-all` to ship anyway |
 
 **Override two-layer**:
-- Per-paper, per-field in profile.yml: `audit.overrides.<bibkey>.<field>: true` with required `reason:` and optional `expires:` date
-- CLI emergency: `aris-homepage render --override-all` (every override loudly logged)
+- Per-paper in profile.yml: `audit.overrides.<bibkey>` — any non-empty, unexpired override object skips the DBLP checks for that paper entirely (it is not enforced per-field). `reason:` is recorded in the report but not required; `expires:` is, once past, a hard failure
+- CLI emergency: `python ../tools/aris_homepage.py render --override-all` (every override loudly logged)
 
-**Honest scope of fact-check**: catches venue/year/author mismatch and fabricated award claims. Does NOT verify: workshop papers without DBLP entries, industry tech reports, blog/talk content, OSS star counts, or arbitrary claims in the bio. Treat the audit as a **diagnostic floor**, not a guarantee.
+**Honest scope of fact-check**: DBLP lookups cover only the papers listed in `selected_publications`; the award-badge sweep covers every entry in `publications_meta`. It catches venue/year mismatch and award badges asserted without a link. It does **not** check author lists at all, and it never compares the title DBLP returned — the title is only the search query. Does NOT verify: workshop papers without DBLP entries, industry tech reports, blog/talk content, OSS star counts, or arbitrary claims in the bio. Treat the audit as a **diagnostic floor**, not a guarantee.
 
 ## Cross-model review — what's automated vs optional
 
 Two distinct review layers; do not confuse them:
 
-**Layer 1 — automated factual audit (always runs)**
-`aris-homepage render` and `aris-homepage check` run a deterministic Python pipeline that queries DBLP (with a 4-attempt backoff + local cache at `.aris-homepage/dblp-cache.json`) and falls back to arXiv hints. No external LLM needed. This is the **floor** of fact-check, and it works with **zero** AI-runtime dependencies beyond Python + the calling shell.
+**Layer 1 — automated factual audit (default; skipped only with `--no-audit`)**
+`render` and `check` run a deterministic Python pipeline that queries DBLP (with a 4-attempt backoff + local cache at `.aris-homepage/dblp-cache.json`). Nothing queries arXiv: a DBLP miss is a WARN either way, and an `eprint` / `archiveprefix` field already in your BibTeX only changes how that warning is labelled. No external LLM needed. This is the **floor** of fact-check, and it works with **zero** AI-runtime dependencies beyond Python + the calling shell.
 
 **Layer 2 — optional adversarial LLM review (recommended for high-stakes)**
 If the calling agent has access to **Codex MCP** (`mcp__codex__codex`), run a fresh-thread Codex review after `render` to scrutinize: bio prose tone, claim phrasing, sub-project list, schema consistency. Codex acts as the cross-family reviewer (ARIS's adversarial-review invariant).
@@ -178,7 +184,7 @@ cv.{pdf,docx} ─►│ Step 1: extract → cv.txt                   │
                 └─────────────────┬────────────────────────┘
                                   ▼
                 ┌──────────────────────────────────────────┐
-                │ Step 3: aris-homepage finalize           │
+                │ Step 3: aris_homepage.py finalize        │
                 │   → profile.yml + publications.bib       │
                 │   + bio.md + news.md + EXTRACTION_REVIEW │
                 └─────────────────┬────────────────────────┘
@@ -188,7 +194,7 @@ cv.{pdf,docx} ─►│ Step 1: extract → cv.txt                   │
                                   ▼
                 ┌──────────────────────────────────────────┐
                 │ Step 4: render (with Layer-1 DBLP audit) │
-                │   ↳ Python DBLP/arXiv fact-check         │
+                │   ↳ Python DBLP fact-check               │
                 │   ↳ Python builds per-section HTML       │
                 │   ↳ inject into homepage-<persona>.html  │
                 │   ↳ (optional) Codex MCP adversarial pass│
@@ -207,9 +213,9 @@ cv.{pdf,docx} ─►│ Step 1: extract → cv.txt                   │
 - **DOCX**: `textutil` on macOS (bundled) OR `python-docx` (`pip install python-docx`)
 - **PDF**: `pdftotext` (install via `brew install poppler` / `apt install poppler-utils`)
 - **DBLP**: official `https://dblp.org/search/publ/api` (rate-limited 4-attempt backoff + local cache in `.aris-homepage/dblp-cache.json`)
-- **Codex MCP**: for cross-model factual audit (required for the audit; the generator runs without it via `--no-audit`)
+- **Codex MCP**: optional, for the Layer-2 adversarial review only. The Layer-1 DBLP audit is pure Python and needs no LLM.
 
-`aris-homepage doctor` checks all of the above.
+`python tools/aris_homepage.py doctor` checks all of the above.
 
 ## Privacy and generic examples
 
@@ -236,11 +242,11 @@ The public demo at `wanshuiyin.github.io` is the **only exception** — it's an 
 
 ## Acceptance criteria (v1 done)
 
-1. `aris-homepage init --from-cv` produces editable scaffolding from any user's CV (single-file `.docx` or `.pdf`).
-2. `aris-homepage render --persona theory-minimal` produces a single HTML file ≤500KB (no images) or ≤2MB (with photo + thumbnails inline), or smaller still when images are referenced via remote URLs.
+1. `python tools/aris_homepage.py init --from-cv` produces editable scaffolding from any user's CV (single-file `.docx` or `.pdf`).
+2. `python ../tools/aris_homepage.py render --persona theory-minimal` (from the site workspace) produces a single HTML file ≤500KB (no images) or ≤2MB (with photo + thumbnails inline), or smaller still when images are referenced via remote URLs.
 3. Fact-check correctly hard-fails on a corrupted profile.yml (e.g., venue swap NeurIPS↔ICML) and passes when corrected.
 4. The HTML is publishable on GitHub Pages / Netlify / S3 / any static host without a build step.
-5. `aris-homepage doctor` accurately reports environment readiness.
+5. `python tools/aris_homepage.py doctor` accurately reports environment readiness.
 6. No personal info from the maintainer's dogfood leaks into shipped examples or tests.
 
 ## What's deferred (v1.1+)

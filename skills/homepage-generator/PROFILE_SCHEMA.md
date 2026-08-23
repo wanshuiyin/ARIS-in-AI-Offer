@@ -146,7 +146,7 @@ featured_projects:
         url: "https://github.com/owner/repo/releases/tag/v1.0"
 ```
 
-> **Note on `github:` subobject** (v1.1): populated by `aris-homepage init --from-repos owner/repo,...`. Written to `.aris-homepage/github_repos.json` first; calling LLM agent then maps it into `featured_projects[*].github` during the extraction step. Renderer does NOT auto-fetch — what's in profile.yml is what gets rendered (provenance lives in `snapshot_at`).
+> **Note on `github:` subobject** (v1.1): populated by `python tools/aris_homepage.py init --from-repos owner/repo,...`. Written to `.aris-homepage/github_repos.json` first; calling LLM agent then maps it into `featured_projects[*].github` during the extraction step. Renderer does NOT auto-fetch — what's in profile.yml is what gets rendered (provenance lives in `snapshot_at`).
 
 **Visual treatment**: the logo image floats right; text content (stats / links / elevator / sub-projects / open_problems) wraps around it, then continues full-width below the image. Use for ONE flagship project; the renderer supports multiple but visual weight stacks.
 

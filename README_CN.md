@@ -87,7 +87,7 @@
 - **2026-05-28** — ![POLISH](https://img.shields.io/badge/POLISH-blue?style=flat-square) ⚡ **`render-html` P0 polish + 23 个 tutorial 全量 regenerate** —— academic 模板加了 7 个交互特性：print degradation 修复（PDF 导出不再丢 `<details>` 内容）、TOC 侧栏 scrollspy（当前 section 跟随滚动高亮）、figure lightbox（原生 `<dialog>` + focus trap + Esc）、长代码自动折叠（`<pre>` ≥30 行包成 `<details class="code-card">`，可用 ` ```python {collapsed}` / `{open}` fence flag 单块 override）、论文引用 popover（新增 `[[key]]` MD 语法 + `--papers <papers.json>` sidecar）、eyebrow 风格清理（marketing 大写 → 正文衬线灰）、`--blog-mode` 基础设施（opt-in `aris-blog` body class）。XSS 加固：`json_for_script()` 把 `<` / `>` / `&` / U+2028 等 escape 成 `\\uXXXX`，paper title 含 `</script>` 不会 break out。23 对双语 tutorial（共 46 个 HTML）全量 regenerate 吃到新模板，源 MD 没动。Codex GPT-5.5 xhigh 4 轮审（设计 ×2 → 代码 ×1 → spot-check ×1）。试试：滚动 [`attention_tutorial.html`](docs/tutorials/attention_tutorial.html) 看左侧 TOC 跟随高亮（[b79c57d](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/b79c57d)、[8793f40](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/8793f40)）。
 - **2026-05-26** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🐍 **5 个可跑的 PyTorch 教学脚本** —— [`docs/tutorials/code/`](docs/tutorials/code/) 是仓库第一批 runnable-code 贡献：[`mha.py`](docs/tutorials/code/mha.py)（MHA + causal mask）、[`axial_attention.py`](docs/tutorials/code/axial_attention.py)（H/W axial + 复杂度表）、[`flow_matching.py`](docs/tutorials/code/flow_matching.py)（2D moons 上的 Rectified Flow）、[`mmdit_block.py`](docs/tutorials/code/mmdit_block.py)（双流 MMDiT block）、[`toy_mmdit_t2i_pipeline.py`](docs/tutorials/code/toy_mmdit_t2i_pipeline.py)（端到端 toy T2I pipeline）。纯 PyTorch，CPU 几秒到几十秒跑完，每个脚本自带 `assert` sanity check（shape 对齐、必要时跟 `nn.MultiheadAttention` 数值校准）。配合 [`attention_tutorial.md`](docs/tutorials/attention_tutorial.md) / [`flow_matching_tutorial.md`](docs/tutorials/flow_matching_tutorial.md) / [`image_generation_systems_tutorial.md`](docs/tutorials/image_generation_systems_tutorial.md) 阅读（[f63f468](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/f63f468)）。
 - **2026-05-24** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🐙 **ARIS-Homepage v1.1：`--from-repos`** — 用户选定 `owner/repo` 列表通过 `gh` CLI 抓快照，调用方 LLM agent 把 repo 时间线 merge 进主页 News + `featured_projects[].github`。默认拒绝 private repo。Closes [#2](https://github.com/wanshuiyin/ARIS-in-AI-Offer/issues/2) by [@Yafei-Liu99](https://github.com/Yafei-Liu99)（[cdcf9a2](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/cdcf9a2)）。
-- **2026-05-23** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🌐 **ARIS-Homepage v1 上线** — CV → fact-checked 学术主页（DBLP / arXiv 审 venue/年份/作者，错的硬阻断 ship）。单文件 HTML；Codex / Gemini review 可选。Live demo：[wanshuiyin.github.io](https://wanshuiyin.github.io/)。Skill：[`skills/homepage-generator/SKILL.md`](skills/homepage-generator/SKILL.md)（[b818c1d](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/b818c1d)）。
+- **2026-05-23** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🌐 **ARIS-Homepage v1 上线** — CV → fact-checked 学术主页（DBLP 审 venue/年份，错的硬阻断 ship）。单文件 HTML；Codex / Gemini review 可选。Live demo：[wanshuiyin.github.io](https://wanshuiyin.github.io/)。Skill：[`skills/homepage-generator/SKILL.md`](skills/homepage-generator/SKILL.md)（[b818c1d](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/b818c1d)）。
 - **2026-05-22** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 🦾 **社区贡献 feature：具身智能高频面试题库** by [@WinstonJQ](https://github.com/WinstonJQ) —— 413 题 8 卷（VLA / 模仿学习 / RL / 世界模型 / 工程落地 / 腿足控制 / 3D 感知 / 系统设计），外部托管，从 Tutorial Index 新增的 "🦾 Embodied AI" 分类里链接过去（[b1ebb6f](https://github.com/wanshuiyin/ARIS-in-AI-Offer/commit/b1ebb6f)）。
 - **2026-05** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 📚 **4 篇新双语 cheat sheet**：KL Divergence in RLHF（k1/k2/k3 · placement gradient bias）、LLM On-Policy Distillation（MiniLLM / GKD / Qwen3 / Tinker）、Diffusion Post-Training（DDPO / DPOK / DRaFT / AlignProp / Diffusion-DPO / Flow-GRPO）、Diffusion / Flow Distillation（CM / iCT / sCM / CTM / LCM / DMD/DMD2 / ADD/LADD）。总数：**23 篇 first-party cheat sheet**。
 - **2026-05** — ![DOCS](https://img.shields.io/badge/DOCS-blue?style=flat-square) 📖 **README 重构** —— 预览图 banner、ARIS 战绩前置（badges + 10K-star credibility paragraph）、与 [ARIS 主仓](https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep)共享微信群二维码。
@@ -210,22 +210,24 @@
 
 > **唯一一个发布前 fact-check 你 CV 的个人主页生成器。**
 
-本仓库新增的 skill：`/homepage-generator` 把你的 CV（`.docx` / `.pdf` / `.txt`）变成一个 polished 单文件学术主页。跨模型 fact-check 对 DBLP / arXiv 审核——错 venue / 错年份 / 错作者 / 编造奖项都硬阻断 ship，除非你显式 override。
+本仓库新增的 skill：`/homepage-generator` 把你的 CV（`.docx` / `.pdf` / `.txt`）变成一个 polished 单文件学术主页。每次 render 都会跑一遍 DBLP 核对（除非加 `--no-audit`）——venue 或年份对不上、声称了 Best Paper / Spotlight / Oral / Outstanding 却没填指向论文的链接，都会硬阻断，除非你改对或显式 override。（不核对作者名单。）
 
 **Live demo**：[wanshuiyin.github.io](https://wanshuiyin.github.io/) —— 这就是用这个 skill 跑 CV + 维护者之前 manual 主页（作 editorial reference）生成的。预览 strip 在 README 顶部。
 
 ### 快速开始
 
+`aris-homepage` 不是一个可执行命令 —— 本仓库不提供任何安装器，直接调脚本。路径是相对当前目录的，`cd` 之后会变：
+
 ```bash
-aris-homepage init --from-cv ./cv.pdf --out ./site
+python tools/aris_homepage.py init --from-cv ./cv.pdf --out ./site
 cd ./site
 # 调用方 agent 读 .aris-homepage/EXTRACTION_HANDOFF.md，填 extraction.json
-aris-homepage finalize
+python ../tools/aris_homepage.py finalize
 $EDITOR profile.yml             # 调整编辑选择
-aris-homepage render --persona theory-minimal
+python ../tools/aris_homepage.py render --persona theory-minimal
 ```
 
-> 🪟 **Windows 用户**：`aris-homepage` 不是一个已安装的命令，要显式写成 `python .\tools\aris_homepage.py ...`。零基础完整走一遍（Python / poppler / SSL 各种坑）见 [`WINDOWS.md`](skills/homepage-generator/WINDOWS.md)（[English](skills/homepage-generator/WINDOWS_en.md)）。
+> 🪟 **Windows 用户**：上面的路径分隔符换成 `\`，另外还有几个 Windows 独有的坑 —— `python3` 空壳别名、`.py` 文件关联静默、`pdftotext` 中文路径、SSL 证书库。零基础完整走一遍见 [`WINDOWS.md`](skills/homepage-generator/WINDOWS.md)（[English](skills/homepage-generator/WINDOWS_en.md)）。
 
 输出：`index.html` + `audit-report.md`。HTML 扔 GitHub Pages、S3、学校 `~user/public_html/`、邮箱附件都行——零 build server。**最小运行时只要 Python + 调用方 LLM agent**；Codex MCP 可选（增强 adversarial 跨模型 review），Gemini 可选（多模态视觉 critique）。
 
@@ -270,9 +272,9 @@ aris-homepage render --persona theory-minimal
               ▼               ▼               ▼
         ┌──────────┐    ┌──────────┐    ┌──────────────┐
         │ Layer-1  │    │ Layer-2  │    │ Layer-2      │
-        │ DBLP /   │    │ Codex MCP│    │ Gemini       │
-        │ arXiv    │    │ 对抗 rev │    │ 视觉 critique│
-        │ 事实审   │    │（可选）  │    │（可选）      │
+        │ DBLP     │    │ Codex MCP│    │ Gemini       │
+        │ 事实审   │    │ 对抗 rev │    │ 视觉 critique│
+        │          │    │（可选）  │    │（可选）      │
         │（默认）  │    │          │    │              │
         └─────┬────┘    └──────────┘    └──────────────┘
               │
@@ -284,13 +286,13 @@ aris-homepage render --persona theory-minimal
         └──────────────┘
 
    典型流程（7 步，~5 分钟）：
-     1. aris-homepage init --from-cv ./cv.pdf --out ./site
+     1. python tools/aris_homepage.py init --from-cv ./cv.pdf --out ./site
      2.（调用方 agent）读 .aris-homepage/EXTRACTION_HANDOFF.md
         → 填 .aris-homepage/extraction.json
-     3. aris-homepage finalize
+     3. cd ./site && python ../tools/aris_homepage.py finalize
      4. $EDITOR profile.yml publications.bib bio.md news.md
-     5. aris-homepage check --strict        # 只做 fact-check
-     6. aris-homepage render --persona theory-minimal
+     5. python ../tools/aris_homepage.py check --strict   # 只做 fact-check
+     6. python ../tools/aris_homepage.py render --persona theory-minimal
      7. 看 audit-report.md；修了 → 重 render 或 --override-all
 
    最小运行时：Python + 调用方 LLM agent

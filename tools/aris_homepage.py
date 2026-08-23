@@ -7,7 +7,7 @@ Pipeline:
     init --from-cv  →  textutil → emit extraction handoff JSON → user's calling LLM
                        fills .aris-homepage/extraction.json → this script persists
                        to profile.yml + publications.bib + bio.md + news.md
-    render          →  load → fact-check (DBLP/arXiv) → Python builds HTML chunks
+    render          →  load → fact-check (DBLP) → Python builds HTML chunks
                        → injects into homepage-<persona>.html template
     check           →  fact-check only, update audit-report.md
     doctor          →  environment diagnostic
@@ -31,6 +31,7 @@ import hashlib
 import html as html_lib
 import json
 import mimetypes
+import os
 import re
 import shutil
 import subprocess
@@ -56,7 +57,30 @@ except ImportError:
 
 SCHEMA_VERSION = 1
 DBLP_API = "https://dblp.org/search/publ/api"
-ARXIV_API = "http://export.arxiv.org/api/query"
+
+
+def short_path(p: Path, from_dir: Path | None = None) -> str:
+    """Whichever of the relative / absolute form of ``p`` is shorter to read.
+
+    A relative path is friendlier from inside the repo, but climbing out of a
+    site workspace on another branch of the filesystem produces ../../../..
+    noise that is worse than just printing the absolute path.
+    """
+    rel = os.path.relpath(p, from_dir or Path.cwd())
+    return rel if len(rel) < len(str(p)) else str(p)
+
+
+def invocation(from_dir: Path | None = None) -> str:
+    """How to re-run this script from ``from_dir`` (default: the current directory).
+
+    There is no installed ``aris-homepage`` command — this repo ships no entry
+    point — so every "run this next" message has to spell out the interpreter
+    and a path valid from where the user will actually be standing. That is not
+    always where they are now: ``render`` and ``check`` operate on the site
+    workspace, so their commands must be written relative to it.
+    """
+    return f"python {short_path(Path(__file__).resolve(), from_dir)}"
+
 
 DEFAULT_FILES = {
     "profile": "profile.yml",
@@ -520,7 +544,7 @@ def print_extraction_handoff(txt_path: Path, out_dir: Path,
     This script does NOT call an LLM — the calling agent (Claude/Gemini)
     reads cv.txt + optional github_repos.json, fills the JSON-schema-constrained
     output, and writes .aris-homepage/extraction.json. A follow-up
-    `aris-homepage finalize` ingests that JSON and writes the editable sources.
+    ``<this script> finalize`` ingests that JSON and writes the editable sources.
     """
     handoff_path = out_dir / ".aris-homepage" / "EXTRACTION_HANDOFF.md"
     schema_path = out_dir / ".aris-homepage" / "extraction.schema.json"
@@ -571,7 +595,8 @@ Write the JSON output to:
   .aris-homepage/extraction.json
 
 Then run:
-  aris-homepage finalize
+  cd {short_path(out_dir)}
+  {invocation(out_dir)} finalize
 
 …to persist the structured fields into profile.yml + publications.bib + bio.md + news.md.
 
@@ -592,13 +617,14 @@ Then run:
 > - Do NOT invent claims. If the CV doesn't say something, leave the field null/empty.
 > - Identify the CV owner. Their name goes in profile.identity.name + name_native (if bilingual).
 {('> - If github_repos.json exists, merge its timeline into news_md following the rules in the section above.' + chr(10)) if repos_block else ''}>
-> After writing the JSON, instruct the user to run `aris-homepage finalize`.
+> After writing the JSON, instruct the user to `cd` into `{short_path(out_dir)}` and run `{invocation(out_dir)} finalize`.
 """, encoding="utf-8")
     print(f"✓ CV text extracted to: {txt_path}")
     print(f"✓ Extraction handoff written to: {handoff_path}")
     print()
-    print("Next: read the handoff doc and fill .aris-homepage/extraction.json,")
-    print("      then run `aris-homepage finalize` to persist the structured files.")
+    print("Next: read the handoff doc and fill .aris-homepage/extraction.json, then:")
+    print(f"  cd {short_path(out_dir)}")
+    print(f"  {invocation(out_dir)} finalize")
 
 
 def cmd_finalize(args: argparse.Namespace) -> int:
@@ -606,7 +632,7 @@ def cmd_finalize(args: argparse.Namespace) -> int:
     workspace = Path(args.out).resolve() if args.out else Path(".").resolve()
     extraction_path = workspace / ".aris-homepage" / "extraction.json"
     if not extraction_path.exists():
-        die(f"{extraction_path} not found. Run `aris-homepage init --from-cv ...` first, "
+        die(f"{extraction_path} not found. Run `{invocation()} init --from-cv ...` first, "
             f"then have the calling agent fill the extraction JSON.")
 
     data = json.loads(extraction_path.read_text(encoding="utf-8"))
@@ -633,7 +659,8 @@ def cmd_finalize(args: argparse.Namespace) -> int:
     review_lines = ["# Extraction Review", "",
                     "These claims were extracted from your CV but could not be auto-verified.",
                     "Edit the corresponding files (profile.yml, publications.bib, bio.md, news.md)",
-                    "as needed, then run `aris-homepage render --persona theory-minimal`.", ""]
+                    f"as needed, then run `{invocation(workspace)} render --persona theory-minimal`",
+                    "from inside this directory.", ""]
     if uncertain:
         review_lines.append("## ⚠️ Uncertain claims (review before rendering)")
         review_lines.append("")
@@ -652,8 +679,9 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         print(f"✓ Wrote {DEFAULT_FILES['news']}")
     print(f"✓ Wrote {DEFAULT_FILES['extraction_review']}")
     print()
-    print("Edit the files as needed, then run:")
-    print("  aris-homepage render --persona theory-minimal")
+    print("Edit the files as needed, then render from the site directory:")
+    print(f"  cd {short_path(workspace)}")
+    print(f"  {invocation(workspace)} render --persona theory-minimal")
     return 0
 
 
@@ -709,7 +737,7 @@ def load_profile(path: Path) -> dict[str, Any]:
     if not HAS_YAML:
         die("pyyaml not installed. Run: pip install pyyaml --break-system-packages")
     if not path.exists():
-        die(f"{path} not found. Run `aris-homepage init --from-cv <cv>` first.")
+        die(f"{path} not found. Run `{invocation()} init --from-cv <cv>` first.")
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         die(f"{path}: expected a YAML mapping at top level.")
@@ -1391,7 +1419,7 @@ def run_fact_check(profile: dict, bib: dict, *, override_all: bool = False,
                 "detail": "bibkey listed in selected_publications but not in publications.bib",
             })
 
-    # Per-paper DBLP/arXiv check
+    # Per-paper DBLP check
     for key in selected:
         if key not in bib:
             continue
@@ -1659,7 +1687,7 @@ def write_audit_report(path: Path, audit: AuditResult, profile: dict, persona: s
         lines.append("")
     lines.append("---")
     lines.append("Generated by [ARIS-Homepage](https://github.com/wanshuiyin/ARIS-in-AI-Offer). "
-                 "Re-run `aris-homepage check` after edits.")
+                 f"Re-run `{invocation(path.parent)} check` from this directory after edits.")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -1762,7 +1790,7 @@ def die(msg: str) -> None:
 
 def main() -> int:
     p = argparse.ArgumentParser(
-        prog="aris-homepage",
+        prog=invocation(),
         description="Generate a fact-checked academic homepage from a CV.",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
