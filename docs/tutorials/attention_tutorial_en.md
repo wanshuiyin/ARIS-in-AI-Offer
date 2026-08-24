@@ -219,6 +219,45 @@ class MultiHeadAttention(nn.Module):
         return self.W_o(self._merge(out)), w
 ```
 
+### 3.5　Fused QKV + chunk (what production code actually writes)
+
+§3.4 uses three separate `W_q / W_k / W_v`, which reads closest to the formula. For **self-attention**, the more common production form **fuses the three projections into one Linear** and then slices the output — nanoGPT, HF GPT-2 and timm's ViT all do it this way (counterexamples exist: HF LLaMA keeps separate `q_proj / k_proj / v_proj`, and cross-attention cannot fuse at all, since Q and K/V come from different inputs). The three slicings below are **element-wise identical** (`torch.equal` returns True) and differ only in readability; the GEMM saving is fused-versus-§3.4's-three-Linears.
+
+```python
+D, H, d_k = 64, 4, 16                       # D = H * d_k
+qkv_proj = nn.Linear(D, 3 * D, bias=False)  # one Linear emits Q/K/V
+qkv = qkv_proj(x)                           # [B, N, 3D]
+
+# Form 1: chunk — the most readable, hardest to get wrong on a whiteboard
+q, k, v = qkv.chunk(3, dim=-1)                          # each [B, N, D]
+q, k, v = [t.view(B, N, H, d_k).transpose(1, 2)         # → [B, H, N, d_k]
+           for t in (q, k, v)]
+
+# Form 2: nanoGPT's split — equivalent to chunk here (3D/3 = D); same view+transpose follows
+q, k, v = qkv.split(D, dim=2)
+q, k, v = [t.view(B, N, H, d_k).transpose(1, 2) for t in (q, k, v)]
+
+# Form 3: 5-D reshape + permute — timm ViT / this repo's code/mha.py
+q, k, v = qkv.reshape(B, N, 3, H, d_k).permute(2, 0, 3, 1, 4)
+```
+
+> 💡 **Why fuse** — compared with §3.4's three Linears, Q/K/V cost **one GEMM instead of three**. The FLOPs are identical; what you save is kernel launches and activation traffic, and one large matmul usually utilises the hardware better (how much depends on shapes and backend). The other reason is weight layout: HF GPT-2's `c_attn` (a `Conv1D` with weight `[D, 3D]`) concatenates Q/K/V along the output dimension in `[Q | K | V]` order, so loading pretrained weights requires matching that order (and a transpose to `[3D, D]` if you port it to `nn.Linear`).
+
+| Form | How it slices | Readability | Used by |
+| --- | --- | --- | --- |
+| Three separate Linears | no slicing | closest to the math | teaching code, §3.4 |
+| fused + `chunk(3, dim=-1)` | three equal parts | **best** | most hand-written implementations |
+| fused + `split(D, dim=2)` | parts of width D | good | nanoGPT |
+| fused + `reshape` + 5-D `permute` | one shot | poor — easy to get the axis order wrong | timm ViT, `code/mha.py` |
+
+> ⚠️ **`chunk(3)` becomes wrong the moment you use GQA (a common follow-up)** — under MQA/GQA the fused projection is no longer three equal parts but `D + 2·G·d_k` (see §6.2). Take `D=64, H=4, d_k=16, G=2`: the fused width is `64 + 32 + 32 = 128`, and `chunk(3)` slices it into `[43, 43, 42]`. **It does not raise.** Q gets 43 instead of 64, and the failure only surfaces later at the `view`, as `shape '[2, 7, 4, 16]' is invalid for input of size 602` — a message with no connection to the actual cause.
+
+`torch.chunk` does not raise on a non-divisible width; it just returns uneven parts (width 5 into 3 → `[2, 2, 1]`). So the rule is simple: **whenever Q and K/V have different head counts, use `split` with explicit widths, never `chunk`.**
+
+```python
+q, k, v = qkv.split([D, G * d_k, G * d_k], dim=-1)      # explicit widths — the standard form under MQA/GQA
+```
+
 ## §4 Self / Cross / Causal / Padding
 
 ### 4.1　Self vs Cross Attention (mandatory)

@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/attention_tutorial_en.md">
-<meta name="aris:source-sha256" content="f057c218d5b6435d443d904c25e0e732705172efce84a0918a984c166a516800">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:source-sha256" content="49459d52a2bdc516d301d1195f04ce1b0188136e1d0848c8538f8d82b2035110">
+<meta name="aris:generated-at" content="2026-08-24 03:10 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -545,6 +545,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#32-why-multi-head-would-a-single-head-work">3.2　Why multi-head (would a single head work?)</a></li>
 <li><a href="#33-parameter-count-and-flops">3.3　Parameter count and FLOPs</a></li>
 <li><a href="#34-code-core-30-lines">3.4　Code (core 30 lines)</a></li>
+<li><a href="#35-fused-qkv--chunk-what-production-code-actually-writes">3.5　Fused QKV + chunk (what production code actually writes)</a></li>
 </ul>
 </li>
 <li><a href="#4-self--cross--causal--padding">§4 Self / Cross / Causal / Padding</a>
@@ -597,8 +598,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/attention_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>f057c218d5b6</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>SHA256:</strong> <code>49459d52a2bd</code></span>
+    <span><strong>Rendered:</strong> 2026-08-24 03:10 UTC</span>
     
   </div>
 </header>
@@ -726,6 +727,28 @@ W_o ∈ R^{D×D}    →    Output [B, L_q, D]</code></pre>
 
         out, w = scaled_dot_product_attention(Q, K, V, mask=mask, dropout_p=self.dropout_p, training=self.training)
         return self.W_o(self._merge(out)), w</code></pre>
+<h3 id="35-fused-qkv--chunk-what-production-code-actually-writes">3.5　Fused QKV + chunk (what production code actually writes)</h3>
+<p>§3.4 uses three separate <code>W_q / W_k / W_v</code>, which reads closest to the formula. For <strong>self-attention</strong>, the more common production form <strong>fuses the three projections into one Linear</strong> and then slices the output — nanoGPT, HF GPT-2 and timm's ViT all do it this way (counterexamples exist: HF LLaMA keeps separate <code>q_proj / k_proj / v_proj</code>, and cross-attention cannot fuse at all, since Q and K/V come from different inputs). The three slicings below are <strong>element-wise identical</strong> (<code>torch.equal</code> returns True) and differ only in readability; the GEMM saving is fused-versus-§3.4's-three-Linears.</p>
+<pre><code class="language-python">D, H, d_k = 64, 4, 16                       # D = H * d_k
+qkv_proj = nn.Linear(D, 3 * D, bias=False)  # one Linear emits Q/K/V
+qkv = qkv_proj(x)                           # [B, N, 3D]
+
+# Form 1: chunk — the most readable, hardest to get wrong on a whiteboard
+q, k, v = qkv.chunk(3, dim=-1)                          # each [B, N, D]
+q, k, v = [t.view(B, N, H, d_k).transpose(1, 2)         # → [B, H, N, d_k]
+           for t in (q, k, v)]
+
+# Form 2: nanoGPT&#x27;s split — equivalent to chunk here (3D/3 = D); same view+transpose follows
+q, k, v = qkv.split(D, dim=2)
+q, k, v = [t.view(B, N, H, d_k).transpose(1, 2) for t in (q, k, v)]
+
+# Form 3: 5-D reshape + permute — timm ViT / this repo&#x27;s code/mha.py
+q, k, v = qkv.reshape(B, N, 3, H, d_k).permute(2, 0, 3, 1, 4)</code></pre>
+<div class="callout callout-info"><div class="callout-title">Why fuse</div><p>compared with §3.4's three Linears, Q/K/V cost <strong>one GEMM instead of three</strong>. The FLOPs are identical; what you save is kernel launches and activation traffic, and one large matmul usually utilises the hardware better (how much depends on shapes and backend). The other reason is weight layout: HF GPT-2's <code>c_attn</code> (a <code>Conv1D</code> with weight <code>[D, 3D]</code>) concatenates Q/K/V along the output dimension in <code>[Q | K | V]</code> order, so loading pretrained weights requires matching that order (and a transpose to <code>[3D, D]</code> if you port it to <code>nn.Linear</code>).</p></div>
+<div class="table-wrap"><table><thead><tr><th>Form</th><th>How it slices</th><th>Readability</th><th>Used by</th></tr></thead><tbody><tr><td>Three separate Linears</td><td>no slicing</td><td>closest to the math</td><td>teaching code, §3.4</td></tr><tr><td>fused + <code>chunk(3, dim=-1)</code></td><td>three equal parts</td><td><strong>best</strong></td><td>most hand-written implementations</td></tr><tr><td>fused + <code>split(D, dim=2)</code></td><td>parts of width D</td><td>good</td><td>nanoGPT</td></tr><tr><td>fused + <code>reshape</code> + 5-D <code>permute</code></td><td>one shot</td><td>poor — easy to get the axis order wrong</td><td>timm ViT, <code>code/mha.py</code></td></tr></tbody></table></div>
+<div class="callout callout-warn"><div class="callout-title">`chunk(3)` becomes wrong the moment you use GQA (a common follow-up)</div><p>under MQA/GQA the fused projection is no longer three equal parts but <code>D + 2·G·d_k</code> (see §6.2). Take <code>D=64, H=4, d_k=16, G=2</code>: the fused width is <code>64 + 32 + 32 = 128</code>, and <code>chunk(3)</code> slices it into <code>[43, 43, 42]</code>. <strong>It does not raise.</strong> Q gets 43 instead of 64, and the failure only surfaces later at the <code>view</code>, as <code>shape &#x27;[2, 7, 4, 16]&#x27; is invalid for input of size 602</code> — a message with no connection to the actual cause.</p></div>
+<p><code>torch.chunk</code> does not raise on a non-divisible width; it just returns uneven parts (width 5 into 3 → <code>[2, 2, 1]</code>). So the rule is simple: <strong>whenever Q and K/V have different head counts, use <code>split</code> with explicit widths, never <code>chunk</code>.</strong></p>
+<pre><code class="language-python">q, k, v = qkv.split([D, G * d_k, G * d_k], dim=-1)      # explicit widths — the standard form under MQA/GQA</code></pre>
 <h2 id="4-self--cross--causal--padding">§4 Self / Cross / Causal / Padding</h2>
 <h3 id="41-self-vs-cross-attention-mandatory">4.1　Self vs Cross Attention (mandatory)</h3>
 <div class="table-wrap"><table><thead><tr><th></th><th>Self-Attention</th><th>Cross-Attention</th></tr></thead><tbody><tr><td><strong>Q source</strong></td><td>$X$</td><td>$X_\text{decoder}$ / latent / learnable queries</td></tr><tr><td><strong>K, V source</strong></td><td>$X$ (same)</td><td>$X_\text{encoder}$ / context / memory</td></tr><tr><td><strong>$L_q$ vs $L_k$</strong></td><td>equal</td><td>can differ</td></tr><tr><td><strong>Typical mask</strong></td><td>causal (decoder) or padding (encoder)</td><td>K/V-side padding mask (no causal)</td></tr><tr><td><strong>Purpose</strong></td><td>intra-position correlation</td><td>retrieve relevant info from external memory</td></tr><tr><td><strong>Examples</strong></td><td>every BERT layer; every GPT layer; ViT</td><td>Transformer Decoder's second sub-layer; DETR; Perceiver; Stable Diffusion (image Q × text K/V)</td></tr></tbody></table></div>
@@ -973,8 +996,8 @@ All checks passed.</code></pre>
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/attention_tutorial_en.md</code> ·
-  SHA256 <code>f057c218d5b6</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  SHA256 <code>49459d52a2bd</code> ·
+  generated at 2026-08-24 03:10 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

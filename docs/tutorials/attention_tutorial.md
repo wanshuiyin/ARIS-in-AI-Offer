@@ -219,6 +219,45 @@ class MultiHeadAttention(nn.Module):
         return self.W_o(self._merge(out)), w
 ```
 
+### 3.5　fused QKV + chunk 写法（工程实现都这么写）
+
+§3.4 用三个独立的 `W_q / W_k / W_v`，读起来最贴公式。**self-attention** 实现里更常见的是把三个投影**合成一个 Linear**，再把输出切开——nanoGPT、HF GPT-2、timm 的 ViT 都是这个写法（也有反例：HF LLaMA 就保持三个独立的 `q_proj / k_proj / v_proj`；cross-attention 则根本没法 fuse，因为 Q 和 K/V 来自不同输入）。下面三种切法**逐元素完全相同**（`torch.equal` 为 True），彼此只差可读性；省 GEMM 是 fused 相对 §3.4 三个 Linear 而言的。
+
+```python
+D, H, d_k = 64, 4, 16                       # D = H * d_k
+qkv_proj = nn.Linear(D, 3 * D, bias=False)  # 一个 Linear 产出 Q/K/V
+qkv = qkv_proj(x)                           # [B, N, 3D]
+
+# 写法 1：chunk —— 最好读，白板上不容易写错
+q, k, v = qkv.chunk(3, dim=-1)                          # 每个 [B, N, D]
+q, k, v = [t.view(B, N, H, d_k).transpose(1, 2)         # → [B, H, N, d_k]
+           for t in (q, k, v)]
+
+# 写法 2：nanoGPT 的 split —— 与 chunk 等价（3D/3 = D），后面同样要接 view+transpose
+q, k, v = qkv.split(D, dim=2)
+q, k, v = [t.view(B, N, H, d_k).transpose(1, 2) for t in (q, k, v)]
+
+# 写法 3：5-D reshape + permute —— timm ViT / 本仓库 code/mha.py 用的
+q, k, v = qkv.reshape(B, N, 3, H, d_k).permute(2, 0, 3, 1, 4)
+```
+
+> 💡 **为什么要 fuse** —— 相比 §3.4 的三个 Linear，Q/K/V 只需**一次 GEMM** 而不是三次。FLOPs 完全一样，省的是 kernel launch 和激活读写，大矩阵乘的硬件利用率通常也更好（幅度取决于形状和后端）。另一个现实理由是权重排布——HF GPT-2 的 `c_attn`（`Conv1D`，权重 `[D, 3D]`）就是 Q/K/V 沿输出维按 `[Q | K | V]` 顺序拼的，想加载预训练权重就必须对齐这个顺序（搬到 `nn.Linear` 还得转置成 `[3D, D]`）。
+
+| 写法 | 切分 | 可读性 | 用在哪 |
+| --- | --- | --- | --- |
+| 三个独立 Linear | 不用切 | 最贴公式 | 教学代码、§3.4 |
+| fused + `chunk(3, dim=-1)` | 均分三份 | **最好** | 大部分手写实现 |
+| fused + `split(D, dim=2)` | 每份宽 D | 好 | nanoGPT |
+| fused + `reshape` + 5-D `permute` | 一步到位 | 差，容易写错轴顺序 | timm ViT、`code/mha.py` |
+
+> ⚠️ **GQA 一来 `chunk(3)` 就是错的（高频追问）** —— MQA/GQA 下 fused 投影不再是三等份，而是 `D + 2·G·d_k`（见 §6.2）。取 `D=64, H=4, d_k=16, G=2`，fused 宽度是 `64 + 32 + 32 = 128`，`chunk(3)` 切出来是 `[43, 43, 42]`——**它不报错**，Q 拿到 43 而不是 64，要等到后面 `view` 才炸出一句和真正病因毫无关系的 `shape '[2, 7, 4, 16]' is invalid for input of size 602`。
+
+`torch.chunk` 除不尽时不会抛异常，只是给出不等长的几份（宽 5 分 3 份 → `[2, 2, 1]`）。所以规则很简单：**Q 和 K/V 头数不一致的结构，一律用 `split` 显式给出三段宽度，别用 `chunk`。**
+
+```python
+q, k, v = qkv.split([D, G * d_k, G * d_k], dim=-1)      # 显式宽度，MQA/GQA 下的标准写法
+```
+
 ## §4 Self / Cross / Causal / Padding
 
 ### 4.1　Self vs Cross Attention（必考）

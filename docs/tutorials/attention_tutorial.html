@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/attention_tutorial.md">
-<meta name="aris:source-sha256" content="ea13435c65f9bce9a064bd65d9e492652b6492beba86d95fdc7639221cd02a02">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:source-sha256" content="e8650ca7b3dac4fed8301ee38a559f0bc463e685b22bbe1fc04fc950d1f738c9">
+<meta name="aris:generated-at" content="2026-08-24 03:10 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -545,6 +545,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#32-为什么要-multi-head不是单-head-也行吗">3.2　为什么要 multi-head（不是单 head 也行吗？）</a></li>
 <li><a href="#33-参数量与-flops">3.3　参数量与 FLOPs</a></li>
 <li><a href="#34-代码核心-30-行">3.4　代码（核心 30 行）</a></li>
+<li><a href="#35-fused-qkv--chunk-写法工程实现都这么写">3.5　fused QKV + chunk 写法（工程实现都这么写）</a></li>
 </ul>
 </li>
 <li><a href="#4-self--cross--causal--padding">§4 Self / Cross / Causal / Padding</a>
@@ -597,8 +598,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/attention_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>ea13435c65f9</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>SHA256:</strong> <code>e8650ca7b3da</code></span>
+    <span><strong>Rendered:</strong> 2026-08-24 03:10 UTC</span>
     
   </div>
 </header>
@@ -726,6 +727,28 @@ W_o ∈ R^{D×D}    →    Output [B, L_q, D]</code></pre>
 
         out, w = scaled_dot_product_attention(Q, K, V, mask=mask, dropout_p=self.dropout_p, training=self.training)
         return self.W_o(self._merge(out)), w</code></pre>
+<h3 id="35-fused-qkv--chunk-写法工程实现都这么写">3.5　fused QKV + chunk 写法（工程实现都这么写）</h3>
+<p>§3.4 用三个独立的 <code>W_q / W_k / W_v</code>，读起来最贴公式。<strong>self-attention</strong> 实现里更常见的是把三个投影<strong>合成一个 Linear</strong>，再把输出切开——nanoGPT、HF GPT-2、timm 的 ViT 都是这个写法（也有反例：HF LLaMA 就保持三个独立的 <code>q_proj / k_proj / v_proj</code>；cross-attention 则根本没法 fuse，因为 Q 和 K/V 来自不同输入）。下面三种切法<strong>逐元素完全相同</strong>（<code>torch.equal</code> 为 True），彼此只差可读性；省 GEMM 是 fused 相对 §3.4 三个 Linear 而言的。</p>
+<pre><code class="language-python">D, H, d_k = 64, 4, 16                       # D = H * d_k
+qkv_proj = nn.Linear(D, 3 * D, bias=False)  # 一个 Linear 产出 Q/K/V
+qkv = qkv_proj(x)                           # [B, N, 3D]
+
+# 写法 1：chunk —— 最好读，白板上不容易写错
+q, k, v = qkv.chunk(3, dim=-1)                          # 每个 [B, N, D]
+q, k, v = [t.view(B, N, H, d_k).transpose(1, 2)         # → [B, H, N, d_k]
+           for t in (q, k, v)]
+
+# 写法 2：nanoGPT 的 split —— 与 chunk 等价（3D/3 = D），后面同样要接 view+transpose
+q, k, v = qkv.split(D, dim=2)
+q, k, v = [t.view(B, N, H, d_k).transpose(1, 2) for t in (q, k, v)]
+
+# 写法 3：5-D reshape + permute —— timm ViT / 本仓库 code/mha.py 用的
+q, k, v = qkv.reshape(B, N, 3, H, d_k).permute(2, 0, 3, 1, 4)</code></pre>
+<div class="callout callout-info"><div class="callout-title">为什么要 fuse</div><p>相比 §3.4 的三个 Linear，Q/K/V 只需<strong>一次 GEMM</strong> 而不是三次。FLOPs 完全一样，省的是 kernel launch 和激活读写，大矩阵乘的硬件利用率通常也更好（幅度取决于形状和后端）。另一个现实理由是权重排布——HF GPT-2 的 <code>c_attn</code>（<code>Conv1D</code>，权重 <code>[D, 3D]</code>）就是 Q/K/V 沿输出维按 <code>[Q | K | V]</code> 顺序拼的，想加载预训练权重就必须对齐这个顺序（搬到 <code>nn.Linear</code> 还得转置成 <code>[3D, D]</code>）。</p></div>
+<div class="table-wrap"><table><thead><tr><th>写法</th><th>切分</th><th>可读性</th><th>用在哪</th></tr></thead><tbody><tr><td>三个独立 Linear</td><td>不用切</td><td>最贴公式</td><td>教学代码、§3.4</td></tr><tr><td>fused + <code>chunk(3, dim=-1)</code></td><td>均分三份</td><td><strong>最好</strong></td><td>大部分手写实现</td></tr><tr><td>fused + <code>split(D, dim=2)</code></td><td>每份宽 D</td><td>好</td><td>nanoGPT</td></tr><tr><td>fused + <code>reshape</code> + 5-D <code>permute</code></td><td>一步到位</td><td>差，容易写错轴顺序</td><td>timm ViT、<code>code/mha.py</code></td></tr></tbody></table></div>
+<div class="callout callout-warn"><div class="callout-title">GQA 一来 `chunk(3)` 就是错的（高频追问）</div><p>MQA/GQA 下 fused 投影不再是三等份，而是 <code>D + 2·G·d_k</code>（见 §6.2）。取 <code>D=64, H=4, d_k=16, G=2</code>，fused 宽度是 <code>64 + 32 + 32 = 128</code>，<code>chunk(3)</code> 切出来是 <code>[43, 43, 42]</code>——<strong>它不报错</strong>，Q 拿到 43 而不是 64，要等到后面 <code>view</code> 才炸出一句和真正病因毫无关系的 <code>shape &#x27;[2, 7, 4, 16]&#x27; is invalid for input of size 602</code>。</p></div>
+<p><code>torch.chunk</code> 除不尽时不会抛异常，只是给出不等长的几份（宽 5 分 3 份 → <code>[2, 2, 1]</code>）。所以规则很简单：<strong>Q 和 K/V 头数不一致的结构，一律用 <code>split</code> 显式给出三段宽度，别用 <code>chunk</code>。</strong></p>
+<pre><code class="language-python">q, k, v = qkv.split([D, G * d_k, G * d_k], dim=-1)      # 显式宽度，MQA/GQA 下的标准写法</code></pre>
 <h2 id="4-self--cross--causal--padding">§4 Self / Cross / Causal / Padding</h2>
 <h3 id="41-self-vs-cross-attention必考">4.1　Self vs Cross Attention（必考）</h3>
 <div class="table-wrap"><table><thead><tr><th></th><th>Self-Attention</th><th>Cross-Attention</th></tr></thead><tbody><tr><td><strong>Q 来源</strong></td><td>$X$</td><td>$X_\text{decoder}$ / latent / learnable queries</td></tr><tr><td><strong>K, V 来源</strong></td><td>$X$（同源）</td><td>$X_\text{encoder}$ / context / memory</td></tr><tr><td><strong>$L_q$ vs $L_k$</strong></td><td>相等</td><td>可以不同</td></tr><tr><td><strong>典型 mask</strong></td><td>causal (decoder) 或 padding (encoder)</td><td>K/V 端 padding mask（不用 causal）</td></tr><tr><td><strong>用途</strong></td><td>内部位置相关性</td><td>从外部 memory 检索相关信息</td></tr><tr><td><strong>例子</strong></td><td>BERT 各层；GPT 各层；ViT</td><td>Transformer Decoder 第二子层；DETR；Perceiver；Stable Diffusion (image Q × text K/V)</td></tr></tbody></table></div>
@@ -973,8 +996,8 @@ All checks passed.</code></pre>
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/attention_tutorial.md</code> ·
-  SHA256 <code>ea13435c65f9</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  SHA256 <code>e8650ca7b3da</code> ·
+  generated at 2026-08-24 03:10 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>
