@@ -1,7 +1,7 @@
 {
   "skill": "render-html",
   "source": "docs/tutorials/attention_tutorial.md",
-  "source_sha256_prefix": "ea13435c65f9bce9",
+  "source_sha256_prefix": "e8650ca7b3dac4fe",
   "output": "docs/tutorials/attention_tutorial.html",
   "author": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread per run (never codex-reply)",
@@ -61,7 +61,7 @@
   ],
   "summary": "Three-round review: FAIL (table-pipe math collision) → FAIL (TL;DR list numbering reset) → PASS. 13 checks pass on run 3.",
   "rendered_at": "2026-05-19",
-  "source_sha256": "ea13435c65f9bce9a064bd65d9e492652b6492beba86d95fdc7639221cd02a02",
+  "source_sha256": "e8650ca7b3dac4fed8301ee38a559f0bc463e685b22bbe1fc04fc950d1f738c9",
   "thread_id": "019e7c8b-66fc-7ca2-bde6-c9f03aa3b224",
   "post_ship_review": [
     {
@@ -80,6 +80,24 @@
         "§A appendix sanity-check transcript's exception type corrected ValueError -> AssertionError, matching both mha.py's actual `assert embed_dim % num_heads == 0` and the tutorial's own §3.4 code snippet; added a note that `assert` is stripped under python -O (CONFIRMED)"
       ],
       "note": "Verification and fixes limited to attention_tutorial.md / _en.md; code/mha.py itself was read to confirm ground truth and left unmodified. Re-rendered both HTMLs and refreshed source_sha256 (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ],
+  "delta_reviews": [
+    {
+      "run": "delta-2026-08-24",
+      "scope": "New §3.5 only (fused QKV: chunk / split / 5-D reshape+permute; GQA chunk(3) trap). No other content touched.",
+      "verdict": "PASS after 1 fix round",
+      "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
+      "thread_id": "01a031ba-d74f-7cb2-859e-fc75f24ec2ea",
+      "process": "Claims verified on a real PyTorch box before drafting (all three slicing forms torch.equal; GQA chunk(3) widths [43,43,42] failing later at view; chunk on width 5 -> [2,2,1]). Reviewer then re-derived all six claims and audited prose.",
+      "findings_fixed": [
+        "Form 2 (split) as printed stopped at [B,N,D] — missing the same view+transpose the chunk form gets; added, re-verified verbatim.",
+        "'differ only in GEMM count' compared the wrong pair — the three slicing forms share one GEMM; 3-to-1 is fused vs §3.4's three Linears. Reworded.",
+        "GPT-2 c_attn orientation: it is a Conv1D with weight [D,3D], Q/K/V concatenated along the OUTPUT dim — 'stacked vertically' described the transposed nn.Linear layout. Corrected, with the transpose note.",
+        "'real code almost always fuses' overstated — scoped to self-attention, with HF LLaMA (separate q/k/v_proj) and cross-attention (cannot fuse) as counterexamples.",
+        "'far better' tensor-core utilisation softened to shape/backend-dependent.",
+        "'the only correct form under MQA/GQA' narrowed to the true rule: never equal-chunk(3) unequal widths; explicit-width split is the standard form."
+      ]
     }
   ]
 }
