@@ -1,956 +1,193 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>About</title>
-
-<meta name="generator" content="ARIS render-html (academic, v1)">
-<meta name="aris:source-path" content="docs/about.md">
-<meta name="aris:source-sha256" content="15ccd3d65d308c4656117fca714381d163daa0631e2053409704f6c45f4617e8">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
-
-<!-- MathJax 3 -->
-<script>
-window.MathJax = {
-  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
-  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
-};
-</script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
-
-<!-- highlight.js -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
-<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
-<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
-
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="ARIS in AI Offer — 34 篇中英双语 ML / LLM / 多模态 / 生成式 / Agent 面试 cheat sheet，一个链接看全部。公式推导 + 从零 PyTorch + 高频面试题。">
+<meta name="theme-color" content="#fdfcf7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16151a" media="(prefers-color-scheme: dark)">
+<title>ARIS in AI Offer · 34 篇面试 Cheat Sheet</title>
 <style>
-:root {
-  --bg: #fdfcf7;
-  --bg-soft: #f4f1ea;
-  --bg-code: #f8f5ec;
-  --ink: #1a1a1a;
-  --ink-soft: #4a4a4a;
-  --ink-muted: #6b6b6b;
-  --primary: #1a4a8c;
-  --primary-soft: #2d6cb8;
-  --accent: #b8390e;
-  --warn: #b45309;
-  --warn-bg: #fef3c7;
-  --info-bg: #dbeafe;
-  --good-bg: #d1fae5;
-  --good: #065f46;
-  --bad-bg: #fee2e2;
-  --bad: #991b1b;
-  --border: #d6d0c0;
-  --border-soft: #e8e3d5;
+:root{
+  --bg:#fdfcf7;--bg-soft:#f4f1ea;--card:#ffffff;--ink:#1a1a1a;--ink-soft:#4a4a4a;--ink-muted:#6b6b6b;
+  --primary:#1a4a8c;--primary-soft:#2d6cb8;--accent:#b8390e;--border:#d6d0c0;--border-soft:#e8e3d5;
+  --chip:#eee9dc;--chip-on:#1a4a8c;--good:#065f46;--good-bg:#d1fae5;--shadow:0 1px 2px rgba(0,0,0,.05),0 6px 20px -12px rgba(26,74,140,.25);
 }
-
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-
-body {
-  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
-  line-height: 1.65;
-  color: var(--ink);
-  background: var(--bg);
-  margin: 0;
-  padding: 0;
-  font-size: 16px;
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#16151a;--bg-soft:#1e1d24;--card:#201f26;--ink:#ecebe6;--ink-soft:#c9c7c0;--ink-muted:#9a988f;
+  --primary:#8fb6ee;--primary-soft:#a9c8f4;--accent:#f0906a;--border:#3a3843;--border-soft:#2c2b33;
+  --chip:#2a2931;--chip-on:#8fb6ee;--good:#86efac;--good-bg:#14352a;--shadow:0 1px 2px rgba(0,0,0,.4);
+}}
+:root[data-theme="dark"]{
+  --bg:#16151a;--bg-soft:#1e1d24;--card:#201f26;--ink:#ecebe6;--ink-soft:#c9c7c0;--ink-muted:#9a988f;
+  --primary:#8fb6ee;--primary-soft:#a9c8f4;--accent:#f0906a;--border:#3a3843;--border-soft:#2c2b33;
+  --chip:#2a2931;--chip-on:#8fb6ee;--good:#86efac;--good-bg:#14352a;--shadow:0 1px 2px rgba(0,0,0,.4);
 }
-
-.layout {
-  max-width: 1280px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 48px;
-  padding: 40px 32px;
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Noto Sans CJK SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.js-only{display:none}
+body.js .js-only{display:revert}
+body.js .tools{display:flex}
+body.js .prog{display:flex}
+body.js .chips{display:flex}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font:inherit;color:inherit}
+/* language + size switches: body[data-lang] decides which span shows */
+.s-en,.t-en{display:none}
+body[data-lang="en"] .s-cn,body[data-lang="en"] .t-cn{display:none}
+body[data-lang="en"] .s-en,body[data-lang="en"] .t-en{display:inline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+/* top bar */
+.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--border-soft)}
+.top .wrap{display:flex;align-items:center;gap:10px;height:52px}
+.brand{font-weight:700;letter-spacing:.01em;white-space:nowrap;color:var(--ink)}
+.brand small{font-weight:500;color:var(--ink-muted);margin-left:6px}
+.sp{flex:1}
+.ib{border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;height:36px;min-width:40px;padding:0 12px;cursor:pointer;white-space:nowrap}
+.ib:hover{border-color:var(--primary)}
+/* hero */
+.hero{padding:22px 0 8px}
+.hero h1{font-size:clamp(22px,4.4vw,32px);line-height:1.2;margin:0 0 8px;letter-spacing:-.01em}
+.hero p{margin:0;color:var(--ink-soft);max-width:70ch}
+.hero .stats{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;color:var(--ink-muted);font-size:14px}
+.hero .stats b{color:var(--ink)}
+/* search row */
+.tools{display:flex;gap:8px;margin:14px 0 10px;align-items:center}
+.search{flex:1;position:relative}
+.search input{width:100%;height:42px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--ink);padding:0 40px 0 38px;font-size:16px;outline:none}
+.search input:focus{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%,transparent)}
+.search .ico{position:absolute;left:12px;top:0;height:42px;display:flex;align-items:center;color:var(--ink-muted);pointer-events:none}
+.search kbd{position:absolute;right:10px;top:11px;font:12px/18px ui-monospace,Menlo,monospace;color:var(--ink-muted);border:1px solid var(--border);border-radius:5px;padding:0 5px;background:var(--bg-soft)}
+.rand{height:42px;border:1px solid var(--border);background:var(--card);border-radius:10px;padding:0 14px;cursor:pointer;white-space:nowrap}
+.rand:hover{border-color:var(--accent);color:var(--accent)}
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 10px}
+.chip{flex:0 0 auto;border:1px solid transparent;background:var(--chip);border-radius:999px;padding:8px 13px;min-height:36px;cursor:pointer;font-size:14px;color:var(--ink-soft)}
+.chip:hover{border-color:var(--primary)}
+.chip.on{background:var(--chip-on);color:var(--bg);border-color:var(--chip-on)}
+/* progress */
+.prog{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-muted);margin:0 0 6px}
+.prog .bar{flex:1;height:6px;background:var(--bg-soft);border-radius:999px;overflow:hidden;border:1px solid var(--border-soft)}
+.prog .bar i{display:block;height:100%;width:0;background:var(--good);transition:width .25s}
+.prog button{border:0;background:none;color:var(--ink-muted);cursor:pointer;text-decoration:underline;padding:0}
+/* sections + cards */
+.cat{margin:18px 0 8px}
+.cat h2{font-size:18px;margin:0 0 8px;display:flex;align-items:baseline;gap:8px;scroll-margin-top:64px}
+.cat h2 small{font-weight:500;color:var(--ink-muted);font-size:13px}
+.cat .note{margin:-2px 0 10px;font-size:13px;color:var(--ink-muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.card{position:relative;background:var(--card);border:1px solid var(--border-soft);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px;min-width:0}
+.card.done{border-color:var(--good);background:color-mix(in srgb,var(--good-bg) 45%,var(--card))}
+.card .title{font-weight:650;font-size:16.5px;line-height:1.3;color:var(--ink);overflow-wrap:anywhere;padding-right:64px}
+.card .title:hover{color:var(--primary)}
+.card .tags{margin:0;font-size:13px;color:var(--ink-muted);line-height:1.45;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:2px}
+.b{font-size:12px;line-height:26px;padding:0 9px;border-radius:6px;background:var(--bg-soft);border:1px solid var(--border-soft);color:var(--ink-soft);white-space:nowrap}
+a.b:hover{border-color:var(--primary);color:var(--primary);text-decoration:none}
+.b-code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.b-ext{background:var(--good-bg);color:var(--good);border-color:transparent}
+.read{position:absolute;top:4px;right:4px;padding:8px 9px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-muted);cursor:pointer;user-select:none;border-radius:8px}
+.read:hover{background:var(--bg-soft)}
+.read input{accent-color:var(--good);width:18px;height:18px;margin:0}
+body[data-lang="cn"] [data-alt="cn"],body[data-lang="en"] [data-alt="en"]{display:none}
+.card.hide,.cat.hide{display:none}
+.empty{display:none;text-align:center;color:var(--ink-muted);padding:40px 0}
+.empty.show{display:block}
+/* footer */
+footer{margin:34px 0 24px;padding-top:16px;border-top:1px solid var(--border-soft);font-size:13.5px;color:var(--ink-muted);line-height:1.8}
+footer a{margin-right:14px}
+@media (max-width:640px){
+  .hero{padding-top:16px}
+  .grid{grid-template-columns:1fr;gap:8px}
+  .card{padding:11px 12px;border-radius:10px}
+  .search kbd{display:none}
+  .brand small{display:none}
 }
-
-nav.toc {
-  position: sticky;
-  top: 24px;
-  align-self: start;
-  font-size: 13px;
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-  border-right: 1px solid var(--border-soft);
-  padding-right: 16px;
-}
-nav.toc h3 {
-  margin: 0 0 12px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-muted);
-  font-weight: 600;
-}
-nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
-nav.toc ol li { margin: 5px 0; counter-increment: toc; }
-nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
-nav.toc a {
-  color: var(--ink-soft);
-  text-decoration: none;
-  border-bottom: 1px dotted transparent;
-}
-nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
-nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
-nav.toc ul li::before { content: "→ "; color: var(--border); }
-
-main { min-width: 0; }
-
-header.hero {
-  border-bottom: 3px double var(--primary);
-  padding-bottom: 24px;
-  margin-bottom: 32px;
-}
-header.hero .eyebrow {
-  font-family: inherit;
-  color: var(--ink-muted);
-  font-size: 13px;
-  text-transform: none;
-  letter-spacing: 0.01em;
-  font-weight: 400;
-  margin-bottom: 8px;
-}
-header.hero h1 {
-  font-size: 32px;
-  line-height: 1.2;
-  margin: 0 0 12px;
-  color: var(--ink);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-header.hero .subtitle {
-  font-size: 16px;
-  color: var(--ink-soft);
-  margin: 0 0 8px;
-  font-style: italic;
-}
-header.hero .byline {
-  font-size: 14px;
-  color: var(--ink-soft);
-  margin: 0 0 20px;
-}
-header.hero .byline strong {
-  color: var(--ink);
-  font-weight: 600;
-}
-header.hero .meta {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--ink-muted);
-  border-top: 1px solid var(--border-soft);
-  padding-top: 14px;
-}
-header.hero .meta span strong { color: var(--ink-soft); }
-header.hero .meta code {
-  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
-  font-size: 11px;
-  background: var(--bg-soft);
-  padding: 1px 5px;
-  border-radius: 3px;
-  border: 1px solid var(--border-soft);
-}
-
-h2 {
-  font-size: 24px;
-  margin: 44px 0 14px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-  color: var(--ink);
-  font-weight: 700;
-}
-h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
-h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
-h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
-
-p { margin: 10px 0; }
-ul, ol { padding-left: 22px; margin: 10px 0; }
-ul li, ol li { margin: 4px 0; }
-ul li::marker { color: var(--primary); }
-
-strong { color: var(--accent); font-weight: 600; }
-em { color: var(--ink-soft); }
-
-a { color: var(--primary); }
-a:hover { color: var(--accent); }
-
-code:not(.hljs) {
-  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
-  font-size: 0.86em;
-  background: var(--bg-code);
-  padding: 1px 5px;
-  border-radius: 3px;
-  border: 1px solid var(--border-soft);
-  color: var(--accent);
-}
-
-pre {
-  background: #fafaf6;
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--primary);
-  padding: 0;
-  overflow-x: auto;
-  border-radius: 4px;
-  margin: 14px 0;
-}
-pre code, pre code.hljs {
-  background: transparent !important;
-  display: block;
-  padding: 14px 18px !important;
-  font-size: 13px;
-  line-height: 1.55;
-  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
-  color: var(--ink);
-}
-pre.diagram {
-  background: #f9f6ed;
-  border-left: 4px solid var(--accent);
-  font-size: 12.5px;
-  line-height: 1.4;
-}
-
-.callout {
-  margin: 16px 0;
-  padding: 12px 16px;
-  border-radius: 4px;
-  border-left: 4px solid;
-  font-size: 15px;
-}
-.callout-title {
-  font-weight: 600;
-  margin-bottom: 6px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
-.callout-info .callout-title { color: var(--primary); }
-.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
-.callout-warn .callout-title { color: var(--warn); }
-.callout-good { background: var(--good-bg); border-left-color: var(--good); }
-.callout-good .callout-title { color: var(--good); }
-.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
-.callout-bad .callout-title { color: var(--bad); }
-
-.table-wrap {
-  overflow-x: auto;
-  margin: 16px 0;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-.table-wrap table {
-  margin: 0;
-  border: none;
-  border-radius: 0;
-}
-thead { background: var(--primary); color: white; }
-th, td {
-  text-align: left;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--border-soft);
-  vertical-align: top;
-}
-th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
-tr:last-child td { border-bottom: none; }
-tbody tr:nth-child(even) { background: var(--bg-soft); }
-
-details.qa, details {
-  background: white;
-  border: 1px solid var(--border-soft);
-  border-radius: 6px;
-  margin: 10px 0;
-  padding: 0;
-}
-details summary {
-  cursor: pointer;
-  padding: 10px 14px;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--primary);
-  list-style: none;
-  user-select: none;
-}
-details summary::-webkit-details-marker { display: none; }
-details summary::before {
-  content: "▸ ";
-  margin-right: 4px;
-  display: inline-block;
-  transition: transform 0.15s;
-}
-details[open] summary::before { transform: rotate(90deg); }
-details[open] summary { border-bottom: 1px solid var(--border-soft); }
-details > :not(summary) { padding: 10px 14px; }
-details p:first-of-type { margin-top: 8px; }
-
-mjx-container[display="true"] { margin: 12px 0 !important; }
-
-footer.aris-footer {
-  margin-top: 60px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--ink-muted);
-}
-footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
-
-@media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
-  nav.toc {
-    position: static;
-    max-height: none;
-    border-right: none;
-    border-bottom: 1px solid var(--border-soft);
-    padding-right: 0;
-    padding-bottom: 14px;
-  }
-  header.hero h1 { font-size: 24px; }
-  h2 { font-size: 20px; }
-}
-@media print {
-  nav.toc { display: none; }
-  .layout { grid-template-columns: 1fr; padding: 0; }
-  body { background: white; }
-  header.hero { border-bottom-color: var(--ink); }
-  #cite-pop, dialog.lightbox { display: none !important; }
-}
-
-/* --- P0 polish: TOC scrollspy active state ---------------------------- */
-nav.toc a.active {
-  color: var(--accent);
-  font-weight: 600;
-  border-bottom-color: var(--accent);
-}
-
-/* --- P0 polish: Long-code auto-collapse ------------------------------- */
-details.code-card {
-  margin: 14px 0;
-  background: #fafaf6;
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--primary);
-  border-radius: 4px;
-}
-details.code-card > summary {
-  cursor: pointer;
-  padding: 8px 14px;
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-family: "JetBrains Mono", "SF Mono", monospace;
-  list-style: none;
-  user-select: none;
-}
-details.code-card > summary::-webkit-details-marker { display: none; }
-details.code-card > summary::before { content: none; }
-details.code-card > pre {
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-left: none;
-  border-radius: 0;
-}
-@media print {
-  details.code-card { border: 1px solid #ccc; background: white; }
-  details.code-card > summary { display: none !important; }
-  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
-}
-
-/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
-[data-ref] {
-  color: var(--primary);
-  border-bottom: 1px dotted var(--primary);
-  cursor: pointer;
-  white-space: nowrap;
-}
-[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
-#cite-pop {
-  position: fixed;
-  width: 360px;
-  max-width: calc(100vw - 32px);
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 14px 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  font-size: 13px;
-  line-height: 1.5;
-  z-index: 1000;
-}
-#cite-pop[hidden] { display: none; }
-#cite-pop .cp-title {
-  font-weight: 600;
-  color: var(--ink);
-  margin-bottom: 4px;
-  padding-right: 24px;
-}
-#cite-pop .cp-meta {
-  color: var(--ink-muted);
-  font-size: 12px;
-  margin-bottom: 6px;
-}
-#cite-pop .cp-key {
-  color: var(--accent);
-  font-style: italic;
-  margin-bottom: 8px;
-}
-#cite-pop .cp-link {
-  display: inline-block;
-  color: var(--primary);
-  font-weight: 500;
-}
-#cite-pop .cp-close {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  color: var(--ink-muted);
-}
-
-/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
-dialog.lightbox {
-  border: none;
-  padding: 0;
-  background: rgba(0, 0, 0, 0.92);
-  width: 96vw;
-  height: 96vh;
-  max-width: 96vw;
-  max-height: 96vh;
-}
-dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
-dialog.lightbox .lb-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  gap: 16px;
-  position: relative;
-}
-dialog.lightbox img {
-  max-width: 90vw;
-  max-height: 84vh;
-  object-fit: contain;
-  cursor: zoom-out;
-}
-dialog.lightbox figcaption {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 14px;
-  text-align: center;
-  max-width: 700px;
-}
-dialog.lightbox .lb-close {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  background: none;
-  border: none;
-  color: white;
-  font-size: 28px;
-  cursor: pointer;
-}
-
-/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
-body.aris-blog h2 { scroll-margin-top: 24px; }
-body.aris-blog h2.aris-active-h2 {
-  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
-  border-radius: 4px;
-  padding-left: 12px;
-  margin-left: -12px;
-}
-
-/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
-   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
-   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
-   hidden, dim rule never matches). While ON, dims every <main> child except
-   the current section and the intro (header.hero stays bright). F7's io2 is
-   paused while ON; the scroll listener is bound only while ON. */
-body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
-  opacity: 0.28;
-  transition: opacity 0.25s ease;
-}
-body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
-.aris-focus-toggle {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 1100;
-  display: none;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 6px 13px;
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--ink-muted);
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-body.aris-blog .aris-focus-toggle { display: inline-block; }
-.aris-focus-toggle:hover { color: var(--primary); }
-.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-.aris-focus-hint {
-  position: fixed;
-  bottom: 18px;
-  right: 16px;
-  z-index: 1100;
-  background: rgba(0, 0, 0, 0.78);
-  color: #fff;
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-.aris-focus-hint.show { opacity: 1; }
-@media print {
-  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
-  body.aris-focus-dim main > * { opacity: 1 !important; }
-}
+@media print{.top,.tools,.chips,.prog,.read,footer{display:none}.card{break-inside:avoid;box-shadow:none}}
 </style>
 </head>
-<body class="">
-<div class="layout">
+<body data-lang="cn">
+<header class="top"><div class="wrap">
+  <a class="brand" href="./">🌱 ARIS in AI Offer<small><span class="s-cn">34 篇 · 8 个方向</span><span class="s-en">34 sheets · 8 categories</span></small></a>
+  <span class="sp"></span>
+  <button class="ib js-only" id="lang" title="中 / EN" aria-label="switch language">中 / EN</button>
+  <button class="ib js-only" id="theme" title="light / dark" aria-label="toggle theme">☾</button>
+</div></header>
 
-<nav class="toc">
-  <h3>Contents</h3>
-  <ol>
-<li><a href="#tldr">TL;DR</a>
-</li>
-<li><a href="#html-排版哪里都能读">HTML 排版哪里都能读</a>
-</li>
-<li><a href="#这套-workflow-是怎么工作的">这套 workflow 是怎么工作的</a>
-</li>
-<li><a href="#aris-的-跨模型对抗审查-协议">ARIS 的 &quot;跨模型对抗审查&quot; 协议</a>
-</li>
-<li><a href="#教程分类">教程分类</a>
-</li>
-<li><a href="#怎么贡献">怎么贡献</a>
-</li>
-<li><a href="#license">License</a>
-</li>
-</ol>
-</nav>
+<main class="wrap">
+  <section class="hero">
+    <h1><span class="s-cn">AI 秋招面试 Cheat Sheet，一个链接看全部</span><span class="s-en">AI-interview cheat sheets — everything from one link</span></h1>
+    <p><span class="s-cn">每篇：公式推导 + 可运行代码；绝大多数附 25 道高频题（L1 必会 / L2 进阶 / L3 顶级 lab），题数见卡片。中英双语，单文件 HTML，手机上直接读。</span><span class="s-en">Each sheet: derivations + runnable code; nearly all carry 25 interview questions (L1 / L2 / L3) — the count is on the card. Bilingual, single-file HTML, reads fine on a phone.</span></p>
+    <div class="stats"><span><b>34</b> <span class="s-cn">篇</span><span class="s-en">sheets</span></span><span><b>8</b> <span class="s-cn">个方向</span><span class="s-en">categories</span></span><span><b>中 / EN</b> <span class="s-cn">双语</span><span class="s-en">bilingual</span></span><span><span class="s-cn">跨模型审查后发布</span><span class="s-en">cross-model reviewed</span></span></div>
+  </section>
 
-<main>
-<header class="hero">
-  
-  <h1>About</h1>
-  
-  
-  <div class="meta">
-    <span><strong>Source:</strong> <code>docs/about.md</code></span>
-    <span><strong>SHA256:</strong> <code>15ccd3d65d30</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
-    
+  <div class="tools js-only">
+    <div class="search"><span class="ico">🔍</span><input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="搜标题 / 关键词，如 GRPO、KV cache、Mamba" aria-label="search"><kbd>/</kbd></div>
+    <button class="rand" id="rand" title="随机打开一篇"><span class="s-cn">🎲 抽一篇</span><span class="s-en">🎲 Random</span></button>
   </div>
-</header>
+  <nav class="chips js-only" id="chips"><button class="chip on" data-chip="all"><span class="s-cn">全部</span><span class="s-en">All</span></button><button class="chip" data-chip="found">🧠 <span class="s-cn">基础</span><span class="s-en">Foundations</span></button><button class="chip" data-chip="post">🎯 <span class="s-cn">后训练与推理</span><span class="s-en">Post-Training &amp; Reasoning</span></button><button class="chip" data-chip="arch">🏛️ <span class="s-cn">架构与系统</span><span class="s-en">Architecture &amp; Systems</span></button><button class="chip" data-chip="gentheory">🌊 <span class="s-cn">生成模型理论</span><span class="s-en">Generative Theory</span></button><button class="chip" data-chip="gensys">🎨 <span class="s-cn">生成系统</span><span class="s-en">Generation Systems</span></button><button class="chip" data-chip="mm">👁️ <span class="s-cn">多模态</span><span class="s-en">Multimodal</span></button><button class="chip" data-chip="agent">🤖 <span class="s-cn">Agent</span><span class="s-en">Agents</span></button><button class="chip" data-chip="embodied">🦾 <span class="s-cn">具身智能</span><span class="s-en">Embodied AI</span></button><button class="chip" data-chip="blog">📝 <span class="s-cn">长文 Blog</span><span class="s-en">Long-form Blogs</span></button></nav>
+  <div class="prog js-only"><span><span class="s-cn">已读</span><span class="s-en">Read</span> <b id="pn">0</b>/34</span><div class="bar"><i id="pb"></i></div><button id="preset" hidden><span class="s-cn">清空</span><span class="s-en">reset</span></button></div>
 
-<blockquote><p>希望大家秋招的时候轻松一点 🌱</p></blockquote>
-<h2 id="tldr">TL;DR</h2>
-<p>这是一个 <strong>中文 ML / LLM / 多模态 / 生成式 / Agent 面试 cheat sheet 合集</strong>，目标读者是准备 2026 年 AI 秋招的同学（国内 LLM 实验室 / 大厂 AI 岗位 / 海外 ML internship）。每篇 cheat sheet 包含：</p>
-<ul><li><strong>公式推导</strong>（从数学第一性原理走完整链路，不是只给结论）</li><li><strong>从零开始的 PyTorch 代码</strong>（每段都过 cross-model codex review，确保能跑）</li><li><strong>25 高频面试题</strong>（L1 必会 / L2 进阶 / L3 顶级 lab，每题展开标准答案 + 容易踩的坑）</li></ul>
-<p>所有教程通过 <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep"><strong>ARIS — Auto Research in Sleep</strong></a> 的 <code>/interview-cheatsheet</code> + <code>/render-html</code> workflow <strong>自动生成 + 跨模型审查</strong>。</p>
-<h2 id="html-排版哪里都能读">HTML 排版哪里都能读</h2>
-<p>地铁上掏手机、咖啡馆开 iPad、图书馆开笔记本——同一个 HTML 链接打开都能读：</p>
-<blockquote><p>🧮 <strong>MathJax</strong> 渲染所有 LaTeX 公式（不是截图 — 可缩放、可复制、可选中）</p>
-<p>💻 <strong>highlight.js</strong> 给 PyTorch 代码上色</p>
-<p>📐 <strong>响应式排版</strong> 自动适配窗口宽度</p>
-<p>📑 <strong>Sticky TOC</strong> 长文里随时跳转章节</p>
-<p>💾 <strong>单文件 HTML</strong>，下载就能离线读，不依赖任何后端</p></blockquote>
-<h2 id="这套-workflow-是怎么工作的">这套 workflow 是怎么工作的</h2>
-<pre class="diagram"><code>                  ┌─────────────────────────────┐
-                  │ /interview-cheatsheet skill │
-                  └──────────────┬──────────────┘
-                                 │
-                                 ▼
-        ┌──────────────────────────────────────────────┐
-        │  Step 1: Plan 12-14 sections                 │
-        │  Step 2: Draft 600-1500 lines Chinese MD     │
-        │  Step 3: Cross-model codex review (10 checks)│
-        │    ┌────────────────────────────────┐        │
-        │    │ codex gpt-5.5 xhigh fresh thread        │
-        │    │ • formula correctness                   │
-        │    │ • code runnability                      │
-        │    │ • citation accuracy                     │
-        │    │ • personal info redaction               │
-        │    │ • style discipline                      │
-        │    └────────────────────────────────┘        │
-        │  Step 4: Fix loop (no hard cap)              │
-        │  Step 5: /render-html → academic template    │
-        │  Step 6: Render review (13 checks)           │
-        │  Step 7: Write .review.json audit trail      │
-        └──────────────────────────────────────────────┘
-                                 │
-                                 ▼
-                ┌──────────────────────────────┐
-                │  Single-file HTML (~80KB)    │
-                │  ━━━━━━━━━━━━━━━━━━━━━━━━━━ │
-                │  ✓ MathJax (live)            │
-                │  ✓ highlight.js (live)       │
-                │  ✓ Sticky TOC                │
-                │  ✓ Responsive layout         │
-                │  ✓ Offline-readable          │
-                └──────────────────────────────┘</code></pre>
-<h2 id="aris-的-跨模型对抗审查-协议">ARIS 的 "跨模型对抗审查" 协议</h2>
-<p>ARIS 的核心方法论：<strong>executor 和 reviewer 必须不同模型家族</strong>（这里是 Claude × GPT-5.5 xhigh × Gemini）—— LLM 不能自己审自己。这套协议直接复用到面试 cheat sheet 生成：</p>
-<div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>每篇里的每个公式 / 代码 / 引用都过了独立审查</strong></p>
-<p>完整审计 trail 见每篇旁边的 <code>.review.json</code> —— 包含 reviewer thread ID、抓到的真实 bug、应用的修复。</p></div>
-<p>具体案例（来自仓库 audit trail）：</p>
-<ul><li><strong>VLM 教程</strong>：M-RoPE <code>mrope_section=[16,24,24]</code> 单位被纠正（half-dim pair 不是 dim count）；BLIP-2 stage 数 3 → 2；Qwen2-VL vision tower 攻击 DFN-derived 非自训练</li><li><strong>MoE 教程</strong>：Q20 Mixtral 8×7B 算术从「7×8+2.3≈47B」改成 shared 2.4B + 8×4.8B FFN ≈ 40.8B（路由增长到 46.7B）；§4.4 router gradient 补齐 softmax/renorm 完整 Jacobian；8×H100 80G = 640GB ≠ 671B FP8 修正</li><li><strong>Agent Foundations 教程</strong>：跑了 9 轮 codex review，抓到 30+ 个真错（ReAct Fever 数字、SWE-bench Verified OpenAI attribution、MCP 2025-11-25 DCR demoted to MAY、A2A v1.0 SCREAMING_SNAKE_CASE、Anthropic Tool Use GA 2024-05-30 等）</li></ul>
-<h2 id="教程分类">教程分类</h2>
-<div class="table-wrap"><table><thead><tr><th>Category</th><th>Topics</th></tr></thead><tbody><tr><td>🧠 General / 基础</td><td>Attention · KL Divergence in RLHF (k1/k2/k3 · placement gradient bias)</td></tr><tr><td>🎯 Post-Training &amp; Reasoning</td><td>RLHF / DPO / GRPO / PPO · Reasoning Models (o1 / R1) · LLM On-Policy Distillation (MiniLLM / GKD / Qwen3 / Tinker)</td></tr><tr><td>🏛️ LLM Architecture &amp; Systems</td><td>MoE (DeepSeek-V3) · Long Context (RoPE / YaRN / MLA) · KV Cache + Speculative Decoding · Quantization (GPTQ / AWQ / FP8 / NVFP4) · Distributed Training (FSDP2 / ZeRO / TP / PP / EP)</td></tr><tr><td>🌊 Generative Models — Theory &amp; Tokenizers</td><td>Flow Matching · Diffusion Foundations · VAE / VQ-VAE / VQ-GAN / FSQ</td></tr><tr><td>🎨 Generation Systems</td><td>Image Gen (SD3 / FLUX / ControlNet) · Video Gen (Sora / Hunyuan-Video / Wan) · 3D Gen (NeRF / 3DGS / SDS) · Diffusion Post-Training (DDPO / DPOK / Diffusion-DPO / Flow-GRPO) · Diffusion / Flow Distillation (CM / sCM / LCM / DMD / DMD2 / ADD)</td></tr><tr><td>👁️ Multimodal</td><td>VLM (CLIP / LLaVA / Qwen-VL)</td></tr><tr><td>🤖 Agents</td><td>Agent Foundations (ReAct / MCP / A2A) · Agentic RL (AgentTuning / ToolRL / RAGEN / WebRL) · Multi-Agent &amp; Long-Horizon (CAMEL / AutoGen / MoA / MemGPT / LATS) · Self-Evolving Agents (Ctx2Skill / Voyager / Reflexion / STaR)</td></tr></tbody></table></div>
-<blockquote><p>🌐 <strong>双语版本</strong>：23 篇 cheat sheet 每篇都有中文 + 英文 HTML 两个版本（文件名 <code>*_tutorial.html</code> / <code>*_tutorial_en.html</code>）。</p></blockquote>
-<h2 id="怎么贡献">怎么贡献</h2>
-<p>读 <a href="../CONTRIBUTING.md">CONTRIBUTING.md</a>（<a href="../CONTRIBUTING_CN.md">中文</a>）。</p>
-<p>一句话总结：用 ARIS 的 <code>/interview-cheatsheet</code> 跑出来 → PR 三个文件（MD / HTML / review.json） → 更新两个 README → 等 merge。社区可以一起把这份资料持续维护下去。</p>
-<h2 id="license">License</h2>
-<p>MIT — 用、改、传、二开都行。秋招加油 💪</p>
-
-<footer class="aris-footer">
-  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
-  source path <code>docs/about.md</code> ·
-  SHA256 <code>15ccd3d65d30</code> ·
-  generated at 2026-07-31 02:58 UTC.
-  This is a generated view — edit the source Markdown, then re-render.
-</footer>
+  <section class="cat" data-cat="found"><h2 id="found">🧠 <span class="s-cn">基础</span><span class="s-en">Foundations</span> <small>7</small></h2><div class="grid"><article class="card" data-id="attention_tutorial" data-cat="found" data-cn="tutorials/attention_tutorial.html" data-en="tutorials/attention_tutorial_en.html" data-text="attention attention mha · fused qkv+chunk · mqa/gqa · kv cache · flashattention · rope mha · fused qkv+chunk · mqa/gqa · kv cache · flashattention · rope"><a class="title" href="tutorials/attention_tutorial.html"><span class="t-cn">Attention</span><span class="t-en">Attention</span></a><p class="tags"><span class="s-cn">MHA · fused QKV+chunk · MQA/GQA · KV cache · FlashAttention · RoPE</span><span class="s-en">MHA · fused QKV+chunk · MQA/GQA · KV cache · FlashAttention · RoPE</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/mha.py" title="mha.py">mha.py</a><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/axial_attention.py" title="axial_attention.py">axial_attention.py</a><a class="b" href="tutorials/attention_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/attention_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/attention_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/attention_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="attention_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="transformer_block_tutorial" data-cat="found" data-cn="tutorials/transformer_block_tutorial.html" data-en="tutorials/transformer_block_tutorial_en.html" data-text="transformer block transformer block pre/post-ln · 残差拓扑 · mha/mqa/gqa/mla · dense ffn vs moe · gpt-2→llama pre/post-ln · residual topologies · mha/mqa/gqa/mla · dense ffn vs moe · gpt-2→llama"><a class="title" href="tutorials/transformer_block_tutorial.html"><span class="t-cn">Transformer Block</span><span class="t-en">Transformer Block</span></a><p class="tags"><span class="s-cn">Pre/Post-LN · 残差拓扑 · MHA/MQA/GQA/MLA · Dense FFN vs MoE · GPT-2→Llama</span><span class="s-en">Pre/Post-LN · residual topologies · MHA/MQA/GQA/MLA · Dense FFN vs MoE · GPT-2→Llama</span></p><div class="meta"><span class="b">30 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/transformer_block.py" title="transformer_block.py">transformer_block.py</a><a class="b" href="tutorials/transformer_block_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/transformer_block_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/transformer_block_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/transformer_block_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="transformer_block_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="llm_evaluation_benchmarking_tutorial" data-cat="found" data-cn="tutorials/llm_evaluation_benchmarking_tutorial.html" data-en="tutorials/llm_evaluation_benchmarking_tutorial_en.html" data-text="llm 评测与 benchmark llm evaluation &amp; benchmarking pass@k 无偏估计 · llm-as-judge · 污染检测 · elo/bradley-terry unbiased pass@k · llm-as-judge · contamination checks · elo/bradley-terry"><a class="title" href="tutorials/llm_evaluation_benchmarking_tutorial.html"><span class="t-cn">LLM 评测与 Benchmark</span><span class="t-en">LLM Evaluation &amp; Benchmarking</span></a><p class="tags"><span class="s-cn">pass@k 无偏估计 · LLM-as-judge · 污染检测 · Elo/Bradley-Terry</span><span class="s-en">unbiased pass@k · LLM-as-judge · contamination checks · Elo/Bradley-Terry</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/llm_eval_metrics.py" title="llm_eval_metrics.py">llm_eval_metrics.py</a><a class="b" href="tutorials/llm_evaluation_benchmarking_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/llm_evaluation_benchmarking_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/llm_evaluation_benchmarking_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="llm_evaluation_benchmarking_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="normalization_init_tutorial" data-cat="found" data-cn="tutorials/normalization_init_tutorial.html" data-en="tutorials/normalization_init_tutorial_en.html" data-text="归一化 / 残差 / 初始化 normalization / residual / init batchnorm/layernorm/rmsnorm · pre-vs-post-ln · deepnorm · qk-norm · kaiming/xavier · μp batchnorm/layernorm/rmsnorm · pre-vs-post-ln · deepnorm · qk-norm · kaiming/xavier · μp"><a class="title" href="tutorials/normalization_init_tutorial.html"><span class="t-cn">归一化 / 残差 / 初始化</span><span class="t-en">Normalization / Residual / Init</span></a><p class="tags"><span class="s-cn">BatchNorm/LayerNorm/RMSNorm · Pre-vs-Post-LN · DeepNorm · QK-Norm · Kaiming/Xavier · μP</span><span class="s-en">BatchNorm/LayerNorm/RMSNorm · Pre-vs-Post-LN · DeepNorm · QK-Norm · Kaiming/Xavier · μP</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/normalization.py" title="normalization.py">normalization.py</a><a class="b" href="tutorials/normalization_init_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/normalization_init_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/normalization_init_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/normalization_init_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="normalization_init_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="optimizer_lr_schedule_tutorial" data-cat="found" data-cn="tutorials/optimizer_lr_schedule_tutorial.html" data-en="tutorials/optimizer_lr_schedule_tutorial_en.html" data-text="优化器 / lr schedule optimizers &amp; lr schedules sgd·momentum · adam·adamw · muon·lion·shampoo·soap · warmup·cosine·wsd sgd·momentum · adam·adamw · muon·lion·shampoo·soap · warmup·cosine·wsd"><a class="title" href="tutorials/optimizer_lr_schedule_tutorial.html"><span class="t-cn">优化器 / LR Schedule</span><span class="t-en">Optimizers &amp; LR Schedules</span></a><p class="tags"><span class="s-cn">SGD·Momentum · Adam·AdamW · Muon·Lion·Shampoo·SOAP · warmup·cosine·WSD</span><span class="s-en">SGD·Momentum · Adam·AdamW · Muon·Lion·Shampoo·SOAP · warmup·cosine·WSD</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/optimizer_lr_schedule.py" title="optimizer_lr_schedule.py">optimizer_lr_schedule.py</a><a class="b" href="tutorials/optimizer_lr_schedule_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/optimizer_lr_schedule_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/optimizer_lr_schedule_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/optimizer_lr_schedule_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="optimizer_lr_schedule_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="tokenization_tutorial" data-cat="found" data-cn="tutorials/tokenization_tutorial.html" data-en="tutorials/tokenization_tutorial_en.html" data-text="tokenization / 分词器 tokenization bpe · wordpiece · unigram·sentencepiece · byte-level · 词表五量 · fertility·bpb bpe · wordpiece · unigram·sentencepiece · byte-level · the five vocab sizes · fertility·bpb"><a class="title" href="tutorials/tokenization_tutorial.html"><span class="t-cn">Tokenization / 分词器</span><span class="t-en">Tokenization</span></a><p class="tags"><span class="s-cn">BPE · WordPiece · Unigram·SentencePiece · byte-level · 词表五量 · fertility·BPB</span><span class="s-en">BPE · WordPiece · Unigram·SentencePiece · byte-level · the five vocab sizes · fertility·BPB</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/tokenization.py" title="tokenization.py">tokenization.py</a><a class="b" href="tutorials/tokenization_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/tokenization_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/tokenization_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/tokenization_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="tokenization_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="kl_divergence_rlhf_tutorial" data-cat="found" data-cn="tutorials/kl_divergence_rlhf_tutorial.html" data-en="tutorials/kl_divergence_rlhf_tutorial_en.html" data-text="rlhf 里的 kl 散度 kl divergence in rlhf k1/k2/k3 估计 · kl 放在 reward 还是 loss · 梯度偏差 k1/k2/k3 estimators · kl in the reward vs in the loss · gradient bias"><a class="title" href="tutorials/kl_divergence_rlhf_tutorial.html"><span class="t-cn">RLHF 里的 KL 散度</span><span class="t-en">KL Divergence in RLHF</span></a><p class="tags"><span class="s-cn">k1/k2/k3 估计 · KL 放在 reward 还是 loss · 梯度偏差</span><span class="s-en">k1/k2/k3 estimators · KL in the reward vs in the loss · gradient bias</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/kl_divergence_rlhf_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/kl_divergence_rlhf_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/kl_divergence_rlhf_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/kl_divergence_rlhf_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="kl_divergence_rlhf_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article></div></section><section class="cat" data-cat="post"><h2 id="post">🎯 <span class="s-cn">后训练与推理</span><span class="s-en">Post-Training &amp; Reasoning</span> <small>4</small></h2><div class="grid"><article class="card" data-id="rlhf_dpo_grpo_ppo_tutorial" data-cat="post" data-cn="tutorials/rlhf_dpo_grpo_ppo_tutorial.html" data-en="tutorials/rlhf_dpo_grpo_ppo_tutorial_en.html" data-text="rlhf / dpo / grpo / ppo rlhf / dpo / grpo / ppo reward model · ppo-clip · dpo 推导 · grpo 组内 baseline · kl 正则 reward model · ppo-clip · dpo derivation · grpo group baseline · kl regularisation"><a class="title" href="tutorials/rlhf_dpo_grpo_ppo_tutorial.html"><span class="t-cn">RLHF / DPO / GRPO / PPO</span><span class="t-en">RLHF / DPO / GRPO / PPO</span></a><p class="tags"><span class="s-cn">reward model · PPO-clip · DPO 推导 · GRPO 组内 baseline · KL 正则</span><span class="s-en">reward model · PPO-clip · DPO derivation · GRPO group baseline · KL regularisation</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/rlhf_dpo_grpo_ppo_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/rlhf_dpo_grpo_ppo_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/rlhf_dpo_grpo_ppo_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="rlhf_dpo_grpo_ppo_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="reasoning_models_tutorial" data-cat="post" data-cn="tutorials/reasoning_models_tutorial.html" data-en="tutorials/reasoning_models_tutorial_en.html" data-text="推理模型 reasoning models o1 / r1 · test-time compute · prm vs orm · 长 cot rl o1 / r1 · test-time compute · prm vs orm · long-cot rl"><a class="title" href="tutorials/reasoning_models_tutorial.html"><span class="t-cn">推理模型</span><span class="t-en">Reasoning Models</span></a><p class="tags"><span class="s-cn">o1 / R1 · test-time compute · PRM vs ORM · 长 CoT RL</span><span class="s-en">o1 / R1 · test-time compute · PRM vs ORM · long-CoT RL</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/reasoning_models_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/reasoning_models_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/reasoning_models_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/reasoning_models_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="reasoning_models_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="llm_opd_tutorial" data-cat="post" data-cn="tutorials/llm_opd_tutorial.html" data-en="tutorials/llm_opd_tutorial_en.html" data-text="llm on-policy 蒸馏 llm on-policy distillation minillm · gkd · qwen3 · tinker · reverse-kl vs forward-kl minillm · gkd · qwen3 · tinker · reverse-kl vs forward-kl"><a class="title" href="tutorials/llm_opd_tutorial.html"><span class="t-cn">LLM On-Policy 蒸馏</span><span class="t-en">LLM On-Policy Distillation</span></a><p class="tags"><span class="s-cn">MiniLLM · GKD · Qwen3 · Tinker · reverse-KL vs forward-KL</span><span class="s-en">MiniLLM · GKD · Qwen3 · Tinker · reverse-KL vs forward-KL</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/llm_opd_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/llm_opd_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/llm_opd_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/llm_opd_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="llm_opd_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="lora_peft_tutorial" data-cat="post" data-cn="tutorials/lora_peft_tutorial.html" data-en="tutorials/lora_peft_tutorial_en.html" data-text="lora / peft lora / peft lora · qlora · dora · rslora · pissa · adalora · (ia)³ lora · qlora · dora · rslora · pissa · adalora · (ia)³"><a class="title" href="tutorials/lora_peft_tutorial.html"><span class="t-cn">LoRA / PEFT</span><span class="t-en">LoRA / PEFT</span></a><p class="tags"><span class="s-cn">LoRA · QLoRA · DoRA · rsLoRA · PiSSA · AdaLoRA · (IA)³</span><span class="s-en">LoRA · QLoRA · DoRA · rsLoRA · PiSSA · AdaLoRA · (IA)³</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/lora.py" title="lora.py">lora.py</a><a class="b" href="tutorials/lora_peft_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/lora_peft_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/lora_peft_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/lora_peft_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="lora_peft_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article></div></section><section class="cat" data-cat="arch"><h2 id="arch">🏛️ <span class="s-cn">架构与系统</span><span class="s-en">Architecture &amp; Systems</span> <small>8</small></h2><div class="grid"><article class="card" data-id="moe_tutorial" data-cat="arch" data-cn="tutorials/moe_tutorial.html" data-en="tutorials/moe_tutorial_en.html" data-text="moe 混合专家 moe (mixture-of-experts) deepseek-v3 · mixtral · llama 4 · 路由/负载均衡 · 专家并行 deepseek-v3 · mixtral · llama 4 · routing / load balancing · expert parallelism"><a class="title" href="tutorials/moe_tutorial.html"><span class="t-cn">MoE 混合专家</span><span class="t-en">MoE (Mixture-of-Experts)</span></a><p class="tags"><span class="s-cn">DeepSeek-V3 · Mixtral · Llama 4 · 路由/负载均衡 · 专家并行</span><span class="s-en">DeepSeek-V3 · Mixtral · Llama 4 · routing / load balancing · expert parallelism</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/moe_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/moe_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/moe_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/moe_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="moe_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="long_context_rope_yarn_mla_tutorial" data-cat="arch" data-cn="tutorials/long_context_rope_yarn_mla_tutorial.html" data-en="tutorials/long_context_rope_yarn_mla_tutorial_en.html" data-text="长上下文 long context rope · yarn · ntk · mla · streamingllm · 位置外推 rope · yarn · ntk · mla · streamingllm · position extrapolation"><a class="title" href="tutorials/long_context_rope_yarn_mla_tutorial.html"><span class="t-cn">长上下文</span><span class="t-en">Long Context</span></a><p class="tags"><span class="s-cn">RoPE · YaRN · NTK · MLA · StreamingLLM · 位置外推</span><span class="s-en">RoPE · YaRN · NTK · MLA · StreamingLLM · position extrapolation</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/long_context_rope_yarn_mla_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/long_context_rope_yarn_mla_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/long_context_rope_yarn_mla_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/long_context_rope_yarn_mla_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="long_context_rope_yarn_mla_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="linear_sparse_attention_tutorial" data-cat="arch" data-cn="tutorials/linear_sparse_attention_tutorial.html" data-en="tutorials/linear_sparse_attention_tutorial_en.html" data-text="线性 / 稀疏注意力 linear / sparse attention linear attn · ssm·mamba · mamba-2·ssd · deltanet · nsa·moba · hybrid linear attn · ssm·mamba · mamba-2·ssd · deltanet · nsa·moba · hybrid"><a class="title" href="tutorials/linear_sparse_attention_tutorial.html"><span class="t-cn">线性 / 稀疏注意力</span><span class="t-en">Linear / Sparse Attention</span></a><p class="tags"><span class="s-cn">Linear Attn · SSM·Mamba · Mamba-2·SSD · DeltaNet · NSA·MoBA · Hybrid</span><span class="s-en">Linear Attn · SSM·Mamba · Mamba-2·SSD · DeltaNet · NSA·MoBA · Hybrid</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/linear_sparse_attention.py" title="linear_sparse_attention.py">linear_sparse_attention.py</a><a class="b" href="tutorials/linear_sparse_attention_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/linear_sparse_attention_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/linear_sparse_attention_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/linear_sparse_attention_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="linear_sparse_attention_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="kv_cache_speculative_decoding_tutorial" data-cat="arch" data-cn="tutorials/kv_cache_speculative_decoding_tutorial.html" data-en="tutorials/kv_cache_speculative_decoding_tutorial_en.html" data-text="kv cache + 投机解码 kv cache + speculative decoding pagedattention · medusa · eagle · mla · 接受率与加速比 pagedattention · medusa · eagle · mla · acceptance rate and speed-up"><a class="title" href="tutorials/kv_cache_speculative_decoding_tutorial.html"><span class="t-cn">KV Cache + 投机解码</span><span class="t-en">KV Cache + Speculative Decoding</span></a><p class="tags"><span class="s-cn">PagedAttention · Medusa · EAGLE · MLA · 接受率与加速比</span><span class="s-en">PagedAttention · Medusa · EAGLE · MLA · acceptance rate and speed-up</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/kv_cache_speculative_decoding_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/kv_cache_speculative_decoding_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/kv_cache_speculative_decoding_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/kv_cache_speculative_decoding_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="kv_cache_speculative_decoding_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="quantization_tutorial" data-cat="arch" data-cn="tutorials/quantization_tutorial.html" data-en="tutorials/quantization_tutorial_en.html" data-text="量化 quantization gptq · awq · fp8 · nvfp4 · smoothquant · w4a16 vs w8a8 gptq · awq · fp8 · nvfp4 · smoothquant · w4a16 vs w8a8"><a class="title" href="tutorials/quantization_tutorial.html"><span class="t-cn">量化</span><span class="t-en">Quantization</span></a><p class="tags"><span class="s-cn">GPTQ · AWQ · FP8 · NVFP4 · SmoothQuant · W4A16 vs W8A8</span><span class="s-en">GPTQ · AWQ · FP8 · NVFP4 · SmoothQuant · W4A16 vs W8A8</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/quantization_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/quantization_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/quantization_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/quantization_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="quantization_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="distributed_training_tutorial" data-cat="arch" data-cn="tutorials/distributed_training_tutorial.html" data-en="tutorials/distributed_training_tutorial_en.html" data-text="分布式训练 distributed training ddp · fsdp2 · zero · tp · pp · ep · sp · 通信量推导 ddp · fsdp2 · zero · tp · pp · ep · sp · communication-volume derivations"><a class="title" href="tutorials/distributed_training_tutorial.html"><span class="t-cn">分布式训练</span><span class="t-en">Distributed Training</span></a><p class="tags"><span class="s-cn">DDP · FSDP2 · ZeRO · TP · PP · EP · SP · 通信量推导</span><span class="s-en">DDP · FSDP2 · ZeRO · TP · PP · EP · SP · communication-volume derivations</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/distributed_training_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/distributed_training_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/distributed_training_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/distributed_training_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="distributed_training_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="llm_pretraining_pipeline_tutorial" data-cat="arch" data-cn="tutorials/llm_pretraining_pipeline_tutorial.html" data-en="tutorials/llm_pretraining_pipeline_tutorial_en.html" data-text="llm 预训练流水线 llm pretraining pipeline kaplan vs chinchilla · 数据工厂 · 去重/质量过滤 · 课程与退火 kaplan vs chinchilla · corpus factory · dedup / quality filtering · curriculum and annealing"><a class="title" href="tutorials/llm_pretraining_pipeline_tutorial.html"><span class="t-cn">LLM 预训练流水线</span><span class="t-en">LLM Pretraining Pipeline</span></a><p class="tags"><span class="s-cn">Kaplan vs Chinchilla · 数据工厂 · 去重/质量过滤 · 课程与退火</span><span class="s-en">Kaplan vs Chinchilla · corpus factory · dedup / quality filtering · curriculum and annealing</span></p><div class="meta"><span class="b">26 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/pretraining_pipeline.py" title="pretraining_pipeline.py">pretraining_pipeline.py</a><a class="b" href="tutorials/llm_pretraining_pipeline_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/llm_pretraining_pipeline_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/llm_pretraining_pipeline_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/llm_pretraining_pipeline_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="llm_pretraining_pipeline_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="llm_inference_serving_tutorial" data-cat="arch" data-cn="tutorials/llm_inference_serving_tutorial.html" data-en="tutorials/llm_inference_serving_tutorial_en.html" data-text="llm 推理与 serving llm inference &amp; serving stack 请求状态机 · 采样算子 · pagedattention · continuous batching · prefill/decode 分离 request state machine · sampling operators · pagedattention · continuous batching · prefill/decode disaggregation"><a class="title" href="tutorials/llm_inference_serving_tutorial.html"><span class="t-cn">LLM 推理与 Serving</span><span class="t-en">LLM Inference &amp; Serving Stack</span></a><p class="tags"><span class="s-cn">请求状态机 · 采样算子 · PagedAttention · continuous batching · prefill/decode 分离</span><span class="s-en">request state machine · sampling operators · PagedAttention · continuous batching · prefill/decode disaggregation</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/inference_serving.py" title="inference_serving.py">inference_serving.py</a><a class="b" href="tutorials/llm_inference_serving_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/llm_inference_serving_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/llm_inference_serving_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/llm_inference_serving_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="llm_inference_serving_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article></div></section><section class="cat" data-cat="gentheory"><h2 id="gentheory">🌊 <span class="s-cn">生成模型理论</span><span class="s-en">Generative Theory</span> <small>3</small></h2><div class="grid"><article class="card" data-id="flow_matching_tutorial" data-cat="gentheory" data-cn="tutorials/flow_matching_tutorial.html" data-en="tutorials/flow_matching_tutorial_en.html" data-text="flow matching 速查 flow matching quick reference rectified flow · 条件路径 vs 边缘路径 · euler/heun 采样 · cfg rectified flow · conditional vs marginal paths · euler/heun sampling · cfg"><a class="title" href="tutorials/flow_matching_tutorial.html"><span class="t-cn">Flow Matching 速查</span><span class="t-en">Flow Matching Quick Reference</span></a><p class="tags"><span class="s-cn">Rectified Flow · 条件路径 vs 边缘路径 · Euler/Heun 采样 · CFG</span><span class="s-en">Rectified Flow · conditional vs marginal paths · Euler/Heun sampling · CFG</span></p><div class="meta"><span class="b"><span class="s-cn">速查</span><span class="s-en">quick ref</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/flow_matching.py" title="flow_matching.py">flow_matching.py</a><a class="b" href="tutorials/flow_matching_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/flow_matching_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/flow_matching_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/flow_matching_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="flow_matching_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="diffusion_foundations_tutorial" data-cat="gentheory" data-cn="tutorials/diffusion_foundations_tutorial.html" data-en="tutorials/diffusion_foundations_tutorial_en.html" data-text="diffusion 基础 diffusion foundations ddpm · score · ddim · edm · cfg · 训练/采样统一视角 ddpm · score · ddim · edm · cfg · one view of training and sampling"><a class="title" href="tutorials/diffusion_foundations_tutorial.html"><span class="t-cn">Diffusion 基础</span><span class="t-en">Diffusion Foundations</span></a><p class="tags"><span class="s-cn">DDPM · Score · DDIM · EDM · CFG · 训练/采样统一视角</span><span class="s-en">DDPM · Score · DDIM · EDM · CFG · one view of training and sampling</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/diffusion_foundations_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/diffusion_foundations_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/diffusion_foundations_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/diffusion_foundations_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="diffusion_foundations_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="vae_vqvae_vqgan_tutorial" data-cat="gentheory" data-cn="tutorials/vae_vqvae_vqgan_tutorial.html" data-en="tutorials/vae_vqvae_vqgan_tutorial_en.html" data-text="vae / vq-vae / vq-gan / fsq vae / vq-vae / vq-gan / fsq elbo · 重参数化 · codebook collapse · fsq/lfq · 感知损失 elbo · reparameterisation · codebook collapse · fsq/lfq · perceptual loss"><a class="title" href="tutorials/vae_vqvae_vqgan_tutorial.html"><span class="t-cn">VAE / VQ-VAE / VQ-GAN / FSQ</span><span class="t-en">VAE / VQ-VAE / VQ-GAN / FSQ</span></a><p class="tags"><span class="s-cn">ELBO · 重参数化 · codebook collapse · FSQ/LFQ · 感知损失</span><span class="s-en">ELBO · reparameterisation · codebook collapse · FSQ/LFQ · perceptual loss</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/vae_vqvae_vqgan_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/vae_vqvae_vqgan_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/vae_vqvae_vqgan_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/vae_vqvae_vqgan_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="vae_vqvae_vqgan_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article></div></section><section class="cat" data-cat="gensys"><h2 id="gensys">🎨 <span class="s-cn">生成系统</span><span class="s-en">Generation Systems</span> <small>6</small></h2><div class="grid"><article class="card" data-id="image_generation_systems_tutorial" data-cat="gensys" data-cn="tutorials/image_generation_systems_tutorial.html" data-en="tutorials/image_generation_systems_tutorial_en.html" data-text="图像生成系统 image generation systems ldm · sd · sdxl · sd3 · flux · controlnet · mmdit ldm · sd · sdxl · sd3 · flux · controlnet · mmdit"><a class="title" href="tutorials/image_generation_systems_tutorial.html"><span class="t-cn">图像生成系统</span><span class="t-en">Image Generation Systems</span></a><p class="tags"><span class="s-cn">LDM · SD · SDXL · SD3 · FLUX · ControlNet · MMDiT</span><span class="s-en">LDM · SD · SDXL · SD3 · FLUX · ControlNet · MMDiT</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/mmdit_block.py" title="mmdit_block.py">mmdit_block.py</a><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/toy_mmdit_t2i_pipeline.py" title="toy_mmdit_t2i_pipeline.py">toy_mmdit_t2i_pipeline.py</a><a class="b" href="tutorials/image_generation_systems_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/image_generation_systems_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/image_generation_systems_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/image_generation_systems_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="image_generation_systems_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="video_generation_tutorial" data-cat="gensys" data-cn="tutorials/video_generation_tutorial.html" data-en="tutorials/video_generation_tutorial_en.html" data-text="视频生成 video generation sora · hunyuan-video · kling · wan · movie gen · 时空 token 化 sora · hunyuan-video · kling · wan · movie gen · spatio-temporal tokenisation"><a class="title" href="tutorials/video_generation_tutorial.html"><span class="t-cn">视频生成</span><span class="t-en">Video Generation</span></a><p class="tags"><span class="s-cn">Sora · Hunyuan-Video · Kling · Wan · Movie Gen · 时空 token 化</span><span class="s-en">Sora · Hunyuan-Video · Kling · Wan · Movie Gen · spatio-temporal tokenisation</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/video_generation_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/video_generation_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/video_generation_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/video_generation_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="video_generation_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="3d_generation_tutorial" data-cat="gensys" data-cn="tutorials/3d_generation_tutorial.html" data-en="tutorials/3d_generation_tutorial_en.html" data-text="3d 生成 3d generation nerf · instant-ngp · 3dgs · sds · dreamfusion · trellis nerf · instant-ngp · 3dgs · sds · dreamfusion · trellis"><a class="title" href="tutorials/3d_generation_tutorial.html"><span class="t-cn">3D 生成</span><span class="t-en">3D Generation</span></a><p class="tags"><span class="s-cn">NeRF · Instant-NGP · 3DGS · SDS · DreamFusion · Trellis</span><span class="s-en">NeRF · Instant-NGP · 3DGS · SDS · DreamFusion · Trellis</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/3d_generation_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/3d_generation_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/3d_generation_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/3d_generation_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="3d_generation_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="diffusion_post_training_tutorial" data-cat="gensys" data-cn="tutorials/diffusion_post_training_tutorial.html" data-en="tutorials/diffusion_post_training_tutorial_en.html" data-text="diffusion 后训练 diffusion post-training ddpo · dpok · draft · alignprop · refl · diffusion-dpo · reward hacking ddpo · dpok · draft · alignprop · refl · diffusion-dpo · reward hacking"><a class="title" href="tutorials/diffusion_post_training_tutorial.html"><span class="t-cn">Diffusion 后训练</span><span class="t-en">Diffusion Post-Training</span></a><p class="tags"><span class="s-cn">DDPO · DPOK · DRaFT · AlignProp · ReFL · Diffusion-DPO · reward hacking</span><span class="s-en">DDPO · DPOK · DRaFT · AlignProp · ReFL · Diffusion-DPO · reward hacking</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/diffusion_post_training_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/diffusion_post_training_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/diffusion_post_training_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/diffusion_post_training_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="diffusion_post_training_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="modern_diffusion_post_training_tutorial" data-cat="gensys" data-cn="tutorials/modern_diffusion_post_training_tutorial.html" data-en="tutorials/modern_diffusion_post_training_tutorial_en.html" data-text="现代 diffusion 后训练 modern diffusion post-training flow-grpo · dgpo · diffusionnft · reverse sde · log z 抵消 · cfg-free flow-grpo · dgpo · diffusionnft · reverse sde · log z cancellation · cfg-free"><a class="title" href="tutorials/modern_diffusion_post_training_tutorial.html"><span class="t-cn">现代 Diffusion 后训练</span><span class="t-en">Modern Diffusion Post-Training</span></a><p class="tags"><span class="s-cn">Flow-GRPO · DGPO · DiffusionNFT · reverse SDE · log Z 抵消 · CFG-free</span><span class="s-en">Flow-GRPO · DGPO · DiffusionNFT · reverse SDE · log Z cancellation · CFG-free</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/diffusion_online_rl.py" title="diffusion_online_rl.py">diffusion_online_rl.py</a><a class="b" href="tutorials/modern_diffusion_post_training_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/modern_diffusion_post_training_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/modern_diffusion_post_training_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/modern_diffusion_post_training_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="modern_diffusion_post_training_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="diffusion_distillation_tutorial" data-cat="gensys" data-cn="tutorials/diffusion_distillation_tutorial.html" data-en="tutorials/diffusion_distillation_tutorial_en.html" data-text="diffusion / flow 蒸馏 diffusion / flow distillation cm · ict · scm · ctm · lcm · dmd/dmd2 · add/ladd cm · ict · scm · ctm · lcm · dmd/dmd2 · add/ladd"><a class="title" href="tutorials/diffusion_distillation_tutorial.html"><span class="t-cn">Diffusion / Flow 蒸馏</span><span class="t-en">Diffusion / Flow Distillation</span></a><p class="tags"><span class="s-cn">CM · iCT · sCM · CTM · LCM · DMD/DMD2 · ADD/LADD</span><span class="s-en">CM · iCT · sCM · CTM · LCM · DMD/DMD2 · ADD/LADD</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/diffusion_distillation_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/diffusion_distillation_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/diffusion_distillation_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/diffusion_distillation_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="diffusion_distillation_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article></div></section><section class="cat" data-cat="mm"><h2 id="mm">👁️ <span class="s-cn">多模态</span><span class="s-en">Multimodal</span> <small>1</small></h2><div class="grid"><article class="card" data-id="vlm_multimodal_tutorial" data-cat="mm" data-cn="tutorials/vlm_multimodal_tutorial.html" data-en="tutorials/vlm_multimodal_tutorial_en.html" data-text="vlm / 多模态 vlm / multimodal clip · llava · qwen-vl · deepseek-vl · 视觉 token · 对齐训练三阶段 clip · llava · qwen-vl · deepseek-vl · visual tokens · three-stage alignment"><a class="title" href="tutorials/vlm_multimodal_tutorial.html"><span class="t-cn">VLM / 多模态</span><span class="t-en">VLM / Multimodal</span></a><p class="tags"><span class="s-cn">CLIP · LLaVA · Qwen-VL · DeepSeek-VL · 视觉 token · 对齐训练三阶段</span><span class="s-en">CLIP · LLaVA · Qwen-VL · DeepSeek-VL · visual tokens · three-stage alignment</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/vlm_multimodal_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/vlm_multimodal_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/vlm_multimodal_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/vlm_multimodal_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="vlm_multimodal_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article></div></section><section class="cat" data-cat="agent"><h2 id="agent">🤖 <span class="s-cn">Agent</span><span class="s-en">Agents</span> <small>5</small></h2><div class="grid"><article class="card" data-id="agent_foundations_tutorial" data-cat="agent" data-cn="tutorials/agent_foundations_tutorial.html" data-en="tutorials/agent_foundations_tutorial_en.html" data-text="agent 基础 agent foundations react · mcp · a2a · swe-bench · gaia · osworld · 工具调用 react · mcp · a2a · swe-bench · gaia · osworld · tool calling"><a class="title" href="tutorials/agent_foundations_tutorial.html"><span class="t-cn">Agent 基础</span><span class="t-en">Agent Foundations</span></a><p class="tags"><span class="s-cn">ReAct · MCP · A2A · SWE-bench · GAIA · OSWorld · 工具调用</span><span class="s-en">ReAct · MCP · A2A · SWE-bench · GAIA · OSWorld · tool calling</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/agent_foundations_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/agent_foundations_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/agent_foundations_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/agent_foundations_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="agent_foundations_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="agentic_rl_tutorial" data-cat="agent" data-cn="tutorials/agentic_rl_tutorial.html" data-en="tutorials/agentic_rl_tutorial_en.html" data-text="agentic rl agentic rl agenttuning · toolrl · ragen · webrl · swe-rl · 多轮 grpo agenttuning · toolrl · ragen · webrl · swe-rl · multi-turn grpo"><a class="title" href="tutorials/agentic_rl_tutorial.html"><span class="t-cn">Agentic RL</span><span class="t-en">Agentic RL</span></a><p class="tags"><span class="s-cn">AgentTuning · ToolRL · RAGEN · WebRL · SWE-RL · 多轮 GRPO</span><span class="s-en">AgentTuning · ToolRL · RAGEN · WebRL · SWE-RL · multi-turn GRPO</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/agentic_rl_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/agentic_rl_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/agentic_rl_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/agentic_rl_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="agentic_rl_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="multi_agent_long_horizon_tutorial" data-cat="agent" data-cn="tutorials/multi_agent_long_horizon_tutorial.html" data-en="tutorials/multi_agent_long_horizon_tutorial_en.html" data-text="多智能体与长程 multi-agent &amp; long-horizon camel · autogen · metagpt · moa · debate · memgpt · lats camel · autogen · metagpt · moa · debate · memgpt · lats"><a class="title" href="tutorials/multi_agent_long_horizon_tutorial.html"><span class="t-cn">多智能体与长程</span><span class="t-en">Multi-Agent &amp; Long-Horizon</span></a><p class="tags"><span class="s-cn">CAMEL · AutoGen · MetaGPT · MoA · Debate · MemGPT · LATS</span><span class="s-en">CAMEL · AutoGen · MetaGPT · MoA · Debate · MemGPT · LATS</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/multi_agent_long_horizon_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/multi_agent_long_horizon_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/multi_agent_long_horizon_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/multi_agent_long_horizon_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="multi_agent_long_horizon_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="self_evolving_agents_tutorial" data-cat="agent" data-cn="tutorials/self_evolving_agents_tutorial.html" data-en="tutorials/self_evolving_agents_tutorial_en.html" data-text="自进化 agent self-evolving agents ctx2skill · native evolution · a²rd · voyager · reflexion · star ctx2skill · native evolution · a²rd · voyager · reflexion · star"><a class="title" href="tutorials/self_evolving_agents_tutorial.html"><span class="t-cn">自进化 Agent</span><span class="t-en">Self-Evolving Agents</span></a><p class="tags"><span class="s-cn">Ctx2Skill · Native Evolution · A²RD · Voyager · Reflexion · STaR</span><span class="s-en">Ctx2Skill · Native Evolution · A²RD · Voyager · Reflexion · STaR</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b" href="tutorials/self_evolving_agents_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/self_evolving_agents_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/self_evolving_agents_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/self_evolving_agents_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="self_evolving_agents_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article><article class="card" data-id="rag_embedding_retrieval_tutorial" data-cat="agent" data-cn="tutorials/rag_embedding_retrieval_tutorial.html" data-en="tutorials/rag_embedding_retrieval_tutorial_en.html" data-text="rag + 向量检索 rag + embedding / retrieval infonce · 难负例 · matryoshka · bm25 · rrf · colbert · graphrag infonce · hard negatives · matryoshka · bm25 · rrf · colbert · graphrag"><a class="title" href="tutorials/rag_embedding_retrieval_tutorial.html"><span class="t-cn">RAG + 向量检索</span><span class="t-en">RAG + Embedding / Retrieval</span></a><p class="tags"><span class="s-cn">InfoNCE · 难负例 · Matryoshka · BM25 · RRF · ColBERT · GraphRAG</span><span class="s-en">InfoNCE · hard negatives · Matryoshka · BM25 · RRF · ColBERT · GraphRAG</span></p><div class="meta"><span class="b">25 <span class="s-cn">题</span><span class="s-en">Q</span></span><a class="b b-code" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/rag_embedding.py" title="rag_embedding.py">rag_embedding.py</a><a class="b" href="tutorials/rag_embedding_retrieval_tutorial_en.html" data-alt="en">EN</a><a class="b" href="tutorials/rag_embedding_retrieval_tutorial.html" data-alt="cn">中</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/rag_embedding_retrieval_tutorial.md" data-alt="cn">MD</a><a class="b" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/rag_embedding_retrieval_tutorial_en.md" data-alt="en">MD</a><label class="read js-only"><input type="checkbox" data-read="rag_embedding_retrieval_tutorial"><span class="s-cn">已读</span><span class="s-en">read</span></label></div></article></div></section><section class="cat" data-cat="embodied"><h2 id="embodied">🦾 <span class="s-cn">具身智能</span><span class="s-en">Embodied AI</span> <small>1</small></h2><p class="note"><span class="s-cn">社区作者维护、外站托管。有帮助的话去源仓库点个 ⭐ 谢谢作者。</span><span class="s-en">Community-maintained and hosted elsewhere. If it helps, star the source repo to thank the author.</span></p><div class="grid"><article class="card ext" data-cat="embodied" data-cn="https://winstonjq.github.io/embodied-interview-qa/" data-en="https://winstonjq.github.io/embodied-interview-qa/" data-text="具身智能高频面试题库 embodied ai interview q&amp;a bank vla · 模仿学习 · rl · 世界模型 · 腿足控制 · 3d 感知 · 413 题 / 8 卷"><a class="title" href="https://winstonjq.github.io/embodied-interview-qa/"><span class="t-cn">具身智能高频面试题库</span><span class="t-en">Embodied AI Interview Q&amp;A Bank</span></a><p class="tags"><span class="s-cn">VLA · 模仿学习 · RL · 世界模型 · 腿足控制 · 3D 感知 · 413 题 / 8 卷</span><span class="s-en">VLA · imitation learning · RL · world models · legged control · 3D perception · 413 questions / 8 volumes</span></p><div class="meta"><span class="b b-ext"><span class="s-cn">社区贡献</span><span class="s-en">community</span> · @WinstonJQ</span><a class="b" href="https://github.com/WinstonJQ/embodied-interview-qa">⭐ <span class="s-cn">给作者点星</span><span class="s-en">star the source</span></a></div></article></div></section><section class="cat" data-cat="blog"><h2 id="blog">📝 <span class="s-cn">长文 Blog</span><span class="s-en">Long-form Blogs</span> <small>3</small></h2><p class="note"><span class="s-cn">三篇中文长文：世界模型架构、连续扩散语言模型综述、扩散与表征学习。</span><span class="s-en">Three Chinese long reads: a world-model architecture, a survey of continuous diffusion LMs, diffusion meets representation learning.</span></p><div class="grid"><article class="card" data-cat="blog" data-cn="blogs/cosmos3_mot_guide.html" data-en="blogs/cosmos3_mot_guide.html" data-text="nvidia cosmos 3 — mot 架构深度导读 nvidia cosmos 3 — mot architecture deep-dive omnimodal world model · mixture-of-transformers · 138 页技术报告走读"><a class="title" href="blogs/cosmos3_mot_guide.html"><span class="t-cn">NVIDIA Cosmos 3 — MoT 架构深度导读</span><span class="t-en">NVIDIA Cosmos 3 — MoT Architecture Deep-Dive</span></a><p class="tags"><span class="s-cn">omnimodal world model · Mixture-of-Transformers · 138 页技术报告走读</span><span class="s-en">omnimodal world model · Mixture-of-Transformers · a walk through the 138-page report</span></p><div class="meta"><span class="b"><span class="s-cn">中文长文</span><span class="s-en">Chinese long-form</span></span></div></article><article class="card" data-cat="blog" data-cn="blogs/continuous_dlm_representation_perspective.html" data-en="blogs/continuous_dlm_representation_perspective.html" data-text="连续 dlm 综述 — 表征视角 a survey on continuous dlm — representation perspective elf · cola-dlm · flow-matching 家族 · 2026 h1"><a class="title" href="blogs/continuous_dlm_representation_perspective.html"><span class="t-cn">连续 DLM 综述 — 表征视角</span><span class="t-en">A Survey on Continuous DLM — Representation Perspective</span></a><p class="tags"><span class="s-cn">ELF · Cola-DLM · Flow-Matching 家族 · 2026 H1</span><span class="s-en">ELF · Cola-DLM · the Flow-Matching family · 2026 H1</span></p><div class="meta"><span class="b"><span class="s-cn">中文长文</span><span class="s-en">Chinese long-form</span></span></div></article><article class="card" data-cat="blog" data-cn="blogs/diffusion_representation_manifold.html" data-en="blogs/diffusion_representation_manifold.html" data-text="diffusion × 表征 × 流形 diffusion × representation × manifold ssl · consistency · repa · rae · jit · v-jepa2"><a class="title" href="blogs/diffusion_representation_manifold.html"><span class="t-cn">Diffusion × 表征 × 流形</span><span class="t-en">Diffusion × Representation × Manifold</span></a><p class="tags"><span class="s-cn">SSL · Consistency · REPA · RAE · JiT · V-JEPA2</span><span class="s-en">SSL · Consistency · REPA · RAE · JiT · V-JEPA2</span></p><div class="meta"><span class="b"><span class="s-cn">中文长文</span><span class="s-en">Chinese long-form</span></span></div></article></div></section>
+  <p class="empty" id="empty"><span class="s-cn">没有匹配的教程。换个关键词试试，或者点「全部」。</span><span class="s-en">Nothing matches. Try another keyword, or tap “All”.</span></p>
 </main>
 
-</div>
-
-<!-- P0 polish: paper popover host (populated by IIFE below) -->
-<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
-  <button class="cp-close" type="button" aria-label="Close">×</button>
-  <div class="cp-content"></div>
-</div>
-
-<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
-<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
-  <div class="lb-inner">
-    <button class="lb-close" type="button" aria-label="Close">×</button>
-    <img alt="" />
-    <figcaption></figcaption>
+<footer class="wrap">
+  <div>
+    <a href="about.html"><span class="s-cn">这些教程是怎么生成的</span><span class="s-en">How these are made</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">GitHub</a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer#-community"><span class="s-cn">微信交流群</span><span class="s-en">WeChat group</span></a>
+    <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep">ARIS</a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer#-citing-aris"><span class="s-cn">引用</span><span class="s-en">Cite</span></a>
   </div>
-</dialog>
+</footer>
 
-<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
-<script>window.PAPER_REGISTRY = {};</script>
-
-<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
-     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
 <script>
-(function () {
-  "use strict";
+(function(){
+  document.body.className+=' js';
+  var $=function(s,r){return (r||document).querySelector(s)}, $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+  var store={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+  var body=document.body, cards=$$('.card'), cats=$$('.cat'), q=$('#q'), chips=$$('.chip'), pn=$('#pn'), pb=$('#pb');
+  var N=34, filter='all', term='';
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
-    });
-  }
+  /* language */
+  var lang=store.get('aris.lang')||((navigator.language||'').toLowerCase().indexOf('zh')===0?'cn':'en'); /* Chinese UI for zh-* browsers, English otherwise */
+  function setLang(l){lang=l;body.setAttribute('data-lang',l);document.documentElement.lang=l==='cn'?'zh-CN':'en';store.set('aris.lang',l);
+    q.placeholder=l==='cn'?'搜标题 / 关键词，如 GRPO、KV cache、Mamba':'Search titles / keywords, e.g. GRPO, KV cache, Mamba';
+    cards.forEach(function(c){var a=$('.title',c);if(a)a.href=c.getAttribute(l==='cn'?'data-cn':'data-en')});}
+  setLang(lang);
+  $('#lang').onclick=function(){setLang(lang==='cn'?'en':'cn')};
 
-  // --- Feature 5: Print degradation fix ---------------------------------
-  // Force every <details> open during print, restore the pre-print state after.
-  var _stashOpen = [];
-  var _printing = false;
-  window.addEventListener("beforeprint", function () {
-    if (_printing) return;  // guard against multi-fire (Chrome print preview)
-    _printing = true;
-    _stashOpen = [];
-    document.querySelectorAll("details:not([open])").forEach(function (d) {
-      _stashOpen.push(d);
-      d.open = true;
-    });
-  });
-  window.addEventListener("afterprint", function () {
-    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
-    _stashOpen = [];
-    _printing = false;
-  });
+  /* theme */
+  var theme=store.get('aris.theme'); if(theme)document.documentElement.setAttribute('data-theme',theme);
+  function paintTheme(){var dark=document.documentElement.getAttribute('data-theme')==='dark'||(!document.documentElement.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);$('#theme').textContent=dark?'☀':'☾'}
+  paintTheme();
+  $('#theme').onclick=function(){var cur=document.documentElement.getAttribute('data-theme');var dark=cur?cur==='dark':matchMedia('(prefers-color-scheme: dark)').matches;var nx=dark?'light':'dark';document.documentElement.setAttribute('data-theme',nx);store.set('aris.theme',nx);paintTheme()};
 
-  // --- Feature 3: TOC scrollspy -----------------------------------------
-  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
-  var headings = tocLinks.map(function (a) {
-    var id = a.getAttribute("href").replace(/^#/, "");
-    return document.getElementById(id);
-  }).filter(Boolean);
-  if (headings.length && typeof IntersectionObserver !== "undefined") {
-    var linkById = new Map();
-    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        if (!en.isIntersecting) return;
-        tocLinks.forEach(function (l) { l.classList.remove("active"); });
-        var lk = linkById.get(en.target.id);
-        if (lk) lk.classList.add("active");
-      });
-    }, { rootMargin: "-15% 0px -75% 0px" });
-    headings.forEach(function (h) { io.observe(h); });
-  }
+  /* read marks */
+  var read={}; try{read=JSON.parse(store.get('aris.read')||'{}')}catch(e){}
+  function paintRead(){var n=0;cards.forEach(function(c){var id=c.getAttribute('data-id');if(!id)return;var on=!!read[id];c.classList.toggle('done',on);var cb=$('input[data-read]',c);if(cb)cb.checked=on;if(on)n++});pn.textContent=n;pb.style.width=(100*n/N)+'%';$('#preset').hidden=n===0}
+  $$('input[data-read]').forEach(function(cb){cb.onchange=function(){var id=cb.getAttribute('data-read');if(cb.checked)read[id]=1;else delete read[id];store.set('aris.read',JSON.stringify(read));paintRead()}});
+  $('#preset').onclick=function(){read={};store.set('aris.read','{}');paintRead()};
+  paintRead();
 
-  // --- Feature 1: Long-code auto-collapse -------------------------------
-  var COLLAPSE_THRESHOLD = 30;
+  /* filter */
+  function apply(){var t=term.trim().toLowerCase(), any=false;
+    cards.forEach(function(c){var ok=(filter==='all'||c.getAttribute('data-cat')===filter)&&(!t||c.getAttribute('data-text').indexOf(t)>=0);c.classList.toggle('hide',!ok);any=any||ok});
+    cats.forEach(function(s){s.classList.toggle('hide',!$$('.card:not(.hide)',s).length)});
+    $('#empty').classList.toggle('show',!any)}
+  q.addEventListener('input',function(){term=q.value;apply()});
+  function pick(id,push){var ch=chips.filter(function(x){return x.getAttribute('data-chip')===id})[0]||chips[0];filter=ch.getAttribute('data-chip');chips.forEach(function(x){x.classList.toggle('on',x===ch)});apply();if(push)history.replaceState(null,'',filter==='all'?location.pathname:'#'+filter)}
+  chips.forEach(function(ch){ch.onclick=function(){pick(ch.getAttribute('data-chip'),true);window.scrollTo({top:0,behavior:'smooth'})}});
+  window.addEventListener('hashchange',function(){pick(location.hash.replace('#','')||'all',false)});
+  document.addEventListener('keydown',function(e){if(e.key==='/'&&document.activeElement!==q){e.preventDefault();q.focus()}else if(e.key==='Escape'&&document.activeElement===q){q.value='';term='';apply();q.blur()}});
+  pick(location.hash.replace('#','')||'all',false);
 
-  function wrapCodeCard(pre, openByDefault) {
-    if (!pre || pre.closest("details.code-card")) return;
-    var code = pre.querySelector("code");
-    if (!code) return;
-    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
-    var det = document.createElement("details");
-    det.className = "code-card";
-    det.open = openByDefault;
-    var sum = document.createElement("summary");
-    function updateSummary() {
-      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
-    }
-    updateSummary();
-    det.addEventListener("toggle", updateSummary);
-    pre.parentNode.insertBefore(det, pre);
-    det.appendChild(sum);
-    det.appendChild(pre);
-  }
-
-  // Honor explicit per-block flags first.
-  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
-    var flag = pre.getAttribute("data-collapse");
-    if (flag === "collapsed") wrapCodeCard(pre, false);
-    // "open" → leave fully expanded, do not wrap.
-  });
-  // Then auto-wrap long unflagged blocks.
-  document.querySelectorAll("pre > code").forEach(function (code) {
-    var pre = code.closest("pre");
-    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
-    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
-    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
-  });
-
-  // --- Feature 10: Figure lightbox --------------------------------------
-  var lightbox = document.getElementById("figure-lightbox");
-  if (lightbox) {
-    var lbImg = lightbox.querySelector("img");
-    var lbCap = lightbox.querySelector("figcaption");
-    var lbClose = lightbox.querySelector(".lb-close");
-    function openLightbox(srcImg) {
-      lbImg.src = srcImg.src;
-      lbImg.alt = srcImg.alt || "";
-      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
-      lbCap.textContent = cap ? cap.textContent : "";
-      lbCap.hidden = !cap;
-      if (typeof lightbox.showModal === "function") lightbox.showModal();
-      else lightbox.hidden = false;
-    }
-    function closeLightbox() {
-      if (typeof lightbox.close === "function") lightbox.close();
-      else lightbox.hidden = true;
-    }
-    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
-      if (img.closest("dialog")) return;
-      img.style.cursor = "zoom-in";
-      img.addEventListener("click", function () { openLightbox(img); });
-    });
-    if (lbClose) lbClose.addEventListener("click", closeLightbox);
-    lightbox.addEventListener("click", function (e) {
-      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
-      if (e.target === lightbox) closeLightbox();
-    });
-  }
-
-  // --- Feature 2: Paper popover -----------------------------------------
-  var PAPERS = window.PAPER_REGISTRY || {};
-  var pop = document.getElementById("cite-pop");
-  var popContent = pop ? pop.querySelector(".cp-content") : null;
-  var popClose = pop ? pop.querySelector(".cp-close") : null;
-  var popTrigger = null;
-
-  function showPopover(el) {
-    var key = el.dataset.ref;
-    var info = PAPERS[key];
-    if (!info || !pop || !popContent) return;
-    popContent.innerHTML =
-      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
-      (info.authors
-        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
-            (info.date ? ' · ' + escapeHtml(info.date) : '') +
-            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
-        : '') +
-      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
-      (info.arxiv
-        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
-          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
-        : '');
-    var r = el.getBoundingClientRect();
-    pop.hidden = false;  // unhide first so offsetHeight is measurable
-    var margin = 16;
-    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
-    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
-    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
-    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
-    popTrigger = el;
-    if (popClose) popClose.focus();
-  }
-  function hidePopover() {
-    if (pop) pop.hidden = true;
-    if (popTrigger) popTrigger.focus();
-    popTrigger = null;
-  }
-  document.querySelectorAll("[data-ref]").forEach(function (el) {
-    el.setAttribute("tabindex", "0");
-    el.setAttribute("role", "button");
-    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
-    el.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
-    });
-  });
-  if (popClose) popClose.addEventListener("click", hidePopover);
-  document.addEventListener("click", function (e) {
-    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
-  });
-
-  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
-  if (document.body.classList.contains("aris-blog")) {
-    var h2s = [].slice.call(document.querySelectorAll("main h2"));
-    if (h2s.length && typeof IntersectionObserver !== "undefined") {
-      var io2 = new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          if (en.isIntersecting) {
-            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
-            en.target.classList.add("aris-active-h2");
-          }
-        });
-      }, { rootMargin: "-15% 0px -75% 0px" });
-      h2s.forEach(function (h) { io2.observe(h); });
-    }
-
-    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
-    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
-    //     non-blog tutorials never construct it. Default OFF. While ON:
-    //     dims non-current sections (h3-granular), keeps the intro bright,
-    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
-    //     new *persistent* global hook). Restores everything on OFF / print.
-    var mainEl = document.querySelector("main");
-    if (mainEl) {
-      var focusBtn = document.createElement("button");
-      focusBtn.className = "aris-focus-toggle";
-      focusBtn.type = "button";
-      focusBtn.setAttribute("aria-pressed", "false");
-      focusBtn.textContent = "🎯 Focus";
-      document.body.appendChild(focusBtn);
-
-      var focusHint = document.createElement("div");
-      focusHint.className = "aris-focus-hint";
-      document.body.appendChild(focusHint);
-      var hintTimer = null;
-      var showFocusHint = function (msg) {
-        focusHint.textContent = msg;
-        focusHint.classList.add("show");
-        if (hintTimer) clearTimeout(hintTimer);
-        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
-      };
-
-      var focusKids = function () { return [].slice.call(mainEl.children); };
-      var headerIdxList = function (kids) {
-        var idxs = [];
-        kids.forEach(function (el, i) {
-          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
-        });
-        return idxs;
-      };
-      // Deterministic current-section pick (no IntersectionObserver): the
-      // header whose top is closest to but above the viewport's 40% line;
-      // fallback = first header still below the line; then first header.
-      var activeHeaderIdx = function (kids, headerIdxs) {
-        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
-        headerIdxs.forEach(function (idx) {
-          var top = kids[idx].getBoundingClientRect().top;
-          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
-        });
-        if (best < 0) {
-          for (var i = 0; i < headerIdxs.length; i++) {
-            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
-          }
-          if (best < 0) best = headerIdxs[0];
-        }
-        return best;
-      };
-      var updateFocus = function () {
-        var kids = focusKids();
-        var headerIdxs = headerIdxList(kids);
-        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
-          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
-          return;
-        }
-        var best = activeHeaderIdx(kids, headerIdxs);
-        var next = kids.length;
-        for (var j = 0; j < headerIdxs.length; j++) {
-          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
-        }
-        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
-        kids.forEach(function (el, i) {
-          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
-        });
-      };
-      var onFocusScroll = function () {
-        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
-      };
-      var onFocusKeydown = function (e) {
-        var tg = e.target;
-        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
-        if (e.key === "Escape") {
-          var popEl = document.getElementById("cite-pop");
-          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
-          setFocus(false);
-          return;
-        }
-        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-        e.preventDefault();
-        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
-        if (!heads.length) return;
-        var cur = 0, bestDist = Infinity;
-        heads.forEach(function (h, i) {
-          var d = Math.abs(h.getBoundingClientRect().top - 80);
-          if (d < bestDist) { bestDist = d; cur = i; }
-        });
-        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
-        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
-        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
-      };
-      var setFocus = function (on) {
-        document.body.classList.toggle("aris-focus-dim", on);
-        focusBtn.classList.toggle("on", on);
-        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
-        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
-        if (on) {
-          window.addEventListener("scroll", onFocusScroll, { passive: true });
-          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
-          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
-          updateFocus();
-          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
-        } else {
-          window.removeEventListener("scroll", onFocusScroll);
-          document.removeEventListener("keydown", onFocusKeydown, true);
-          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
-          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
-        }
-      };
-      focusBtn.addEventListener("click", function () {
-        setFocus(!document.body.classList.contains("aris-focus-dim"));
-      });
-    }
-  }
+  /* random */
+  $('#rand').onclick=function(){var vis=cards.filter(function(c){return !c.classList.contains('hide')&&c.getAttribute('data-id')});if(!vis.length)return;var c=vis[Math.floor(Math.random()*vis.length)];location.href=c.getAttribute(lang==='cn'?'data-cn':'data-en')};
 })();
 </script>
 </body>

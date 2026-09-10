@@ -19,6 +19,11 @@
 | `normalization.py` | LayerNorm/RMSNorm from-scratch vs `torch` + RMSNorm 去 re-centering + BatchNorm train≠eval + Pre/Post-LN 梯度 top-heavy + Kaiming/Xavier 二阶矩 E[y²] + GPT-2 残差 1/√(2N) + 6 个 assert | [normalization_init_tutorial.md](../normalization_init_tutorial.md) | <5s |
 | `optimizer_lr_schedule.py` | SGD-momentum/Adam/AdamW from-scratch vs `torch.optim` + **AdamW≠Adam+L2**(解耦≠耦合) + bias correction 方向(首步 3.16× 偏大) + cosine-warmup 调度 + 动量加速病态二次 + 6 个 assert | [optimizer_lr_schedule_tutorial.md](../optimizer_lr_schedule_tutorial.md) | <5s |
 | `diffusion_online_rl.py` | Flow-GRPO 的 ODE→SDE 保边缘（1-D 解析方差递推 vs MC，含忘掉 score 修正的反例）+ DiffusionNFT 反射双支的更新方向与 ±2 最优解 + DGPO 权重平衡的 $\log Z$ 抵消（单位权重反例）+ 全部 assert 对解析答案 | [modern_diffusion_post_training_tutorial.md](../modern_diffusion_post_training_tutorial.md) | <5s |
+| `transformer_block.py` | 从零 Transformer block：残差拓扑 · 因果不泄漏 · full vs KV-cache 一致 · MHA/GQA/MQA 与参数量公式 · packed QKV · RoPE 设备/精度 + 15 个 check | [transformer_block_tutorial.md](../transformer_block_tutorial.md) | <5s |
+| `llm_eval_metrics.py` | pass@k 真值 vs 无偏/plug-in 估计 · paired bootstrap · Bradley-Terry 两方 MLE(=log3) · judge 位置偏差，纯 stdlib+numpy | [llm_evaluation_benchmarking_tutorial.md](../llm_evaluation_benchmarking_tutorial.md) | <5s |
+| `tokenization.py` | 精确复现 GPT-2 `bytes_to_unicode` · BPE 训练/编码 · WordPiece · Unigram Viterbi/前向 DP · byte fallback 往返 · prefix 不稳定性，纯 stdlib | [tokenization_tutorial.md](../tokenization_tutorial.md) | <1s |
+| `pretraining_pipeline.py` | MinHash/LSH 去重 · packing 的 label 与 block mask · EOS 边界 · padding loss mask · Chinchilla 拟合 · loss spike 监控，纯 stdlib | [llm_pretraining_pipeline_tutorial.md](../llm_pretraining_pipeline_tutorial.md) | <5s |
+| `inference_serving.py` | 采样算子精确定义(top-k/top-p/min-p/typical，顺序不可交换) · 流式 stop-string · static vs continuous batching · chunked prefill · KV 字节/block 分配/prefix 共享 · roofline，纯 stdlib | [llm_inference_serving_tutorial.md](../llm_inference_serving_tutorial.md) | <5s |
 
 ## 运行
 

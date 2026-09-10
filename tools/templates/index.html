@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="ARIS in AI Offer — {{N}} 篇中英双语 ML / LLM / 多模态 / 生成式 / Agent 面试 cheat sheet，一个链接看全部。公式推导 + 从零 PyTorch + 高频面试题。">
+<meta name="theme-color" content="#fdfcf7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16151a" media="(prefers-color-scheme: dark)">
+<title>ARIS in AI Offer · {{N}} 篇面试 Cheat Sheet</title>
+<style>
+:root{
+  --bg:#fdfcf7;--bg-soft:#f4f1ea;--card:#ffffff;--ink:#1a1a1a;--ink-soft:#4a4a4a;--ink-muted:#6b6b6b;
+  --primary:#1a4a8c;--primary-soft:#2d6cb8;--accent:#b8390e;--border:#d6d0c0;--border-soft:#e8e3d5;
+  --chip:#eee9dc;--chip-on:#1a4a8c;--good:#065f46;--good-bg:#d1fae5;--shadow:0 1px 2px rgba(0,0,0,.05),0 6px 20px -12px rgba(26,74,140,.25);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#16151a;--bg-soft:#1e1d24;--card:#201f26;--ink:#ecebe6;--ink-soft:#c9c7c0;--ink-muted:#9a988f;
+  --primary:#8fb6ee;--primary-soft:#a9c8f4;--accent:#f0906a;--border:#3a3843;--border-soft:#2c2b33;
+  --chip:#2a2931;--chip-on:#8fb6ee;--good:#86efac;--good-bg:#14352a;--shadow:0 1px 2px rgba(0,0,0,.4);
+}}
+:root[data-theme="dark"]{
+  --bg:#16151a;--bg-soft:#1e1d24;--card:#201f26;--ink:#ecebe6;--ink-soft:#c9c7c0;--ink-muted:#9a988f;
+  --primary:#8fb6ee;--primary-soft:#a9c8f4;--accent:#f0906a;--border:#3a3843;--border-soft:#2c2b33;
+  --chip:#2a2931;--chip-on:#8fb6ee;--good:#86efac;--good-bg:#14352a;--shadow:0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Noto Sans CJK SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.js-only{display:none}
+body.js .js-only{display:revert}
+body.js .tools{display:flex}
+body.js .prog{display:flex}
+body.js .chips{display:flex}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font:inherit;color:inherit}
+/* language + size switches: body[data-lang] decides which span shows */
+.s-en,.t-en{display:none}
+body[data-lang="en"] .s-cn,body[data-lang="en"] .t-cn{display:none}
+body[data-lang="en"] .s-en,body[data-lang="en"] .t-en{display:inline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+/* top bar */
+.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--border-soft)}
+.top .wrap{display:flex;align-items:center;gap:10px;height:52px}
+.brand{font-weight:700;letter-spacing:.01em;white-space:nowrap;color:var(--ink)}
+.brand small{font-weight:500;color:var(--ink-muted);margin-left:6px}
+.sp{flex:1}
+.ib{border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;height:36px;min-width:40px;padding:0 12px;cursor:pointer;white-space:nowrap}
+.ib:hover{border-color:var(--primary)}
+/* hero */
+.hero{padding:22px 0 8px}
+.hero h1{font-size:clamp(22px,4.4vw,32px);line-height:1.2;margin:0 0 8px;letter-spacing:-.01em}
+.hero p{margin:0;color:var(--ink-soft);max-width:70ch}
+.hero .stats{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;color:var(--ink-muted);font-size:14px}
+.hero .stats b{color:var(--ink)}
+/* search row */
+.tools{display:flex;gap:8px;margin:14px 0 10px;align-items:center}
+.search{flex:1;position:relative}
+.search input{width:100%;height:42px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--ink);padding:0 40px 0 38px;font-size:16px;outline:none}
+.search input:focus{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%,transparent)}
+.search .ico{position:absolute;left:12px;top:0;height:42px;display:flex;align-items:center;color:var(--ink-muted);pointer-events:none}
+.search kbd{position:absolute;right:10px;top:11px;font:12px/18px ui-monospace,Menlo,monospace;color:var(--ink-muted);border:1px solid var(--border);border-radius:5px;padding:0 5px;background:var(--bg-soft)}
+.rand{height:42px;border:1px solid var(--border);background:var(--card);border-radius:10px;padding:0 14px;cursor:pointer;white-space:nowrap}
+.rand:hover{border-color:var(--accent);color:var(--accent)}
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 10px}
+.chip{flex:0 0 auto;border:1px solid transparent;background:var(--chip);border-radius:999px;padding:8px 13px;min-height:36px;cursor:pointer;font-size:14px;color:var(--ink-soft)}
+.chip:hover{border-color:var(--primary)}
+.chip.on{background:var(--chip-on);color:var(--bg);border-color:var(--chip-on)}
+/* progress */
+.prog{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-muted);margin:0 0 6px}
+.prog .bar{flex:1;height:6px;background:var(--bg-soft);border-radius:999px;overflow:hidden;border:1px solid var(--border-soft)}
+.prog .bar i{display:block;height:100%;width:0;background:var(--good);transition:width .25s}
+.prog button{border:0;background:none;color:var(--ink-muted);cursor:pointer;text-decoration:underline;padding:0}
+/* sections + cards */
+.cat{margin:18px 0 8px}
+.cat h2{font-size:18px;margin:0 0 8px;display:flex;align-items:baseline;gap:8px;scroll-margin-top:64px}
+.cat h2 small{font-weight:500;color:var(--ink-muted);font-size:13px}
+.cat .note{margin:-2px 0 10px;font-size:13px;color:var(--ink-muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.card{position:relative;background:var(--card);border:1px solid var(--border-soft);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px;min-width:0}
+.card.done{border-color:var(--good);background:color-mix(in srgb,var(--good-bg) 45%,var(--card))}
+.card .title{font-weight:650;font-size:16.5px;line-height:1.3;color:var(--ink);overflow-wrap:anywhere;padding-right:64px}
+.card .title:hover{color:var(--primary)}
+.card .tags{margin:0;font-size:13px;color:var(--ink-muted);line-height:1.45;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:2px}
+.b{font-size:12px;line-height:26px;padding:0 9px;border-radius:6px;background:var(--bg-soft);border:1px solid var(--border-soft);color:var(--ink-soft);white-space:nowrap}
+a.b:hover{border-color:var(--primary);color:var(--primary);text-decoration:none}
+.b-code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.b-ext{background:var(--good-bg);color:var(--good);border-color:transparent}
+.read{position:absolute;top:4px;right:4px;padding:8px 9px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-muted);cursor:pointer;user-select:none;border-radius:8px}
+.read:hover{background:var(--bg-soft)}
+.read input{accent-color:var(--good);width:18px;height:18px;margin:0}
+body[data-lang="cn"] [data-alt="cn"],body[data-lang="en"] [data-alt="en"]{display:none}
+.card.hide,.cat.hide{display:none}
+.empty{display:none;text-align:center;color:var(--ink-muted);padding:40px 0}
+.empty.show{display:block}
+/* footer */
+footer{margin:34px 0 24px;padding-top:16px;border-top:1px solid var(--border-soft);font-size:13.5px;color:var(--ink-muted);line-height:1.8}
+footer a{margin-right:14px}
+@media (max-width:640px){
+  .hero{padding-top:16px}
+  .grid{grid-template-columns:1fr;gap:8px}
+  .card{padding:11px 12px;border-radius:10px}
+  .search kbd{display:none}
+  .brand small{display:none}
+}
+@media print{.top,.tools,.chips,.prog,.read,footer{display:none}.card{break-inside:avoid;box-shadow:none}}
+</style>
+</head>
+<body data-lang="cn">
+<header class="top"><div class="wrap">
+  <a class="brand" href="./">🌱 ARIS in AI Offer<small><span class="s-cn">{{N}} 篇 · {{NCAT}} 个方向</span><span class="s-en">{{N}} sheets · {{NCAT}} categories</span></small></a>
+  <span class="sp"></span>
+  <button class="ib js-only" id="lang" title="中 / EN" aria-label="switch language">中 / EN</button>
+  <button class="ib js-only" id="theme" title="light / dark" aria-label="toggle theme">☾</button>
+</div></header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1><span class="s-cn">AI 秋招面试 Cheat Sheet，一个链接看全部</span><span class="s-en">AI-interview cheat sheets — everything from one link</span></h1>
+    <p><span class="s-cn">每篇：公式推导 + 可运行代码；绝大多数附 25 道高频题（L1 必会 / L2 进阶 / L3 顶级 lab），题数见卡片。中英双语，单文件 HTML，手机上直接读。</span><span class="s-en">Each sheet: derivations + runnable code; nearly all carry 25 interview questions (L1 / L2 / L3) — the count is on the card. Bilingual, single-file HTML, reads fine on a phone.</span></p>
+    <div class="stats"><span><b>{{N}}</b> <span class="s-cn">篇</span><span class="s-en">sheets</span></span><span><b>{{NCAT}}</b> <span class="s-cn">个方向</span><span class="s-en">categories</span></span><span><b>中 / EN</b> <span class="s-cn">双语</span><span class="s-en">bilingual</span></span><span><span class="s-cn">跨模型审查后发布</span><span class="s-en">cross-model reviewed</span></span></div>
+  </section>
+
+  <div class="tools js-only">
+    <div class="search"><span class="ico">🔍</span><input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="搜标题 / 关键词，如 GRPO、KV cache、Mamba" aria-label="search"><kbd>/</kbd></div>
+    <button class="rand" id="rand" title="随机打开一篇"><span class="s-cn">🎲 抽一篇</span><span class="s-en">🎲 Random</span></button>
+  </div>
+  <nav class="chips js-only" id="chips"><button class="chip on" data-chip="all"><span class="s-cn">全部</span><span class="s-en">All</span></button>{{CHIPS}}</nav>
+  <div class="prog js-only"><span><span class="s-cn">已读</span><span class="s-en">Read</span> <b id="pn">0</b>/{{N}}</span><div class="bar"><i id="pb"></i></div><button id="preset" hidden><span class="s-cn">清空</span><span class="s-en">reset</span></button></div>
+
+  {{SECTIONS}}
+  <p class="empty" id="empty"><span class="s-cn">没有匹配的教程。换个关键词试试，或者点「全部」。</span><span class="s-en">Nothing matches. Try another keyword, or tap “All”.</span></p>
+</main>
+
+<footer class="wrap">
+  <div>
+    <a href="about.html"><span class="s-cn">这些教程是怎么生成的</span><span class="s-en">How these are made</span></a>
+    <a href="{{REPO}}">GitHub</a>
+    <a href="{{REPO}}#-community"><span class="s-cn">微信交流群</span><span class="s-en">WeChat group</span></a>
+    <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep">ARIS</a>
+    <a href="{{REPO}}#-citing-aris"><span class="s-cn">引用</span><span class="s-en">Cite</span></a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  document.body.className+=' js';
+  var $=function(s,r){return (r||document).querySelector(s)}, $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+  var store={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+  var body=document.body, cards=$$('.card'), cats=$$('.cat'), q=$('#q'), chips=$$('.chip'), pn=$('#pn'), pb=$('#pb');
+  var N={{N}}, filter='all', term='';
+
+  /* language */
+  var lang=store.get('aris.lang')||((navigator.language||'').toLowerCase().indexOf('zh')===0?'cn':'en'); /* Chinese UI for zh-* browsers, English otherwise */
+  function setLang(l){lang=l;body.setAttribute('data-lang',l);document.documentElement.lang=l==='cn'?'zh-CN':'en';store.set('aris.lang',l);
+    q.placeholder=l==='cn'?'搜标题 / 关键词，如 GRPO、KV cache、Mamba':'Search titles / keywords, e.g. GRPO, KV cache, Mamba';
+    cards.forEach(function(c){var a=$('.title',c);if(a)a.href=c.getAttribute(l==='cn'?'data-cn':'data-en')});}
+  setLang(lang);
+  $('#lang').onclick=function(){setLang(lang==='cn'?'en':'cn')};
+
+  /* theme */
+  var theme=store.get('aris.theme'); if(theme)document.documentElement.setAttribute('data-theme',theme);
+  function paintTheme(){var dark=document.documentElement.getAttribute('data-theme')==='dark'||(!document.documentElement.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);$('#theme').textContent=dark?'☀':'☾'}
+  paintTheme();
+  $('#theme').onclick=function(){var cur=document.documentElement.getAttribute('data-theme');var dark=cur?cur==='dark':matchMedia('(prefers-color-scheme: dark)').matches;var nx=dark?'light':'dark';document.documentElement.setAttribute('data-theme',nx);store.set('aris.theme',nx);paintTheme()};
+
+  /* read marks */
+  var read={}; try{read=JSON.parse(store.get('aris.read')||'{}')}catch(e){}
+  function paintRead(){var n=0;cards.forEach(function(c){var id=c.getAttribute('data-id');if(!id)return;var on=!!read[id];c.classList.toggle('done',on);var cb=$('input[data-read]',c);if(cb)cb.checked=on;if(on)n++});pn.textContent=n;pb.style.width=(100*n/N)+'%';$('#preset').hidden=n===0}
+  $$('input[data-read]').forEach(function(cb){cb.onchange=function(){var id=cb.getAttribute('data-read');if(cb.checked)read[id]=1;else delete read[id];store.set('aris.read',JSON.stringify(read));paintRead()}});
+  $('#preset').onclick=function(){read={};store.set('aris.read','{}');paintRead()};
+  paintRead();
+
+  /* filter */
+  function apply(){var t=term.trim().toLowerCase(), any=false;
+    cards.forEach(function(c){var ok=(filter==='all'||c.getAttribute('data-cat')===filter)&&(!t||c.getAttribute('data-text').indexOf(t)>=0);c.classList.toggle('hide',!ok);any=any||ok});
+    cats.forEach(function(s){s.classList.toggle('hide',!$$('.card:not(.hide)',s).length)});
+    $('#empty').classList.toggle('show',!any)}
+  q.addEventListener('input',function(){term=q.value;apply()});
+  function pick(id,push){var ch=chips.filter(function(x){return x.getAttribute('data-chip')===id})[0]||chips[0];filter=ch.getAttribute('data-chip');chips.forEach(function(x){x.classList.toggle('on',x===ch)});apply();if(push)history.replaceState(null,'',filter==='all'?location.pathname:'#'+filter)}
+  chips.forEach(function(ch){ch.onclick=function(){pick(ch.getAttribute('data-chip'),true);window.scrollTo({top:0,behavior:'smooth'})}});
+  window.addEventListener('hashchange',function(){pick(location.hash.replace('#','')||'all',false)});
+  document.addEventListener('keydown',function(e){if(e.key==='/'&&document.activeElement!==q){e.preventDefault();q.focus()}else if(e.key==='Escape'&&document.activeElement===q){q.value='';term='';apply();q.blur()}});
+  pick(location.hash.replace('#','')||'all',false);
+
+  /* random */
+  $('#rand').onclick=function(){var vis=cards.filter(function(c){return !c.classList.contains('hide')&&c.getAttribute('data-id')});if(!vis.length)return;var c=vis[Math.floor(Math.random()*vis.length)];location.href=c.getAttribute(lang==='cn'?'data-cn':'data-en')};
+})();
+</script>
+</body>
+</html>

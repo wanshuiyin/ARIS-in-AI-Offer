@@ -8,6 +8,8 @@
 >
 > 📖 **中文版 (Chinese version)**: [README_CN.md](README_CN.md)
 
+> 📱 **One link for everything:** [**wanshuiyin.github.io/ARIS-in-AI-Offer**](https://wanshuiyin.github.io/ARIS-in-AI-Offer/) — every sheet on one page, searchable, 中/EN switch, dark mode, and a per-reader 已读 tracker. Save it on your phone.
+
 **📚 Jump to a topic** — 34 first-party cheat sheets across 7 categories + 1 community-contributed category:
 
 [🧠 General / Foundations](#-general--foundations) · [🎯 Post-Training & Reasoning](#-post-training--reasoning) · [🏛️ LLM Architecture & Systems](#-llm-architecture--systems) · [🌊 Generative Models — Theory & Tokenizers](#-generative-models--theory--tokenizers) · [🎨 Generation Systems (Image / Video / 3D / Diffusion Post-Training)](#-generation-systems--image--video--3d--diffusion-post-training) · [👁️ Multimodal](#-multimodal) · [🤖 Agents](#-agents) · [🦾 Embodied AI / 具身智能](#-embodied-ai--具身智能)

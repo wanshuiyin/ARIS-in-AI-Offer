@@ -1,7 +1,7 @@
 {
   "skill": "render-html",
   "source": "docs/about.md",
-  "output": "docs/index.html",
+  "output": "docs/about.html",
   "purpose": "GitHub Pages landing page (https://wanshuiyin.github.io/ARIS-in-AI-Offer/)",
   "author": "Ruofeng Yang (杨若峰), Shanghai Jiao Tong University",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -34,6 +34,14 @@
   },
   "summary": "ARIS-in-AI-Offer landing page (docs/index.html): rendered via tools/render_html.py from docs/about.md; codex 13-check render review passed with 1 cosmetic WARN, fixed in 1 round.",
   "rendered_at": "2026-05-19",
-  "source_sha256": "15ccd3d65d308c4656117fca714381d163daa0631e2053409704f6c45f4617e8",
-  "thread_id": "019e7c8b-2f0e-7130-9a4a-c90334d5d989"
+  "source_sha256": "c1b5bb5b1693387c108e4a543581fa1c11b16cff37bbbd867adf13f76dc17d5f",
+  "thread_id": "019e7c8b-2f0e-7130-9a4a-c90334d5d989",
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-11",
+      "scope": "Artifact moved from docs/index.html to docs/about.html so the site root can become the tutorial hub. Source docs/about.md untouched; re-rendered with the same flags. One line added at the top of about.md linking back to the hub.",
+      "verdict": "PASS",
+      "notes": "Pure relocation; no content change."
+    }
+  ]
 }
