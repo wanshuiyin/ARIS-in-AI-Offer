@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_post_training_tutorial.md">
-<meta name="aris:source-sha256" content="c005ed58067d968a9a96afabf372728dae76d95b9cc7a2f0a08fbd35fc752dec">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:source-sha256" content="a3300c58d94f1e4b212dad08134fb9eceee96e26d29e280d915f7cc21e7d3352">
+<meta name="aris:generated-at" content="2026-09-10 11:30 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -567,15 +567,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#46-dpo-家族总览表">4.6 DPO 家族总览表</a></li>
 </ul>
 </li>
-<li><a href="#5-flow-grpoflow-matching-的-rl">§5 Flow-GRPO：Flow Matching 的 RL</a>
-<ul>
-<li><a href="#51-为什么-flow-matching-也要-post-training">5.1 为什么 Flow Matching 也要 post-training</a></li>
-<li><a href="#52-flow-grpo-的两个核心-trick">5.2 Flow-GRPO 的两个核心 trick</a></li>
-<li><a href="#53-flow-grpo-的-advantage-计算">5.3 Flow-GRPO 的 advantage 计算</a></li>
-<li><a href="#54-flow-grpo-的-loss">5.4 Flow-GRPO 的 loss</a></li>
-<li><a href="#55-vector-field-的-advantage-几何意义">5.5 vector field 的 advantage 几何意义</a></li>
-<li><a href="#56-flow-grpo-实测结果">5.6 Flow-GRPO 实测结果</a></li>
-</ul>
+<li><a href="#5-flow-grpo已迁至独立教程">§5 Flow-GRPO（已迁至独立教程）</a>
 </li>
 <li><a href="#6-code-patterns可读伪代码">§6 Code Patterns（可读伪代码）</a>
 <ul>
@@ -583,7 +575,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#62-diffusion-dpo-loss">6.2 Diffusion-DPO loss</a></li>
 <li><a href="#63-alignprop--draft-反传-with-checkpointing">6.3 AlignProp / DRaFT 反传 with checkpointing</a></li>
 <li><a href="#64-spo-step-aware-preference-loss">6.4 SPO step-aware preference loss</a></li>
-<li><a href="#65-flow-grpo-group-relative-advantage">6.5 Flow-GRPO group-relative advantage</a></li>
+<li><a href="#65-flow-grpo-group-relative-advantage已迁出">6.5 Flow-GRPO group-relative advantage（已迁出）</a></li>
 <li><a href="#66-combined-reward-signal">6.6 Combined reward signal</a></li>
 </ul>
 </li>
@@ -636,15 +628,15 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_post_training_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>c005ed58067d</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>SHA256:</strong> <code>a3300c58d94f</code></span>
+    <span><strong>Rendered:</strong> 2026-09-10 11:30 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr">§0 TL;DR</h2>
 <div class="callout callout-info"><div class="callout-title">9 句话搞定 Diffusion Post-Training</div><p>一页拿下 RL/DPO/Flow-RL 全家桶（详见 §1–§10 推导）。</p></div>
-<ol><li><strong>为什么难</strong>：diffusion 是多步 $T$ 步生成（典型 20–50 步），reward 只在终态 $x_0$ 给一次 —— <strong>稀疏 terminal reward + 长 denoising trajectory + credit assignment</strong> 三件事叠加，比 LLM RLHF 多一个"轨迹积分"维度。</li><li><strong>三条主线</strong>：(i) RL on denoising MDP（DDPO / DPOK，把 $T$ 步 denoising 当 MDP）；(ii) Direct reward backprop（DRaFT / AlignProp / ReFL，把 reward 当 differentiable loss 沿 $T$ 步反传）；(iii) Preference optimization（Diffusion-DPO / D3PO / SPO / Diffusion-KTO / MaPO，把 LLM DPO 家族搬到 diffusion）。</li><li><strong>DDPO (Black et al. 2024 ICLR, arXiv 2305.13301)</strong>：denoising 视为 $T$-步 MDP，state $= (x_t, t, c)$，action $= x_{t-1}$，per-trajectory reward $R(x_0, c)$；用 REINFORCE 或 PPO-clip 更新 $\log p_\theta(x_{t-1} \mid x_t, c)$。</li><li><strong>AlignProp (Prabhudesai et al. 2024 ICLR, arXiv 2310.03739)</strong> &amp; <strong>DRaFT (Clark et al. 2024 ICLR, arXiv 2309.17400)</strong>：reward $R$ 关于 $x_0$ 可导时，直接把 $R(x_0)$ 沿 $T$ 步 sampler <strong>反传</strong>到 $\theta$。<strong>关键工程问题</strong>：显存 $\mathcal{O}(T)$；DRaFT-K / AlignProp 只回传最后 $K$ 步（典型 $K \in \{1, 5\}$），配合 gradient checkpointing 把显存压到 $\mathcal{O}(K)$。</li><li><strong>Diffusion-DPO (Wallace et al. 2024 CVPR, arXiv 2311.12908)</strong>：把 LLM 的 $\log\pi/\pi_\text{ref}$ 换成 diffusion 的 <strong>per-step ELBO surrogate</strong>——具体地，用 $-\|\epsilon - \epsilon_\theta(x_t, t)\|^2$ 作为 $\log p_\theta(x_0)$ 的一个 lower bound 项，对 $(y_w, y_l)$ 拼成 DPO contrastive。</li><li><strong>D3PO (Yang et al. 2024 CVPR, arXiv 2311.13231)</strong>：<strong>完全免 RM</strong>——直接把人类对生成图片的 thumbs up/down 信号代入 KL-regularized 最优解的 implicit reward；推导上与 DPO 平行，但放到 diffusion <strong>per-step Markov chain</strong> 上。</li><li><strong>SPO (Liang et al. 2024, arXiv 2406.04314)</strong>：观察到不同 denoising step 偏好不同（高噪 step 学构图，低噪 step 学细节），把 DPO 推广为 <strong>step-aware</strong>——每个 $t$ 单独采 in-step pair $(x_{t-1}^w, x_{t-1}^l)$，loss 在 step 维度上加权。</li><li><strong>Flow-GRPO (Liu et al. 2025, arXiv 2505.05470)</strong>：第一个把 GRPO 搬到 Flow Matching 的工作。两个关键 trick：<strong>ODE→SDE 等价转换</strong>让确定性 flow 变可探索的随机过程；<strong>denoising reduction</strong> 训练时减步、推理时全步。RL-tuned SD3.5-M 把 GenEval 从 63% 拉到 95%。</li><li><strong>Reward hacking is the real boss</strong>：过饱和颜色、构图单调、风格收敛、PickScore 高但人眼丑 —— 缓解靠 reward ensemble (HPSv2 + PickScore + ImageReward + CLIP-Score)、KL anchor (Diffusion-DPO 的 $\beta$)、early stop on reward plateau。SD3 / FLUX <strong>几乎不公开 post-training 细节</strong>，但社区主流认为 SD3.5 Turbo 系列、FLUX.1 dev 走的是 DPO + 蒸馏混合路线。</li></ol>
+<ol><li><strong>为什么难</strong>：diffusion 是多步 $T$ 步生成（典型 20–50 步），reward 只在终态 $x_0$ 给一次 —— <strong>稀疏 terminal reward + 长 denoising trajectory + credit assignment</strong> 三件事叠加，比 LLM RLHF 多一个"轨迹积分"维度。</li><li><strong>三条主线</strong>：(i) RL on denoising MDP（DDPO / DPOK，把 $T$ 步 denoising 当 MDP）；(ii) Direct reward backprop（DRaFT / AlignProp / ReFL，把 reward 当 differentiable loss 沿 $T$ 步反传）；(iii) Preference optimization（Diffusion-DPO / D3PO / SPO / Diffusion-KTO / MaPO，把 LLM DPO 家族搬到 diffusion）。</li><li><strong>DDPO (Black et al. 2024 ICLR, arXiv 2305.13301)</strong>：denoising 视为 $T$-步 MDP，state $= (x_t, t, c)$，action $= x_{t-1}$，per-trajectory reward $R(x_0, c)$；用 REINFORCE 或 PPO-clip 更新 $\log p_\theta(x_{t-1} \mid x_t, c)$。</li><li><strong>AlignProp (Prabhudesai et al. 2024 ICLR, arXiv 2310.03739)</strong> &amp; <strong>DRaFT (Clark et al. 2024 ICLR, arXiv 2309.17400)</strong>：reward $R$ 关于 $x_0$ 可导时，直接把 $R(x_0)$ 沿 $T$ 步 sampler <strong>反传</strong>到 $\theta$。<strong>关键工程问题</strong>：显存 $\mathcal{O}(T)$；DRaFT-K / AlignProp 只回传最后 $K$ 步（典型 $K \in \{1, 5\}$），配合 gradient checkpointing 把显存压到 $\mathcal{O}(K)$。</li><li><strong>Diffusion-DPO (Wallace et al. 2024 CVPR, arXiv 2311.12908)</strong>：把 LLM 的 $\log\pi/\pi_\text{ref}$ 换成 diffusion 的 <strong>per-step ELBO surrogate</strong>——具体地，用 $-\|\epsilon - \epsilon_\theta(x_t, t)\|^2$ 作为 $\log p_\theta(x_0)$ 的一个 lower bound 项，对 $(y_w, y_l)$ 拼成 DPO contrastive。</li><li><strong>D3PO (Yang et al. 2024 CVPR, arXiv 2311.13231)</strong>：<strong>完全免 RM</strong>——直接把人类对生成图片的 thumbs up/down 信号代入 KL-regularized 最优解的 implicit reward；推导上与 DPO 平行，但放到 diffusion <strong>per-step Markov chain</strong> 上。</li><li><strong>SPO (Liang et al. 2024, arXiv 2406.04314)</strong>：观察到不同 denoising step 偏好不同（高噪 step 学构图，低噪 step 学细节），把 DPO 推广为 <strong>step-aware</strong>——每个 $t$ 单独采 in-step pair $(x_{t-1}^w, x_{t-1}^l)$，loss 在 step 维度上加权。</li><li><strong>Flow-GRPO (Liu et al. 2025, arXiv 2505.05470)</strong>：第一个把 GRPO 搬到 Flow Matching 的工作——ODE→SDE 同边缘转换 + denoising reduction，SD3.5-M GenEval 63% → 95%。它与 DGPO、DiffusionNFT 的完整推导和对比已独立成篇：<a href="modern_diffusion_post_training_tutorial.md">《现代 Diffusion 后训练》</a>。</li><li><strong>Reward hacking is the real boss</strong>：过饱和颜色、构图单调、风格收敛、PickScore 高但人眼丑 —— 缓解靠 reward ensemble (HPSv2 + PickScore + ImageReward + CLIP-Score)、KL anchor (Diffusion-DPO 的 $\beta$)、early stop on reward plateau。SD3 / FLUX <strong>几乎不公开 post-training 细节</strong>，但社区主流认为 SD3.5 Turbo 系列、FLUX.1 dev 走的是 DPO + 蒸馏混合路线。</li></ol>
 <div class="callout callout-good"><div class="callout-title">vs LLM RLHF 一句话对比</div><p>LLM RLHF 关心 "token-level credit assignment + KL anchor"；diffusion post-training 关心 "denoising-step credit assignment + 显存爆炸 (backprop) 或 sample 爆炸 (RL)"。本质相同问题——稀疏 reward + 长轨迹——只是轨迹的物理含义换了。</p></div>
 <h2 id="1-直觉为何-diffusion-post-training-难">§1 直觉：为何 diffusion post-training 难</h2>
 <h3 id="11-单步-vs-多步生成的本质差异">1.1 单步 vs 多步生成的本质差异</h3>
@@ -807,39 +799,11 @@ optimizer.step()</code></pre>
 <ul><li><strong>不需要 ref UNet</strong>：显存省一半（从 $2 \times M$ 到 $M$）。</li><li><strong>解决 reference mismatch</strong>：当 fine-tune 到新风格（reference 与目标分布差距大）时 Diffusion-DPO 训练崩溃，MaPO 稳定。</li><li><strong>训练快 15%</strong>（论文报告，5 domains 上验证）。</li></ul>
 <h3 id="46-dpo-家族总览表">4.6 DPO 家族总览表</h3>
 <div class="table-wrap"><table><thead><tr><th>方法</th><th>需要 ref?</th><th>偏好类型</th><th>显存</th><th>适用</th></tr></thead><tbody><tr><td><strong>Diffusion-DPO</strong> (Wallace 2024)</td><td>✅</td><td>paired</td><td>2x</td><td>一般 alignment</td></tr><tr><td><strong>D3PO</strong> (Yang 2024)</td><td>✅</td><td>paired or thumbs</td><td>2x</td><td>没 RM 时</td></tr><tr><td><strong>SPO</strong> (Liang 2024)</td><td>✅ + step-RM</td><td>per-step paired</td><td>2x + 小 step-RM</td><td>想榨干 step 信号</td></tr><tr><td><strong>Diffusion-KTO</strong> (Li 2024)</td><td>✅</td><td>unpaired binary</td><td>2x</td><td>大量 thumbs 数据</td></tr><tr><td><strong>MaPO</strong> (Hong 2024)</td><td>❌</td><td>paired</td><td>1x</td><td>风格 fine-tune / 显存紧</td></tr></tbody></table></div>
-<h2 id="5-flow-grpoflow-matching-的-rl">§5 Flow-GRPO：Flow Matching 的 RL</h2>
-<h3 id="51-为什么-flow-matching-也要-post-training">5.1 为什么 Flow Matching 也要 post-training</h3>
-<p>SD3 / FLUX / Lumina 全部转向 Flow Matching（Rectified Flow），post-training 需求一样：</p>
-<ul><li>提升 GenEval / DPG 等组合性 benchmark（颜色、计数、空间关系）。</li><li>提升 OCR / 文字渲染准确率。</li><li>提升 prompt-image alignment（VLM judge）。</li></ul>
-<p>但 Flow Matching 是<strong>确定性 ODE</strong>（$\dot x_t = v_\theta(t, x, c)$），DDPO/DPOK 假设的 stochastic transition 不存在——直接套 RL 框架会失败。</p>
-<h3 id="52-flow-grpo-的两个核心-trick">5.2 Flow-GRPO 的两个核心 trick</h3>
-<p>Liu et al. 2025 <em>Flow-GRPO: Training Flow Matching Models via Online RL</em>（arXiv 2505.05470）解决了 Flow + RL 的两个根本问题：</p>
-<h4 id="trick-1ode--sde-等价转换">Trick 1：ODE → SDE 等价转换</h4>
-<p>对 Rectified Flow 的 ODE $\dot x_t = v_\theta(t, x_t, c)$，构造一个<strong>等价的 SDE</strong>：</p>
-<p>$$dx_t = \big[v_\theta(t, x_t, c) + \tfrac{1}{2}\sigma(t)^2 \nabla_x \log p_t(x_t)\big]\,dt + \sigma(t)\,dW_t$$</p>
-<p><strong>关键性质</strong>（Song et al. 2021 score SDE 框架）：这条 SDE 的 marginal $p_t$ 与原 ODE <strong>完全相同</strong>。区别是 SDE 提供了<strong>随机探索</strong>（$dW_t$ 噪声项），让 RL 可以 sample 不同 trajectory。</p>
-<p>对 Flow Matching，$\nabla_x \log p_t = -\epsilon/\sigma_t$（在 Gaussian path 下），可以从 $v_\theta$ 推得 score。把 $\sigma(t)$ 设为 schedule（典型 $\sigma(t) = \sqrt{1-t}$），就得到 Flow-GRPO 训练用的 SDE sampler。</p>
-<div class="callout callout-info"><div class="callout-title">物理意义</div><p>加 $\sigma\,dW$ 让粒子在 marginal 不变的前提下"抖动"出多条 trajectory，于是同一 prompt 的 $G$ 次 sample 是真正不同的 → GRPO 的组内统计可算。</p></div>
-<h4 id="trick-2denoising-reduction">Trick 2：Denoising reduction</h4>
-<p>GRPO 需要 sample 一组 $G$ 个 trajectory，$G$ 典型 16–32。Flow Matching 推理一般 25–50 步，<strong>训练时 sample 一次 $\approx 25 G$ 次 forward</strong>，太贵。</p>
-<p>Flow-GRPO 训练时用 <strong>fewer steps</strong>（如 10 步），推理时仍用 25–50 步。SDE 在 schedule 上更均匀，少步训练的"探索质量"够用。具体地：</p>
-<p>$$\text{Training}: T_\text{train} = 10, \quad \text{Inference}: T_\text{infer} = 28$$</p>
-<p>实测在 GenEval / OCR / Aesthetic 上不掉点。</p>
-<h3 id="53-flow-grpo-的-advantage-计算">5.3 Flow-GRPO 的 advantage 计算</h3>
-<p>和 GRPO for LLM 完全平行——对同一 prompt $c$ sample $G$ 个 final image $\{x_0^{(1)}, \dots, x_0^{(G)}\}$，每个打 reward $r_i$，组内归一化：</p>
-<p>$$\hat{A}_i = \frac{r_i - \text{mean}_{j}(r_j)}{\text{std}_j(r_j) + \epsilon}$$</p>
-<p>整条 trajectory 内所有 step 共享 $\hat{A}_i$（同 LLM GRPO 的 per-token 共享）。</p>
-<h3 id="54-flow-grpo-的-loss">5.4 Flow-GRPO 的 loss</h3>
-<p>记 SDE Euler step 的 transition log-prob $\log p_\theta(x_{t-1} \mid x_t, c)$（Gaussian），importance ratio $\rho_{i,t} = p_\theta / p_{\theta_\text{old}}$，PPO-clip：</p>
-<p>$$L^\text{Flow-GRPO} = \mathbb{E}\!\left[\frac{1}{G}\sum_i\!\frac{1}{T_\text{train}}\!\sum_t \min\!\big(\rho_{i,t}\hat{A}_i, \text{clip}(\rho_{i,t}, 1-\epsilon, 1+\epsilon)\hat{A}_i\big) - \beta\, \text{KL}_{i,t}(p_\theta \Vert p_\text{ref})\right]$$</p>
-<p>KL 仍用 K3 estimator（同 GRPO for LLM）。</p>
-<h3 id="55-vector-field-的-advantage-几何意义">5.5 vector field 的 advantage 几何意义</h3>
-<div class="callout callout-good"><div class="callout-title">L3 级理解</div></div>
-<ul><li>LLM GRPO 的 advantage 在 token logit 空间上做 reweight；</li><li>Flow-GRPO 的 advantage 直接 reweight $v_\theta$ 的<strong>方向修正</strong>——具体地，$\hat A_i &gt; 0$ 时把 $v_\theta(t, x_t, c)$ 推向 trajectory $\tau_i$ 实际经过的方向 $(x_{t-1}^{(i)} - x_t^{(i)})/dt$。</li><li>这是 $v_\theta$ 空间的"方向梯度"，等价于在 Gaussian path 下的 $\epsilon$-prediction 重要性加权。</li></ul>
-<h3 id="56-flow-grpo-实测结果">5.6 Flow-GRPO 实测结果</h3>
-<p>论文报告 SD3.5-M 上：</p>
-<div class="table-wrap"><table><thead><tr><th>Benchmark</th><th>SD3.5-M base</th><th>Flow-GRPO</th></tr></thead><tbody><tr><td>GenEval overall</td><td>63%</td><td><strong>95%</strong></td></tr><tr><td>Visual text rendering</td><td>59%</td><td><strong>92%</strong></td></tr><tr><td>Aesthetic (Schuhmann)</td><td>5.8</td><td>6.1</td></tr></tbody></table></div>
-<div class="callout callout-warn"><div class="callout-title">GenEval 95% 看起来过于完美</div><p>论文确实主张这个数字，但需注意 GenEval 测的是规则可验证的对象计数/颜色/空间关系，本身就是 RL 友好任务（reward 极规则化）。在更主观的 PartiPrompt / DPG 上涨幅是 5–10 点，更现实。</p></div>
+<h2 id="5-flow-grpo已迁至独立教程">§5 Flow-GRPO（已迁至独立教程）</h2>
+<p>Flow-GRPO（Liu et al. 2025，arXiv 2505.05470）是把 GRPO 搬到 Flow Matching 的第一篇工作：把确定性 ODE 改写成<strong>同边缘的 SDE</strong>，得到可算的 Gaussian 单步转移密度，然后做 advantage 加权的 PPO-clip；训练时 10 步采样、评估 40 步（denoising reduction）。SD3.5-M 上 GenEval 0.63 → 0.95。</p>
+<p>它和后来的 <strong>DGPO</strong>、<strong>DiffusionNFT</strong> 一起构成"从 group sampling 出发的三条路"，完整的推导（reverse SDE 的符号、闭式 KL、离散化）、三者对比和 runnable toy 都在：</p>
+<p>👉 <a href="modern_diffusion_post_training_tutorial.md">《现代 Diffusion 后训练：Flow-GRPO · DGPO · DiffusionNFT》</a></p>
+<p>本篇只保留它在整个 post-training 版图里的位置（§1.2 Line A、§9 对比表）。</p>
 <h2 id="6-code-patterns可读伪代码">§6 Code Patterns（可读伪代码）</h2>
 <h3 id="61-ddpo-reinforce-style-update">6.1 DDPO REINFORCE-style update</h3>
 <pre><code class="language-python">import torch
@@ -1009,87 +973,8 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 
     inner = beta * ((log_p_w - log_pref_w) - (log_p_l - log_pref_l))
     return -F.logsigmoid(inner).mean()</code></pre>
-<h3 id="65-flow-grpo-group-relative-advantage">6.5 Flow-GRPO group-relative advantage</h3>
-<pre><code class="language-python">def flow_grpo_step(flow_net, ref_flow, prompts, reward_fn,
-                   G=16, T_train=10, sigma_fn=lambda t: (1 - t) ** 0.5,
-                   eps_clip=0.2, beta=0.04):
-    &quot;&quot;&quot;
-    Flow-GRPO 一步训练。
-    G: 每个 prompt sample G 个 trajectory.
-    T_train: 训练用 SDE 步数（推理时另外用 28-50 步）.
-    &quot;&quot;&quot;
-    P = len(prompts)
-    # 每个 prompt 重复 G 次
-    prompts_rep = sum([[p] * G for p in prompts], [])      # [P*G]
-
-    # ── 1. SDE rollout: ODE→SDE 等价转换 ──
-    x_t = torch.randn(P * G, 4, 64, 64, device=device)
-    log_probs_old = []                                     # for PPO importance ratio
-    trajectory = [x_t.clone()]
-    with torch.no_grad():
-        for i in range(T_train):
-            t_now = 1.0 - i / T_train
-            t_next = 1.0 - (i + 1) / T_train
-            dt = t_next - t_now
-            sigma = sigma_fn(t_now)
-            v = flow_net(x_t, t_now, prompts_rep)
-            # SDE Euler: drift = v + 0.5 σ² ∇log p (PF-ODE → SDE 转换, Song 2021)
-            # !!! 重要：以下 drift 是简化教学版（placeholder），生产实现要按 Flow-GRPO 论文 Eq.(6)
-            #     正确地从 score 关于 data/noise/velocity 的关系重新推导，包含具体 Rectified Flow / EDM schedule.
-            #     真实部署请参考论文 + 官方 repo；此处 -v/σ 仅作 illustrative（已用 +1e-6 guard 避免除零，
-            #     t=1 时 sigma→0，该修正项随 sigma² 一起趋于 0，不是 NaN——但公式本身并非严谨推导）.
-            #     注：本 placeholder 的 sigma_fn(t)=sqrt(1-t) 在轨迹起点 t=1（纯噪声）给零 SDE 噪声、
-            #     在轨迹终点 t=0（接近干净数据）给最大噪声——与&quot;探索噪声应早大晚小&quot;的常见直觉相反；
-            #     实现真正的 Flow-GRPO trainer 时应同时重推 score 项（论文 Eq.6）和噪声 schedule 的方向/符号，
-            #     不要直接照搬这里的示意 sigma_fn.
-            drift = v + 0.5 * sigma ** 2 * (-v / (sigma + 1e-6))  # placeholder, see paper Eq.(6)
-            noise = torch.randn_like(x_t)
-            x_next = x_t + drift * dt + sigma * noise * abs(dt) ** 0.5
-            # Gaussian log-prob (transition)
-            mean = x_t + drift * dt
-            std = sigma * abs(dt) ** 0.5
-            log_p = -0.5 * ((x_next - mean) / std).pow(2).sum([1, 2, 3])
-            log_probs_old.append(log_p)
-            x_t = x_next
-            trajectory.append(x_t.clone())
-        x_0 = x_t
-
-    # ── 2. Group-relative advantage ──
-    R = reward_fn(x_0, prompts_rep)                        # [P*G]
-    R = R.view(P, G)
-    mean_R = R.mean(dim=1, keepdim=True)
-    std_R = R.std(dim=1, keepdim=True) + 1e-8
-    A = ((R - mean_R) / std_R).view(P * G)                 # [P*G]
-
-    # ── 3. PPO-clip loss with KL ──
-    loss = 0.0
-    x_t = trajectory[0]
-    for i in range(T_train):
-        t_now = 1.0 - i / T_train
-        v = flow_net(x_t, t_now, prompts_rep)              # grad ON
-        sigma = sigma_fn(t_now)
-        drift = v + 0.5 * sigma ** 2 * (-v / (sigma + 1e-6))
-        dt = -1.0 / T_train
-        mean = x_t + drift * dt
-        std = sigma * abs(dt) ** 0.5
-        log_p_new = -0.5 * ((trajectory[i+1] - mean) / std).pow(2).sum([1, 2, 3])
-        ratio = (log_p_new - log_probs_old[i]).exp()
-        surr1 = ratio * A
-        surr2 = ratio.clamp(1 - eps_clip, 1 + eps_clip) * A
-        loss = loss - torch.min(surr1, surr2).mean()
-
-        # K3 KL estimator
-        with torch.no_grad():
-            v_ref = ref_flow(x_t, t_now, prompts_rep)
-            drift_ref = v_ref + 0.5 * sigma ** 2 * (-v_ref / (sigma + 1e-6))
-            mean_ref = x_t + drift_ref * dt
-            log_p_ref = -0.5 * ((trajectory[i+1] - mean_ref) / std).pow(2).sum([1,2,3])
-        delta = log_p_ref - log_p_new
-        kl_k3 = (delta.exp() - delta - 1)
-        loss = loss + beta * kl_k3.mean()
-
-        x_t = trajectory[i + 1].detach()
-    return loss</code></pre>
+<h3 id="65-flow-grpo-group-relative-advantage已迁出">6.5 Flow-GRPO group-relative advantage（已迁出）</h3>
+<p>SDE 一步 + Gaussian log-prob + ratio + 闭式 KL 的可读实现见 <a href="modern_diffusion_post_training_tutorial.md">《现代 Diffusion 后训练》§7.1</a>。</p>
 <h3 id="66-combined-reward-signal">6.6 Combined reward signal</h3>
 <pre><code class="language-python">def combined_reward(images, prompts, weights=None):
     &quot;&quot;&quot;
@@ -1125,7 +1010,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <div class="table-wrap"><table><thead><tr><th>维度</th><th>Trajectory-level</th><th>Step-level</th></tr></thead><tbody><tr><td>信号位置</td><td>只在 $x_0$</td><td>每个 $t$ 都有</td></tr><tr><td>数据获取</td><td>易（一张图）</td><td>难（需要 step-wise RM 或 rollout）</td></tr><tr><td>学习效率</td><td>低（稀疏）</td><td>高（dense）</td></tr><tr><td>代表</td><td>DDPO, Diffusion-DPO</td><td>SPO (Liang 2024)</td></tr><tr><td>工程难度</td><td>低</td><td>高（要么训 step-RM，要么 PRM-shepherd 式 rollout）</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">step-RM 怎么训</div><p>SPO 用一个 "given $x_t$ at step $t$, is $x_{t-1}$ a good transition?" 的 binary RM。训练数据：从 base UNet 跑多条 trajectory，用最终 $x_0$ 的 reward 反推每步的 step-reward (类似 Math-Shepherd 的 rollout-based PRM)。</p></div>
 <h3 id="74-缓解-reward-hacking-的核心机制">7.4 缓解 reward hacking 的核心机制</h3>
-<ol><li><strong>Reward ensemble</strong>：多 RM 取 min 或 mean（HPSv2 + PickScore + ImageReward 是主流组合）。</li><li><strong>KL anchor</strong>：DPO 的 $\beta$、DPOK 的显式 KL、Flow-GRPO 的 K3 KL term。</li><li><strong>LoRA scale</strong>：full fine-tune 漂移快，LoRA scale 限制 reward hacking 上限。</li><li><strong>Early stop on reward plateau</strong>：reward 涨 + FID 涨 = hacking 信号。</li><li><strong>Composite reward</strong>：rule-based (object count, OCR) + neural RM (aesthetic, alignment) 加权。</li><li><strong>Adversarial RM</strong>：训 RM 时加 hacking 样本作为 negative。</li></ol>
+<ol><li><strong>Reward ensemble</strong>：多 RM 取 min 或 mean（HPSv2 + PickScore + ImageReward 是主流组合）。</li><li><strong>KL anchor</strong>：DPO 的 $\beta$、DPOK 的显式 KL、Flow-GRPO 的闭式 Gaussian 单步 KL。</li><li><strong>LoRA scale</strong>：full fine-tune 漂移快，LoRA scale 限制 reward hacking 上限。</li><li><strong>Early stop on reward plateau</strong>：reward 涨 + FID 涨 = hacking 信号。</li><li><strong>Composite reward</strong>：rule-based (object count, OCR) + neural RM (aesthetic, alignment) 加权。</li><li><strong>Adversarial RM</strong>：训 RM 时加 hacking 样本作为 negative。</li></ol>
 <h2 id="8-production-landscapesd3--flux-用了什么">§8 Production Landscape：SD3 / FLUX 用了什么</h2>
 <h3 id="81-公开论文--报告说了什么">8.1 公开论文 / 报告说了什么</h3>
 <div class="table-wrap"><table><thead><tr><th>模型</th><th>Post-training?</th><th>公开内容</th></tr></thead><tbody><tr><td><strong>SD 1.5</strong></td><td>部分社区 DPO / DDPO LoRA</td><td>base 是纯 LDM；社区 fine-tune 多</td></tr><tr><td><strong>SDXL</strong></td><td>Stability AI 没明确 post-training</td><td>base + refiner; Pick-a-Pic + Diffusion-DPO 社区 LoRA 流行</td></tr><tr><td><strong>SDXL Turbo / ADD</strong></td><td>蒸馏为主</td><td>Adversarial Diffusion Distillation (2311.17042)；本质是 1-step distill，不属 RL post-training</td></tr><tr><td><strong>SD3</strong> (Stable Diffusion 3, Esser et al. 2024 ICML)</td><td>base 用 Rectified Flow + MM-DiT</td><td>论文未公开 post-training；社区猜测有内部 DPO</td></tr><tr><td><strong>SD3.5 / SD3.5 Turbo</strong></td><td>有 distill，post-training 未公开</td><td>推测有 DPO + distill 混合</td></tr><tr><td><strong>FLUX.1 dev / pro</strong> (Black Forest Labs 2024)</td><td>未公开</td><td>社区猜测 DPO + distill；pro 走 API 闭源</td></tr><tr><td><strong>DALL-E 3</strong> (OpenAI 2023)</td><td>"synthetic recaptioning"（未描述 RLHF）</td><td>synthetic recaptioning（详尽图像描述数据增强），未描述 RLHF 后训练</td></tr><tr><td><strong>Imagen 3</strong> (Google 2024)</td><td>未公开</td><td>内部 alignment 流程</td></tr><tr><td><strong>DeepFloyd IF</strong></td><td>无 post-training</td><td>学术 base model</td></tr></tbody></table></div>
@@ -1211,9 +1096,9 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <p>只说"过度优化"不具体；要能举至少 3 种具体视觉症状。</p>
 </details>
 <details>
-<summary>Q9. Flow-GRPO 的 ODE→SDE 转换为什么必要？</summary>
-<ul><li>Flow Matching 的 ODE $\dot x = v_\theta$ 是<strong>确定性</strong>的，给定 $x_T$ → $x_0$ 唯一。</li><li>RL 需要 stochastic policy 来 explore；ODE 没有 sampling 维度。</li><li>ODE→SDE 加 $\sigma\, dW$ 噪声项，<strong>marginal $p_t$ 不变</strong>（Anderson 1982），但每次 sample 路径不同 → 可 explore。</li></ul>
-<p>不知道 marginal 不变（错，会以为 SDE 改变了 distribution）。</p>
+<summary>Q9. DPOK 比 DDPO 多了什么？它的 per-step KL 之和等于终态 KL 吗？</summary>
+<ul><li>DDPO 是纯 RL（REINFORCE / PPO-clip），KL 只通过 ratio clip 隐式存在；DPOK 在目标里加<strong>显式</strong> $\beta\,\text{KL}(p_\theta \Vert p_\text{ref})$，对应 LLM RLHF 的 "$\beta\log(\pi/\pi_\text{ref})$"。</li><li>per-step Gaussian KL 之和是<strong>联合轨迹 KL</strong> $\text{KL}(p_\theta(x_{0:T}) \Vert p_\text{ref}(x_{0:T}))$ 的精确展开；由 data-processing inequality，它是<strong>终态 marginal KL 的上界</strong>，不是恒等式。DPOK 用这个可闭式算的上界当 surrogate。</li></ul>
+<p>把"上界"说成"等于"不得分。</p>
 </details>
 <details>
 <summary>Q10. Diffusion-DPO 训练时 $y_w$ 和 $y_l$ 的 noise 怎么处理？</summary>
@@ -1248,10 +1133,9 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <p>说"完全不同"（错，理论等价）；或不知道 D3PO 也是 DPO 家族。</p>
 </details>
 <details>
-<summary>Q16. Flow-GRPO 的 denoising reduction 是什么？为什么不掉点？</summary>
-<ul><li>训练时 SDE 用少步（$T_\text{train} = 10$），推理时仍用全步（$T_\text{infer} = 28$–$50$）。</li><li><p><strong>经验上不大掉点的理由</strong>（注意：这是经验观察 + approximation，不是严格等价）：</p>
-<ul><li>SDE 的 <strong>连续 marginal</strong> $p_t$ 与离散步数无关；但 <strong>离散 sampler 的实际分布</strong> 与 step 数有关——少步是 discretization-error 较大的近似。所以严格说 "same marginal" 只在 continuous limit 成立。</li><li>RL 学的是 $v_\theta$ 的方向修正，<strong>方向信号</strong>与具体步数耦合较弱（这是经验观察）。</li><li>在 GenEval/OCR 这类 rule-based reward 上不掉点；在更主观 reward 上略掉但可接受。</li></ul></li><li><strong>省 sample 成本</strong>：训练每 prompt $G \cdot T_\text{train}$ 次 forward → 1/3 成本。</li></ul>
-<p>不知道 marginal 不变（错）；或以为 train/infer 必须同步数。</p>
+<summary>Q16. ReFL 和 DRaFT / AlignProp 都是"reward 当 loss 反传"，实质差在哪？</summary>
+<ul><li>ReFL（ImageReward 原文）只在<strong>一个随机中间步</strong> $t'$ 上用 Tweedie 一步估计 $\hat x_0(x_{t'}, t')$ 算 reward，并和 $\mathcal L_\text{simple}$ <strong>联合训练</strong>：$\mathcal L = \mathcal L_\text{simple} - \lambda\,\mathbb E_{t'}[R(\hat x_0)]$。</li><li>DRaFT / AlignProp 沿真实采样轨迹<strong>多步反传</strong>纯 reward loss（DRaFT-K 截断最后 $K$ 步，AlignProp 用 checkpointing）。</li><li>取舍：ReFL 更稳、reward 涨幅小（看的是一步估计不是真实轨迹）；DRaFT 涨幅大、显存 $\mathcal O(K)$、更容易 hack。</li></ul>
+<p>只答"ReFL 更早"不得分；要说出单步 Tweedie + 联训这两点。</p>
 </details>
 <details>
 <summary>Q17. MaPO 怎么去掉 reference model？loss 长什么样？</summary>
@@ -1293,11 +1177,10 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <p>只说 gradient checkpointing 不到位；不知道 reversibility 假设。</p>
 </details>
 <details>
-<summary>Q23. Flow-GRPO 中 vector field $v_\theta$ 的 advantage 几何意义？</summary>
-<p>GRPO 的 advantage 在 vector field 空间作用如下：</p>
-<ol><li><strong>Group statistics</strong>：对同一 prompt $c$ sample $G$ 条 SDE trajectory，每条得到不同 $x_0^{(i)}$；reward $r_i$ 给整条 trajectory 同一 advantage $\hat A_i = (r_i - \bar r)/\sigma_r$。</li><li><strong>沿 trajectory 的梯度</strong>：$\nabla_\theta L = \sum_t \nabla_\theta \log p_\theta(x_{t-1}^{(i)} \mid x_t^{(i)}) \cdot \hat A_i$。在 Gaussian transition 下，$\log p \propto -(x_{t-1} - \mu_\theta)^2/(2\sigma^2)$，所以 $\nabla_\theta \log p \propto (x_{t-1} - \mu_\theta)\nabla_\theta \mu_\theta / \sigma^2$。</li><li><strong>$\mu_\theta$ 的物理含义</strong>：在 Flow Matching SDE 下，$\mu_\theta = x_t + (v_\theta + \frac{1}{2}\sigma^2 s_\theta) dt$；$\nabla_\theta \mu_\theta \approx dt \cdot \nabla_\theta v_\theta$（忽略 score 项）。</li><li><strong>几何意义</strong>：advantage $\hat A_i &gt; 0$ 时，把 $v_\theta(t, x_t^{(i)})$ 朝 $(x_{t-1}^{(i)} - x_t^{(i)})/dt$ 方向推（即 trajectory 实际经过的方向）；advantage $&lt;0$ 时，朝相反方向推。</li><li><strong>vs ODE 视角</strong>：等价于在 vector field 空间做"组相对方向 reweight"——好的 trajectory 让 $v_\theta$ 在那个 $(t, x_t)$ 上指向它经过的方向，坏的反之。</li></ol>
-<p>这是 vector field 上的 "reward-weighted importance sampling"：每条 SDE trajectory 是 $v_\theta$ 的一次"提议方向"，advantage 决定要不要 follow。</p>
-<p>完全说不出几何就 0 分；说"reweighting"但不能说清在哪个空间也只值半分。</p>
+<summary>Q23. DRaFT-1 只回传最后一步，这和 REINFORCE 等价吗？两种梯度估计的本质区别是什么？</summary>
+<p>不等价，是两类估计器：</p>
+<ol><li><strong>DRaFT-1 是 pathwise（reparameterized）梯度</strong>：$\nabla_\theta R(x_0) = \nabla_x R \cdot \partial x_0/\partial\theta$，需要 reward 对图像可导，沿最后一步的计算图求 $\partial x_0/\partial\theta$。方差极小。</li><li><strong>REINFORCE 是 score-function 梯度</strong>：$\mathbb E[R\,\nabla_\theta\log p_\theta(\tau)]$，不需要 reward 可导，只需要能算 $\log p_\theta$。方差大，靠 baseline / 组内归一化压。</li><li>二者在期望上都是 $\nabla_\theta\,\mathbb E[R]$ 的无偏估计（各自前提下），但 DRaFT-1 只对最后一步的参数依赖求导——它是<strong>截断</strong>的 pathwise 估计，对更早步骤的依赖被丢掉了，所以是有偏的。</li><li>工程含义：reward 可导（美学 / CLIP 类）优先 pathwise；reward 不可导（规则验证器、OCR）只能 score-function——这就是 DDPO 一系和 DRaFT 一系的分水岭。</li></ol>
+<p>把"截断"和"等价"混在一起说的，或者说 REINFORCE 也需要 reward 可导的，不得分。</p>
 </details>
 <details>
 <summary>Q24. SD3 / FLUX 是否真的用了 RL post-training？怎么判断？</summary>
@@ -1314,7 +1197,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <p><strong>Phase 1: 偏好数据收集</strong></p>
 <ul><li>收集 paired preference (Pick-a-Pic 风格)：成本高但 DPO 直接可用。</li><li>收集 binary feedback (thumbs up/down)：成本低，用 Diffusion-KTO。</li><li>收集 rule-based ground truth (GenEval 类型 prompt + 自动 verifier)：成本低，用 Flow-GRPO。</li></ul>
 <p><strong>Phase 2: 算法选择</strong></p>
-<ul><li><strong>首选 Diffusion-DPO</strong>：offline、稳、便宜、社区代码成熟（HuggingFace <code>diffusers</code> 直接支持）。</li><li><strong>如果 base 是 Flow Matching (SD3/FLUX)</strong>：用 Flow-GRPO，rule-based reward 优先。</li><li><strong>如果 fine-tune 到新风格 / 显存紧</strong>：用 MaPO（去 ref，省一半显存）。</li><li><strong>如果 reward 可导且想榨干信号</strong>：DRaFT-1 + LoRA，配 HPSv2 + PickScore ensemble。</li><li><strong>NOT 首选 DDPO</strong>：on-policy sampling 太贵，工程复杂度高，性能 vs DPO 无显著优势。</li></ul>
+<ul><li><strong>首选 Diffusion-DPO</strong>：offline、稳、便宜、社区代码成熟（HuggingFace <code>diffusers</code> 直接支持）。</li><li><strong>如果 base 是 Flow Matching (SD3/FLUX)</strong>：用 Flow-GRPO / DGPO / DiffusionNFT（选法见独立教程 §6、Q25），rule-based reward 优先。</li><li><strong>如果 fine-tune 到新风格 / 显存紧</strong>：用 MaPO（去 ref，省一半显存）。</li><li><strong>如果 reward 可导且想榨干信号</strong>：DRaFT-1 + LoRA，配 HPSv2 + PickScore ensemble。</li><li><strong>NOT 首选 DDPO</strong>：on-policy sampling 太贵，工程复杂度高，性能 vs DPO 无显著优势。</li></ul>
 <p><strong>Phase 3: Reward 设计</strong></p>
 <ul><li><strong>Multi-RM ensemble</strong>（min 或 mean - k·std）：HPSv2 + PickScore + ImageReward。</li><li><strong>加 rule-based safety</strong>：NSFW detector hard penalty。</li><li><strong>加 rule-based alignment</strong>：GenEval 自动 verifier（object count, OCR）。</li><li><strong>每个 RM 独立 z-score 归一化</strong>。</li></ul>
 <p><strong>Phase 4: 监控与 early stop</strong></p>
@@ -1335,13 +1218,13 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <h3 id="a5-与-0-tldr-的呼应">A.5 与 §0 TL;DR 的呼应</h3>
 <div class="table-wrap"><table><thead><tr><th>TL;DR 条</th><th>详见章节</th></tr></thead><tbody><tr><td>1. 为什么难</td><td>§1</td></tr><tr><td>2. 三条主线</td><td>§1.2</td></tr><tr><td>3. DDPO</td><td>§2.1–2.4</td></tr><tr><td>4. DRaFT / AlignProp</td><td>§3.2–3.3</td></tr><tr><td>5. Diffusion-DPO</td><td>§4.1</td></tr><tr><td>6. D3PO</td><td>§4.2</td></tr><tr><td>7. SPO</td><td>§4.3</td></tr><tr><td>8. Flow-GRPO</td><td>§5</td></tr><tr><td>9. Reward hacking</td><td>§3.6 + §7</td></tr></tbody></table></div>
 <div class="callout callout-good"><div class="callout-title">学完 checkpoint</div></div>
-<ul><li>能口述 Diffusion-DPO loss 形式 + paired noise 细节</li><li>能解释 AlignProp 为什么 $K=1$ 够用 + 显存 $\mathcal{O}(K)$</li><li>能写 DDPO 的 state/action/reward + per-step ratio</li><li>能讲 Flow-GRPO 的 ODE→SDE 转换为什么必要 + denoising reduction</li><li>知道 SD3/FLUX 是否用 RL 的诚实答案（公开未明说）</li></ul>
+<ul><li>能口述 Diffusion-DPO loss 形式 + paired noise 细节</li><li>能解释 AlignProp 为什么 $K=1$ 够用 + 显存 $\mathcal{O}(K)$</li><li>能写 DDPO 的 state/action/reward + per-step ratio</li><li>能说出 Flow-GRPO 在版图里的位置（Line A、group-based advantage）；推导本身见独立教程</li><li>知道 SD3/FLUX 是否用 RL 的诚实答案（公开未明说）</li></ul>
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_post_training_tutorial.md</code> ·
-  SHA256 <code>c005ed58067d</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  SHA256 <code>a3300c58d94f</code> ·
+  generated at 2026-09-10 11:30 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

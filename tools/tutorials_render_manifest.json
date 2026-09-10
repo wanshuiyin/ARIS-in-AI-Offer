@@ -226,6 +226,18 @@
     "md": "docs/tutorials/lora_peft_tutorial_en.md",
     "title": "Lora Peft Tutorial En"
   },
+  "docs/tutorials/modern_diffusion_post_training_tutorial.html": {
+    "eyebrow": "Interview Prep · Flow-GRPO / DGPO / DiffusionNFT",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/modern_diffusion_post_training_tutorial.md",
+    "subtitle": "Flow-GRPO · DGPO · DiffusionNFT：从 group sampling 出发的三条路 —— reverse SDE 推导 · 组偏好 log Z 抵消 · 前向过程反射双支 + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "title": "现代 Diffusion 后训练 面试 Cheat Sheet"
+  },
+  "docs/tutorials/modern_diffusion_post_training_tutorial_en.html": {
+    "lang": "en",
+    "md": "docs/tutorials/modern_diffusion_post_training_tutorial_en.md",
+    "title": "Modern Diffusion Post Training Tutorial En"
+  },
   "docs/tutorials/moe_tutorial.html": {
     "eyebrow": "Interview Prep · Mixture-of-Experts Architectures",
     "lang": "zh-CN",

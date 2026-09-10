@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modern Diffusion Post Training Tutorial En</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/modern_diffusion_post_training_tutorial_en.md">
+<meta name="aris:source-sha256" content="5514728546a8f442923bbecbf450d4601396dd3ad4596b9012bb3bf6c8a975b8">
+<meta name="aris:generated-at" content="2026-09-10 11:36 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-intuition-the-three-roads-in-one-sentence-each">§1 Intuition: the three roads in one sentence each</a>
+<ul>
+<li><a href="#11-the-shared-starting-point-llm-grpo">1.1　The shared starting point: LLM GRPO</a></li>
+<li><a href="#12-the-fork-which-quantity-carries-the-advantage">1.2　The fork: which quantity carries the advantage</a></li>
+<li><a href="#13-why-the-ode-blocks-flow-grpo-but-not-the-other-two">1.3　Why the ODE blocks Flow-GRPO but not the other two</a></li>
+</ul>
+</li>
+<li><a href="#2-convention-used-throughout">§2 Convention (used throughout)</a>
+<ul>
+<li><a href="#21-rectified-flow-notation">2.1　Rectified-flow notation</a></li>
+<li><a href="#22-the-conversion-table-memorise">2.2　The conversion table (memorise)</a></li>
+<li><a href="#23-the-three-roles-a-model-can-play">2.3　The three roles a model can play</a></li>
+</ul>
+</li>
+<li><a href="#3-flow-grpo-turn-the-ode-into-an-sde-then-run-ppo">§3 Flow-GRPO: turn the ODE into an SDE, then run PPO</a>
+<ul>
+<li><a href="#31-the-marginal-preserving-sde-derivation">3.1　The marginal-preserving SDE: derivation</a></li>
+<li><a href="#32-discretisation-use-a-positive-step-throughout">3.2　Discretisation: use a positive step throughout</a></li>
+<li><a href="#33-per-step-policy-log-prob-ratio">3.3　Per-step policy, log-prob, ratio</a></li>
+<li><a href="#34-loss-ppo-clip--closed-form-kl">3.4　Loss: PPO-clip + closed-form KL</a></li>
+<li><a href="#35-denoising-reduction">3.5　Denoising reduction</a></li>
+<li><a href="#36-gradient-boundaries-a-frequent-follow-up">3.6　Gradient boundaries (a frequent follow-up)</a></li>
+<li><a href="#37-results-and-costs">3.7　Results and costs</a></li>
+</ul>
+</li>
+<li><a href="#4-dgpo-no-policy-gradient--generalise-dpo-to-groups">§4 DGPO: no policy gradient — generalise DPO to groups</a>
+<ul>
+<li><a href="#41-motivation">4.1　Motivation</a></li>
+<li><a href="#42-from-dpo-to-group-dpo">4.2　From DPO to group DPO</a></li>
+<li><a href="#43-how-the-groups-are-split-and-how-log-z-cancels">4.3　How the groups are split, and how $\log Z$ cancels</a></li>
+<li><a href="#44-dsm-in-place-of-the-likelihood">4.4　DSM in place of the likelihood</a></li>
+<li><a href="#45-relation-to-diffusion-dpo">4.5　Relation to Diffusion-DPO</a></li>
+<li><a href="#46-why-the-ode-is-fine">4.6　Why the ODE is fine</a></li>
+<li><a href="#47-timestep-clipping-must-know">4.7　Timestep clipping (must know)</a></li>
+<li><a href="#48-recipe-and-results">4.8　Recipe and results</a></li>
+</ul>
+</li>
+<li><a href="#5-diffusionnft-rl-on-the-forward-process">§5 DiffusionNFT: RL on the forward process</a>
+<ul>
+<li><a href="#51-origin-nft-for-llms">5.1　Origin: NFT for LLMs</a></li>
+<li><a href="#52-what-rl-on-the-forward-process-means">5.2　What &quot;RL on the forward process&quot; means</a></li>
+<li><a href="#53-reward-normalisation-and-the-positivenegative-decomposition">5.3　Reward normalisation and the positive/negative decomposition</a></li>
+<li><a href="#54-decomposition-at-the-noisy-state-and-the-improvement-direction">5.4　Decomposition at the noisy state and the improvement direction</a></li>
+<li><a href="#55-implicit-mixing-why-the-negative-branch-carries-1beta">5.5　Implicit mixing: why the negative branch carries $(1+\beta)$</a></li>
+<li><a href="#56-loss-and-gradient-be-able-to-expand-this-in-an-interview">5.6　Loss and gradient (be able to expand this in an interview)</a></li>
+<li><a href="#57-theorem-32-and-cfg-free-inference">5.7　Theorem 3.2 and CFG-free inference</a></li>
+<li><a href="#58-the-practical-loss-eq-5-alone-is-not-enough">5.8　The practical loss (Eq. 5 alone is not enough)</a></li>
+<li><a href="#59-results">5.9　Results</a></li>
+</ul>
+</li>
+<li><a href="#6-the-three-side-by-side">§6 The three side by side</a>
+</li>
+<li><a href="#7-code-patterns">§7 Code Patterns</a>
+<ul>
+<li><a href="#71-flow-grpo-one-sde-step--log-prob--ratio">7.1　Flow-GRPO: one SDE step + log-prob + ratio</a></li>
+<li><a href="#72-dgpo-within-group-dsm-differences-into-one-sigmoid">7.2　DGPO: within-group DSM differences into one sigmoid</a></li>
+<li><a href="#73-diffusionnft-reflected-two-branch-regression">7.3　DiffusionNFT: reflected two-branch regression</a></li>
+</ul>
+</li>
+<li><a href="#8-failure-modes-of-online-rl">§8 Failure modes of online RL</a>
+</li>
+<li><a href="#9-vs-grpo--nft-for-llms">§9 vs GRPO / NFT for LLMs</a>
+</li>
+<li><a href="#10-25-high-frequency-interview-questions">§10 25 high-frequency interview questions</a>
+<ul>
+<li><a href="#l1-essentials-10">L1 essentials (10)</a></li>
+<li><a href="#l2-advanced-10">L2 advanced (10)</a></li>
+<li><a href="#l3-top-lab-5">L3 top-lab (5)</a></li>
+</ul>
+</li>
+<li><a href="#a-appendix">§A Appendix</a>
+<ul>
+<li><a href="#a1-papers">A.1　Papers</a></li>
+<li><a href="#a2-runnable-toy">A.2　Runnable toy</a></li>
+<li><a href="#a3-engineering-pitfalls">A.3　Engineering pitfalls</a></li>
+</ul>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  
+  <h1>Modern Diffusion Post Training Tutorial En</h1>
+  
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/modern_diffusion_post_training_tutorial_en.md</code></span>
+    <span><strong>SHA256:</strong> <code>5514728546a8</code></span>
+    <span><strong>Rendered:</strong> 2026-09-10 11:36 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">One sentence</div><p>the three methods here share the GRPO-style <strong>group sampling</strong> frame (sample $G$ images per prompt, normalise rewards within the group); they part ways at exactly one point: <strong>how the reward enters the gradient</strong>.</p></div>
+<ol><li><strong>Flow-GRPO</strong> (Liu et al. 2025, arXiv 2505.05470): rewrite the ODE as a marginal-preserving <strong>SDE</strong> so that a per-step Gaussian transition density exists, then run <strong>advantage-weighted PPO-clip policy gradient</strong>. Cost: training rollouts must be SDE (inference can still use the ODE), full trajectories stored, a likelihood per step, discretisation bias.</li><li><strong>DGPO</strong> (Luo, Hu, Tang 2025, arXiv 2510.08425, ICLR 2026): <strong>drops policy gradient altogether</strong> and generalises DPO from "a pair of samples" to "a pair of sub-groups" — positive group vs negative group inside one sigmoid; the likelihood is replaced by Diffusion-DPO's <strong>DSM difference</strong>. Hence deterministic <strong>ODE</strong> sampling and only clean images + rewards to store. Reported ~20× faster than Flow-GRPO.</li><li><strong>DiffusionNFT</strong> (Zheng, Chen et al. 2025, arXiv 2509.16117, ICLR 2026 Oral): RL on the <strong>forward (noising) process</strong> — a single flow-matching regression loss where positives pull toward the target and negatives push away through a <strong>reflected parameterisation</strong> about the old model. No likelihood, no solver dependence, <strong>CFG-free</strong> inference. Reported up to 25× faster than Flow-GRPO on GenEval.</li><li>None of the three needs a critic; but they are policy gradient / group-preference logistic / reward-weighted two-branch regression respectively — not "three kinds of policy gradient".</li><li><strong>old ≠ ref</strong>: old is the behaviour policy at sampling time (the denominator of the importance ratio; NFT's reflection centre), ref is the KL anchor (Flow-GRPO's KL, DGPO's DSM difference). NFT's core loss needs no fixed ref.</li><li>Keep the number provenances apart: Flow-GRPO self-reports GenEval 0.63→0.95 (CFG base) and PickScore 21.72→23.31 (with KL; 23.41 without); DGPO 0.97; NFT 0.24→0.98 (<strong>0.24 is the CFG-free base</strong>). DGPO's 3.74 vs 3.66 is <strong>UnifiedReward</strong>, not PickScore.</li><li>Killer questions: <strong>the sign of the reverse SDE</strong> (time decreasing ⇒ drift $v-\tfrac12 g^2 s$), <strong>why DGPO can cancel $\log Z$</strong> (within-group advantages sum to zero ⇒ positive and negative weights have equal total mass), <strong>why NFT's negative branch carries $(1+\beta)$</strong> (reflection about old).</li></ol>
+<hr />
+<h2 id="1-intuition-the-three-roads-in-one-sentence-each">§1 Intuition: the three roads in one sentence each</h2>
+<h3 id="11-the-shared-starting-point-llm-grpo">1.1　The shared starting point: LLM GRPO</h3>
+<p>GRPO (Shao et al. 2024, DeepSeekMath) removes PPO's critic: sample $G$ responses per prompt and use the group mean as the baseline:</p>
+<p>$$\hat A_i = \frac{R_i - \operatorname{mean}_j R_j}{\operatorname{std}_j R_j}$$</p>
+<p>then PPO-clip. Moving to diffusion, "a response" becomes "an image" and the reward is a rule verifier such as GenEval, OCR accuracy, or a human-preference model such as PickScore. The three methods share the same collection frame: $P$ prompts × $G$ images × scoring × within-group normalisation (the solver, the reward normalisation and how the collector is updated differ). When all rewards in a group coincide, the std is zero and the advantage is set to zero by convention.</p>
+<h3 id="12-the-fork-which-quantity-carries-the-advantage">1.2　The fork: which quantity carries the advantage</h3>
+<div class="table-wrap"><table><thead><tr><th>Method</th><th>How the reward enters the gradient</th><th>Needed at training time</th><th>Sampler</th></tr></thead><tbody><tr><td>Flow-GRPO</td><td>weights the per-step transition $\log p_\theta(x_{k+1}\mid x_k)$ (policy gradient)</td><td>full trajectories + per-step old log-prob</td><td>training rollouts must be SDE</td></tr><tr><td>DGPO</td><td>reference-relative DSM differences of the positive and negative groups inside one sigmoid (preference learning)</td><td>clean images + rewards, re-noised</td><td>any (ODE works)</td></tr><tr><td>DiffusionNFT</td><td>weights of two flow-matching regression branches, positive / negative (supervised-learning form)</td><td>clean images + rewards, re-noised</td><td>any (black-box)</td></tr></tbody></table></div>
+<h3 id="13-why-the-ode-blocks-flow-grpo-but-not-the-other-two">1.3　Why the ODE blocks Flow-GRPO but not the other two</h3>
+<p>ODE sampling is <strong>not</strong> deterministic as a whole — different initial noise gives different samples. What blocks it is something else: the per-step transition $x_k\to x_{k+1}$ is deterministic (a Dirac), so no density exists and PPO's importance ratio $p_\theta/p_\text{old}$ is undefined. Flow-GRPO's answer is to swap the ODE for an SDE with the same marginals; DGPO's and NFT's answer is to <strong>never use the likelihood of the sampling path at all</strong> — at training time they re-noise clean images with $x_t = (1-t)x_0 + t\epsilon$, i.e. the forward process $q(x_t\mid x_0)$, which knows nothing about the sampler.</p>
+<div class="callout callout-warn"><div class="callout-title">Don&#x27;t say &quot;ODEs can&#x27;t explore&quot;</div><p>the initial noise already explores. What's missing is a computable stochastic per-step density, plus extra exploration at intermediate steps.</p></div>
+<hr />
+<h2 id="2-convention-used-throughout">§2 Convention (used throughout)</h2>
+<h3 id="21-rectified-flow-notation">2.1　Rectified-flow notation</h3>
+<p>$$x_t = (1-t)\,x_0 + t\,\epsilon,\qquad t\in[0,1],\quad x_0\sim p_\text{data},\ \epsilon\sim\mathcal N(0,I)$$</p>
+<ul><li>$t=0$ is the clean image, $t=1$ pure noise; <strong>generation runs $t: 1\to 0$</strong>.</li><li>The training pair's target is $v = \epsilon - x_0$; the network learns the conditional expectation $v^*(x_t,t,c) = \mathbb E[\epsilon - x_0 \mid x_t, t, c]$, <strong>not</strong> any single pair's random target.</li><li>The SDE diffusion coefficient is written $g(t)$, kept separate from the forward-noising coefficient $\sigma_\text{path}(t) = t$. Each method has its own $\beta$ with its own meaning — <strong>never compare them across methods</strong>.</li></ul>
+<h3 id="22-the-conversion-table-memorise">2.2　The conversion table (memorise)</h3>
+<p>From $x_t = (1-t)x_0 + t\epsilon$ and $v = \epsilon - x_0$:</p>
+<p>$$\hat x_0 = x_t - t\,v_\theta,\qquad \hat\epsilon = x_t + (1-t)\,v_\theta,\qquad s_\theta(x_t) := -\frac{\hat\epsilon}{t}$$</p>
+<p>Check $\hat\epsilon$: $x_t + (1-t)v = (1-t)x_0 + t\epsilon + (1-t)\epsilon - (1-t)x_0 = \epsilon$. The score uses the <strong>predicted conditional mean</strong> $\hat\epsilon$, not the true $\epsilon$ (which is unknown). $s_\theta$ equals the true $\nabla_x\log p_t$ only when $v_\theta = v^*$ — that is exactly the “marginal preservation is not inherited strictly” point of §3.2 and Q24.</p>
+<h3 id="23-the-three-roles-a-model-can-play">2.3　The three roles a model can play</h3>
+<div class="table-wrap"><table><thead><tr><th>Name</th><th>Which</th><th>Job</th><th>Flow-GRPO</th><th>DGPO</th><th>NFT</th></tr></thead><tbody><tr><td><strong>policy</strong> $\theta$</td><td>being updated</td><td>optimised</td><td>✅</td><td>✅</td><td>✅</td></tr><tr><td><strong>old</strong> $\theta_\text{old}$</td><td>at sampling time</td><td>ratio denominator / reflection centre</td><td>✅ (rollout)</td><td>collector (EMA allowed)</td><td>✅ (EMA)</td></tr><tr><td><strong>ref</strong> $\theta_\text{ref}$</td><td>frozen</td><td>anchor for KL / DSM difference</td><td>✅ (KL term)</td><td>✅ (DSM difference)</td><td>❌ (core loss needs none)</td></tr></tbody></table></div>
+<hr />
+<h2 id="3-flow-grpo-turn-the-ode-into-an-sde-then-run-ppo">§3 Flow-GRPO: turn the ODE into an SDE, then run PPO</h2>
+<p>Liu et al. 2025, <em>Flow-GRPO: Training Flow Matching Models via Online RL</em>, arXiv 2505.05470 (Kling / CUHK / Tsinghua).</p>
+<h3 id="31-the-marginal-preserving-sde-derivation">3.1　The marginal-preserving SDE: derivation</h3>
+<p><strong>Goal</strong>: an SDE whose marginal $p_t$ at every $t$ equals that of the ODE $\dot x = v$, but whose per-step transition is Gaussian.</p>
+<p>The cleanest derivation uses the <strong>forward generation clock</strong> $u = 1 - t$ ($u$ from 0 to 1 as $t$ goes 1 to 0). The ODE in $u$ is $dX_u = -v\,du$. Add a pair of terms that cancel each other:</p>
+<p>$$dX_u = \big[-v + \tfrac12 g^2 s\big]\,du + g\,dW_u$$</p>
+<p>In the Fokker–Planck equation the $\tfrac12 g^2 s$ in the drift contributes $-\tfrac12 g^2\nabla\cdot(p\,s)$ and the diffusion term contributes $+\tfrac12 g^2\Delta p$; since $p\,s = p\nabla\log p = \nabla p$, they cancel exactly, leaving the ODE's density evolution. So the marginals are unchanged.</p>
+<p>Back on the $t$ clock ($dt = -du$):</p>
+<p>$$dx_t = \big[v - \tfrac12 g^2 s\big]\,dt + g\,d\bar W_t \qquad (t \text{ decreasing})$$</p>
+<p>This is the paper's Eq. 7. Substituting §2.2's $s = -\hat\epsilon/t = -(x_t + (1-t)v)/t$ gives Eq. 8:</p>
+<p>$$dx_t = \Big[v + \frac{g^2}{2t}\big(x_t + (1-t)v\big)\Big]dt + g\,d\bar W_t$$</p>
+<div class="callout callout-warn"><div class="callout-title">The sign depends on the time direction</div><p>with time <strong>increasing</strong> the marginal-preserving drift is $v + \tfrac12 g^2 s$; with time <strong>decreasing</strong> (the reverse SDE used for generation) it is $v - \tfrac12 g^2 s$. The old edition of the post-training tutorial wrote the generation SDE with $+\tfrac12\sigma^2 s$, which is wrong.</p></div>
+<h3 id="32-discretisation-use-a-positive-step-throughout">3.2　Discretisation: use a positive step throughout</h3>
+<p>Let $h = t_k - t_{k+1} &gt; 0$. Euler–Maruyama:</p>
+<p>$$x_{k+1} = x_k - h\Big[v_\theta + \frac{g^2}{2t_k}\big(x_k + (1-t_k)v_\theta\big)\Big] + g\sqrt{h}\,\xi,\qquad \xi\sim\mathcal N(0,I)$$</p>
+<p>The paper's Eq. 9 is written with a signed $\Delta t$; copying it verbatim leads to "square root of a negative step" confusion — write it with $h&gt;0$.</p>
+<p><strong>Noise schedule</strong>: $g(t) = a\sqrt{t/(1-t)}$, default $a = 0.7$. The denominator vanishes at $t=1$; the official implementation handles the first step with neighbouring time points rather than computing an infinity.</p>
+<p><strong>Marginal preservation is a continuous-time property</strong>: it requires $v$ and $s$ to correspond to the same family of marginals; learning error, a CFG-modified field, and finite-step discretisation do not automatically inherit strict equality. This is why the denoising reduction of 3.5 is an empirical observation, not a theorem.</p>
+<h3 id="33-per-step-policy-log-prob-ratio">3.3　Per-step policy, log-prob, ratio</h3>
+<p><strong>After Euler discretisation</strong> the per-step transition is an isotropic Gaussian (the exact finite-time transition of a general nonlinear SDE is not): $p_\theta(x_{k+1}\mid x_k) = \mathcal N\big(\mu_\theta(x_k),\ g^2 h\,I\big)$, where $\mu_\theta$ is the line in 3.2 with the noise term removed.</p>
+<p>$$\log p_\theta(x_{k+1}\mid x_k) = -\frac{\lVert x_{k+1} - \mu_\theta\rVert^2}{2g^2h} - \frac d2\log(2\pi g^2 h)$$</p>
+<p><strong>summed</strong> over all $d$ latent dimensions. The official code averages the log-prob per dimension, which yields $\rho^{1/d}$ (the $d$-th root of the density ratio), not a constant multiple of the ratio — keep this apart from the paper's density formula.</p>
+<p>The denominator of the importance ratio is <strong>old</strong> (the rollout policy), not ref:</p>
+<p>$$\rho_k = \exp\big(\log p_\theta(x_{k+1}\mid x_k) - \log p_\text{old}(x_{k+1}\mid x_k)\big)$$</p>
+<h3 id="34-loss-ppo-clip--closed-form-kl">3.4　Loss: PPO-clip + closed-form KL</h3>
+<p>$$\mathcal L_\text{Flow-GRPO} = -\,\mathbb E\Big[\min\big(\rho_k \hat A,\ \operatorname{clip}(\rho_k, 1-\varepsilon_c, 1+\varepsilon_c)\hat A\big)\Big] + \beta_\text{KL}\,\mathbb E\big[\mathrm{KL}(p_\theta\Vert p_\text{ref})\big]$$</p>
+<p>The $\min$ stays for negative advantages — no switch to $\max$ (this is standard PPO). $\hat A$ is the within-group normalised reward of the final image, shared by every step of the trajectory.</p>
+<p><strong>The KL is closed-form</strong> — two Gaussians with the same covariance leave only the mean difference:</p>
+<p>$$\mathrm{KL}(p_\theta\Vert p_\text{ref}) = \frac{\lVert\mu_\theta - \mu_\text{ref}\rVert^2}{2g^2h}$$</p>
+<p>Substituting the drift of 3.2, $\mu_\theta - \mu_\text{ref} = -h\Big(1 + \frac{g^2(1-t)}{2t}\Big)(v_\theta - v_\text{ref})$, hence</p>
+<p>$$\mathrm{KL} = \frac h2\Big(\frac1g + \frac{g(1-t)}{2t}\Big)^2\lVert v_\theta - v_\text{ref}\rVert^2$$</p>
+<p>The coefficient is non-negative. This is a <strong>conditional per-step KL</strong>; summing along the chain gives the path KL, which is <strong>not</strong> the KL between final-image distributions. The old edition said "KL via the K3 estimator" — the paper gives it in closed form, no K3 needed.</p>
+<h3 id="35-denoising-reduction">3.5　Denoising reduction</h3>
+<p>Sampling $G$ trajectories of $T$ steps costs $\propto GT$. Flow-GRPO trains with $T_\text{train} = 10$ and evaluates with $T_\text{infer} = 40$; the paper reports "over 4×" speed-up — from a no-KL ablation curve going 40→10 steps, not a universal law. Why fewer training steps don't hurt: the continuous marginal is step-count independent, and RL learns a directional correction of $v_\theta$ that is weakly coupled to the step count — an empirical observation plus an approximation, not a strict equivalence.</p>
+<h3 id="36-gradient-boundaries-a-frequent-follow-up">3.6　Gradient boundaries (a frequent follow-up)</h3>
+<ul><li><strong>Fixed</strong>: the rollout's state sequence, old log-probs, rewards, advantages.</li><li><strong>Recomputed</strong>: the current policy's log-prob at those states.</li><li><strong>stop-grad</strong>: the ref outputs.</li><li>"Storing the whole trajectory" stores states, <strong>not</strong> the rollout's backward graph.</li></ul>
+<p>Geometric meaning of a positive advantage: push the transition mean $\mu_\theta$ toward the next state $x_{k+1}$ that was actually sampled. Translating that into "which way $v_\theta$ moves" goes through the negative time step and the full drift coefficient — you cannot just say "$v_\theta$ points at the next latent".</p>
+<h3 id="37-results-and-costs">3.7　Results and costs</h3>
+<p>On SD3.5-M (each row is a <strong>separately trained</strong> model for that reward):</p>
+<div class="table-wrap"><table><thead><tr><th>Reward</th><th>base</th><th>Flow-GRPO</th><th>$\beta_\text{KL}$</th></tr></thead><tbody><tr><td>GenEval</td><td>0.63</td><td><strong>0.95</strong></td><td>0.04</td></tr><tr><td>OCR</td><td>0.59</td><td><strong>0.92</strong></td><td>0.04</td></tr><tr><td>PickScore</td><td>21.72</td><td><strong>23.31</strong></td><td>0.01</td></tr></tbody></table></div>
+<p>$G = 24$, $a = 0.7$. The cost list: training rollouts must use SDE sampling (evaluation switches the extra noise off and uses the ODE); trajectory buffer $O(PGTd)$; three forward passes (old / policy / ref) per step; two layers of approximation (PPO surrogate + discretisation).</p>
+<div class="callout callout-info"><div class="callout-title">Related work, three lines only</div><p><strong>DanceGRPO</strong> extends GRPO to image/video and to diffusion/RF backbones; <strong>MixGRPO / Flow-GRPO-Fast</strong> run SDE + GRPO updates only inside a time window and use the ODE elsewhere (so "the SDE must cover the whole chain" is an over-generalisation); <strong>GRPO-Guard</strong> shows the importance-ratio distribution drifts with the timestep, weakening the clip, and fixes it with RatioNorm and gradient re-weighting (see §8).</p></div>
+<hr />
+<h2 id="4-dgpo-no-policy-gradient--generalise-dpo-to-groups">§4 DGPO: no policy gradient — generalise DPO to groups</h2>
+<p>Luo, Hu, Tang 2025, <em>Reinforcing Diffusion Models by Direct Group Preference Optimization</em>, arXiv 2510.08425, ICLR 2026 (CUHK-SZ / HKUST-GZ).</p>
+<h3 id="41-motivation">4.1　Motivation</h3>
+<p>Every cost of Flow-GRPO comes from "needing a stochastic per-step density". DGPO asks: can we keep the advantage signal of group sampling but <strong>replace policy gradient with preference learning</strong>? DPO already shows a pair of samples suffices; replacing "a pair of samples" with "a pair of sub-groups" is DGPO.</p>
+<h3 id="42-from-dpo-to-group-dpo">4.2　From DPO to group DPO</h3>
+<p>The KL-regularised RL optimum $p^*(x_0\mid c) \propto p_\text{ref}(x_0\mid c)\,e^{R(x_0,c)/\beta}$ inverts into an implicit reward:</p>
+<p>$$r_\theta(c, x_0) = \beta\log\frac{p_\theta(x_0\mid c)}{p_\text{ref}(x_0\mid c)} + \beta\log Z(c)$$</p>
+<p>DPO puts the difference of two samples' $r_\theta$ into Bradley–Terry, and $\log Z(c)$ cancels in the subtraction. DGPO defines a <strong>group-level reward</strong> as a weighted sum:</p>
+<p>$$R_\theta(\mathcal G\mid c) = \sum_{x_0\in\mathcal G} w(x_0)\, r_\theta(c, x_0)$$</p>
+<p>Objective:</p>
+<p>$$\max_\theta\ \mathbb E\,\log\sigma\big(R_\theta(\mathcal G^+\mid c) - R_\theta(\mathcal G^-\mid c)\big)$$</p>
+<h3 id="43-how-the-groups-are-split-and-how-log-z-cancels">4.3　How the groups are split, and how $\log Z$ cancels</h3>
+<p>Within the same group of $G$ images for one prompt, normalise $A_i = (R_i - \bar R)/s_R$, then</p>
+<p>$$\mathcal G^+ = \{x_0^i: A_i &gt; 0\},\qquad \mathcal G^- = \{x_0^i: A_i \le 0\},\qquad w(x_0^i) = \lvert A_i\rvert$$</p>
+<p><strong>The key step</strong>: because $\sum_i A_i = 0$,</p>
+<p>$$\sum_{\mathcal G^+}\lvert A_i\rvert = \sum_{\mathcal G^+} A_i = -\sum_{\mathcal G^-} A_i = \sum_{\mathcal G^-}\lvert A_i\rvert$$</p>
+<p>The positive and negative weights have <strong>equal total mass</strong>. Hence $\beta\log Z(c)$ multiplies $\big[\sum_{\mathcal G^+}w - \sum_{\mathcal G^-}w\big] = 0$ and drops out.</p>
+<div class="callout callout-warn"><div class="callout-title">What balances is weight mass, not head-count</div><p>the two groups usually differ in size (say 1:3). Averaging each side by its head-count breaks the cancellation and changes the objective.</p></div>
+<h3 id="44-dsm-in-place-of-the-likelihood">4.4　DSM in place of the likelihood</h3>
+<p>The $\beta\log\frac{p_\theta(x_0\mid c)}{p_\text{ref}(x_0\mid c)}$ inside $r_\theta$ is intractable for diffusion. Follow Diffusion-DPO's route: approximate this terminal log-ratio by the reference-relative path quantity $\beta\,\mathbb E_{q(x_{1:T}\mid x_0)}\log\frac{p_\theta(x_{0:T}\mid c)}{p_\text{ref}(x_{0:T}\mid c)}$ (an approximation, not an identity), and reduce it to a per-timestep <strong>difference of denoising regression errors</strong>. Write</p>
+<p>$$d_i = L^\theta_{\text{dsm},i} - L^\text{ref}_{\text{dsm},i}$$</p>
+<p>Final loss (compact form of the paper's Eq. 17):</p>
+<p>$$\mathcal L_\text{DGPO} = -\,\mathbb E_{t,\epsilon}\log\sigma\Big(-\lambda_t\,\beta\,T\sum_i A_i\, d_i\Big)$$</p>
+<p>($A_i$ carries its sign, so "positive group minus negative group" is already inside.) <strong>Sign check</strong>: a preferred sample whose current error drops relative to ref, or a dispreferred one whose current error rises relative to ref, both increase the logit — the whole group shares one logistic gradient coefficient.</p>
+<p>Two details:</p>
+<ul><li>DSM is defined on the denoising regression error. Under RF's velocity parameterisation $\lVert\hat x_0 - x_0\rVert^2 = t^2\lVert v_\theta - v\rVert^2$, so the coefficients must follow — you cannot switch the prediction target and still claim the loss is verbatim identical.</li><li><strong>Jensen's direction</strong>: $-\log\sigma(\mathbb E z) \le \mathbb E[-\log\sigma(z)]$. What is computed at a single timestep is a surrogate; moving the expectation outside is not an exact equality.</li><li>The group <strong>shares $t$ and $\epsilon$</strong>. That is a variance-reduction implementation choice and plays no role in the $\log Z$ proof; with the outer sigmoid nonlinearity, don't recycle the old "changing the noise coupling only changes variance and the objective stays unbiased" line.</li></ul>
+<h3 id="45-relation-to-diffusion-dpo">4.5　Relation to Diffusion-DPO</h3>
+<p>With $G = 2$ (one positive, one negative, equal weights) DGPO reduces to Diffusion-DPO's form (the scale is absorbed into $\beta$). General DGPO is "<strong>the group difference enters one sigmoid</strong>", not an enumeration of all positive–negative pairs averaged pair by pair.</p>
+<h3 id="46-why-the-ode-is-fine">4.6　Why the ODE is fine</h3>
+<p>At training time the stored clean images are <strong>re-noised</strong> through $q(x_t\mid x_0)$; the likelihood of the sampling path is never computed. So any solver works for collection — the paper uses a 10-step Flow-DPM-Solver. Only clean images, prompts and rewards are stored. A frozen $p_\text{ref}$ is still needed; the collector can be the current policy or an EMA.</p>
+<h3 id="47-timestep-clipping-must-know">4.7　Timestep clipping (must know)</h3>
+<p>Few-step samples carry artefacts (blur etc.), and regression at low-noise timesteps would learn those artefacts as features. So DGPO samples $t$ only from $[t_\min, 1]$. <strong>This truncates the training timestep — it is not PPO's ratio clipping.</strong></p>
+<h3 id="48-recipe-and-results">4.8　Recipe and results</h3>
+<p>Paper defaults: $G = 24$, 10-step Flow-DPM-Solver, $\beta = 100$ (tied to the loss-scale convention; not comparable to other methods' $\beta$), collector follows the policy directly for the first 200 steps and then uses EMA decay 0.3.</p>
+<p>SD3.5-M (DGPO paper Table 2; Flow-GRPO re-run in the same table):</p>
+<div class="table-wrap"><table><thead><tr><th>Metric</th><th>base</th><th>Flow-GRPO (as listed in DGPO Table 2)</th><th>DGPO</th></tr></thead><tbody><tr><td>GenEval</td><td>0.63</td><td>0.95</td><td><strong>0.97</strong></td></tr><tr><td>OCR</td><td>0.59</td><td>0.92</td><td><strong>0.96</strong></td></tr><tr><td>PickScore</td><td>21.72</td><td>23.31</td><td><strong>23.89</strong></td></tr><tr><td>UnifiedReward (preference-trained models)</td><td>3.33</td><td>3.66</td><td><strong>3.74</strong></td></tr></tbody></table></div>
+<p>"About 20×" is the paper's overall training-efficiency claim; the GenEval curve is separately described as nearly 30× — <strong>not</strong> a 20× faster backward pass.</p>
+<hr />
+<h2 id="5-diffusionnft-rl-on-the-forward-process">§5 DiffusionNFT: RL on the forward process</h2>
+<p>Zheng, Chen, Ye, Wang, Zhang, Jiang, Su, Ermon, Zhu, Liu 2025, <em>DiffusionNFT: Online Diffusion Reinforcement with Forward Process</em>, arXiv 2509.16117, ICLR 2026 Oral (Tsinghua / NVIDIA / Stanford).</p>
+<h3 id="51-origin-nft-for-llms">5.1　Origin: NFT for LLMs</h3>
+<p>Chen et al. 2025, <em>Bridging Supervised Learning and Reinforcement Learning in Math Reasoning</em> (arXiv 2505.18116): fine-tuning on positives only (RFT) throws away the information in negatives; NFT decomposes the old policy into a positive and a negative branch and lets negatives enter a supervised loss through an <strong>implicit negative policy</strong>. DiffusionNFT keeps the negative-aware idea — but the extrapolation formula for discrete token probabilities does not carry over to velocities; the diffusion derivation follows.</p>
+<h3 id="52-what-rl-on-the-forward-process-means">5.2　What "RL on the forward process" means</h3>
+<ul><li><strong>Collection</strong>: any black-box solver (ODE/SDE, any step count) produces $K$ images; score them; <strong>store only the clean $x_0$ and its reward</strong>.</li><li><strong>Training</strong>: re-sample $t, \epsilon$, build $x_t = (1-t)x_0 + t\epsilon$ and target $v = \epsilon - x_0$, run a weighted flow-matching regression.</li><li>No backprop through the solver, no training along the collection trajectory, no likelihood anywhere.</li></ul>
+<h3 id="53-reward-normalisation-and-the-positivenegative-decomposition">5.3　Reward normalisation and the positive/negative decomposition</h3>
+<p>Each image's reward is mapped to $[0,1]$:</p>
+<p>$$r_i = \tfrac12 + \tfrac12\operatorname{clip}\Big(\frac{R_i - \bar R_c}{Z_c},\ -1,\ 1\Big)$$</p>
+<p>$Z_c$ is a normalisation scale (the paper allows the global reward std); it is <strong>not</strong> DPO's partition function. $r_i$ is read as an "optimality probability" — <strong>a per-sample quantity</strong>, not a global success rate.</p>
+<p>Modelling-wise, with $\bar r_c = \mathbb E_{\pi_\text{old}}[r]$, the implicit positive and negative policies are</p>
+<p>$$\pi^+ = \frac{r\,\pi_\text{old}}{\bar r_c},\qquad \pi^- = \frac{(1-r)\,\pi_\text{old}}{1-\bar r_c}$$</p>
+<p>The implementation need not split the data into two piles; the soft weights $r$, $1-r$ do the job.</p>
+<h3 id="54-decomposition-at-the-noisy-state-and-the-improvement-direction">5.4　Decomposition at the noisy state and the improvement direction</h3>
+<p>At the noisy state $x_t$ the positive share is the posterior</p>
+<p>$$\alpha(x_t) = \mathbb E[r(x_0,c)\mid x_t, c] = \bar r_c\,\frac{\pi_t^+(x_t\mid c)}{\pi_t^\text{old}(x_t\mid c)}$$</p>
+<p>(neither the per-sample $r_i$, nor a global success rate, nor the noise schedule's $\alpha_t$). The fields of the true positive/negative distributions satisfy</p>
+<p>$$v_\text{old} = \alpha\,v^+ + (1-\alpha)\,v^-,\qquad \Delta := \alpha\,(v^+ - v_\text{old}) = (1-\alpha)(v_\text{old} - v^-)$$</p>
+<p>$\Delta$ is the "reinforcement guidance" direction. These are the true fields; the <strong>parameterised branches</strong> below get separate notation.</p>
+<h3 id="55-implicit-mixing-why-the-negative-branch-carries-1beta">5.5　Implicit mixing: why the negative branch carries $(1+\beta)$</h3>
+<p>One network $v_\theta$ parameterises both branches by <strong>symmetric reflection</strong> about old:</p>
+<p>$$v_\theta^+ = v_\text{old} + \beta\,(v_\theta - v_\text{old}),\qquad v_\theta^- = v_\text{old} - \beta\,(v_\theta - v_\text{old})$$</p>
+<p>Expanding the second line gives the paper's $(1+\beta)v_\text{old} - \beta v_\theta$. $\beta$ is a mixing parameter.</p>
+<h3 id="56-loss-and-gradient-be-able-to-expand-this-in-an-interview">5.6　Loss and gradient (be able to expand this in an interview)</h3>
+<p>$$\mathcal L(\theta) = \mathbb E_{c,\,x_0\sim\pi_\text{old},\,t,\,\epsilon}\Big[r\,\lVert v_\theta^+ - v\rVert^2 + (1-r)\,\lVert v_\theta^- - v\rVert^2\Big]$$</p>
+<p>Both terms are <strong>non-negative MSEs</strong> — the negative feedback comes from the reflected parameterisation, not from a negative weight on an ordinary MSE. With $d = v_\theta - v_\text{old}$ and $e = v_\text{old} - v$, per sample:</p>
+<p>$$\ell = \lVert e\rVert^2 + \beta^2\lVert d\rVert^2 + 2\beta(2r-1)\,e^\top d$$</p>
+<p>Gradient in $d$: $2\beta^2 d + 2\beta(2r-1)e$. At the start, $v_\theta = v_\text{old}$ ($d=0$), the gradient is $2\beta(2r-1)(v_\text{old} - v)$: a positive ($r=1$) descending along $-\nabla$ <strong>moves toward the target $v$</strong>, a negative ($r=0$) moves away, and $r=\tfrac12$ leaves only a quadratic pull toward old.</p>
+<h3 id="57-theorem-32-and-cfg-free-inference">5.7　Theorem 3.2 and CFG-free inference</h3>
+<p>The per-sample optimum is $d^* = (2r-1)(v - v_\text{old})/\beta$; taking the conditional expectation with $v_\text{old} = \mathbb E[v\mid x_t]$ and $\mathbb E[r\,v\mid x_t] = \alpha v^+$:</p>
+<p>$$v_\theta^* = v_\text{old} + \frac{2}{\beta}\,\Delta$$</p>
+<p>The coefficient is $2/\beta$: the positive and negative branches each contribute one share of the same improvement direction. <strong>$1/\beta$ controls the guidance strength</strong> — smaller $\beta$, larger displacement. The theorem assumes ideal distributions and capacity; it does not promise a reward gain for arbitrary $\beta$ or arbitrary finite training.</p>
+<p><strong>CFG re-read</strong>: $v_\text{cfg} = v_\text{uncond} + w(v_\text{cond} - v_\text{uncond})$ is also "extrapolate along a direction" — cond is the positive signal, uncond the negative, and CFG is <strong>offline</strong> reinforcement guidance. NFT makes that online: starting from a model with <strong>only the conditional branch</strong>, collection, training and inference are all CFG-free. The paper's Table 1 multi-reward model reaches its reported numbers after about 1.7k steps and surpasses the CFG baseline.</p>
+<h3 id="58-the-practical-loss-eq-5-alone-is-not-enough">5.8　The practical loss (Eq. 5 alone is not enough)</h3>
+<ul><li><strong>old is an EMA</strong>: $\theta_\text{old} \leftarrow \eta_i\theta_\text{old} + (1-\eta_i)\theta$, frozen within an optimisation phase. NFT needs old; its core loss does <strong>not</strong> need a separately stored, permanently fixed initial ref.</li><li><strong>Adaptive weighting</strong>: the velocity regression is rewritten as an $x_0$ regression with a stop-grad normalising denominator, $\lVert x_\theta - x_0\rVert^2 / \operatorname{sg}\big(\operatorname{mean}\lvert x_\theta - x_0\rvert\big)$ (inspired by DMD distillation). That is practical loss design, not a verbatim instance of the theorem.</li><li><strong>The difference from RWR / RFT</strong> is the explicit use of negative feedback: the paper's ablation without the negative branch collapses quickly — an observation about that experiment, not a theorem that "any positive-only diffusion fine-tuning collapses".</li></ul>
+<h3 id="59-results">5.9　Results</h3>
+<ul><li>Single reward: SD3.5-M GenEval <strong>0.24 → 0.98</strong> in about 1k steps. <strong>0.24 is the CFG-free base</strong>; the 0.63 usually quoted for Flow-GRPO is the CFG base — the two cannot be compared as baselines under the same CFG setting.</li><li>Efficiency: the paper's §4.3 measure is <strong>wall-clock time</strong> — head-to-head with Flow-GRPO (both at 10 rollout steps), up to about <strong>25×</strong> on GenEval, 3–25× across rewards. It is a comparison of time-to-reach-a-reward on training curves, not per-step throughput, inference speed, or a 25× faster gradient estimator.</li><li>Multi-reward (GenEval / OCR / PickScore / ClipScore / HPSv2.1 trained jointly in stages, 1.7k steps, 40-step collection): GenEval <strong>0.94</strong>, OCR <strong>0.91</strong> — don't fill this row with the single-reward 0.98. It beats SD3.5-L and FLUX.1-Dev on several in-/out-of-domain metrics but <strong>not column by column</strong> (e.g. ClipScore 0.293 vs FLUX's 0.295).</li></ul>
+<hr />
+<h2 id="6-the-three-side-by-side">§6 The three side by side</h2>
+<div class="table-wrap"><table><thead><tr><th>Dimension</th><th>Flow-GRPO</th><th>DGPO</th><th>DiffusionNFT</th></tr></thead><tbody><tr><td>Mathematical form</td><td>advantage-weighted policy gradient</td><td>group-preference logistic</td><td>reward-weighted two-branch regression</td></tr><tr><td>Sampler</td><td>training rollouts must be SDE</td><td>any, default ODE (10-step DPM)</td><td>any black-box</td></tr><tr><td>What is stored</td><td>full trajectories $O(PGTd)$</td><td>clean images $O(PGd)$</td><td>clean images $O(PGd)$</td></tr><tr><td>Needs a likelihood</td><td>per-step Gaussian</td><td>no (DSM difference)</td><td>no</td></tr><tr><td>old</td><td>rollout policy</td><td>collector (EMA)</td><td>EMA reflection centre</td></tr><tr><td>ref</td><td>KL term</td><td>DSM-difference anchor</td><td>not needed by the core loss</td></tr><tr><td>CFG</td><td>original config uses CFG; implementations also support CFG-free</td><td>paper silent; official implementation defaults to CFG rollouts</td><td>CFG-free throughout</td></tr><tr><td>Main approximation</td><td>discretisation + PPO surrogate</td><td>path likelihood + DSM + Jensen</td><td>no likelihood approximation; model / sampling / optimisation error remain</td></tr><tr><td>Reported efficiency</td><td>baseline</td><td>~20×</td><td>up to ~25×</td></tr></tbody></table></div>
+<p>Storage excludes weights, optimiser state and activations; "one more ref" is not "double the memory".</p>
+<hr />
+<h2 id="7-code-patterns">§7 Code Patterns</h2>
+<p>Three ~20-line core losses; the full experiments are in <a href="code/diffusion_online_rl.py"><code>code/diffusion_online_rl.py</code></a>. All three share <code>import math, torch; import torch.nn.functional as F</code>.</p>
+<h3 id="71-flow-grpo-one-sde-step--log-prob--ratio">7.1　Flow-GRPO: one SDE step + log-prob + ratio</h3>
+<pre><code class="language-python">def sde_step(v_theta, x, t, h, a=0.7, xi=None):
+    &quot;&quot;&quot;One reverse-time Euler-Maruyama step, t -&gt; t - h, h &gt; 0.  Returns (x_next, mu, v).&quot;&quot;&quot;
+    g2 = a**2 * t / (1 - t)                                   # g(t)^2, t in (0,1)
+    v = v_theta(x, t)
+    eps_hat = x + (1 - t) * v                                 # §2.2
+    mu = x - h * (v + g2 / (2 * t) * eps_hat)                 # drift, positive step
+    xi = torch.randn_like(x) if xi is None else xi
+    return mu + (g2 * h) ** 0.5 * xi, mu, v
+
+def gauss_logp(x_next, mu, g2h):
+    d = x_next.numel() // x_next.shape[0]
+    return -((x_next - mu) ** 2).flatten(1).sum(1) / (2 * g2h) - 0.5 * d * math.log(2 * math.pi * g2h)
+
+# per step: states x_k, x_{k+1}, old_logp, adv are FIXED from rollout; t_k, h are scalars
+g = (0.7**2 * t_k / (1 - t_k)) ** 0.5                          # g(t_k), same a as sde_step
+g2h = g**2 * h
+_, mu, v_cur = sde_step(policy, x_k, t_k, h, xi=None)          # one policy call: mean for the ratio, v for the KL
+logp = gauss_logp(x_k1, mu, g2h)
+rho = torch.exp(logp - old_logp)
+pg = -torch.min(rho * adv, rho.clamp(1 - eps_c, 1 + eps_c) * adv).mean()
+with torch.no_grad():
+    v_ref = ref(x_k, t_k)
+kl = (h / 2) * (1 / g + g * (1 - t_k) / (2 * t_k)) ** 2 * ((v_cur - v_ref) ** 2).flatten(1).sum(1)
+loss = pg + beta_kl * kl.mean()</code></pre>
+<h3 id="72-dgpo-within-group-dsm-differences-into-one-sigmoid">7.2　DGPO: within-group DSM differences into one sigmoid</h3>
+<pre><code class="language-python">def dgpo_loss(policy, ref, x0_group, c, adv, t, eps, beta, T, lam_t=1.0):
+    &quot;&quot;&quot;x0_group: [G, ...] clean samples of ONE prompt; adv: [G] centred advantages (sum ~ 0).
+    Shared t, eps across the group (variance reduction, not needed for the log Z proof).&quot;&quot;&quot;
+    x_t = (1 - t) * x0_group + t * eps
+    v = eps - x0_group
+    l_theta = ((policy(x_t, t, c) - v) ** 2).flatten(1).mean(1)            # per-sample DSM
+    with torch.no_grad():
+        l_ref = ((ref(x_t, t, c) - v) ** 2).flatten(1).mean(1)
+    d = l_theta - l_ref                                                     # [G]
+    # scale note: the paper&#x27;s DSM is an x0-space error; this snippet uses per-dim mean
+    # velocity error. With D latent dims, d_x0 = D * t**2 * d_here. To keep the paper&#x27;s
+    # objective set lam_t_here = D * t**2 * lam_t_paper; dropping the factor changes the
+    # timestep weighting (a constant beta cannot absorb t**2) and needs its own tuning.
+    w = adv.abs()                                                           # w = |A|; sum_{+} w == sum_{-} w
+    logit = -lam_t * beta * T * (adv * d).sum()                             # sign carried by adv
+    return -F.logsigmoid(logit)</code></pre>
+<h3 id="73-diffusionnft-reflected-two-branch-regression">7.3　DiffusionNFT: reflected two-branch regression</h3>
+<pre><code class="language-python">def nft_loss(policy, old, x0, c, r, t, eps, beta):
+    &quot;&quot;&quot;x0: [B, ...] clean samples; r: [B] in [0,1] (0.5 + 0.5*clip(normalised reward)).
+    t is a shared scalar here; with per-sample t of shape [B], reshape it to [B,1,...] for
+    the noising line and keep the [B] form for the network call.&quot;&quot;&quot;
+    x_t = (1 - t) * x0 + t * eps
+    v = eps - x0
+    with torch.no_grad():
+        v_old = old(x_t, t, c)                                # EMA of policy, frozen inside a phase
+    d = policy(x_t, t, c) - v_old
+    v_pos = v_old + beta * d                                   # (1-beta) v_old + beta v_theta
+    v_neg = v_old - beta * d                                   # (1+beta) v_old - beta v_theta
+    per = r * ((v_pos - v) ** 2).flatten(1).mean(1) + (1 - r) * ((v_neg - v) ** 2).flatten(1).mean(1)
+    return per.mean()</code></pre>
+<hr />
+<h2 id="8-failure-modes-of-online-rl">§8 Failure modes of online RL</h2>
+<ul><li><strong>Reward hacking — look at three things</strong>: the raw reward (not the group-normalised score, which says nothing about absolute progress across rounds), the images themselves, and diversity. KL, clipping and the negative-branch loss <strong>do not guarantee</strong> its absence.</li><li><strong>Flow-GRPO's ratio drift</strong> (GRPO-Guard): the importance-ratio distribution shifts with the timestep, so a fixed $\varepsilon_c$ clip stops working at some $t$; RatioNorm / gradient re-weighting are optimisation-level fixes.</li><li><strong>DGPO's low-noise artefacts</strong>: forget timestep clipping and the model learns the blur of few-step sampling.</li><li><strong>NFT's $\beta$</strong>: it sets two things at once — the gradient at $d=0$ is proportional to $\beta$, while the ideal optimal displacement is proportional to $1/\beta$; a smaller $\beta$ means a larger guidance target. Updating old too fast is unstable in the paper's experiments (the reflection itself still gives a non-zero gradient with old frozen; what fails is stability, not the reflection).</li><li><strong>What "out-of-domain" means</strong>: in these papers OOD usually means evaluation metrics on DrawBench that did not take part in training, not an out-of-distribution image domain.</li></ul>
+<hr />
+<h2 id="9-vs-grpo--nft-for-llms">§9 vs GRPO / NFT for LLMs</h2>
+<div class="table-wrap"><table><thead><tr><th></th><th>LLM</th><th>Diffusion</th></tr></thead><tbody><tr><td>Per-step policy</td><td>categorical over tokens, with directly computable probabilities</td><td>ODE is a Dirac; SDE-ify (Flow-GRPO) or bypass (DGPO / NFT)</td></tr><tr><td>Sequence length</td><td>hundreds to thousands of tokens</td><td>10–40 steps, each a whole latent</td></tr><tr><td>NFT's negative policy</td><td>extrapolation of discrete probabilities</td><td>reflection of the velocity about old</td></tr><tr><td>Reference model</td><td>GRPO has a KL-ref</td><td>Flow-GRPO has one; NFT's core loss doesn't</td></tr><tr><td>CFG</td><td>no counterpart</td><td>NFT reads CFG as offline guidance and makes it online</td></tr></tbody></table></div>
+<p>Shared lesson: once the group baseline removes the critic, everything hard is about "can the density be computed" — free for LLMs; for diffusion either build one (SDE) or switch to an objective that needs none.</p>
+<hr />
+<h2 id="10-25-high-frequency-interview-questions">§10 25 high-frequency interview questions</h2>
+<h3 id="l1-essentials-10">L1 essentials (10)</h3>
+<details>
+
+<summary>Q1. What is the real difference between Flow-GRPO, DGPO and DiffusionNFT?</summary>
+<p>They share the group-sampling + within-group-normalisation frame. They differ in how the reward enters the gradient: Flow-GRPO weights the per-step transition policy gradient; DGPO puts the reference-relative DSM differences of the positive and negative groups into one sigmoid (preference learning); NFT uses the reward to weight two flow-matching regression branches. None has a critic, but they are not "three kinds of policy gradient".</p>
+<p>"They're all GRPO variants" scores zero.</p>
+</details>
+<details>
+
+<summary>Q2. ODE sampling already has a random seed — why does Flow-GRPO still switch to an SDE?</summary>
+<p>The seed gives sample-level randomness; PPO needs the <strong>per-step transition density</strong> $p_\theta(x_{k+1}\mid x_k)$ to form the importance ratio. The ODE's step is a Dirac with no density. After SDE-ification the Euler-discretised step is Gaussian, and intermediate steps gain exploration as a side effect.</p>
+<p>"ODEs can't explore" is wrong.</p>
+</details>
+<details>
+
+<summary>Q3. Can old and ref be used interchangeably?</summary>
+<p>No. old is the behaviour policy at sampling time — in Flow-GRPO a snapshot of this round's rollout policy (the ratio's denominator), in NFT the reflection centre, updated by EMA; ref is the frozen anchor — Flow-GRPO's KL, DGPO's DSM difference. NFT's core loss uses the evolving old and needs no fixed initial ref.</p>
+</details>
+<details>
+
+<summary>Q4. Is NFT's $r$ a success rate?</summary>
+<p>No. $r_i = \tfrac12 + \tfrac12\operatorname{clip}((R_i - \bar R_c)/Z_c, -1, 1)$ maps <strong>each sample's</strong> reward into $[0,1]$, read as an optimality probability. The global quantity is $\bar r_c = \mathbb E_{\pi_\text{old}}[r]$; the noisy-state quantity is the posterior $\alpha(x_t)$.</p>
+</details>
+<details>
+
+<summary>Q5. Write the RF conversions $\hat x_0$, $\hat\epsilon$, score.</summary>
+<p>$x_t = (1-t)x_0 + t\epsilon$, $v = \epsilon - x_0$; with the network prediction $v_\theta$: $\hat x_0 = x_t - tv_\theta$, $\hat\epsilon = x_t + (1-t)v_\theta$, $s_\theta := -\hat\epsilon/t$. The score uses the predicted conditional mean and equals the true score only when $v_\theta = v^*$.</p>
+</details>
+<details>
+
+<summary>Q6. How does DGPO split the groups, and what are the weights?</summary>
+<p>Within one prompt's group, $A_i = (R_i - \bar R)/s_R$; $A_i &gt; 0$ goes to $\mathcal G^+$, $A_i \le 0$ to $\mathcal G^-$; $w_i = \lvert A_i\rvert$. Because $\sum A_i = 0$, the two groups have equal total weight.</p>
+</details>
+<details>
+
+<summary>Q7. What is Flow-GRPO's denoising reduction?</summary>
+<p>Train with 10 SDE steps, evaluate with 40. The paper reports "over 4×" speed-up. The justification is empirical: the continuous marginal is step-independent and the directional correction learned by RL is insensitive to the step count — not a strict equivalence.</p>
+</details>
+<details>
+
+<summary>Q8. What does DiffusionNFT need to store for training?</summary>
+<p>Only the clean image $x_0$, its prompt $c$ and its reward. Training re-samples $t,\epsilon$ to build $x_t$. No trajectories, no likelihood, no backprop through the solver.</p>
+</details>
+<details>
+
+<summary>Q9. Why can DiffusionNFT infer without CFG?</summary>
+<p>CFG extrapolates between a cond (positive) and an uncond (negative) model — offline reinforcement guidance. NFT learns, from online positives and negatives, a reward guidance that replaces CFG's role (its direction is not guaranteed to coincide with CFG's), so the model carries its own guidance. Starting from a conditional-only model, it is CFG-free throughout.</p>
+</details>
+<details>
+
+<summary>Q10. GenEval 0.63, 0.24, 0.95, 0.97, 0.98 — what does each mean?</summary>
+<p>0.63: SD3.5-M base <strong>with CFG</strong>; 0.24: <strong>CFG-free</strong> base; 0.95: Flow-GRPO; 0.97: DGPO; 0.98: NFT single-reward at ~1k steps. NFT's multi-reward model is 0.94.</p>
+<p>Treating the two as baselines under the same CFG setting scores zero (side by side with the CFG setting labelled is fine — the paper itself does that).</p>
+</details>
+<h3 id="l2-advanced-10">L2 advanced (10)</h3>
+<details>
+
+<summary>Q11. Derive the marginal-preserving SDE and state the sign for the generation direction.</summary>
+<p>Forward clock $u = 1-t$: $dX_u = [-v + \tfrac12 g^2 s]du + g\,dW_u$. In Fokker–Planck, $-\tfrac12 g^2\nabla\cdot(ps)$ cancels $+\tfrac12 g^2\Delta p$ (because $ps = \nabla p$), leaving the ODE's density evolution. Back to decreasing $t$: the drift is $v - \tfrac12 g^2 s$. The discrete noise scale is $\sqrt{h}$ with $h = t_k - t_{k+1} &gt; 0$.</p>
+<p>Writing $+\tfrac12 g^2 s$ means the time direction was flipped.</p>
+</details>
+<details>
+
+<summary>Q12. Why is Flow-GRPO's KL closed-form? Write it.</summary>
+<p>Policy and ref have <strong>the same covariance</strong> $g^2 h I$ for the per-step transition, so the KL is just the mean difference: $\lVert\mu_\theta - \mu_\text{ref}\rVert^2/(2g^2h)$. Substituting the drift gives $\frac h2\big(\frac1g + \frac{g(1-t)}{2t}\big)^2\lVert v_\theta - v_\text{ref}\rVert^2$. It is a conditional per-step KL, not the KL of final distributions.</p>
+</details>
+<details>
+
+<summary>Q13. Why can DGPO cancel $\log Z(c)$?</summary>
+<p>The implicit reward is $r_\theta = \beta\log(p_\theta/p_\text{ref}) + \beta\log Z(c)$. The group reward is a weighted sum; after subtracting the negative group from the positive, the coefficient of $\log Z$ is $\sum_{\mathcal G^+}w - \sum_{\mathcal G^-}w$; with $w = \lvert A\rvert$ and $\sum A = 0$ that difference is exactly zero. The premise is balanced weight mass, not head-count averaging.</p>
+</details>
+<details>
+
+<summary>Q14. How does DGPO relate to Diffusion-DPO?</summary>
+<p>Same reference-relative DSM surrogate. With $G=2$ DGPO reduces to Diffusion-DPO (scale absorbed into $\beta$). General DGPO replaces the single pair with two $\lvert A\rvert$-weighted sub-groups and puts the group difference into one sigmoid — not a pairwise enumeration.</p>
+</details>
+<details>
+
+<summary>Q15. What does DGPO's timestep clipping fix, and is it related to PPO's clip?</summary>
+<p>Unrelated. Few-step samples carry artefacts; regression at low-noise $t$ would learn them, so $t$ is drawn only from $[t_\min, 1]$. This truncates the training timestep; PPO's clip truncates the importance ratio.</p>
+</details>
+<details>
+
+<summary>Q16. Write Flow-GRPO's per-step Gaussian log-density and explain "sum over dimensions" vs "average per dimension".</summary>
+<p>$\log p = -\lVert x_{k+1} - \mu_\theta\rVert^2/(2g^2h) - \tfrac d2\log(2\pi g^2h)$, summed over the $d$ dimensions to be a density. The official code averages the log-prob per dimension, which yields $\rho^{1/d}$; keep the paper's formula and the implementation convention apart.</p>
+</details>
+<details>
+
+<summary>Q17. How are DiffusionNFT's $v_\theta^+$ and $v_\theta^-$ defined?</summary>
+<p>Symmetric reflection about old: $v_\theta^\pm = v_\text{old} \pm \beta(v_\theta - v_\text{old})$. Expanding the negative branch gives $(1+\beta)v_\text{old} - \beta v_\theta$. $\beta$ is the mixing parameter; $1/\beta$ controls the guidance strength.</p>
+</details>
+<details>
+
+<summary>Q18. Expand NFT's per-sample loss and state the gradient direction at $v_\theta = v_\text{old}$.</summary>
+<p>$d = v_\theta - v_\text{old}$, $e = v_\text{old} - v$: $\ell = \lVert e\rVert^2 + \beta^2\lVert d\rVert^2 + 2\beta(2r-1)e^\top d$. At $d = 0$ the gradient is $2\beta(2r-1)(v_\text{old} - v)$: positives move toward the target, negatives away, and $r = \tfrac12$ leaves only the quadratic pull toward old.</p>
+</details>
+<details>
+
+<summary>Q19. In Flow-GRPO training, what is fixed and what is recomputed?</summary>
+<p>Fixed: the rollout's state sequence, old log-probs, rewards, advantages. Recomputed: the current policy's log-prob at those states. ref outputs are stop-grad. Storing trajectories stores states, not the backward graph.</p>
+</details>
+<details>
+
+<summary>Q20. What is each method's dependence on CFG?</summary>
+<p>None of the three objectives makes CFG a mathematical prerequisite. Flow-GRPO's original SD3 config uses CFG and later implementations also support CFG-free; DGPO's paper is silent, its official implementation defaults to CFG rollouts and conditional predictions for the DSM update; NFT's main recipe is CFG-free in collection, training and inference.</p>
+</details>
+<h3 id="l3-top-lab-5">L3 top-lab (5)</h3>
+<details>
+
+<summary>Q21. Prove NFT's optimum is $v_\text{old} + \frac2\beta\Delta$ and explain where the "2" comes from.</summary>
+<p>Per sample $d^* = (2r-1)(v - v_\text{old})/\beta$. Take the conditional expectation: $\mathbb E[(2r-1)(v - v_\text{old})\mid x_t] = 2\mathbb E[r(v - v_\text{old})\mid x_t]$ (since $\mathbb E[v\mid x_t] = v_\text{old}$), and with $\mathbb E[rv\mid x_t] = \alpha v^+$, $\mathbb E[r\mid x_t] = \alpha$ this is $2\alpha(v^+ - v_\text{old}) = 2\Delta$. The "2" is the positive and negative branches each contributing one share of the same displacement.</p>
+</details>
+<details>
+
+<summary>Q22. Does the 25× prove NFT's gradient estimator itself is 25× faster?</summary>
+<p>No. It is a <strong>wall-clock training-curve</strong> comparison on one reward (GenEval), both at 10 rollout steps, and it bundles convergence speed, CFG presence, sampling and implementation differences. Other rewards land between 3× and 25×. The multi-reward model's numbers are a separate matter.</p>
+</details>
+<details>
+
+<summary>Q23. Why does head-count averaging break DGPO's cancellation? Give an example.</summary>
+<p>Four images with rewards $[0,1,2,7]$, positive:negative = 1:3. With $w = \lvert A\rvert$ both sides sum to $S$, so the $\log Z$ coefficient is $S - S = 0$. Two ways to break it: (a) keep $\lvert A\rvert$ but average each side by its head-count — the coefficient becomes $S - S/3 \ne 0$ and the cancellation is gone; (b) set all weights to 1 and just sum — the coefficient is $1 - 3 = -2 \ne 0$, so adding the same constant to every implicit reward changes the logit. Experiment C in <code>code/diffusion_online_rl.py</code> checks (b).</p>
+</details>
+<details>
+
+<summary>Q24. Does Flow-GRPO's "marginal preservation" still hold with finite steps, learning error and CFG?</summary>
+<p>Not strictly. Marginal preservation is a continuous-time property requiring $v$ and $s$ to correspond to the same family of marginals. Learning error decouples $s_\theta$ from $v_\theta$; a CFG-modified velocity and the substituted score are <strong>not guaranteed to correspond to the same forward-noising marginal family</strong>, so the proof does not carry over directly; finite-step discretisation adds further bias. Hence denoising reduction can only be an empirical observation.</p>
+</details>
+<details>
+
+<summary>Q25. If you had to ship one of the three, how would you choose?</summary>
+<p>Three things: the sampler (only consider Flow-GRPO with an SDE cost budget), storage (trajectories $O(PGTd)$ vs clean images $O(PGd)$), and whether CFG-free is required (NFT gives it for free). DGPO and NFT both use the ODE and store only clean images; DGPO keeps a ref anchor, NFT uses an EMA old plus reflection. All three reported efficiencies are comparisons on specific reward curves — run your own reward.</p>
+</details>
+<hr />
+<h2 id="a-appendix">§A Appendix</h2>
+<h3 id="a1-papers">A.1　Papers</h3>
+<div class="table-wrap"><table><thead><tr><th>Method</th><th>arXiv</th><th>Venue</th><th>Code</th></tr></thead><tbody><tr><td>Flow-GRPO</td><td><a href="https://arxiv.org/abs/2505.05470">2505.05470</a></td><td>—</td><td>github.com/yifan123/flow_grpo</td></tr><tr><td>DGPO</td><td><a href="https://arxiv.org/abs/2510.08425">2510.08425</a></td><td>ICLR 2026</td><td>github.com/Luo-Yihong/DGPO</td></tr><tr><td>DiffusionNFT</td><td><a href="https://arxiv.org/abs/2509.16117">2509.16117</a></td><td>ICLR 2026 Oral</td><td>github.com/NVlabs/DiffusionNFT</td></tr><tr><td>NFT (LLM)</td><td><a href="https://arxiv.org/abs/2505.18116">2505.18116</a></td><td>—</td><td>—</td></tr><tr><td>GRPO</td><td><a href="https://arxiv.org/abs/2402.03300">2402.03300</a></td><td>—</td><td>—</td></tr></tbody></table></div>
+<h3 id="a2-runnable-toy">A.2　Runnable toy</h3>
+<p>Script: <a href="code/diffusion_online_rl.py"><code>code/diffusion_online_rl.py</code></a>, pure PyTorch, seconds on CPU.</p>
+<ul><li><strong>A</strong> marginal preservation: 1-D $x_0\sim\mathcal N(1, 0.25)$ with analytic $v^*$, $s^*$; integrate from $t=0.9$ to $0.1$ and compare the means/variances of ODE / correct SDE / noise-without-score-correction.</li><li><strong>B</strong> NFT gradient: fixed pair $t=0.5, x_0=0, \epsilon=1$, $\beta=0.5$; assert initial gradients $-1,+1,0$ for $r=1,0,\tfrac12$ and optima $\pm2$ for positive/negative.</li><li><strong>C</strong> DGPO cancellation: 4-sample group $[0,1,2,7]$; assert equal positive/negative weight mass, invariance to a global reward shift, invariance to a global implicit-score shift; the unit-weight counterexample.</li></ul>
+<h3 id="a3-engineering-pitfalls">A.3　Engineering pitfalls</h3>
+<div class="table-wrap"><table><thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead><tbody><tr><td>Flow-GRPO NaN when starting at $t=1$</td><td>$g(t) = a\sqrt{t/(1-t)}$ has a zero denominator</td><td>handle the first step with neighbouring time points</td></tr><tr><td>Flow-GRPO clip stops working at some $t$</td><td>ratio distribution drifts with the timestep</td><td>RatioNorm / gradient re-weighting (GRPO-Guard)</td></tr><tr><td>DGPO images go blurry</td><td>low-noise $t$ learned the few-step artefacts</td><td>timestep clipping $[t_\min, 1]$</td></tr><tr><td>DGPO loss doesn't move</td><td>all rewards in the group equal, std zero, advantage set to zero</td><td>change prompts or enlarge $G$</td></tr><tr><td>NFT unstable</td><td>$\beta$ too small or old EMA tracking too closely</td><td>tune $\beta$, slow the EMA</td></tr><tr><td>All three “score up, quality flat”</td><td>reward and visual quality have decoupled (the raw reward gets hacked too); the group-normalised score has the separate problem of not tracking cross-round progress</td><td>raw reward + images + diversity</td></tr></tbody></table></div>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/modern_diffusion_post_training_tutorial_en.md</code> ·
+  SHA256 <code>5514728546a8</code> ·
+  generated at 2026-09-10 11:36 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

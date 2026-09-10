@@ -1,0 +1,59 @@
+{
+  "skill": "interview-cheatsheet",
+  "source": "docs/tutorials/modern_diffusion_post_training_tutorial.md",
+  "source_sha256": "d9843cb3ff9baff0c8f05417c50beeb61d76dadb2be30d656ff50b5317734631",
+  "output": "docs/tutorials/modern_diffusion_post_training_tutorial.html",
+  "runnable_code": "docs/tutorials/code/diffusion_online_rl.py",
+  "topic": "现代 Diffusion 后训练 — Flow-GRPO (marginal-preserving ODE→SDE, Gaussian per-step ratio, closed-form KL, denoising reduction) / DGPO (group-level DPO, |A| weights balance ⇒ log Z cancels, DSM surrogate, ODE-capable, timestep clipping) / DiffusionNFT (forward-process RL, implicit v± by reflection about old, Theorem 3.2 optimum v_old + 2Δ/β, CFG-free) / three-way comparison / 25 高频题",
+  "effort": "max",
+  "reviewer": "codex gpt-6-astra xhigh, fresh thread per round",
+  "drafted_by": "Claude Fable 5.1 (session owner agent), drafting AGAINST a pre-draft design review (64 numbered guardrails); every numeric claim reproduced in PyTorch before drafting; paper facts fetched from the arXiv HTML of all three papers (an initial wrong arXiv ID for DiffusionNFT — 2509.06942 is SRPO — was caught by fetching before writing).",
+  "design_review": {
+    "verdict": "adopted",
+    "thread_id": "01a08af4-0cbc-7ae2-8675-0855c7023787",
+    "notes": "Outline reviewed before drafting: 4 topics added (DGPO timestep clipping, NFT EMA old + adaptive weighting, NFT vs RWR/RFT negatives, old/ref/policy roles); 64 guardrails incl. reverse-SDE time-direction/sign, closed-form KL with positive step h, log Z cancellation proof, NFT (1+β) reflection and 2/β optimum, which figures the 25×/20× compare; corrections to my extraction: DGPO 3.74/3.66 is UnifiedReward not PickScore, NFT guidance strength ∝ 1/β; toy spec A/B/C with analytic answers (terminal variances 0.2125 / 0.21211 / 0.51119 predicted and later reproduced exactly)."
+  },
+  "math_code_review": {
+    "verdict": "WARN (no FAIL items after round 3)",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "FAIL",
+        "thread_id": "01a08b03-a2e7-7f13-a055-586b097d0cd8",
+        "issues": "UnifiedReward row mixed training tasks (3.51 is GenEval-trained; preference comparison is 3.66→3.74); DGPO surrogate sentence replaced the wrong object (must be the β log-ratio, not the bare log-density); NFT failure-mode sentence had β's role inverted (gradient ∝ β at d=0, ideal displacement ∝ 1/β); Q23 counterexample muddled; Q24 'CFG field corresponds to no marginal family' overstated; Q3 mis-applied EMA to Flow-GRPO's old. Plus: NFT efficiency is wall-clock per paper §4.3; 1.7k misattributed; 'SDE-only' scoped to training rollouts; Euler-discretised Gaussian; per-dim averaging gives ρ^{1/d}; std=0 ⇒ advantage 0.",
+        "fix": "all applied; one deliberate non-change — L1/L2/L3 headings kept unnumbered per collection style (attention_tutorial.md)"
+      },
+      {
+        "run": 2,
+        "verdict": "FAIL → WARN after fix",
+        "thread_id": "01a08b09-fb5c-74f1-a4dc-3737200364e8",
+        "issues": "Flow-GRPO PickScore 23.41 is the no-KL number; with KL (β=0.01) it is 23.31 — table paired the wrong pair. Warnings: s_θ := −ε̂/t is a definition, equal to the true score only at v_θ=v*; DGPO code scale note must say λ_here = D t² λ_paper (constant β cannot absorb t²); §7.3 scalar t; Q10 'cannot be compared' → 'not as same-CFG baselines'; A.3 last row cause; §7 imports; toy docstring optimum is an increment about v_old.",
+        "fix": "all applied"
+      },
+      {
+        "run": 3,
+        "verdict": "FAIL → fixed (two residuals)",
+        "thread_id": "01a08b11-7246-79c1-8bfc-7192203ada98",
+        "issues": "DGPO Table 2's Flow-GRPO PickScore is 23.31 (equal to the with-KL number) — my 'below 23.31' cell was wrong; §7.1 still called policy twice (sde_step now returns v). EN fidelity: 3 drifts (inference-can-be-ODE caveat dropped in §0; 'cannot be placed side by side' too absolute; 'density free' ≠ '密度天然可算').",
+        "fix": "all applied to both editions"
+      }
+    ]
+  },
+  "render_review": {
+    "verdict": "PASS after 1 fix",
+    "rounds": [
+      {
+        "run": 1,
+        "verdict": "WARN → fixed",
+        "thread_id": "01a08b15-ca04-7af1-b3a7-7cc5b8e000a0",
+        "notes": "All four HTMLs (2 new + 2 surgically edited) audited: headings/TOC order, MathJax delimiters, tables, code fences, callout classes, <details>, relative links, sanitiser output all clean; one cosmetic defect — a markdown link inside the A.2 heading rendered literally in the TOC; link moved to the body and both new HTMLs re-rendered."
+      }
+    ]
+  },
+  "runnable_code_check": {
+    "verdict": "PASS",
+    "notes": "docs/tutorials/code/diffusion_online_rl.py (pure PyTorch, float64, single thread, seconds on CPU): A — ODE and score-corrected SDE match the analytic marginal N(m_t, q_t) at t=0.7/0.5/0.3/0.1 within 6·SE+0.005 and the discretised recursion within 0.002; the noise-only SDE ends at var 0.514 vs truth 0.2125. B — NFT gradients −1/+1/0 for r=1/0/½ at current=old; optima z*=±2 with the implicit branch hitting the target. C — Σ|A| balances (1.6713 both sides); loss+grads invariant to reward+11 and to implicit-score+7; unit weights on the 1:3 split break (loss 0.122 → 0.000). Reviewer round 2 re-ran it independently: all asserts pass."
+  },
+  "summary": "Modern diffusion post-training cheat sheet (effort=max, ~690 lines, bilingual): Flow-GRPO moved out of diffusion_post_training_tutorial into a three-method treatment with DGPO and DiffusionNFT, organised by how the reward enters the gradient. Design review before drafting (64 guardrails), 3 math/code rounds, 1 render round, all gpt-6-astra xhigh; every number reproduced or source-checked; the old tutorial's reverse-SDE sign and 'K3 KL' claims corrected on the way.",
+  "rendered_at": "2026-09-10"
+}

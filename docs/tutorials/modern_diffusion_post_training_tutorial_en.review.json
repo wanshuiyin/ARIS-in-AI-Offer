@@ -1,0 +1,14 @@
+{
+  "skill": "interview-cheatsheet",
+  "source": "docs/tutorials/modern_diffusion_post_training_tutorial_en.md",
+  "source_sha256": "5514728546a8f442923bbecbf450d4601396dd3ad4596b9012bb3bf6c8a975b8",
+  "output": "docs/tutorials/modern_diffusion_post_training_tutorial_en.html",
+  "zh_source": "docs/tutorials/modern_diffusion_post_training_tutorial.md",
+  "reviewer": "codex gpt-6-astra xhigh, fresh thread",
+  "verdict": "PASS (after 3 fidelity fixes)",
+  "thread_id": "01a08b11-7246-79c1-8bfc-7192203ada98",
+  "translated_by": "Claude Fable 5.1, section by section from the Chinese canonical; identical 27 display formulas, 25 questions in order, 3 code blocks byte-identical",
+  "translation_fidelity_review": "Round-3 thread compared both editions section by section: all 25 questions, their order and 'scores zero' criteria match; all 27 display formulas match mathematically; all three code blocks identical. Three meaning drifts found and fixed: §0 dropped the 'inference can still use the ODE' caveat; §5.9 'cannot be placed side by side' was an absolute where the Chinese says 'not as same-CFG baselines'; §9 'density free' misrendered '密度天然可算' (→ 'directly computable probabilities').",
+  "structural_parity": "690 lines each; 51-entry TOC identical; render gate PASS (thread 01a08b15-ca04-7af1-b3a7-7cc5b8e000a0)",
+  "rendered_at": "2026-09-10"
+}

@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/diffusion_post_training_tutorial.md",
-  "source_sha256": "c005ed58067d968a9a96afabf372728dae76d95b9cc7a2f0a08fbd35fc752dec",
+  "source_sha256": "a3300c58d94f1e4b212dad08134fb9eceee96e26d29e280d915f7cc21e7d3352",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-20); not a new codex review",
   "output": "docs/tutorials/diffusion_post_training_tutorial.html",
   "topic": "Diffusion / Flow Post-Training — DDPO / DPOK / DRaFT / AlignProp / ReFL / Diffusion-DPO / D3PO / SPO / Diffusion-KTO / MaPO / Flow-GRPO",
@@ -80,6 +80,16 @@
         "Appendix A.4 footgun checklist: two duplicate restatements of the paired-noise and DDIM-eta=0 overreaches (not in the original finding locations but the same substantive claims) softened for internal consistency with the fixes above"
       ],
       "note": "Also fixed the two real code-logic bugs flagged for extra scrutiny (DDPO NaN at deterministic terminal step; Flow-GRPO placeholder documentation) — the Flow-GRPO 'divide by zero' half of that concern was verified NOT to be an actual bug given the existing epsilon guard, so only the documentation/comment was sharpened, not the numerics. Re-rendered diffusion_post_training_tutorial.html and refreshed source_sha256 (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ],
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-10",
+      "scope": "§5 Flow-GRPO collapsed to a summary + pointer to modern_diffusion_post_training_tutorial; §6.5 code moved out (pointer); Q9/Q16/Q23 replaced with DPOK-vs-DDPO KL bound, ReFL vs DRaFT/AlignProp, DRaFT-1 vs REINFORCE estimators (count stays 25); §7.4 'K3 KL' → closed-form Gaussian KL; §0 item 8 and cross-refs updated. No other content touched.",
+      "verdict": "PASS",
+      "reviewer": "codex gpt-6-astra xhigh",
+      "thread_id": "01a08b15-ca04-7af1-b3a7-7cc5b8e000a0",
+      "notes": "Render gate: pointers render as prose with working language-matched relative links, replaced questions render like the others, §6–§A numbering unchanged. The replaced answers restate facts already in §2.5 / §3.2 / §3.4 of this tutorial."
     }
   ]
 }

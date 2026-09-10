@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/diffusion_post_training_tutorial_en.md">
-<meta name="aris:source-sha256" content="8676d9e520d26d45a9ef5d80582917de187a37d13a2b44c4380f43b5394221ba">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:source-sha256" content="12c54a302b5ccff5e9bb956c3574d66697e1775ee0768297975671da9f34a6f4">
+<meta name="aris:generated-at" content="2026-09-10 11:30 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -567,15 +567,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#46-dpo-family-overview">4.6 DPO family overview</a></li>
 </ul>
 </li>
-<li><a href="#5-flow-grpo-rl-for-flow-matching">§5 Flow-GRPO: RL for Flow Matching</a>
-<ul>
-<li><a href="#51-why-flow-matching-also-needs-post-training">5.1 Why Flow Matching also needs post-training</a></li>
-<li><a href="#52-flow-grpos-two-core-tricks">5.2 Flow-GRPO&#x27;s two core tricks</a></li>
-<li><a href="#53-flow-grpo-advantage-computation">5.3 Flow-GRPO advantage computation</a></li>
-<li><a href="#54-flow-grpo-loss">5.4 Flow-GRPO loss</a></li>
-<li><a href="#55-geometric-meaning-of-advantage-on-the-vector-field">5.5 Geometric meaning of advantage on the vector field</a></li>
-<li><a href="#56-flow-grpo-empirical-results">5.6 Flow-GRPO empirical results</a></li>
-</ul>
+<li><a href="#5-flow-grpo-moved-to-its-own-tutorial">§5 Flow-GRPO (moved to its own tutorial)</a>
 </li>
 <li><a href="#6-code-patterns-readable-pseudo-code">§6 Code Patterns (readable pseudo-code)</a>
 <ul>
@@ -583,7 +575,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <li><a href="#62-diffusion-dpo-loss">6.2 Diffusion-DPO loss</a></li>
 <li><a href="#63-alignprop--draft-backprop-with-checkpointing">6.3 AlignProp / DRaFT backprop with checkpointing</a></li>
 <li><a href="#64-spo-step-aware-preference-loss">6.4 SPO step-aware preference loss</a></li>
-<li><a href="#65-flow-grpo-group-relative-advantage">6.5 Flow-GRPO group-relative advantage</a></li>
+<li><a href="#65-flow-grpo-group-relative-advantage-moved">6.5 Flow-GRPO group-relative advantage (moved)</a></li>
 <li><a href="#66-combined-reward-signal">6.6 Combined reward signal</a></li>
 </ul>
 </li>
@@ -636,15 +628,15 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/diffusion_post_training_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>8676d9e520d2</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>SHA256:</strong> <code>12c54a302b5c</code></span>
+    <span><strong>Rendered:</strong> 2026-09-10 11:30 UTC</span>
     
   </div>
 </header>
 
 <h2 id="0-tldr">§0 TL;DR</h2>
 <div class="callout callout-info"><div class="callout-title">Diffusion Post-Training in 9 sentences</div><p>one page covering the RL/DPO/Flow-RL family (see §1–§10 for derivations).</p></div>
-<ol><li><strong>Why it's hard</strong>: diffusion generation runs $T$ steps (typically 20–50), with reward given only once at the terminal state $x_0$ — so <strong>sparse terminal reward + long denoising trajectory + credit assignment</strong> combine, giving one extra "trajectory integration" dimension beyond LLM RLHF.</li><li><strong>Three main lines</strong>: (i) RL on denoising MDP (DDPO / DPOK — treat $T$-step denoising as an MDP); (ii) Direct reward backprop (DRaFT / AlignProp / ReFL — treat reward as a differentiable loss and backprop through the $T$-step sampler); (iii) Preference optimization (Diffusion-DPO / D3PO / SPO / Diffusion-KTO / MaPO — port the LLM DPO family to diffusion).</li><li><strong>DDPO (Black et al. 2024 ICLR, arXiv 2305.13301)</strong>: view denoising as a $T$-step MDP, state $= (x_t, t, c)$, action $= x_{t-1}$, per-trajectory reward $R(x_0, c)$; use REINFORCE or PPO-clip to update $\log p_\theta(x_{t-1} \mid x_t, c)$.</li><li><strong>AlignProp (Prabhudesai et al. 2024 ICLR, arXiv 2310.03739)</strong> &amp; <strong>DRaFT (Clark et al. 2024 ICLR, arXiv 2309.17400)</strong>: when reward $R$ is differentiable in $x_0$, directly <strong>backprop</strong> $R(x_0)$ through the $T$-step sampler into $\theta$. <strong>The key engineering problem</strong>: memory is $\mathcal{O}(T)$; DRaFT-K / AlignProp only backprop the final $K$ steps (typically $K \in \{1, 5\}$), and combined with gradient checkpointing the memory drops to $\mathcal{O}(K)$.</li><li><strong>Diffusion-DPO (Wallace et al. 2024 CVPR, arXiv 2311.12908)</strong>: replace the LLM DPO's $\log\pi/\pi_\text{ref}$ with diffusion's <strong>per-step ELBO surrogate</strong> — specifically, use $-\|\epsilon - \epsilon_\theta(x_t, t)\|^2$ as one lower-bound term of $\log p_\theta(x_0)$, and assemble it into a DPO contrastive loss over the pair $(y_w, y_l)$.</li><li><strong>D3PO (Yang et al. 2024 CVPR, arXiv 2311.13231)</strong>: <strong>completely RM-free</strong> — directly plug human thumbs up/down feedback on generated images into the KL-regularized optimal solution's implicit reward; the derivation parallels DPO but operates on the diffusion <strong>per-step Markov chain</strong>.</li><li><strong>SPO (Liang et al. 2024, arXiv 2406.04314)</strong>: observes that different denoising steps have different preferences (high-noise steps learn composition, low-noise steps learn detail), and extends DPO to be <strong>step-aware</strong> — for each $t$, independently sample an in-step pair $(x_{t-1}^w, x_{t-1}^l)$, and weight the loss along the step dimension.</li><li><strong>Flow-GRPO (Liu et al. 2025, arXiv 2505.05470)</strong>: the first work bringing GRPO to Flow Matching. Two key tricks: an <strong>ODE→SDE equivalent conversion</strong> that turns the deterministic flow into an explorable stochastic process; and <strong>denoising reduction</strong> — fewer steps for training, full steps for inference. RL-tuned SD3.5-M raised GenEval from 63% to 95%.</li><li><strong>Reward hacking is the real boss</strong>: over-saturated colors, monotonous composition, style convergence, high PickScore but ugly to humans — mitigations include reward ensembles (HPSv2 + PickScore + ImageReward + CLIP-Score), KL anchor (Diffusion-DPO's $\beta$), and early stopping on reward plateau. SD3 / FLUX <strong>barely disclose post-training details</strong>, but the community consensus is that SD3.5 Turbo and FLUX.1 dev use a DPO + distillation hybrid.</li></ol>
+<ol><li><strong>Why it's hard</strong>: diffusion generation runs $T$ steps (typically 20–50), with reward given only once at the terminal state $x_0$ — so <strong>sparse terminal reward + long denoising trajectory + credit assignment</strong> combine, giving one extra "trajectory integration" dimension beyond LLM RLHF.</li><li><strong>Three main lines</strong>: (i) RL on denoising MDP (DDPO / DPOK — treat $T$-step denoising as an MDP); (ii) Direct reward backprop (DRaFT / AlignProp / ReFL — treat reward as a differentiable loss and backprop through the $T$-step sampler); (iii) Preference optimization (Diffusion-DPO / D3PO / SPO / Diffusion-KTO / MaPO — port the LLM DPO family to diffusion).</li><li><strong>DDPO (Black et al. 2024 ICLR, arXiv 2305.13301)</strong>: view denoising as a $T$-step MDP, state $= (x_t, t, c)$, action $= x_{t-1}$, per-trajectory reward $R(x_0, c)$; use REINFORCE or PPO-clip to update $\log p_\theta(x_{t-1} \mid x_t, c)$.</li><li><strong>AlignProp (Prabhudesai et al. 2024 ICLR, arXiv 2310.03739)</strong> &amp; <strong>DRaFT (Clark et al. 2024 ICLR, arXiv 2309.17400)</strong>: when reward $R$ is differentiable in $x_0$, directly <strong>backprop</strong> $R(x_0)$ through the $T$-step sampler into $\theta$. <strong>The key engineering problem</strong>: memory is $\mathcal{O}(T)$; DRaFT-K / AlignProp only backprop the final $K$ steps (typically $K \in \{1, 5\}$), and combined with gradient checkpointing the memory drops to $\mathcal{O}(K)$.</li><li><strong>Diffusion-DPO (Wallace et al. 2024 CVPR, arXiv 2311.12908)</strong>: replace the LLM DPO's $\log\pi/\pi_\text{ref}$ with diffusion's <strong>per-step ELBO surrogate</strong> — specifically, use $-\|\epsilon - \epsilon_\theta(x_t, t)\|^2$ as one lower-bound term of $\log p_\theta(x_0)$, and assemble it into a DPO contrastive loss over the pair $(y_w, y_l)$.</li><li><strong>D3PO (Yang et al. 2024 CVPR, arXiv 2311.13231)</strong>: <strong>completely RM-free</strong> — directly plug human thumbs up/down feedback on generated images into the KL-regularized optimal solution's implicit reward; the derivation parallels DPO but operates on the diffusion <strong>per-step Markov chain</strong>.</li><li><strong>SPO (Liang et al. 2024, arXiv 2406.04314)</strong>: observes that different denoising steps have different preferences (high-noise steps learn composition, low-noise steps learn detail), and extends DPO to be <strong>step-aware</strong> — for each $t$, independently sample an in-step pair $(x_{t-1}^w, x_{t-1}^l)$, and weight the loss along the step dimension.</li><li><strong>Flow-GRPO (Liu et al. 2025, arXiv 2505.05470)</strong>: the first work bringing GRPO to Flow Matching — a marginal-preserving ODE→SDE conversion plus denoising reduction; SD3.5-M GenEval 63% → 95%. Its full derivation, together with DGPO and DiffusionNFT, now has its own tutorial: <a href="modern_diffusion_post_training_tutorial_en.md"><em>Modern Diffusion Post-Training</em></a>.</li><li><strong>Reward hacking is the real boss</strong>: over-saturated colors, monotonous composition, style convergence, high PickScore but ugly to humans — mitigations include reward ensembles (HPSv2 + PickScore + ImageReward + CLIP-Score), KL anchor (Diffusion-DPO's $\beta$), and early stopping on reward plateau. SD3 / FLUX <strong>barely disclose post-training details</strong>, but the community consensus is that SD3.5 Turbo and FLUX.1 dev use a DPO + distillation hybrid.</li></ol>
 <div class="callout callout-good"><div class="callout-title">vs LLM RLHF in one sentence</div><p>LLM RLHF cares about "token-level credit assignment + KL anchor"; diffusion post-training cares about "denoising-step credit assignment + memory blow-up (backprop) or sample blow-up (RL)". Same problem in essence — sparse reward + long trajectory — only the physical meaning of "trajectory" changes.</p></div>
 <h2 id="1-intuition-why-diffusion-post-training-is-hard">§1 Intuition: why diffusion post-training is hard</h2>
 <h3 id="11-single-step-vs-multi-step-generation-the-essential-difference">1.1 Single-step vs multi-step generation: the essential difference</h3>
@@ -807,39 +799,11 @@ optimizer.step()</code></pre>
 <ul><li><strong>No reference UNet needed</strong>: saves half the memory (from $2 \times M$ to $M$).</li><li><strong>Solves reference mismatch</strong>: when fine-tuning to a new style (where the reference is far from the target distribution), Diffusion-DPO training collapses, but MaPO is stable.</li><li><strong>15% faster training</strong> (paper-reported, validated across 5 domains).</li></ul>
 <h3 id="46-dpo-family-overview">4.6 DPO family overview</h3>
 <div class="table-wrap"><table><thead><tr><th>Method</th><th>Needs ref?</th><th>Preference type</th><th>Memory</th><th>When to use</th></tr></thead><tbody><tr><td><strong>Diffusion-DPO</strong> (Wallace 2024)</td><td>✅</td><td>paired</td><td>2×</td><td>general alignment</td></tr><tr><td><strong>D3PO</strong> (Yang 2024)</td><td>✅</td><td>paired or thumbs</td><td>2×</td><td>when no RM available</td></tr><tr><td><strong>SPO</strong> (Liang 2024)</td><td>✅ + step-RM</td><td>per-step paired</td><td>2× + small step-RM</td><td>extracting maximum step-level signal</td></tr><tr><td><strong>Diffusion-KTO</strong> (Li 2024)</td><td>✅</td><td>unpaired binary</td><td>2×</td><td>large volume of thumbs data</td></tr><tr><td><strong>MaPO</strong> (Hong 2024)</td><td>❌</td><td>paired</td><td>1×</td><td>style fine-tune / memory-constrained</td></tr></tbody></table></div>
-<h2 id="5-flow-grpo-rl-for-flow-matching">§5 Flow-GRPO: RL for Flow Matching</h2>
-<h3 id="51-why-flow-matching-also-needs-post-training">5.1 Why Flow Matching also needs post-training</h3>
-<p>SD3 / FLUX / Lumina all moved to Flow Matching (Rectified Flow); post-training needs are the same:</p>
-<ul><li>Improve composition benchmarks like GenEval / DPG (color, count, spatial relations).</li><li>Improve OCR / text rendering accuracy.</li><li>Improve prompt-image alignment (VLM judge).</li></ul>
-<p>But Flow Matching is a <strong>deterministic ODE</strong> ($\dot x_t = v_\theta(t, x, c)$) — the stochastic transition assumed by DDPO/DPOK does not exist. Directly plugging it into the RL framework fails.</p>
-<h3 id="52-flow-grpos-two-core-tricks">5.2 Flow-GRPO's two core tricks</h3>
-<p>Liu et al. 2025 <em>Flow-GRPO: Training Flow Matching Models via Online RL</em> (arXiv 2505.05470) solves two fundamental Flow + RL problems:</p>
-<h4 id="trick-1-ode--sde-equivalent-conversion">Trick 1: ODE → SDE equivalent conversion</h4>
-<p>For the Rectified Flow ODE $\dot x_t = v_\theta(t, x_t, c)$, construct an <strong>equivalent SDE</strong>:</p>
-<p>$$dx_t = \big[v_\theta(t, x_t, c) + \tfrac{1}{2}\sigma(t)^2 \nabla_x \log p_t(x_t)\big]\,dt + \sigma(t)\,dW_t$$</p>
-<p><strong>Key property</strong> (Song et al. 2021 score SDE framework): this SDE has <strong>exactly the same marginal</strong> $p_t$ as the original ODE. The difference is that the SDE provides <strong>stochastic exploration</strong> (the $dW_t$ noise), allowing RL to sample different trajectories.</p>
-<p>For Flow Matching, $\nabla_x \log p_t = -\epsilon/\sigma_t$ (under a Gaussian path), and the score can be derived from $v_\theta$. Setting $\sigma(t)$ as a schedule (typically $\sigma(t) = \sqrt{1-t}$) gives the SDE sampler used by Flow-GRPO during training.</p>
-<div class="callout callout-info"><div class="callout-title">Physical meaning</div><p>adding $\sigma\,dW$ lets the particle "jitter" out multiple trajectories while keeping the marginal unchanged, so $G$ samples from the same prompt actually differ → group statistics for GRPO are well-defined.</p></div>
-<h4 id="trick-2-denoising-reduction">Trick 2: Denoising reduction</h4>
-<p>GRPO needs a group of $G$ trajectories per sample, typically $G = 16$–$32$. Flow Matching inference normally uses 25–50 steps, so <strong>a single training sample needs $\approx 25G$ forwards</strong> — too expensive.</p>
-<p>Flow-GRPO uses <strong>fewer steps during training</strong> (e.g. 10 steps); inference still uses 25–50 steps. The SDE is more uniform on the schedule, so the "exploration quality" of few-step training is enough:</p>
-<p>$$\text{Training}: T_\text{train} = 10, \quad \text{Inference}: T_\text{infer} = 28$$</p>
-<p>Empirically, no quality drop on GenEval / OCR / Aesthetic.</p>
-<h3 id="53-flow-grpo-advantage-computation">5.3 Flow-GRPO advantage computation</h3>
-<p>Completely parallel to GRPO for LLM — for the same prompt $c$, sample $G$ final images $\{x_0^{(1)}, \dots, x_0^{(G)}\}$, score each with reward $r_i$, and normalize within the group:</p>
-<p>$$\hat{A}_i = \frac{r_i - \text{mean}_{j}(r_j)}{\text{std}_j(r_j) + \epsilon}$$</p>
-<p>All steps within a trajectory share the same $\hat{A}_i$ (same as per-token sharing in LLM GRPO).</p>
-<h3 id="54-flow-grpo-loss">5.4 Flow-GRPO loss</h3>
-<p>Let the SDE Euler step transition log-prob be $\log p_\theta(x_{t-1} \mid x_t, c)$ (Gaussian), with importance ratio $\rho_{i,t} = p_\theta / p_{\theta_\text{old}}$. PPO-clip:</p>
-<p>$$L^\text{Flow-GRPO} = \mathbb{E}\!\left[\frac{1}{G}\sum_i\!\frac{1}{T_\text{train}}\!\sum_t \min\!\big(\rho_{i,t}\hat{A}_i, \text{clip}(\rho_{i,t}, 1-\epsilon, 1+\epsilon)\hat{A}_i\big) - \beta\, \text{KL}_{i,t}(p_\theta \Vert p_\text{ref})\right]$$</p>
-<p>KL still uses the K3 estimator (same as GRPO for LLM).</p>
-<h3 id="55-geometric-meaning-of-advantage-on-the-vector-field">5.5 Geometric meaning of advantage on the vector field</h3>
-<div class="callout callout-good"><div class="callout-title">L3 understanding</div></div>
-<ul><li>LLM GRPO's advantage reweights in the token logit space;</li><li>Flow-GRPO's advantage directly reweights the <strong>direction correction</strong> of $v_\theta$ — specifically, when $\hat A_i &gt; 0$, push $v_\theta(t, x_t, c)$ toward the direction $(x_{t-1}^{(i)} - x_t^{(i)})/dt$ that trajectory $\tau_i$ actually took.</li><li>This is a "directional gradient" on the $v_\theta$ space, equivalent to importance-weighted $\epsilon$-prediction reweighting under a Gaussian path.</li></ul>
-<h3 id="56-flow-grpo-empirical-results">5.6 Flow-GRPO empirical results</h3>
-<p>The paper reports for SD3.5-M:</p>
-<div class="table-wrap"><table><thead><tr><th>Benchmark</th><th>SD3.5-M base</th><th>Flow-GRPO</th></tr></thead><tbody><tr><td>GenEval overall</td><td>63%</td><td><strong>95%</strong></td></tr><tr><td>Visual text rendering</td><td>59%</td><td><strong>92%</strong></td></tr><tr><td>Aesthetic (Schuhmann)</td><td>5.8</td><td>6.1</td></tr></tbody></table></div>
-<div class="callout callout-warn"><div class="callout-title">GenEval 95% looks too perfect</div><p>the paper does claim this number, but note that GenEval measures rule-verifiable object count / color / spatial-relation tasks, which are inherently RL-friendly (highly regularized rewards). On more subjective benchmarks like PartiPrompt / DPG, gains are 5–10 points, which is more realistic.</p></div>
+<h2 id="5-flow-grpo-moved-to-its-own-tutorial">§5 Flow-GRPO (moved to its own tutorial)</h2>
+<p>Flow-GRPO (Liu et al. 2025, arXiv 2505.05470) was the first work to bring GRPO to Flow Matching: it rewrites the deterministic ODE as an <strong>SDE with the same marginals</strong>, which yields a computable Gaussian per-step transition density, and then runs advantage-weighted PPO-clip on it; training samples with 10 steps and evaluation with 40 (denoising reduction). On SD3.5-M, GenEval 0.63 → 0.95.</p>
+<p>Together with the later <strong>DGPO</strong> and <strong>DiffusionNFT</strong> it forms "three roads out of group sampling". The full derivation (sign of the reverse SDE, closed-form KL, discretisation), the three-way comparison and a runnable toy live in:</p>
+<p>👉 <a href="modern_diffusion_post_training_tutorial_en.md"><em>Modern Diffusion Post-Training: Flow-GRPO · DGPO · DiffusionNFT</em></a></p>
+<p>This tutorial keeps only its place on the post-training map (§1.2 Line A, the §9 comparison table).</p>
 <h2 id="6-code-patterns-readable-pseudo-code">§6 Code Patterns (readable pseudo-code)</h2>
 <h3 id="61-ddpo-reinforce-style-update">6.1 DDPO REINFORCE-style update</h3>
 <pre><code class="language-python">import torch
@@ -1013,92 +977,8 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 
     inner = beta * ((log_p_w - log_pref_w) - (log_p_l - log_pref_l))
     return -F.logsigmoid(inner).mean()</code></pre>
-<h3 id="65-flow-grpo-group-relative-advantage">6.5 Flow-GRPO group-relative advantage</h3>
-<pre><code class="language-python">def flow_grpo_step(flow_net, ref_flow, prompts, reward_fn,
-                   G=16, T_train=10, sigma_fn=lambda t: (1 - t) ** 0.5,
-                   eps_clip=0.2, beta=0.04):
-    &quot;&quot;&quot;
-    Flow-GRPO one-step training.
-    G: sample G trajectories per prompt.
-    T_train: SDE step count for training (inference uses 28-50).
-    &quot;&quot;&quot;
-    P = len(prompts)
-    # Repeat each prompt G times
-    prompts_rep = sum([[p] * G for p in prompts], [])      # [P*G]
-
-    # ── 1. SDE rollout: ODE→SDE equivalent conversion ──
-    x_t = torch.randn(P * G, 4, 64, 64, device=device)
-    log_probs_old = []                                     # for PPO importance ratio
-    trajectory = [x_t.clone()]
-    with torch.no_grad():
-        for i in range(T_train):
-            t_now = 1.0 - i / T_train
-            t_next = 1.0 - (i + 1) / T_train
-            dt = t_next - t_now
-            sigma = sigma_fn(t_now)
-            v = flow_net(x_t, t_now, prompts_rep)
-            # SDE Euler: drift = v + 0.5 σ² ∇log p (PF-ODE → SDE conversion, Song 2021)
-            # !!! IMPORTANT: the following drift is a simplified pedagogical placeholder.
-            #     Production implementations should re-derive score from the data/noise/velocity
-            #     relationship, with the specific Rectified Flow / EDM schedule; refer to Flow-GRPO
-            #     paper Eq.(6) + official repo for deployment. The -v/σ here is only illustrative
-            #     (guarded with +1e-6, so it does not divide by zero: at t=1, sigma→0, and this
-            #     correction term goes to 0 together with sigma² — not NaN — but the formula itself
-            #     is not a rigorous derivation).
-            #     Note: this placeholder&#x27;s sigma_fn(t)=sqrt(1-t) gives zero SDE noise at the
-            #     trajectory start (t=1, pure noise) and maximal noise right at the trajectory end
-            #     (t=0, near-clean data) — the reverse of the usual intuition that exploration noise
-            #     should be larger early and smaller near the final output. Anyone implementing a
-            #     real Flow-GRPO trainer should re-derive both the score term (paper Eq.6) and the
-            #     sign/direction of the noise schedule rather than reusing this illustrative sigma_fn.
-            drift = v + 0.5 * sigma ** 2 * (-v / (sigma + 1e-6))  # placeholder, see paper Eq.(6)
-            noise = torch.randn_like(x_t)
-            x_next = x_t + drift * dt + sigma * noise * abs(dt) ** 0.5
-            # Gaussian log-prob (transition)
-            mean = x_t + drift * dt
-            std = sigma * abs(dt) ** 0.5
-            log_p = -0.5 * ((x_next - mean) / std).pow(2).sum([1, 2, 3])
-            log_probs_old.append(log_p)
-            x_t = x_next
-            trajectory.append(x_t.clone())
-        x_0 = x_t
-
-    # ── 2. Group-relative advantage ──
-    R = reward_fn(x_0, prompts_rep)                        # [P*G]
-    R = R.view(P, G)
-    mean_R = R.mean(dim=1, keepdim=True)
-    std_R = R.std(dim=1, keepdim=True) + 1e-8
-    A = ((R - mean_R) / std_R).view(P * G)                 # [P*G]
-
-    # ── 3. PPO-clip loss with KL ──
-    loss = 0.0
-    x_t = trajectory[0]
-    for i in range(T_train):
-        t_now = 1.0 - i / T_train
-        v = flow_net(x_t, t_now, prompts_rep)              # grad ON
-        sigma = sigma_fn(t_now)
-        drift = v + 0.5 * sigma ** 2 * (-v / (sigma + 1e-6))
-        dt = -1.0 / T_train
-        mean = x_t + drift * dt
-        std = sigma * abs(dt) ** 0.5
-        log_p_new = -0.5 * ((trajectory[i+1] - mean) / std).pow(2).sum([1, 2, 3])
-        ratio = (log_p_new - log_probs_old[i]).exp()
-        surr1 = ratio * A
-        surr2 = ratio.clamp(1 - eps_clip, 1 + eps_clip) * A
-        loss = loss - torch.min(surr1, surr2).mean()
-
-        # K3 KL estimator
-        with torch.no_grad():
-            v_ref = ref_flow(x_t, t_now, prompts_rep)
-            drift_ref = v_ref + 0.5 * sigma ** 2 * (-v_ref / (sigma + 1e-6))
-            mean_ref = x_t + drift_ref * dt
-            log_p_ref = -0.5 * ((trajectory[i+1] - mean_ref) / std).pow(2).sum([1,2,3])
-        delta = log_p_ref - log_p_new
-        kl_k3 = (delta.exp() - delta - 1)
-        loss = loss + beta * kl_k3.mean()
-
-        x_t = trajectory[i + 1].detach()
-    return loss</code></pre>
+<h3 id="65-flow-grpo-group-relative-advantage-moved">6.5 Flow-GRPO group-relative advantage (moved)</h3>
+<p>A readable implementation of the SDE step + Gaussian log-prob + ratio + closed-form KL is in <a href="modern_diffusion_post_training_tutorial_en.md"><em>Modern Diffusion Post-Training</em> §7.1</a>.</p>
 <h3 id="66-combined-reward-signal">6.6 Combined reward signal</h3>
 <pre><code class="language-python">def combined_reward(images, prompts, weights=None):
     &quot;&quot;&quot;
@@ -1134,7 +1014,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <div class="table-wrap"><table><thead><tr><th>Dimension</th><th>Trajectory-level</th><th>Step-level</th></tr></thead><tbody><tr><td>Signal location</td><td>only at $x_0$</td><td>at every $t$</td></tr><tr><td>Data acquisition</td><td>easy (one image)</td><td>hard (need step-wise RM or rollout)</td></tr><tr><td>Learning efficiency</td><td>low (sparse)</td><td>high (dense)</td></tr><tr><td>Representative</td><td>DDPO, Diffusion-DPO</td><td>SPO (Liang 2024)</td></tr><tr><td>Engineering difficulty</td><td>low</td><td>high (either train a step-RM or PRM-shepherd-style rollout)</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">How to train a step-RM</div><p>SPO uses a binary RM "given $x_t$ at step $t$, is $x_{t-1}$ a good transition?". Training data: run multiple trajectories from the base UNet, and assign per-step rewards by backing out from final-$x_0$ rewards (similar to Math-Shepherd's rollout-based PRM).</p></div>
 <h3 id="74-core-mechanisms-to-mitigate-reward-hacking">7.4 Core mechanisms to mitigate reward hacking</h3>
-<ol><li><strong>Reward ensemble</strong>: take min or mean across multiple RMs (HPSv2 + PickScore + ImageReward is the mainstream combo).</li><li><strong>KL anchor</strong>: DPO's $\beta$, DPOK's explicit KL, Flow-GRPO's K3 KL term.</li><li><strong>LoRA scale</strong>: full fine-tune drifts fast; LoRA scale caps reward-hacking ceiling.</li><li><strong>Early stop on reward plateau</strong>: reward up + FID up = hacking signal.</li><li><strong>Composite reward</strong>: rule-based (object count, OCR) + neural RM (aesthetic, alignment) weighted.</li><li><strong>Adversarial RM</strong>: include hacking samples as negatives when training RM.</li></ol>
+<ol><li><strong>Reward ensemble</strong>: take min or mean across multiple RMs (HPSv2 + PickScore + ImageReward is the mainstream combo).</li><li><strong>KL anchor</strong>: DPO's $\beta$, DPOK's explicit KL, Flow-GRPO's closed-form per-step Gaussian KL.</li><li><strong>LoRA scale</strong>: full fine-tune drifts fast; LoRA scale caps reward-hacking ceiling.</li><li><strong>Early stop on reward plateau</strong>: reward up + FID up = hacking signal.</li><li><strong>Composite reward</strong>: rule-based (object count, OCR) + neural RM (aesthetic, alignment) weighted.</li><li><strong>Adversarial RM</strong>: include hacking samples as negatives when training RM.</li></ol>
 <h2 id="8-production-landscape-what-sd3--flux-actually-use">§8 Production landscape: what SD3 / FLUX actually use</h2>
 <h3 id="81-what-the-public-papers--reports-actually-say">8.1 What the public papers / reports actually say</h3>
 <div class="table-wrap"><table><thead><tr><th>Model</th><th>Post-training?</th><th>Disclosed content</th></tr></thead><tbody><tr><td><strong>SD 1.5</strong></td><td>partial community DPO / DDPO LoRA</td><td>base is pure LDM; many community fine-tunes</td></tr><tr><td><strong>SDXL</strong></td><td>Stability AI did not explicitly describe post-training</td><td>base + refiner; Pick-a-Pic + Diffusion-DPO community LoRAs are popular</td></tr><tr><td><strong>SDXL Turbo / ADD</strong></td><td>distillation-focused</td><td>Adversarial Diffusion Distillation (2311.17042); essentially 1-step distill, not RL post-training</td></tr><tr><td><strong>SD3</strong> (Stable Diffusion 3, Esser et al. 2024 ICML)</td><td>base uses Rectified Flow + MM-DiT</td><td>paper does not disclose post-training; community suspects internal DPO</td></tr><tr><td><strong>SD3.5 / SD3.5 Turbo</strong></td><td>distill is present; post-training not disclosed</td><td>speculated DPO + distill hybrid</td></tr><tr><td><strong>FLUX.1 dev / pro</strong> (Black Forest Labs 2024)</td><td>undisclosed</td><td>community speculates DPO + distill; pro API is closed-source</td></tr><tr><td><strong>DALL-E 3</strong> (OpenAI 2023)</td><td>"synthetic recaptioning" (no RLHF described)</td><td>synthetic recaptioning (detailed image-caption data augmentation); does not describe an RLHF post-training procedure</td></tr><tr><td><strong>Imagen 3</strong> (Google 2024)</td><td>undisclosed</td><td>internal alignment pipeline</td></tr><tr><td><strong>DeepFloyd IF</strong></td><td>no post-training</td><td>academic base model</td></tr></tbody></table></div>
@@ -1220,9 +1100,9 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <p>Saying just "over-optimization" is non-specific; you must name at least 3 specific visual symptoms.</p>
 </details>
 <details>
-<summary>Q9. Why is Flow-GRPO's ODE→SDE conversion necessary?</summary>
-<ul><li>The Flow Matching ODE $\dot x = v_\theta$ is <strong>deterministic</strong> — given $x_T$, $x_0$ is uniquely determined.</li><li>RL needs a stochastic policy to explore; the ODE has no sampling dimension.</li><li>ODE→SDE adds the $\sigma\, dW$ noise term; <strong>the marginal $p_t$ is unchanged</strong> (Anderson 1982), but each sample path is different → enables exploration.</li></ul>
-<p>Not knowing the marginal is preserved (wrong, may think SDE changes the distribution).</p>
+<summary>Q9. What does DPOK add over DDPO? Does its sum of per-step KLs equal the terminal KL?</summary>
+<ul><li>DDPO is pure RL (REINFORCE / PPO-clip); the KL exists only implicitly through the ratio clip. DPOK adds an <strong>explicit</strong> $\beta\,\text{KL}(p_\theta \Vert p_\text{ref})$ to the objective — the diffusion counterpart of RLHF's "$\beta\log(\pi/\pi_\text{ref})$".</li><li>The sum of per-step Gaussian KLs is the exact chain-rule expansion of the <strong>joint trajectory KL</strong> $\text{KL}(p_\theta(x_{0:T}) \Vert p_\text{ref}(x_{0:T}))$; by the data-processing inequality it is an <strong>upper bound</strong> on the terminal marginal KL, not an identity. DPOK uses this closed-form bound as a surrogate.</li></ul>
+<p>Calling the bound an equality scores zero.</p>
 </details>
 <details>
 <summary>Q10. How are $y_w$ and $y_l$ noises handled in Diffusion-DPO training?</summary>
@@ -1257,10 +1137,9 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <p>Saying "completely different" (wrong, they are theoretically equivalent); or not knowing D3PO is also a DPO-family method.</p>
 </details>
 <details>
-<summary>Q16. What is Flow-GRPO's denoising reduction? Why doesn't it degrade?</summary>
-<ul><li>During training, the SDE uses few steps ($T_\text{train} = 10$); inference still uses full steps ($T_\text{infer} = 28$–$50$).</li><li><p><strong>Empirically little degradation, because</strong> (note: this is empirical observation + approximation, not strict equivalence):</p>
-<ul><li>The SDE's <strong>continuous marginal</strong> $p_t$ is independent of step count; but <strong>the discrete sampler's actual distribution</strong> depends on step count — fewer steps yields a higher-discretization-error approximation. Strictly, "same marginal" only holds in the continuous limit.</li><li>RL learns the direction correction of $v_\theta$; the <strong>direction signal</strong> is loosely coupled to step count (this is empirical observation).</li><li>No degradation on rule-based rewards like GenEval/OCR; slight but acceptable degradation on more subjective rewards.</li></ul></li><li><strong>Saves sampling cost</strong>: each prompt needs $G \cdot T_\text{train}$ forwards → 1/3 the cost.</li></ul>
-<p>Not knowing the marginal is invariant (wrong); or thinking train/inference step counts must match.</p>
+<summary>Q16. ReFL, DRaFT and AlignProp all "backprop the reward as a loss" — what is the real difference?</summary>
+<ul><li>ReFL (the ImageReward paper) scores a Tweedie one-step estimate $\hat x_0(x_{t'}, t')$ at <strong>one random intermediate step</strong> $t'$ and trains it <strong>jointly with</strong> $\mathcal L_\text{simple}$: $\mathcal L = \mathcal L_\text{simple} - \lambda\,\mathbb E_{t'}[R(\hat x_0)]$.</li><li>DRaFT / AlignProp backprop a pure reward loss <strong>through several real sampling steps</strong> (DRaFT-K truncates to the last $K$; AlignProp uses checkpointing).</li><li>Trade-off: ReFL is more stable with smaller reward gains (it sees a one-step estimate, not the real trajectory); DRaFT gains more, costs $\mathcal O(K)$ memory, and is easier to hack.</li></ul>
+<p>"ReFL came first" alone scores nothing; name the one-step Tweedie estimate and the joint training.</p>
 </details>
 <details>
 <summary>Q17. How does MaPO remove the reference model? What does the loss look like?</summary>
@@ -1302,11 +1181,10 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <p>Only saying gradient checkpointing is incomplete; not knowing about the reversibility assumption.</p>
 </details>
 <details>
-<summary>Q23. Geometric meaning of advantage on the vector field $v_\theta$ in Flow-GRPO?</summary>
-<p>GRPO's advantage acts on the vector field space as follows:</p>
-<ol><li><strong>Group statistics</strong>: for the same prompt $c$, sample $G$ SDE trajectories; each yields a different $x_0^{(i)}$; the reward $r_i$ gives the entire trajectory a single advantage $\hat A_i = (r_i - \bar r)/\sigma_r$.</li><li><strong>Gradient along trajectory</strong>: $\nabla_\theta L = \sum_t \nabla_\theta \log p_\theta(x_{t-1}^{(i)} \mid x_t^{(i)}) \cdot \hat A_i$. Under a Gaussian transition, $\log p \propto -(x_{t-1} - \mu_\theta)^2/(2\sigma^2)$, so $\nabla_\theta \log p \propto (x_{t-1} - \mu_\theta)\nabla_\theta \mu_\theta / \sigma^2$.</li><li><strong>Physical meaning of $\mu_\theta$</strong>: under the Flow Matching SDE, $\mu_\theta = x_t + (v_\theta + \frac{1}{2}\sigma^2 s_\theta) dt$; $\nabla_\theta \mu_\theta \approx dt \cdot \nabla_\theta v_\theta$ (ignoring the score term).</li><li><strong>Geometric meaning</strong>: when $\hat A_i &gt; 0$, push $v_\theta(t, x_t^{(i)})$ toward the direction $(x_{t-1}^{(i)} - x_t^{(i)})/dt$ (the direction the trajectory actually took); when advantage $&lt; 0$, push the opposite way.</li><li><strong>vs ODE perspective</strong>: equivalent to "group-relative direction reweighting" in vector field space — good trajectories make $v_\theta$ point along their direction at that $(t, x_t)$, bad ones the opposite.</li></ol>
-<p>This is "reward-weighted importance sampling" in vector field space: each SDE trajectory is one "proposal direction" for $v_\theta$, and the advantage decides whether to follow it.</p>
-<p>Failing to articulate any geometry is 0 points; saying "reweighting" without specifying the space is half credit.</p>
+<summary>Q23. DRaFT-1 backprops through only the last step — is that equivalent to REINFORCE? What is the essential difference between the two gradient estimators?</summary>
+<p>Not equivalent; they are two different estimator families:</p>
+<ol><li><strong>DRaFT-1 is a pathwise (reparameterized) gradient</strong>: $\nabla_\theta R(x_0) = \nabla_x R \cdot \partial x_0/\partial\theta$. It needs the reward to be differentiable in the image and takes $\partial x_0/\partial\theta$ through the last step's graph. Very low variance.</li><li><strong>REINFORCE is a score-function gradient</strong>: $\mathbb E[R\,\nabla_\theta\log p_\theta(\tau)]$. It needs no differentiable reward, only a computable $\log p_\theta$. High variance, tamed by baselines / group normalisation.</li><li>Both are unbiased for $\nabla_\theta\,\mathbb E[R]$ under their own assumptions, but DRaFT-1 differentiates only the last step's dependence on the parameters — it is a <strong>truncated</strong> pathwise estimator, so it is biased with respect to the earlier steps.</li><li>Engineering consequence: differentiable rewards (aesthetic / CLIP-style) favour pathwise; non-differentiable ones (rule verifiers, OCR) leave only score-function — this is the divide between the DDPO family and the DRaFT family.</li></ol>
+<p>Conflating "truncated" with "equivalent", or claiming REINFORCE also needs a differentiable reward, scores zero.</p>
 </details>
 <details>
 <summary>Q24. Did SD3 / FLUX really use RL post-training? How can you tell?</summary>
@@ -1323,7 +1201,7 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <p><strong>Phase 1: preference data collection</strong></p>
 <ul><li>Collect paired preference (Pick-a-Pic style): expensive but DPO-ready.</li><li>Collect binary feedback (thumbs up/down): cheap, use Diffusion-KTO.</li><li>Collect rule-based ground truth (GenEval-style prompts + automated verifier): cheap, use Flow-GRPO.</li></ul>
 <p><strong>Phase 2: algorithm choice</strong></p>
-<ul><li><strong>Default Diffusion-DPO</strong>: offline, stable, cheap, mature community code (HuggingFace <code>diffusers</code> supports it directly).</li><li><strong>If the base is Flow Matching (SD3/FLUX)</strong>: use Flow-GRPO, with rule-based rewards prioritized.</li><li><strong>If fine-tuning to a new style / memory constrained</strong>: use MaPO (no ref, saves half the memory).</li><li><strong>If reward is differentiable and you want to extract maximum signal</strong>: DRaFT-1 + LoRA, paired with HPSv2 + PickScore ensemble.</li><li><strong>NOT preferred: DDPO</strong>: on-policy sampling is too expensive, engineering complexity is high, no clear advantage over DPO.</li></ul>
+<ul><li><strong>Default Diffusion-DPO</strong>: offline, stable, cheap, mature community code (HuggingFace <code>diffusers</code> supports it directly).</li><li><strong>If the base is Flow Matching (SD3/FLUX)</strong>: use Flow-GRPO / DGPO / DiffusionNFT (how to choose: the standalone tutorial's §6 and Q25), with rule-based rewards prioritized.</li><li><strong>If fine-tuning to a new style / memory constrained</strong>: use MaPO (no ref, saves half the memory).</li><li><strong>If reward is differentiable and you want to extract maximum signal</strong>: DRaFT-1 + LoRA, paired with HPSv2 + PickScore ensemble.</li><li><strong>NOT preferred: DDPO</strong>: on-policy sampling is too expensive, engineering complexity is high, no clear advantage over DPO.</li></ul>
 <p><strong>Phase 3: reward design</strong></p>
 <ul><li><strong>Multi-RM ensemble</strong> (min or mean - k·std): HPSv2 + PickScore + ImageReward.</li><li><strong>Add rule-based safety</strong>: NSFW detector hard penalty.</li><li><strong>Add rule-based alignment</strong>: GenEval automated verifier (object count, OCR).</li><li><strong>Z-score each RM separately</strong>.</li></ul>
 <p><strong>Phase 4: monitoring and early stop</strong></p>
@@ -1344,13 +1222,13 @@ def ddpo_step(unet, ref_unet, scheduler, prompts, reward_fn,
 <h3 id="a5-mapping-back-to-0-tldr">A.5 Mapping back to §0 TL;DR</h3>
 <div class="table-wrap"><table><thead><tr><th>TL;DR point</th><th>See section</th></tr></thead><tbody><tr><td>1. Why it's hard</td><td>§1</td></tr><tr><td>2. Three main lines</td><td>§1.2</td></tr><tr><td>3. DDPO</td><td>§2.1–2.4</td></tr><tr><td>4. DRaFT / AlignProp</td><td>§3.2–3.3</td></tr><tr><td>5. Diffusion-DPO</td><td>§4.1</td></tr><tr><td>6. D3PO</td><td>§4.2</td></tr><tr><td>7. SPO</td><td>§4.3</td></tr><tr><td>8. Flow-GRPO</td><td>§5</td></tr><tr><td>9. Reward hacking</td><td>§3.6 + §7</td></tr></tbody></table></div>
 <div class="callout callout-good"><div class="callout-title">Learning checkpoint</div></div>
-<ul><li>Can verbally describe the Diffusion-DPO loss form + paired-noise detail</li><li>Can explain why AlignProp's $K=1$ is enough + memory $\mathcal{O}(K)$</li><li>Can write DDPO's state/action/reward + per-step ratio</li><li>Can explain why Flow-GRPO's ODE→SDE conversion is necessary + denoising reduction</li><li>Know the honest answer about whether SD3/FLUX used RL (publicly undisclosed)</li></ul>
+<ul><li>Can verbally describe the Diffusion-DPO loss form + paired-noise detail</li><li>Can explain why AlignProp's $K=1$ is enough + memory $\mathcal{O}(K)$</li><li>Can write DDPO's state/action/reward + per-step ratio</li><li>Can place Flow-GRPO on the map (Line A, group-based advantage); the derivation itself is in the standalone tutorial</li><li>Know the honest answer about whether SD3/FLUX used RL (publicly undisclosed)</li></ul>
 
 <footer class="aris-footer">
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/diffusion_post_training_tutorial_en.md</code> ·
-  SHA256 <code>8676d9e520d2</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  SHA256 <code>12c54a302b5c</code> ·
+  generated at 2026-09-10 11:30 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

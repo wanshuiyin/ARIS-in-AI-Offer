@@ -18,6 +18,7 @@
 | `linear_sparse_attention.py` | linear attention 递推/chunkwise 等价 + delta rule（DeltaNet 改写式更新）+ block-sparse top-k（NSA/MoBA select）+ 6 个 assert | [linear_sparse_attention_tutorial.md](../linear_sparse_attention_tutorial.md) | <5s |
 | `normalization.py` | LayerNorm/RMSNorm from-scratch vs `torch` + RMSNorm 去 re-centering + BatchNorm train≠eval + Pre/Post-LN 梯度 top-heavy + Kaiming/Xavier 二阶矩 E[y²] + GPT-2 残差 1/√(2N) + 6 个 assert | [normalization_init_tutorial.md](../normalization_init_tutorial.md) | <5s |
 | `optimizer_lr_schedule.py` | SGD-momentum/Adam/AdamW from-scratch vs `torch.optim` + **AdamW≠Adam+L2**(解耦≠耦合) + bias correction 方向(首步 3.16× 偏大) + cosine-warmup 调度 + 动量加速病态二次 + 6 个 assert | [optimizer_lr_schedule_tutorial.md](../optimizer_lr_schedule_tutorial.md) | <5s |
+| `diffusion_online_rl.py` | Flow-GRPO 的 ODE→SDE 保边缘（1-D 解析方差递推 vs MC，含忘掉 score 修正的反例）+ DiffusionNFT 反射双支的更新方向与 ±2 最优解 + DGPO 权重平衡的 $\log Z$ 抵消（单位权重反例）+ 全部 assert 对解析答案 | [modern_diffusion_post_training_tutorial.md](../modern_diffusion_post_training_tutorial.md) | <5s |
 
 ## 运行
 
