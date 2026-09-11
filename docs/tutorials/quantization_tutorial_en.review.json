@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/quantization_tutorial_en.md",
-  "source_sha256": "8ad86614e405aa465da696075f116c7b9018d43b82a7165807b76c258fed3864",
+  "source_sha256": "ef4dfe5ec4c79018120b6146410c487815761d4776ec570ff3948c852a121c5e",
   "output": "docs/tutorials/quantization_tutorial_en.html",
   "zh_source": "docs/tutorials/quantization_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -29,5 +29,21 @@
     ]
   },
   "rendered_at": "2026-05-31",
-  "last_updated": "2026-07-12"
+  "last_updated": "2026-07-12",
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-11",
+      "verdict": "PASS",
+      "reviewer": "codex gpt-6-astra xhigh, 3 fresh threads",
+      "thread_ids": [
+        "01a08f48-02cb-73c1-b9e5-0914cc501f95",
+        "01a08f80-64f4-7162-8cac-8fe5859265ab",
+        "01a08f95-4813-7ef1-a8cb-1f7c439478e3",
+        "01a08fa1-973d-7f82-b05e-d4d530d43929"
+      ],
+      "scope": "§10 rewritten as 'QAT 与低精度训练' (10.0–10.8): STE bias (1308.3432, 2606.09012, CAGE), PACT/LSQ/LSQ+ derivations with the LSQ gradient-scale argument and runnable fake-quant code, three QAT recipes (EfficientQAT, BitNet b1.58 2B4T / v2), budget (ParetoQ, Compute-Optimal QAT, Gemma 3's ~5,000 steps), shipped QAT (Gemma 3/4, Llama 3.2 QLoRA-QAT vs SpinQuant, Apple 2 bpw, NVIDIA QAD), sub-4-bit (ParetoQ), low-precision training (DeepSeek-V3 FP8, MXFP8, NVFP4 pretraining, Quartet), pitfalls; new §7.4 FlatQuant; Q14/Q16/Q23 replaced; §0/§1.3/§A.2–A.3 carry the 2026 PTQ-vs-QAT guidance.",
+      "notes": "Round 1 (10 blocking) incl. ParetoQ's Finding-1 direction, tokens-per-parameter-byte missing N, Apple deltas not in the cited table, QAD order, the claim 'post-trained with quantization ⇒ not QAT' (unwarranted — the card does not say), the verdict written as exclusive rules, SpinQuant's objective, E2M1 mantissa. Round 2 (2 blocking): the '100–1000× is dated' assertion was itself unsupported — the Llama 3.2 model card's paired QLoRA vs SpinQuant costs (1,300 vs 1.7 GPU-h @1B) are cited instead and the tutorial now says budget share does not convert to a multiplier over PTQ; SpinQuant learns only R1/R2. Round 3: PASS.",
+      "edition": "en (mirror of the CN delta; parity checked in the same threads)"
+    }
+  ]
 }

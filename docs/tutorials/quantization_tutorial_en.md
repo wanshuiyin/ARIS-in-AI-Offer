@@ -1,6 +1,6 @@
 ## §0 TL;DR Cheat Sheet
 
-> 💡 **LLM Quantization in 8 sentences** — one page covering interview essentials (see §2–§11 for derivations).
+> 💡 **LLM Quantization in 9 sentences** — one page covering interview essentials (see §2–§11 for derivations).
 
 1. **Affine quantization formula**: $q = \mathrm{round}(x / s) + z$, dequantize $\hat{x} = s\,(q - z)$. Symmetric quantization $z = 0$; asymmetric quantization $z$ aligns the zero-point to an integer.
 
@@ -17,6 +17,8 @@
 7. **Low-precision float families**: FP8 (E4M3/E5M2, Hopper), MX (OCP MXFP8/MXFP6/MXFP4, 32-elem block + E8M0 shared exp), NVFP4 (Blackwell B100/B200, FP4 E2M1 + per-16-elem FP8 E4M3 scale + per-tensor FP32 scale). Blackwell tensor cores natively support FP4 matmul.
 
 8. **KV cache quant**: K uses **per-channel** (K's outliers are stable along the channel dim), V uses **per-token** (V outliers vary along the token dim)—the basic design of KIVI / KVQuant. QServe further co-designs the entire W4A8KV4 quantization at the SM89/SM90 kernel level.
+
+9. **The 2026 PTQ / QAT call**: at 4-bit and above, weight-only, reach for PTQ first (nothing displaced GPTQ / AWQ). QAT is worth considering when you are sub-4-bit; when you want W4A4 and PTQ's smoothing / rotation transforms do not reach the target; under a hard on-device memory budget; or when you own the training pipeline. It is a shipping path: Gemma 3/4 official QAT weights, Apple's on-device 2 bits/weight, Llama 3.2's QLoRA-QAT beating SpinQuant PTQ. Cost depends on the recipe: ParetoQ's **~10%** (125M / 100B tokens) is a share of the training budget and does not convert into a multiplier over PTQ; for a paired multiplier, use the Llama 3.2 model card's release costs — QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h (1B).
 
 ## §1 Intuition: why LLMs need quantization, and why it's so hard
 
@@ -49,6 +51,8 @@ CNN-era INT8 PTQ (NVIDIA TensorRT 2017 stack) was almost free: CNN activation di
 | **Weight-only PTQ** | W4/W8, A stays FP16 | GPTQ, AWQ, QuIP, GGUF Q4_K | weights are easy to quantize; use calibration data to find optimal quantization error compensation |
 | **Weight + Activation PTQ** | W8A8 | SmoothQuant, ZeroQuant, FP8 | must handle activation outliers (migration / rotation) |
 | **Weight + Act + KV (low bit)** | W4A8KV4 / W4A4 | QuaRot, QServe, SpinQuant | Hadamard / learned rotation flattens outliers in all directions |
+
+All three are PTQ. The fourth line is **QAT**: it does not change the quantization form used at inference, it makes the model adapt to that form during training. The 2026 trade-off: at 4-bit and above, weight-only, reach for PTQ first — nothing in 2025–26 displaced GPTQ / AWQ at that tier. QAT is worth considering once the target is sub-4-bit, or W4A4 where PTQ's smoothing / rotation transforms do not reach the target, or there is a hard on-device memory budget, or you own the training pipeline — and it is now a shipping path (Gemma 3/4 official QAT weights, Apple's on-device 2 bits/weight, Meta's QLoRA-QAT beating SpinQuant PTQ on Llama 3.2). Cost depends on the recipe: ParetoQ's ~10% (125M / 100B tokens) is a share of the training budget and does not convert into a multiplier over PTQ, while the Llama 3.2 model card's paired release costs are QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h (1B) and 1,600 vs 2.4 (3B). See §10.
 
 > ⚠️ **decode vs prefill difference** — Decode is memory-bound (KV cache + weight reads dominate); low-bit weight + KV directly reduces latency. Prefill is compute-bound (attention $L^2$ + large-batch GEMM); W4A4 / FP8 only matter here; pure weight-only quantization saves almost no time on prefill (and may even slow down due to dequant overhead).
 
@@ -536,7 +540,7 @@ def apply_smoothing(
 
 - ⚠️ INT4 activation: W4A4 alone needs SmoothQuant + QuaRot / SpinQuant rotation.
 
-## §7 Rotation Methods: QuIP / QuaRot / SpinQuant
+## §7 Rotation Methods: QuIP / QuaRot / SpinQuant / FlatQuant
 
 SmoothQuant uses **diagonal** (per-channel) scale to suppress outliers; but outliers still exist in some channel subspaces. **Rotation methods** use a random / learned **orthogonal matrix** $R$ to "scatter" outliers along the hidden dim, making the distribution closer to Gaussian.
 
@@ -566,11 +570,15 @@ Result: LLaMA-2 70B under W4A4KV4 has PPL increment ~ +0.5 (vs SmoothQuant's +5)
 
 ### 7.3 SpinQuant (Liu et al. 2024 → ICLR 2025, Meta)
 
-Replaces QuaRot's random Hadamard with **learned rotation matrices** $R_1, R_2, R_3, R_4$ acting on residual stream / attention input / FFN input / KV cache. Objective: layer-wise output MSE.
+Replaces QuaRot's random Hadamard with **learned rotation matrices** — but only some of them: SpinQuant learns $R_1$ (residual stream) and $R_2$ (the value / output-projection pair), while $R_3$ (Q / K) and $R_4$ (the input to the FFN down-projection) stay online Hadamards. The objective (§3.2 Eq. 2) is the **task loss of the quantized network** on calibration data, not a layer-wise output MSE.
 
 - $R_i \in SO(d)$ (special orthogonal group), optimized via Cayley parameterization or stochastic gradient on Stiefel manifold.
 
 - ~0.5 PPL improvement over QuaRot, but training time increases (~1 GPU hour per model to learn R).
+
+### 7.4 FlatQuant (2410.09426, ICML 2025)
+
+The difference from SpinQuant is not "whether the objective sees quantization error" — SpinQuant §3.2 Eq. 2 already optimizes the quantized network's task loss. The difference is the **search space**: SpinQuant is locked inside $SO(d)$ by an orthogonality constraint, and orthogonality is not something the task actually requires. FlatQuant therefore widens it to a more general **learnable invertible affine transform**, one per layer; to keep a $d \times d$ transform from eating the parameter count and the matmul cost, it factors the transform as a Kronecker product $P = P_1 \otimes P_2$ of two small matrices and fuses the whole transform + quantize path into a single kernel. The result is < 1% drop from FP16 on LLaMA-3-70B at W4A4, 7.5 points above SpinQuant; the 2.3$\times$ prefill is a best case from a different setting (LLaMA-2-7B, RTX 3090, batch 64, length 2048, vs FP16), not the 70B result in the previous clause. A follow-up, 2608.25188, adds the boundary condition: the optimal transform depends on the **target number format** — the best transform for INT4 is not the best one for NVFP4, because quantization error is distributed differently across magnitudes — so fix the format first, then learn the transform.
 
 > 💡 **Rotation methods vs SmoothQuant** — Smoothing solves "channel-dim outliers"; rotation solves "channel-subspace outliers". Rotation is more general but engineering cost is higher (dense matmul can't fuse into LN, needs online compute or explicit kernel). For LLaMA-3 / Qwen-2 deployment, W4A8KV4 mainstream is still SmoothQuant + GPTQ; W4A4 needs QuaRot / SpinQuant level rotation.
 
@@ -803,11 +811,15 @@ def dequantize_kv(K_q, s_K, V_q, s_V, dtype=torch.float16):
 
 > ⚠️ **Pre-RoPE or post-RoPE quantization?** — Academic consensus: **quantize K pre-RoPE** (KVQuant's claim). Reason: RoPE is rotation in frequency bands; it "scatters" channel-dim outliers to other dims, breaking per-channel scale stability. Pre-RoPE, each head_dim's outliers are fixed channels; post-RoPE they vary per token. But pre-RoPE quantization needs in-kernel dequant + then RoPE in the attention kernel, hard to fuse engineering-wise; compromise: post-RoPE but with finer group_size (e.g., 32).
 
-## §10 QAT and Training-Time Quantization
+## §10 QAT and Low-Precision Training
 
-PTQ (Post-Training Quantization) doesn't touch weights; QAT (Quantization-Aware Training) simulates quantization during training or finetuning so the model adapts.
+### 10.0 One-sentence positioning
 
-### 10.1 STE (Straight-Through Estimator)
+PTQ answers "how do I compress a checkpoint I already have"; QAT answers "how do I avoid losing quality at ≤4-bit / W4A4 / under a hard on-device memory budget". Since 2025 this line is no longer a research toy: Google ships official QAT weights for Gemma 3 / Gemma 4, Apple ships its on-device model at 2 bits/weight, and Meta lists QLoRA-QAT next to SpinQuant PTQ on the Llama 3.2 1B/3B model card.
+
+> ✅ **How to choose in 2026** — At 4-bit and above, weight-only, PTQ is still the default; nothing in 2025–26 displaced GPTQ / AWQ at that tier. QAT is worth considering when: you are sub-4-bit; you want W4A4 and SmoothQuant / rotation-style PTQ does not reach the target; there is a hard on-device memory budget; or you own the training pipeline. It is a shipping path rather than a research toy. Cost depends on the recipe: ParetoQ's **~10%** (125M / 100B tokens, §10.4) is a share of the training budget and does not convert into a multiplier over PTQ; the Llama 3.2 model card's paired release costs are QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h (1B) and 1,600 vs 2.4 (3B, §10.5). The two numbers answer two different questions.
+
+### 10.1 Making it differentiable: STE and its bias
 
 Round / clamp are mathematically non-differentiable (round's derivative is 0 almost everywhere); backprop has no signal. **STE** approximates the quant-dequant function $\mathrm{QDQ}(x) = s\,(\mathrm{clamp}(\mathrm{round}(x/s), Q_\min, Q_\max))$ (symmetric quant example) with gradient:
 
@@ -815,23 +827,148 @@ $$\frac{\partial \mathrm{QDQ}(x)}{\partial x} \;\overset{\text{STE}}{:=}\; \math
 
 i.e., "use quantized value forward, pass-through gradient in clipping range backward (saturated regions have zero gradient)". This is the basis for LSQ / DoReFa / PACT and other QAT methods.
 
-### 10.2 LLM-QAT (Liu et al. 2023)
+In engineering terms this is **fake quant**: forward, the weight goes $W \to \mathrm{QDQ}(W) \to$ GEMM while the GEMM itself stays BF16; backward, the gradient bypasses round and lands on an FP32 latent weight, which is also what the optimizer updates. Only when exporting inference weights is the latent weight actually quantized and packed into INT4.
 
-- Use **self-distilled data** (teacher is the FP16 model itself, generating sequences) for QAT, avoiding extra training data.
+STE was a **heuristic** from the start, and generally not the true gradient of the quantized objective (Bengio et al. 2013, arXiv 1308.3432, said as much when proposing it). The mismatch is concrete: the loss is computed at the **quantized** weights but the update is applied to the **unquantized** FP weights, with a rounding in between, so the gradient is biased. 2606.09012 analyzes the direction of that bias and finds it is not random noise: under that paper's local river–valley–basin model of the loss geometry, the bias systematically pushes the latent weight toward a basin with lower post-quantization loss, which explains why STE works far better in practice than its theoretical standing suggests. CAGE (2510.18784) makes the correction explicit: it rewrites STE's update direction using curvature information, training W3A3 to W4A4 quality in its Llama-style pretraining setup against the QuEST baseline.
 
-- Simulate INT4 weight quant in each forward step; backward uses STE.
+### 10.2 Learnable quantization parameters: PACT → LSQ → LSQ+
 
-- Suitable for W4A8 / W4A4 finetune; PPL approaches FP16 after a few thousand steps.
+STE settles whether a gradient gets through, but the clipping range and step size are still hand-tuned hyperparameters. This line makes them learnable.
 
-Cost: QAT is 100-1000$\times$ slower than PTQ. In production, PTQ (GPTQ + AWQ) is already good enough; QAT is mainly for < 4-bit (W2A4 / W1.58 ternary, etc.).
+**PACT (1805.06085)** learns the activation clipping bound $\alpha$. First a three-piece clipped ReLU:
 
-### 10.3 FP8 Training (Transformer Engine)
+$$y = 0.5\left(\lvert x \rvert - \lvert x - \alpha \rvert + \alpha\right)$$
 
-See §8.5. FP8 training is a special case of QAT: training uses FP8 GEMM throughout, scale updated periodically via amax history, loss / opt state stay FP32.
+Expanded: $y = 0$ for $x \lt 0$, $y = x$ for $0 \le x \lt \alpha$, $y = \alpha$ for $x \ge \alpha$. Then uniform quantization to $k$ bits:
 
-### 10.4 BitNet b1.58 / b2
+$$y_q = \mathrm{round}\!\left(y \cdot \frac{2^k - 1}{\alpha}\right) \cdot \frac{\alpha}{2^k - 1}$$
 
-Recently (Ma et al. 2024) Microsoft released **BitNet b1.58**: weights are ternary $\{-1, 0, +1\}$ ($\log_2 3 \approx 1.58$ bits), activations INT8. Requires from-scratch QAT training (can't be PTQ-converted); 3B scale matches FP16 LLaMA. This is currently the lowest-bit production-ready LLM quantization scheme.
+The paper's derivative w.r.t. $\alpha$ (Eq. 3) is an **approximation**: QDQ's gradient to $y$ is taken as the identity (round passed through by STE), and the explicit dependence of the quantization step $\alpha/(2^k-1)$ on $\alpha$ is ignored. Under that approximation:
+
+$$\frac{\partial y_q}{\partial \alpha} = \begin{cases} 0, & x \lt \alpha \\ 1, & x \ge \alpha \end{cases}$$
+
+Keep the STE through round but expand $\alpha$'s explicit dependence in full, and an extra term appears: $(\mathrm{round}(m y/\alpha) - m y/\alpha)/m$ with $m = 2^k - 1$ — the rounding residual of the in-range elements. PACT drops it; LSQ is precisely the method that keeps it (below).
+
+How to read it: under that approximation, elements inside the clipping range do not care what $\alpha$ is; only the **clipped** elements send gradient to $\alpha$. The upstream loss gradient can be of either sign, so this is not "$\alpha$ only ever gets pushed up". The real problem is that once $\alpha$ is large enough that almost nothing is clipped, the gradient becomes sparse, $\alpha$ stalls on a plateau, and the quantization range stays over-wide. That is why PACT adds L2 regularization on $\alpha$ to pull it back.
+
+**LSQ (1902.08153)** goes further and learns the step size $s$ directly (for both weights and activations):
+
+$$\bar v = \left\lfloor \mathrm{clip}(v / s,\, -Q_N,\, Q_P) \right\rceil, \qquad \hat v = \bar v \cdot s$$
+
+The gradient w.r.t. $s$ is:
+
+$$\frac{\partial \hat v}{\partial s} = \begin{cases} -v/s + \lfloor v/s \rceil, & -Q_N \lt v/s \lt Q_P \\ -Q_N, & v/s \le -Q_N \\ Q_P, & v/s \ge Q_P \end{cases}$$
+
+The key difference from PACT is the first line: elements **inside** the range also contribute gradient to $s$, and the magnitude is exactly the rounding error $\lfloor v/s \rceil - v/s$. So $s$ is driven by the layer's whole rounding error rather than only by the clipped tail — the reason LSQ beats PACT consistently at low bit width.
+
+★The step that gets asked★ is the **gradient scale**: multiply $\partial L / \partial s$ in the backward pass by
+
+$$g = \frac{1}{\sqrt{N_W Q_P}}\ \text{(weights)}, \qquad g = \frac{1}{\sqrt{N_F Q_P}}\ \text{(activations)}$$
+
+where $N_W$ is the number of weight elements in the layer and $N_F$ the number of activation elements. Why it is needed: what LSQ balances is the **relative** update magnitude — a single $w_i$ receives gradient from one element only, while $s$ is shared across the layer and its gradient is the sum of $N$ elements' contributions. Uncorrected, $s$'s ratio of update size to its own magnitude is about $\sqrt{N Q_P}$ larger than a weight's (the $Q_P$ factor coming from $s$ being the smaller quantity), so at one shared learning rate either $s$ diverges or training oscillates. Multiplying by $g$ pulls that ratio back to the weights' scale.
+
+```python
+import torch, torch.nn as nn
+
+def grad_scale(x, g):                       # identity forward, gradient × g backward
+    return (x - x * g).detach() + x * g
+
+def round_ste(x):                           # round forward, identity backward
+    return (x.round() - x).detach() + x
+
+class LSQWeightFakeQuant(nn.Module):
+    """LSQ (1902.08153) weight quantizer: learnable step size + gradient scale."""
+    def __init__(self, num_elements, bits=4):
+        super().__init__()
+        self.Qn, self.Qp = 2 ** (bits - 1), 2 ** (bits - 1) - 1   # INT4: -8 / 7
+        self.g = 1.0 / (num_elements * self.Qp) ** 0.5            # 1/sqrt(N_W * Q_P)
+        self.s = nn.Parameter(torch.tensor(1.0))
+
+    def forward(self, w):
+        s = grad_scale(self.s, self.g)
+        v = round_ste((w / s).clamp(-self.Qn, self.Qp))
+        return v * s                        # fake quant: discrete values, still FP dtype
+
+w = torch.randn(256, 512, requires_grad=True)
+q = LSQWeightFakeQuant(w.numel(), bits=4)
+q.s.data.fill_(2 * w.abs().mean().item() / q.Qp ** 0.5)   # the paper's initialization
+q(w).square().sum().backward()
+print(q.s.grad, w.grad.abs().mean())                      # drop g and s.grad grows ~958x (this example's ratio becomes ~8,400)
+```
+
+**LSQ+ (2004.09576)** adds two things. First, a **learnable offset** so the quantizer can express asymmetric ranges — in the ReLU era activations were non-negative and symmetric quantization sufficed, but GELU / Swish have a negative lobe, and without an offset you either waste an entire sign bit or clip the negatives away. Second, **MSE-minimizing initialization** of $s$ and the offset instead of starting from min/max: at low bit width LSQ is sensitive enough to initialization that a different seed can move results by several points.
+
+**What is learned and what is not**: $s$, the offset, and $\alpha$ are learned; bit width, granularity, and which layers stay unquantized (embedding / lm_head / norm) are human decisions. On granularity, per-channel is enough for 4-bit weights; below 4-bit the common move is to fall back to per-group ($g = 32/64/128$), but that is an engineering choice rather than a requirement — ParetoQ reports usable sub-4-bit results at channel granularity.
+
+2505.14302 fits a QAT scaling law over 268 runs; what it measures is the **training-loss gap against BF16**, with two results worth remembering: the gap grows as the group gets coarser, and also **grows with the number of training tokens** — the longer the same configuration trains, the larger the gap after QAT. (The usual explanation is that training packs the weights fuller and leaves less headroom for quantization, but that is an explanation, not a mechanism the paper verifies.) Separately, in their experiments the W4A4 bottleneck is not in the weights but in the **FC2 activation outliers** (the input to the FFN's second Linear) — the dominant term they observe, not a universal law.
+
+> ⚠️ **Do not carry BN folding over to LLMs** — "fold BatchNorm into the conv weights before fake-quantizing" is a standard CNN-QAT move, because BN's running mean/var are constants at inference and skipping the fold makes training and inference quantize different things. LLMs use RMSNorm, which has no running statistics, so the step does not exist. The look-alike operation in LLM QAT is absorbing RMSNorm's $\gamma$ into the next layer's weights (§7.2), done so rotations commute — a different thing entirely.
+
+### 10.3 Three ways to run QAT
+
+(a) **PTQ init + STE finetune**: compress the checkpoint to the target bit width with GPTQ / AWQ, use that to initialize the quantization parameters and weights, then STE-finetune for a few thousand steps. The upside is a starting point already close to the target quantization form; the risk is getting locked into the solution PTQ happened to find.
+
+(b) **Straight from the FP checkpoint**: skip PTQ initialization and fake-quant train from the BF16 weights. Gemma's QAT weights and ParetoQ take this route; it gets more attractive the lower the bit width, since a 2-bit PTQ starting point is itself low quality and may not be worth anchoring to.
+
+(c) **From scratch, natively low-bit**: **BitNet b1.58 2B4T (2504.12285)** is the most complete public example — 2B parameters, 4T tokens, trained from zero with ternary $\{-1, 0, +1\}$ weights. **BitNet v2 (2504.18415)** takes activations too: H-BitLinear inserts an online Hadamard transform before the matmul to flatten the activation distribution, making native INT4 activations viable rather than backing off to INT8.
+
+**EfficientQAT (2407.11062)** deserves its own line because it dismantles the premise that QAT is expensive: two stages — Block-AP trains all parameters of one block at a time (memory only has to hold a single block) and E2E-QP then trains only the quantization parameters end to end. 2-bit Llama-2-70B trains in **41 hours on a single A100-80GB**, scoring 69.48 downstream average vs 72.41 for FP16.
+
+### 10.4 How to split the budget
+
+**ParetoQ (2502.02631)** Finding 1 is the number to memorize on this line: at a fixed 100B-token total budget on MobileLLM-125M, splitting the budget into "FP pretraining + QAT finetune" puts the optimum at **~90% FP pretraining + ~10% QAT**, and accuracy declines once the **FP pretraining share exceeds ~90%** — too little budget is left for QAT.
+
+Finding 2 explains why lower bit width needs proportionally more QAT: at ≥3-bit, QAT performs **compensation** — the **relative L1 weight change** from the FP starting point is only 10–20%; at ≤2-bit it performs **reconstruction**, with a relative change of roughly 40%. That is a measure of how far the weights moved; the paper does not argue from it that the model switched basins.
+
+**Compute-Optimal QAT (2509.22935, Apple + EPFL, ICLR 2026)** extrapolates this upward: the optimal QAT share is not a constant but grows with total compute, and is predicted by **tokens-per-parameter-byte**, $D / [N \cdot (B/8)]$ (training tokens ÷ **total** quantized parameter bytes, for $N$ parameters at $B$ bits) — for the same token count, the harder you compress, the larger the share that should go to QAT.
+
+Concretely: **the number Gemma 3 QAT published is about 5,000 steps**, with the teacher being the output probabilities of the unquantized checkpoint. Five thousand steps, against an already-pretrained model — that is the magnitude of Gemma 3's recipe, not a general figure.
+
+### 10.5 Shipping practice: who publishes QAT weights
+
+- **Gemma 3 QAT** (Google blog, 2025-04-18): int4 across 1B / 4B / 12B / 27B. The blog's number is a **54% reduction in the perplexity drop** relative to llama.cpp Q4_0 PTQ; weights-only VRAM goes 27B 54 → 14.1 GB, 12B 24 → 6.6 GB, 4B 8 → 2.6 GB, 1B 2 → 0.5 GB.
+
+- **Gemma 4 QAT** (blog, 2026-06-05): QAT across E2B / E4B / 12B / 26B-MoE, shipping a mobile-specific format alongside Q4_0, plus targeted 2-bit on the **token-generating layers**, bringing E2B down to the 1 GB class. Google states only that QAT beats their own PTQ baselines and publishes no percentage — do not invent one in an interview.
+
+- **Llama 3.2 1B / 3B** (Meta blog, 2024-10-24): QLoRA-QAT and SpinQuant PTQ shipped side by side. The 1B average is BF16 36.1 / QLoRA-QAT 35.7 / SpinQuant 33.1 — QAT nearly matches BF16 while PTQ at the same size loses 3 points. The configuration is 4-bit group-32 weights with 8-bit per-token dynamic activations; measured on device, 2–4$\times$ speed, with −56% size and −41% memory being averages on an Android OnePlus 12. The same card also publishes what each route cost to produce — a rare matched pair: QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h (1B), 1,600 vs 2.4 (3B), i.e. roughly 765$\times$ / 667$\times$.
+
+- **Apple on-device model (2507.13575, 2025-07)**: a 3B decoder compressed to **2 bits/weight** via QAT plus learnable weight clipping (exactly the §10.2 line); embeddings use 4-bit QAT, KV cache 8-bit, and LoRA quality-recovery adapters pull quality back; Table 3 of the paper gives on-device MMLU **67.8 → 64.4**. The same paper's server side uses ASTC **PTQ** (MMLU **80.0 → 79.2**) — QAT on the edge, PTQ in the datacenter, stated more plainly than any argument. Note that ASTC's 3.56 bpw is the encoding payload (128 bits per 36 weights); with the FP16 block minimum it comes to **4 bpw**, and that is before adapters — do not quote 3.56 as the server model's overall storage rate.
+
+- **NVIDIA QAD (2601.20088, 2026-01)**: quantization-aware distillation, KL-distilling an FP teacher's distribution into an NVFP4 student. The point is not the compression ratio: what the paper validates is applying QAD to models that have **already** been through SFT / RL / model merging, training back the accuracy quantization cost them.
+
+### 10.6 The truth about sub-4-bit: ParetoQ
+
+ParetoQ's other half is a **unified comparison framework**: 1 / 1.58 / 2 / 3 / 4-bit trained in one pipeline, choosing the quantization function and the training budget per bit width (binary / ternary / 2-bit use different learning rates and training lengths from 3 / 4-bit, with typical saturation budgets of ~30B vs ~10B tokens) — not one hyperparameter set shared across all of them. That is what makes cross-bit comparison meaningful at all (previously each bit width's SoTA came from a different paper with a different recipe). Under that control:
+
+- **Ternary / 2-bit / 3-bit generally beat 4-bit and binary** — not a monotone "lower bits are worse" curve. Binary falls off a cliff; 4-bit wastes capacity at a given model footprint.
+
+- A ternary 600M model beats the previous SoTA ternary 3B.
+
+- Accounting for hardware, **2-bit is often the most practical**: the paper notes that **some implementations** store ternary's 1.58 bits as 2 bits, and in those cases 2-bit captures the same bandwidth win. Its size-vs-accuracy conclusion is that ternary / 2-bit / 3-bit are roughly comparable, not that 2-bit is necessarily better.
+
+### 10.7 QAT's sibling: low-precision training
+
+QAT is "low-precision inference, high-precision training"; low-precision training drops the GEMM itself to FP8 / FP4. Both share the same three problems — STE, scaling, outliers — which is why they get asked together.
+
+- **DeepSeek-V3 FP8 (2412.19437 §3.3)**: the first public large-scale FP8 training recipe. The key is **fine-grained scaling** — activations get a scale per $1 \times 128$ tile and weights per $128 \times 128$ block, instead of per-tensor — plus **periodic FP32 promotion**: FP8 tensor-core accumulation is not precise enough, so every $N_C = 128$ elements (about 4 WGMMAs) the partial sum is moved to CUDA cores and added in FP32. Embeddings, output head, MoE gating, norms, and attention stay BF16 / FP32. Result: relative loss error < 0.25% — that number comes from two validation-scale runs of about 1T tokens, not from comparing the full 14.8T run against BF16; the production run itself is 14.8T tokens in FP8.
+
+- **MXFP8 (2506.08027)**: two choices that depart from the OCP MX v1 spec — **E4M3 for all tensors** (the spec allows E5M2 for gradients) and rounding the block scale **up** (the spec rounds down). Rounding down lets the block's largest value overflow; rounding up costs only a little resolution. An 8B model on 15T tokens lands within 0.5% of BF16 perplexity.
+
+- **NVFP4 pretraining (2509.25149, NVIDIA)**: E2M1 in 16-element blocks, one E4M3 scale per block, under a per-tensor FP32 scale; the encoding scale is $s_{enc} = 6 \cdot 448 / \mathrm{amax}$ (6 is E2M1's max, 448 is E4M3's max). Four engineering decisions to remember: weights use **2D $16 \times 16$ blocks** so the forward and the $W^\top$ backward see the same quantization; **random Hadamard is applied only to the Wgrad inputs**, not globally; **stochastic rounding is used only on gradients** — on the forward it is detrimental, since the forward wants a deterministic optimum rather than unbiasedness; and **the first 2 and last 8 blocks stay BF16**, 16% of the linear layers. A 12B model on 10T tokens scores MMLU-Pro 62.58 vs 62.62 for FP8. Separately, an 8B control shows MXFP4 needing 1.36T tokens to match NVFP4's loss at 1T (+36%) — that is a loss-matching experiment, not the 12B / 10T MMLU-Pro comparison above.
+
+- **Quartet (2505.14669) / Quartet II (2601.22813)**: a scaling law for FP4 training plus MS-EDEN, an unbiased quantizer — answering "at what scale does FP4 training pay off", not "can it run".
+
+> ⚠️ **Do not conflate FP8 and FP4 training** — FP8 pretraining is production (DeepSeek-V3 proved it over 14.8T tokens); FP4 pretraining is validated only to the research scale of 12B / 10T, and **no frontier model has been pretrained in FP4**. The FP4 mentioned in DeepSeek-V4 is on the storage and indexer path, not the pretraining GEMMs — the most common misreading.
+
+### 10.8 Traps
+
+- **Do not put a verdict on gpt-oss's quantization**: 2508.10925 §2.1 says the MoE weights are "post-trained with quantization" to MXFP4 at 4.25 bits/param, covering 90+% of parameters. The card does not state whether that quantization was training-aware — "quantized at post-training" and "QAT" are not mutually exclusive, since QAT can happen at post-training. Quote the card's wording in an interview.
+
+- **Do not convert "~10% of the budget" into "× slower than PTQ"**: ParetoQ's ~10% is a budget *split* at 125M / 100B tokens (§10.4), and Gemma 3's ~5,000 distillation steps and EfficientQAT's 2-bit 70B in 41 hours on one A100 are absolute costs with no paired PTQ denominator — none of the three answers "how many × over PTQ". For a multiplier you need two routes costed on the same card: Llama 3.2's QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h (1B), 1,600 vs 2.4 (3B) — about 765$\times$ / 667$\times$. So "100–1000$\times$" is not off in magnitude; what is wrong is treating it as a universal constant, or as the only input to the QAT decision.
+
+- **BN folding is a CNN habit**: LLMs have no BatchNorm; see the callout in §10.2.
+
+- **QAT granularity must match the deployment kernel**: QAT weights trained at group-64 have to be requantized if the inference kernel only supports group-128, which may give back much of the accuracy the training bought (how much depends on the model and bit width; it is not automatically all of it). Confirm the target backend's group size before fixing the QAT configuration.
 
 ## §11 Frameworks and Ecosystem Comparison
 
@@ -1062,17 +1199,17 @@ Reverse them (use E4M3 for FP backward) → overflow (gradients often > 448).
 
 <details>
 
-<summary>Q14. Which is faster: AWQ vs GPTQ? How different is precision?</summary>
+<summary>Q14. Why did rotation methods move from fixed Hadamard to learnable affine transforms after 2025?</summary>
 
-- Quantization time: AWQ faster (one grid search $\alpha$, 5-15 min/7B); GPTQ slower (Hessian + Cholesky iteration, 30-60 min/7B)
+- A fixed Hadamard only guarantees that outliers get **scattered** (strictly, it is the random-sign Hadamard that carries a high-probability incoherence guarantee); it is a construction independent of the data and of the layer
 
-- Precision: virtually tied on W4 (LLaMA-7B both < +0.2 PPL)
+- SpinQuant already made the rotation learnable and already optimizes the quantized network's task loss, but it stays inside the orthogonal group $SO(d)$; FlatQuant (2410.09426) widens this to a more general **learnable invertible affine transform**, one per layer, using a Kronecker factorization $P = P_1 \otimes P_2$ to control parameter count and matmul cost. The difference is the **search space**, not whether the objective sees quantization error
 
-- Inference: AWQ's scale can merge into LN weight, runtime zero overhead; GPTQ with act_order=True has reorder index overhead
+- Numbers: < 1% drop from FP16 on LLaMA-3-70B at W4A4, 7.5 points above SpinQuant; the whole transform + quantize path fuses into one kernel, 2.3$\times$ prefill (LLaMA-2-7B, RTX 3090, batch 64, length 2048, vs FP16, best case — not the 70B setting)
 
-- Engineering: AWQ pairs well with Marlin W4A16 kernel; vLLM default W4 path uses AWQ
+- 2608.25188 adds one more constraint: the optimal transform depends on the **target number format** — the best transform for INT4 is not the one for NVFP4. Fix the format first, then learn the transform
 
-Say "GPTQ is always more accurate"—wrong, tied on W4; say "AWQ doesn't need calibration"—wrong, needs mean(|x|) per channel.
+Say "Hadamard is always optimal"—it carries an incoherence guarantee, but it is not the optimal transform for arbitrary data; also failing to state how SpinQuant (orthogonal) and FlatQuant (affine) differ.
 
 </details>
 
@@ -1094,17 +1231,17 @@ Only say "symmetric quantization"; doesn't explain how to handle activation asym
 
 <details>
 
-<summary>Q16. PTQ vs QAT? When to use QAT?</summary>
+<summary>Q16. Where do PTQ and QAT each stand in 2026? How much compute does QAT cost?</summary>
 
-- PTQ: post-training calibration + closed-form quantization (GPTQ, AWQ, SmoothQuant)
+- **At 4-bit and above, weight-only, reach for PTQ first**: GPTQ / AWQ / NVFP4 PTQ remain the default, and nothing in 2025–26 displaced them at that tier; Mistral Large 3 and most of NVIDIA's NVFP4 checkpoints ship as PTQ output (though NVIDIA itself also shipped QAD, a training route — see §10.5 — so do not claim NVFP4 checkpoints are always PTQ)
 
-- QAT: simulated quantization during training or finetuning (STE backward)
+- **When QAT is worth considering**: sub-4-bit; W4A4 where PTQ's smoothing / rotation transforms do not reach the target; a hard on-device memory budget; or you own the training pipeline. It is already a shipping path: official Gemma 3 / Gemma 4 QAT weights, Apple's on-device 2 bits/weight, and Llama 3.2's QLoRA-QAT beating SpinQuant PTQ on the model card (1B average 35.7 vs 33.1)
 
-- LLM industry status: W8 / W4 PTQ already sufficient (< 0.2 PPL loss), QAT not needed
+- **Cost**: be clear which question you are answering. "How is the training budget split" — ParetoQ's optimum on MobileLLM-125M at 100B tokens gives ~10% to QAT, and Gemma 3 published ~5,000 distillation steps. "How much more than PTQ" needs two routes costed side by side: on the Llama 3.2 model card, QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h (1B), 1,600 vs 2.4 (3B)
 
-- W2 / 1.58-bit BitNet must be from-scratch QAT; finetune W4A4 often also does QAT
+- Decision order: target bit width and whether activations are quantized, then whether there is a hard memory ceiling and whether you can touch the training pipeline; only once you have chosen QAT does the budget split (§10.4) matter
 
-Say "QAT is always more accurate so always use it"—cost is 100-1000$\times$ PTQ, unnecessary for W8/W4.
+Treating "QAT is 100–1000$\times$ slower than PTQ" as a universal constant, or as the only input to the QAT decision—the magnitude itself holds up on a paired release path like Llama 3.2's, but cost depends on the recipe, and the first questions are the target bit width, whether activations are quantized, and whether there is a hard memory ceiling. The reverse, "QAT is always more accurate so always use it", is equally wrong; at 4-bit and above weight-only, PTQ is already good enough and the extra training cost rarely pays.
 
 </details>
 
@@ -1218,19 +1355,19 @@ Only say "W4A8 is faster than FP16"; doesn't explain why kernel-level co-design 
 
 <details>
 
-<summary>Q23. What are amax history / delayed scaling in FP8 training?</summary>
+<summary>Q23. What has FP8/FP4 training scaling evolved into since delayed scaling?</summary>
 
-- Each GEMM's input / output maintains an amax history (max abs of recent N steps, typical N = 16)
+- **Starting point**: delayed scaling (§8.5) was the per-tensor era — one scale per tensor, computed from the previous window's amax history so the forward never blocks waiting for amax. Adequate under FP8, fatal under FP4: a single scale has to cover both outliers and normal values, and E2M1 has only a **1-bit mantissa** — its dynamic range comes mostly from the 2-bit exponent — so it cannot span that range
 
-- Scale computed from history max ($s = \max\text{history} / 448$ for E4M3), ensuring next window doesn't overflow
+- **Now it is fine-grained block scaling**: the scale changed from "one number lagged in time" to "a set of numbers subdivided in space", with amax computed on the spot rather than from history:
 
-- "Delayed": use **previous** window's amax to compute **current** window's scale, avoiding blocking forward waiting for amax to be computed
+- DeepSeek-V3: $1 \times 128$ activation tiles and $128 \times 128$ weight blocks each get their own scale, plus an FP32 promotion every $N_C = 128$ elements to fix tensor-core accumulation precision
 
-- Cast at GEMM entry: FP32 → FP8 with scale; GEMM output accumulates FP32 then casts out
+- MXFP8: 32-element blocks with E8M0 scales; NVIDIA's recipe is E4M3 for all tensors and block scales rounded **up** (otherwise the block's largest value overflows)
 
-- LLaMA-3 / DeepSeek-V3 FP8 training ~1.5-2$\times$ throughput over BF16
+- NVFP4: a 16-element-block E4M3 scale under a per-tensor FP32 scale; weights use 2D $16 \times 16$ blocks so the forward and backward see the same quantization; random Hadamard only on the Wgrad inputs; stochastic rounding only on gradients
 
-Treat delayed scaling as same as loss scaling—loss scaling is for backward path anti-underflow; delayed scaling is for per-GEMM forward/backward amax usage.
+Claiming per-tensor delayed scaling still works at FP4—FP4 recipes are all block-scaled. But do not overshoot the other way: Transformer Engine today offers DelayedScaling, per-tensor CurrentScaling and block scaling side by side, all three in use at FP8, so "still uses delayed scaling" is not a wrong answer. Also do not conflate it with loss scaling (which fights underflow on the backward path).
 
 </details>
 
@@ -1296,7 +1433,7 @@ Only say "use GPTQ 4-bit"—doesn't explain how to choose calibration / group_si
 | AWQ | Lin et al., MLSys 2024 | Activation-aware per-channel scale (W4) |
 | QuIP | Chee et al., NeurIPS 2023 | Random Hadamard for weight incoherence |
 | QuaRot | Ashkboos et al., NeurIPS 2024 | Full Hadamard rotation, W4A4KV4 |
-| SpinQuant | Liu et al., ICLR 2025 (Meta) | Learned rotations $R_1$-$R_4$ |
+| SpinQuant | Liu et al., ICLR 2025 (Meta) | Learns $R_1$ / $R_2$; $R_3$ / $R_4$ stay online Hadamard |
 | OmniQuant | Shao et al., ICLR 2024 | Learnable equivalent transforms |
 | KIVI | Liu et al., ICML 2024 | per-channel K + per-token V, INT2 KV |
 | KVQuant | Hooper et al., NeurIPS 2024 | Pre-RoPE quant K, non-uniform V |
@@ -1306,6 +1443,27 @@ Only say "use GPTQ 4-bit"—doesn't explain how to choose calibration / group_si
 | FP8 Training | Micikevicius et al., 2022 | E4M3 forward / E5M2 backward |
 | MX formats | OCP / Microsoft, 2023 | Block-scaled FP4/6/8 with E8M0 |
 | NVFP4 | NVIDIA Blackwell, 2025 | FP4 E2M1 + FP8 E4M3 block + FP32 tensor scale |
+| FlatQuant | 2410.09426, ICML 2025 | Learnable Kronecker affine transforms beat fixed/learned rotations at W4A4 |
+| Transform–format coupling | 2608.25188 | The optimal transform depends on the target number format |
+| STE | Bengio et al., 1308.3432 (2013) | Heuristic gradient estimator for non-differentiable ops |
+| STE bias analysis | 2606.09012 | STE's bias points toward a low-loss basin |
+| CAGE | 2510.18784 | Curvature-aware STE correction; W3A3 ≈ prior W4A4 |
+| PACT | 1805.06085 | Learnable activation clipping bound $\alpha$ |
+| LSQ | 1902.08153 | Learnable step size + gradient scale $1/\sqrt{N Q_P}$ |
+| LSQ+ | 2004.09576 | Learnable offset (asymmetric activations) + MSE init |
+| QAT scaling law | 2505.14302 | 268 runs: error grows with coarser groups and with more tokens |
+| ParetoQ | 2502.02631 | Unified 1/1.58/2/3/4-bit comparison framework (quant function and budget chosen per bit); ~10% of budget to QAT at 125M/100B |
+| Compute-Optimal QAT | 2509.22935, ICLR 2026 (Apple + EPFL) | Optimal QAT share grows with compute, predicted by tokens-per-parameter-byte |
+| EfficientQAT | 2407.11062 | Block-AP + E2E-QP; 2-bit 70B in 41 h on one A100 |
+| BitNet b1.58 2B4T | 2504.12285 | 2B params / 4T tokens, natively ternary |
+| BitNet v2 | 2504.18415 | H-BitLinear online Hadamard → native INT4 activations |
+| Apple on-device | 2507.13575 (2025) | On-device 2 bits/weight QAT + LWC; server-side ASTC PTQ (3.56 bpw payload, 4 bpw with blocks) |
+| NVIDIA QAD | 2601.20088 (2026) | KL distillation applied after SFT / RL / merging to restore NVFP4 accuracy |
+| DeepSeek-V3 FP8 | 2412.19437 §3.3 | $1\times128$ / $128\times128$ fine-grained scaling + $N_C=128$ FP32 promotion |
+| MXFP8 training | 2506.08027 | All-E4M3 + round scales up; 8B/15T within 0.5% of BF16 ppl |
+| NVFP4 pretraining | 2509.25149 (NVIDIA) | 2D weight blocks, RHT on Wgrad, SR on gradients only; 12B/10T |
+| Quartet / Quartet II | 2505.14669 / 2601.22813 | FP4 training scaling law + MS-EDEN unbiased quantizer |
+| gpt-oss | 2508.10925 §2.1 | MoE weights post-trained to MXFP4 at 4.25 bits/param (card does not say whether training-aware) |
 
 ### A.2 At-a-glance: which quantization scheme to pick
 
@@ -1331,10 +1489,31 @@ Only say "use GPTQ 4-bit"—doesn't explain how to choose calibration / group_si
      │ Yes        │  No
      ↓           ↓
  [W4A4]            [W4A8KV4 / QoQ]
- QuaRot / SpinQuant  AWQ + KV4
- + Hadamard rotation use QServe kernel
+ QuaRot / FlatQuant  AWQ + KV4
+ + rotation / affine use QServe kernel
  PPL +0.5 (70B)      PPL +0.2
+
+  ┌─────────────────────────┐
+  │ Any of these?           │
+  │  ≤3-bit                 │
+  │  W4A4 + PTQ transforms  │
+  │    fall short           │
+  │  hard on-device memory  │
+  │  you own the training   │
+  │    pipeline             │
+  └────────┬────────────────┘
+           │
+     ┌─────┴─────┐
+     │ Yes        │  No
+     ↓           ↓
+ [Consider QAT]     [Try PTQ first]
+ prefer official     GPTQ / AWQ / NVFP4 PTQ
+ QAT weights;        one calibration pass
+ else ~10% of budget¹ (¹ does not apply)
+ (Gemma 3/4, Apple)
 ```
+
+¹ ParetoQ's optimal split on MobileLLM-125M at 100B tokens — re-estimate it at a different scale; it is not a universal ratio.
 
 ### A.3 Quantization quick-reference card
 
@@ -1347,6 +1526,10 @@ Only say "use GPTQ 4-bit"—doesn't explain how to choose calibration / group_si
 | QLoRA finetune | NF4 + double quant + LoRA | bitsandbytes + peft |
 | Max throughput H100/B200 serving | QoQ W4A8KV4 / NVFP4 | QServe / TensorRT-LLM |
 | Edge < 100 MB model | BitNet b1.58 (1.58-bit) from scratch | custom / bitnet.cpp |
+| Phone / on-device int4 general model | Use official QAT weights directly (Gemma 3/4 QAT, Llama 3.2 QLoRA-QAT) | llama.cpp / ExecuTorch |
+| On-device ≤2 bits/weight | QAT + learnable weight clipping + LoRA recovery adapters | custom (Apple 2507.13575 recipe) |
+| Training your own ≤3-bit model | Give ~10% of the total budget to QAT (ParetoQ's optimum at 125M / 100B tokens — re-estimate at other scales); EfficientQAT if memory-bound | custom |
+| Large-scale low-precision pretraining | FP8 fine-grained block scaling (DeepSeek-V3 recipe); FP4 still research | Transformer Engine / custom |
 
 ### A.4 Sanity check checklist
 
@@ -1366,4 +1549,4 @@ Before deploying any quantized model, must run:
 
 - [ ] **Peak memory**: measured vs nominal $\text{bits} \cdot \text{params} / 8 + \text{KV cache} + \text{activations}$
 
-**Quantization Quick Reference** · Main references: Dettmers 2022 (LLM.int8()), Frantar 2023 (GPTQ), Xiao 2023 (SmoothQuant), Lin 2024 (AWQ), Ashkboos 2024 (QuaRot), Lin 2025 (QServe). Last updated: 2026-05.
+**Quantization Quick Reference** · Main references: Dettmers 2022 (LLM.int8()), Frantar 2023 (GPTQ), Xiao 2023 (SmoothQuant), Lin 2024 (AWQ), Ashkboos 2024 (QuaRot), Lin 2025 (QServe), ParetoQ 2025, NVFP4 pretraining 2025. Last updated: 2026-09.

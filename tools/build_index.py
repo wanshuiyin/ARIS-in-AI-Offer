@@ -30,7 +30,7 @@ CATEGORIES = [
     ("gensys", "生成系统", "Generation Systems", "🎨"),
     ("mm", "多模态", "Multimodal", "👁️"),
     ("agent", "Agent", "Agents", "🤖"),
-    ("embodied", "具身智能", "Embodied AI", "🦾"),
+    ("embodied", "具身与世界模型", "Embodied & World Models", "🦾"),
     ("blog", "长文 Blog", "Long-form Blogs", "📝"),
 ]
 
@@ -53,7 +53,7 @@ CATALOG = [
     T("long_context_rope_yarn_mla_tutorial", "arch", "长上下文", "Long Context", "RoPE · YaRN · NTK · MLA · StreamingLLM · 位置外推", 25, tags_en="RoPE · YaRN · NTK · MLA · StreamingLLM · position extrapolation"),
     T("linear_sparse_attention_tutorial", "arch", "线性 / 稀疏注意力", "Linear / Sparse Attention", "Linear Attn · SSM·Mamba · Mamba-2·SSD · DeltaNet · NSA·MoBA · Hybrid", 25, ("linear_sparse_attention.py",)),
     T("kv_cache_speculative_decoding_tutorial", "arch", "KV Cache + 投机解码", "KV Cache + Speculative Decoding", "PagedAttention · Medusa · EAGLE · MLA · 接受率与加速比", 25, tags_en="PagedAttention · Medusa · EAGLE · MLA · acceptance rate and speed-up"),
-    T("quantization_tutorial", "arch", "量化", "Quantization", "GPTQ · AWQ · FP8 · NVFP4 · SmoothQuant · W4A16 vs W8A8", 25),
+    T("quantization_tutorial", "arch", "量化", "Quantization", "GPTQ · AWQ · SmoothQuant · FlatQuant · FP8/NVFP4 · QAT: LSQ·ParetoQ·Gemma-QAT · FP4 训练", 25, tags_en="GPTQ · AWQ · SmoothQuant · FlatQuant · FP8/NVFP4 · QAT: LSQ·ParetoQ·Gemma-QAT · FP4 training"),
     T("distributed_training_tutorial", "arch", "分布式训练", "Distributed Training", "DDP · FSDP2 · ZeRO · TP · PP · EP · SP · 通信量推导", 25, tags_en="DDP · FSDP2 · ZeRO · TP · PP · EP · SP · communication-volume derivations"),
     T("llm_pretraining_pipeline_tutorial", "arch", "LLM 预训练流水线", "LLM Pretraining Pipeline", "Kaplan vs Chinchilla · 数据工厂 · 去重/质量过滤 · 课程与退火", 26, ("pretraining_pipeline.py",), tags_en="Kaplan vs Chinchilla · corpus factory · dedup / quality filtering · curriculum and annealing"),
     T("llm_inference_serving_tutorial", "arch", "LLM 推理与 Serving", "LLM Inference & Serving Stack", "请求状态机 · 采样算子 · PagedAttention · continuous batching · prefill/decode 分离", 25, ("inference_serving.py",), tags_en="request state machine · sampling operators · PagedAttention · continuous batching · prefill/decode disaggregation"),
@@ -62,7 +62,7 @@ CATALOG = [
     T("vae_vqvae_vqgan_tutorial", "gentheory", "VAE / VQ-VAE / VQ-GAN / FSQ", "VAE / VQ-VAE / VQ-GAN / FSQ", "ELBO · 重参数化 · codebook collapse · FSQ/LFQ · 感知损失", 25, tags_en="ELBO · reparameterisation · codebook collapse · FSQ/LFQ · perceptual loss"),
     T("image_generation_systems_tutorial", "gensys", "图像生成系统", "Image Generation Systems", "LDM · SD · SDXL · SD3 · FLUX · ControlNet · MMDiT", 25, ("mmdit_block.py", "toy_mmdit_t2i_pipeline.py")),
     T("video_generation_tutorial", "gensys", "视频生成", "Video Generation", "Sora · Hunyuan-Video · Kling · Wan · Movie Gen · 时空 token 化", 25, tags_en="Sora · Hunyuan-Video · Kling · Wan · Movie Gen · spatio-temporal tokenisation"),
-    T("3d_generation_tutorial", "gensys", "3D 生成", "3D Generation", "NeRF · Instant-NGP · 3DGS · SDS · DreamFusion · Trellis", 25),
+    T("3d_generation_tutorial", "gensys", "3D 生成", "3D Generation", "NeRF · Instant-NGP · 3DGS · SDS · DUSt3R→VGGT · 原生 mesh · TRELLIS/Hunyuan3D 2.x · sim-ready", 25, tags_en="NeRF · Instant-NGP · 3DGS · SDS · DUSt3R→VGGT · native mesh · TRELLIS/Hunyuan3D 2.x · sim-ready"),
     T("diffusion_post_training_tutorial", "gensys", "Diffusion 后训练", "Diffusion Post-Training", "DDPO · DPOK · DRaFT · AlignProp · ReFL · Diffusion-DPO · reward hacking", 25),
     T("modern_diffusion_post_training_tutorial", "gensys", "现代 Diffusion 后训练", "Modern Diffusion Post-Training", "Flow-GRPO · DGPO · DiffusionNFT · reverse SDE · log Z 抵消 · CFG-free", 25, ("diffusion_online_rl.py",), tags_en="Flow-GRPO · DGPO · DiffusionNFT · reverse SDE · log Z cancellation · CFG-free"),
     T("diffusion_distillation_tutorial", "gensys", "Diffusion / Flow 蒸馏", "Diffusion / Flow Distillation", "CM · iCT · sCM · CTM · LCM · DMD/DMD2 · ADD/LADD", 25),
@@ -71,6 +71,7 @@ CATALOG = [
     T("agentic_rl_tutorial", "agent", "Agentic RL", "Agentic RL", "AgentTuning · ToolRL · RAGEN · WebRL · SWE-RL · 多轮 GRPO", 25, tags_en="AgentTuning · ToolRL · RAGEN · WebRL · SWE-RL · multi-turn GRPO"),
     T("multi_agent_long_horizon_tutorial", "agent", "多智能体与长程", "Multi-Agent & Long-Horizon", "CAMEL · AutoGen · MetaGPT · MoA · Debate · MemGPT · LATS", 25),
     T("self_evolving_agents_tutorial", "agent", "自进化 Agent", "Self-Evolving Agents", "Ctx2Skill · Native Evolution · A²RD · Voyager · Reflexion · STaR", 25),
+    T("world_models_tutorial", "embodied", "World Models / 世界模型", "World Models", "RSSM·Dreamer·MuZero·TD-MPC2 · JEPA·V-JEPA 2 · Genie·GameNGen·Cosmos 3·Atlas · 具身三条路 · 评测", 25, ("world_models_toy.py",), tags_en="RSSM·Dreamer·MuZero·TD-MPC2 · JEPA·V-JEPA 2 · Genie·GameNGen·Cosmos 3·Atlas · three embodied routes · evaluation"),
     T("rag_embedding_retrieval_tutorial", "agent", "RAG + 向量检索", "RAG + Embedding / Retrieval", "InfoNCE · 难负例 · Matryoshka · BM25 · RRF · ColBERT · GraphRAG", 25, ("rag_embedding.py",), tags_en="InfoNCE · hard negatives · Matryoshka · BM25 · RRF · ColBERT · GraphRAG"),
 ]
 
@@ -131,13 +132,13 @@ def build() -> str:
         if cid == "blog":
             items = [blog_card(b) for b in BLOGS]
         elif cid == "embodied":
-            items = [ext_card(x) for x in EXTERNAL]
+            items = [card(t) for t in CATALOG if t["cat"] == cid] + [ext_card(x) for x in EXTERNAL]
         else:
             items = [card(t) for t in CATALOG if t["cat"] == cid]
         note = ""
         if cid == "embodied":
-            note = ('<p class="note"><span class="s-cn">社区作者维护、外站托管。有帮助的话去源仓库点个 ⭐ 谢谢作者。</span>'
-                    '<span class="s-en">Community-maintained and hosted elsewhere. If it helps, star the source repo to thank the author.</span></p>')
+            note = ('<p class="note"><span class="s-cn">第一方的 World Models 篇在前；具身题库由社区作者维护、外站托管，有帮助的话去源仓库点个 ⭐ 谢谢作者。</span>'
+                    '<span class="s-en">The World Models sheet is first-party; the embodied Q&A bank is community-maintained and hosted elsewhere — star the source repo to thank the author.</span></p>')
         if cid == "blog":
             note = ('<p class="note"><span class="s-cn">三篇中文长文：世界模型架构、连续扩散语言模型综述、扩散与表征学习。</span>'
                     '<span class="s-en">Three Chinese long reads: a world-model architecture, a survey of continuous diffusion LMs, diffusion meets representation learning.</span></p>')

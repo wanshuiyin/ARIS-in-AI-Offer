@@ -61,7 +61,7 @@
   "rendered_at": "2026-05-19",
   "notes": "Subagent was killed before writing review.json (codex MCP concurrency issue). HTML was already rendered. Render review backfilled from main session with thread 019e3f3d (PASS 13/13).",
   "thread_id": "019e7cad-2374-77b1-b653-2a484f59aaef",
-  "source_sha256": "b3aed31c1377ffdb13af4f02612310d3687fad97d3e5f16b58710258132aca3c",
+  "source_sha256": "72bb3948aef8016e0b1c38ce09fa201ab5e841267daf23fbe58ed99a1fa4e4c5",
   "post_ship_review": [
     {
       "scope": "2026-07-13 full-collection resweep (diffusion cluster): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification (attempted to refute every candidate finding; only load-bearing ones kept)",
@@ -79,6 +79,21 @@
         "§7.1/interview-Q16: Zero-1-to-3++'s 6 fixed anchor views were described as a zenith/pole layout ('north-pole view + 4 eye-level views + a top view'); corrected to the paper's actual configuration — azimuth uniformly spaced every 60 degrees around 30/90/150/210/270/330 degrees, elevation alternating between -10 and 20 degrees (interleaved elevation + uniform azimuth) (CONFIRMED)"
       ],
       "note": "REFUTED finding (SDS U-Net Jacobian 'second-order' framing at the naive-diffusion-gradient derivation, 3 occurrences) intentionally left unmodified. EN edition (3d_generation_tutorial_en.md) received the same substantive corrections in natural English (see its own sidecar). Both HTMLs re-rendered; source_sha256 refreshed to match this run. Gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ],
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-11",
+      "verdict": "WARN (no FAIL items after round 3)",
+      "reviewer": "codex gpt-6-astra xhigh, 3 fresh threads",
+      "thread_ids": [
+        "01a08f6a-f2ed-7b52-b567-c625536aeb8f",
+        "01a08f89-e038-7512-b14a-36f5897d5c71",
+        "01a08f9b-7135-7ef0-8c11-1ea95e94b03d",
+        "01a08fa1-973d-7f82-b05e-d4d530d43929"
+      ],
+      "scope": "2025–26 refresh from community feedback: new §7 feed-forward reconstruction (DUSt3R pointmap + confidence-weighted loss derived; VGGT, Fast3R, CUT3R, π³, MapAnything, DA3, VGGT-Ω; §7.4 feed-forward 3DGS); §9 rewritten on a latent-representation axis (TRELLIS/TRELLIS.2, Hunyuan3D 2.0–Buffalo, Step1X-3D, Direct3D-S2, Dora, AssetGen 2) + §9.5 native mesh generation + §9.6 part-level / sim-ready; §12.1 COLMAP guidance rewritten; Q15, Q19, Q21–Q25 replaced (the old L3 tier re-asked the L2 derivations); old §7–§12 renumbered §8–§13. Every arXiv ID fetched by the research pass.",
+      "notes": "Round 1 (13 blocking): the confidence elimination only holds for ℓ<α (linear tail beyond), VGGT's track head predicts 2D correspondences, CUT3R is metric, MeshGPT uses 6 RQ codes per face, TreeMeshGPT's 22% is 'compressed to 22%', marching-cubes claims and latent 'only/must' claims removed, NaN-safe code. Round 2 (5 blocking): MapAnything's global scale is one route not a necessity, §12.1 ported to Q19's conditional guidance, isosurface generalisation narrowed, Q25's two added 'L3 follow-ups' introduced wrong mechanisms and were cut/rewritten. Round 3: two wording residuals fixed. Reviewer judges Q25 a solid L2 rather than L3 — left as is; swap for a true L3 at the next refresh."
     }
   ]
 }

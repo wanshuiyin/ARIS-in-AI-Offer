@@ -405,5 +405,17 @@
     "lang": "en",
     "md": "docs/tutorials/vlm_multimodal_tutorial_en.md",
     "title": "Vlm Multimodal Tutorial En"
+  },
+  "docs/tutorials/world_models_tutorial.html": {
+    "eyebrow": "Interview Prep · World Models / 世界模型",
+    "lang": "zh-CN",
+    "md": "docs/tutorials/world_models_tutorial.md",
+    "subtitle": "Latent dynamics（RSSM · Dreamer · MuZero · TD-MPC2）· JEPA（V-JEPA 2/2.1 · DINO-WM）· 生成式与交互式（Genie · GameNGen · Cosmos 3 · Matrix-Game · Atlas）· 具身三条路 · 评测与定义之争 + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）",
+    "title": "World Models 面试 Cheat Sheet"
+  },
+  "docs/tutorials/world_models_tutorial_en.html": {
+    "lang": "en",
+    "md": "docs/tutorials/world_models_tutorial_en.md",
+    "title": "World Models Tutorial En"
   }
 }

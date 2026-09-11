@@ -1,6 +1,6 @@
 ## §0 TL;DR Cheat Sheet
 
-> 💡 **9 sentences to nail 3D Generation** — interview core for Embodied AI / AR / VR roles (see §1–§11 for derivations).
+> 💡 **11 sentences to nail 3D Generation** — interview core for Embodied AI / AR / VR roles (see §1–§12 for derivations).
 
 1. **Three representations**: **NeRF** (implicit neural field + volume rendering), **3DGS** (explicit Gaussian point cloud + rasterization), **Mesh / SDF** (explicit surface / implicit distance field). Sweet spot for quality vs speed: 3DGS (Kerbl 2023 SIGGRAPH Best Paper).
 
@@ -16,9 +16,13 @@
 
 7. **Single-image / Few-view 3D**: Zero-1-to-3 (Liu 2023 ICCV) uses viewpoint-conditioned diffusion; SyncDreamer / MVDream learn joint multi-view consistency; TripoSR / InstantMesh / Stable Fast 3D push image-to-mesh to the seconds regime (TripoSR ~0.5 s, InstantMesh ~10 s).
 
-8. **3D Foundation Models (2024-25 open source)**: **Trellis** (Microsoft 2024) uses structured latent + flow matching; **Hunyuan3D-2** (Tencent 2025) is shape→texture two-stage; **CLAY** (Zhang 2024 SIGGRAPH, arXiv:2406.13897) is large-scale latent diffusion = multi-resolution VAE + latent DiT.
+8. **Feed-forward reconstruction**: **DUSt3R** (arXiv:2312.14132) replaces SfM with a single forward pass — it regresses pointmaps directly, both images' 3D points landing in the first image's camera frame, so **pose becomes an output rather than an input**; the loss divides by the mean distance of valid points to the origin, hence up-to-scale by default. **VGGT** (2503.11651, CVPR 2025 Best Paper) draws four heads (camera / depth / point map / track) off one backbone. COLMAP thereby drops from "mandatory" to "accuracy reference" (§7, §12.1).
 
-9. **Embodied AI key applications**: Sim2Real asset generation, NeRF/3DGS as differentiable simulators, language-conditioned 3D affordance. **Common interview crossovers**: NeRF SLAM, Gaussian-Splat scene editing, 3D physics consistency.
+9. **3D Foundation Models (2024-26 open source)**: TRELLIS's **SLAT** = sparse voxel coordinates + per-voxel latent ($N=64$, $L\approx 20\text{K}$ active voxels), two-stage rectified flow, one latent decoding into 3DGS / field / mesh; **Hunyuan3D** iterates 2.0 → 2.1 → 2.5 → Omni / Studio / Buffalo (**there is no 3.0**), shape→texture two-stage; **CLAY** (arXiv:2406.13897) is multi-resolution VAE + latent DiT.
+
+10. **Native mesh generation and the latent-representation axis**: whether the mesh comes from isosurface extraction (marching cubes, FlexiCubes) or from a direct O-Voxel conversion as in TRELLIS.2, **none of these outputs is guaranteed to have edge flow suited to editing, rigging and deformation** — that, not raw quality, is why artists reject it. **MeshGPT → MeshAnything V2 (AMT) → BPT → TreeMeshGPT** compresses tokens against a baseline of 9 per face, while **Meshtron instead answers with architecture** (hourglass + sliding window). Latent representations (SLAT / sparse voxel / VecSet / triplane) can all be decoded by coordinate query; what they decide is not "how many output formats" but **where compute and memory go**.
+
+11. **Embodied AI key applications**: Sim2Real asset generation, NeRF/3DGS as differentiable simulators, language-conditioned 3D affordance. **Common interview crossovers**: NeRF SLAM, Gaussian-Splat scene editing, 3D physics consistency.
 
 ## §1 Intuitive comparison of the three representations
 
@@ -595,11 +599,156 @@ Compared to SDS: replace the raw noise $\epsilon$ with an **auxiliary score** $\
 | **DreamGaussian** (Tang 2024 ICLR) | 3DGS + SDS, ~2 min / object | GPU speed advantage; mesh export + UV-Net texturing |
 | **GaussianDreamer** (Yi 2024 CVPR) | Point-E / Shap-E init → 3DGS + SDS | Alleviates from-scratch geometric chaos |
 
-## §7 Single-image / Few-view 3D generation
+## §7 Feed-forward reconstruction: from COLMAP to pointmap regression
+
+Before 2024, the first step of "multi-view → 3D" was almost always SfM: COLMAP running SIFT → matching → incremental SfM → bundle adjustment, tens of minutes to hours, and frequently failing on texture-less surfaces, low overlap, and dynamic objects. **DUSt3R** (Wang 2024 CVPR, arXiv:2312.14132, Naver) replaced that entire pipeline with a single network forward pass: no explicit matching, no triangulation, no bundle adjustment — it **regresses pointmaps directly**. By the time VGGT won CVPR 2025 Best Paper, this line had become the default question direction for 3D vision roles.
+
+### 7.1　DUSt3R: pointmaps and the confidence-weighted loss (**must-derive**)
+
+A **pointmap** $X \in \mathbb{R}^{H\times W\times 3}$ is a dense "one 3D point per pixel" map whose points are expressed **in one designated camera frame**. It constrains geometry, intrinsics and pose at once, but each is recovered differently:
+
+- **Intrinsics**: pair the 3D points of $X^{1,1}$ with their own pixel coordinates and fit a projection model.
+- **Pose**: pair the 3D points of $X^{2,1}$ with the pixel coordinates of $I^2$ and solve **PnP** — it rests on 2D-3D correspondence.
+- **Depth**: the $z$ component of $X^{2,1}$ is **not** $I^2$'s depth, because those points live in $I^1$'s frame; to get $I^2$'s depth you must first transform the points back into $I^2$'s camera frame and then take $z$.
+
+Given two images $I^1, I^2$, DUSt3R encodes them with weight-shared ViT encoders, lets two decoders cross-attend to each other, and outputs two pointmaps $X^{1,1}$ and $X^{2,1}$. **The superscripts are the point: both pointmaps are expressed in the camera frame of $I^1$.** Both images' pixels now live in one coordinate system, so **pose stops being an input and becomes something you can solve for from the output**. That one sentence is the origin of the whole feed-forward reconstruction family.
+
+> ⚠️ **Do not say "rigidly align the two pointmaps to get the pose"** — they are already in the same frame, so there is nothing to register. The pose comes from 2D-3D correspondences between $X^{2,1}$ and $I^2$'s pixels (PnP), which is a different operation.
+
+**Regression loss.** For valid pixels $i \in \mathcal{D}^v$ of view $v \in \{1, 2\}$ (pixels where GT is defined), the per-point Euclidean error is
+
+$$\ell_{\text{regr}}(v,i)=\Big\lVert \tfrac{1}{z}X^{v,1}_i-\tfrac{1}{\bar z}\bar X^{v,1}_i\Big\rVert$$
+
+where $\bar X$ is the GT. Each side is divided by a scale factor — $z$ from the prediction, $\bar z$ from the GT — both defined identically:
+
+$$z=\text{norm}(X^1,X^2)=\frac{1}{\lvert\mathcal{D}^1\rvert+\lvert\mathcal{D}^2\rvert}\sum_{v}\sum_{i\in\mathcal{D}^v}\lVert X^v_i\rVert$$
+
+that is, the **mean distance of all valid points to the origin**. After dividing by it the loss is invariant to global scaling: the network is only asked to get the shape right, scale is free. **This is exactly where "DUSt3R-style training is up-to-scale by default" comes from.**
+
+Getting absolute scale is done in more than one way, and **MapAnything** is one of them: it keeps this scale-invariant geometric supervision and **separately predicts a global scale with its own loss**. Normalisation itself also differs — **VGGT** normalizes only the GT, without DUSt3R's prediction-side normalization, but what it learns is still the normalised scale, not a metric route. The `use_metric` switch in the code below (setting $z=\bar z$) is the most direct teaching variant, pressing absolute scale straight into the regression term — easy to reason about, but not what either paper does.
+
+**Confidence weighting.** Real data contains sky, specularities, transparency and moving objects — pixels where the GT itself is untrustworthy. DUSt3R has the network emit an extra confidence map $C^{v,1}$, turning the loss into
+
+$$\boxed{\;\mathcal{L}_{\text{conf}}=\sum_{v}\sum_{i\in\mathcal{D}^v}\Big[\,C^{v,1}_i\,\ell_{\text{regr}}(v,i)\;-\;\alpha\log C^{v,1}_i\,\Big]\;},\qquad C=1+\exp(\check C)\gt 1$$
+
+where $\check C$ is the raw output of the confidence head and the $1+\exp(\cdot)$ parameterization guarantees $C\gt 1$ (every pixel is counted at least once). The paper calls $-\alpha\log C$ a **regularization term**.
+
+**Why $-\alpha\log C$ is mandatory** (this is the question). Look at one pixel's loss as a function of $C$ on the domain $C\gt 1$: $f(C)=C\ell-\alpha\log C$.
+
+- **Drop the $\log$ term**: $f(C)=C\ell$ is non-decreasing in $C$ (since $\ell \ge 0$), so the optimum pushes $C$ to the lower end of the domain, $C\to 1$, and the per-pixel loss falls back to the plain regression loss $\ell$. **Geometry is still learned** — what degenerates is only the confidence head: it becomes a constant carrying no information. Blocking that degeneracy is exactly what the regularizer is for.
+- **Keep the $\log$ term**: $f'(C)=\ell-\alpha/C$. For $\ell\lt \alpha$ the stationary point $C^\star=\alpha/\ell\gt 1$ lies inside the domain; for $\ell\ge\alpha$, $f'(C)\gt 0$ throughout and the infimum is still at $C\to 1^+$.
+- **Eliminate $C$** (taking the infimum over $C$ — an **optimization elimination**, not a probabilistic marginalization):
+
+$$\inf_{C\gt 1} f(C)=\begin{cases}\alpha+\alpha\log(\ell/\alpha), & 0\lt \ell\lt \alpha\\[2pt] \ell, & \ell\ge\alpha\end{cases}$$
+
+- **So what does it actually do**: the $\ell\lt \alpha$ branch is reshaped into a logarithm, while the $\ell\ge\alpha$ branch **stays linear in $\ell$**. It is **not** an outlier suppressor that squashes large residuals into a log — large residuals are still counted linearly. $\alpha$ is where the boundary sits: raising $C$ only pays off once a pixel's residual drops below $\alpha$ (buying a negative $\alpha\log(\ell/\alpha)$). So $C$ learns "can I get this pixel right", and on sky, specularities and moving objects — where it cannot — $C$ sits near 1 and earns no reward.
+
+> 💡 **$\alpha$ is the only knob** — it is simultaneously the threshold for "how small a residual is worth committing to" and the strength of the confidence reward. Raise $\alpha$ and more pixels enter the logarithmic branch, making the confidence map more outspoken; at a fixed residual, lowering $\alpha$ moves more pixels into the $C\to 1$ branch, collapsing the mechanism back to plain regression. Naming the boundary at $\ell=\alpha$ puts this answer a tier above reciting the formula.
+
+```python
+import torch
+
+def dust3r_conf_loss(pred_pts, gt_pts, conf_raw, valid, alpha=0.2, use_metric=False):
+    """ DUSt3R confidence-weighted pointmap loss (pedagogical version).
+        pred_pts: [B, V, H, W, 3]  pointmaps from both heads, in the I^1 camera frame
+        gt_pts:   [B, V, H, W, 3]  GT in the same frame (V = 2); invalid pixels may be NaN
+        conf_raw: [B, V, H, W]     raw confidence-head output Ĉ (pre-activation)
+        valid:    [B, V, H, W]     bool, the set of pixels D^v where GT is defined
+        use_metric: teaching variant setting z = z̄ to press absolute scale into the
+                    regression term (not what the paper does)
+        Note: the paper's L_conf sums over valid pixels; this returns a per-sample mean
+        over valid pixels, then a batch mean, so values compare across batches.
+    """
+    eps = 1e-8
+    vm = valid.unsqueeze(-1)                                       # [B, V, H, W, 1]
+    zero = torch.zeros((), dtype=pred_pts.dtype, device=pred_pts.device)
+    # select before computing: invalid GT depth is often NaN, and NaN * 0 is still NaN
+    pred_v = torch.where(vm, pred_pts, zero)
+    gt_v = torch.where(vm, gt_pts, zero)
+
+    n = valid.flatten(1).sum(1).to(pred_pts.dtype).clamp(min=1.0)  # [B]  |D^1| + |D^2|
+    # norm(.) = mean distance of valid points to the origin; one for pred, one for gt
+    z_bar = gt_v.norm(dim=-1).flatten(1).sum(1) / n                # [B]  z̄
+    z = z_bar if use_metric else pred_v.norm(dim=-1).flatten(1).sum(1) / n
+
+    bshape = (-1,) + (1,) * (pred_pts.dim() - 1)                   # [B, 1, 1, 1, 1]
+    l_regr = (pred_v / z.view(bshape).clamp(min=eps)
+              - gt_v / z_bar.view(bshape).clamp(min=eps)).norm(dim=-1)   # [B, V, H, W]
+
+    C = 1.0 + conf_raw.exp()                                       # C > 1, every pixel counted
+    per_pix = C * l_regr - alpha * C.log()                         # drop the log term -> C collapses to 1
+    per_pix = torch.where(valid, per_pix, torch.zeros((), dtype=per_pix.dtype,
+                                                      device=per_pix.device))
+    return per_pix.flatten(1).sum(1).div(n).mean()
+```
+
+> ⚠️ **Two easy mistakes** — first, the scale normalization must be computed over **both images jointly** ($\lvert\mathcal{D}^1\rvert+\lvert\mathcal{D}^2\rvert$ is the denominator); normalizing separately erases the relative scale between the two images. Second, $C$ must not be detached — gradients have to reach the confidence head, otherwise the "only raise $C$ once the residual is below $\alpha$" mechanism never forms.
+
+**MASt3R** (2406.09756) adds a dense local-feature head on top of DUSt3R, fusing "regress a pointmap" and "do pixel-level matching" into one model with much better matching accuracy; the follow-up MASt3R-SfM uses it to replace COLMAP's matching front end.
+
+### 7.2　The shared recipe and VGGT's four heads
+
+The recipe across this family is broadly uniform, but **every line has exceptions and a good answer names them**:
+
+1. **Views exchange information through attention**, rather than hand-crafted matching followed by geometric solving. But "one forward pass consumes all views" is not universal: DUSt3R itself is a **pairwise** model whose multi-view use still needs a global alignment stage (and does not require running every pair); Fast3R is the one that truly emits all pointmaps in a single pass, though its **camera parameters are recovered from the pointmaps afterwards**.
+2. **Outputs land in one common frame**, usually the camera frame of some reference image. **π³ is the exception**: its raw outputs are per-view local pointmaps in each view's own camera frame plus the corresponding poses, and the common frame is assembled from those poses.
+3. **Pose is usually an output rather than a required input** — no SfM initialization needed.
+4. **Scale depends on how it was trained**: DUSt3R-style two-sided (prediction + GT) normalization → up-to-scale; VGGT normalizes only the GT. Metric output has more than one route — MapAnything obtains it by predicting a separate global scale, and you can also simply train on metric geometric supervision (CUT3R does exactly that; MASt3R is likewise trained on metric data).
+
+**VGGT** (Wang 2025 CVPR **Best Paper**, arXiv:2503.11651, Oxford + Meta) is the current reference implementation. It processes N images with alternating frame-wise / global attention and draws four heads off **one shared backbone**:
+
+| Head | Output | Downstream use |
+| --- | --- | --- |
+| **Camera** | Extrinsics + intrinsics per image (quaternion + translation + FOV) | Replaces SfM pose estimation |
+| **Depth** | Dense depth per image (DPT-style) | Depth completion / fusion |
+| **Point map** | Dense 3D points in the common frame | Point cloud straight out |
+| **Track** | Given query pixels, the **2D position of the same physical point in every image** | Correspondence / tracking and matching |
+
+> 💡 **VGGT's most counter-intuitive observation** — the paper reports that **at inference, combining the depth head and camera head into a point cloud is more accurate than using the point map head directly**. Note this is an empirical observation, not a proof that "the benefit of multi-task training does not live in that head"; what it does establish is that **which supervision targets you train on** and **which inference path you take** are two separable decisions.
+
+**Why VGGT displaced "COLMAP first" as the interview answer**: seconds instead of hours; no dependence on pre-calibrated intrinsics and far more tolerance for limited overlap; four quantities out in one pass, directly usable downstream (3DGS initialization, SLAM, robot mapping). But this is not "COLMAP is dead" — see §12.1 for accuracy and benchmark GT.
+
+### 7.3　Branch structure: which directions the family is growing in
+
+- **Fast3R** (2501.13928, Meta, CVPR 2025): DUSt3R is pairwise, so multi-view use means "run some image pairs, then globally align" — two stages. Fast3R pushes **all N images through one forward pass** of a transformer straight to pointmaps — demonstrated up to 1000+ images — dropping the global alignment; camera parameters are then recovered from the pointmaps in post-processing.
+- **CUT3R** (2501.12387, Berkeley): goes **recurrent** — it maintains a persistent state, updating it and emitting that frame's pointmap as each frame arrives. That makes it **online / streaming**, able to build while capturing and to accept a single image; its pointmaps and poses are **metric**.
+- **π³** (2507.13347): the methods above all nominate a **reference view** as the coordinate origin, so results depend on which one was picked and a degenerate reference drags everything with it. π³ is **permutation-equivariant**: the output is equivariant to input ordering, so **no single view is privileged**.
+- **MapAnything** (2509.13414, Meta + CMU, 3DV 2026): unifies a pile of tasks with a **factored metric representation** (ray directions + depth + pose + scale), and its **inputs are optional** — use intrinsics if you have them, poses if you have them, run with nothing if you have neither. Scale comes from a separately predicted global factor.
+- **Depth Anything 3** (2511.10647, ByteDance): subtraction in the other direction — no bespoke architecture, no four heads, just **a plain transformer with a single depth-ray prediction target**. On the authors' own benchmark the paper reports **average relative improvements** over VGGT of 44.3% on camera pose and 25.1% on geometry. **Open weights.**
+- **VGGT-Ω** (2605.15195, CVPR 2026 Oral): cuts VGGT's **training memory** to 30% and scales the **supervised training data** to 15× (two separate facts, not an equal-budget exchange), extending coverage to **dynamic scenes** (the VGGT line originally assumes static ones). It predicts depth and cameras. **Weights unverified.**
+
+| Model | Input views | Main outputs | Pose input needed? | Metric? | Weights |
+| --- | --- | --- | --- | --- | --- |
+| **DUSt3R** (2312.14132) | 2 (multi-view via global alignment) | pointmap + confidence | No | No (up-to-scale) | Open weights |
+| **MASt3R** (2406.09756) | 2 | pointmap + dense local features | No | Yes (trained on metric data) | Open weights |
+| **VGGT** (2503.11651) | N, one forward pass | camera / depth / pointmap / track | No | No | Open weights (non-commercial license) |
+| **Fast3R** (2501.13928) | N, demonstrated 1000+ | pointmap (cameras recovered in post) | No | No | Open weights |
+| **CUT3R** (2501.12387) | streaming frame-by-frame (incl. single image) | pointmap + pose + persistent state | No | Yes | Open weights |
+| **π³** (2507.13347) | N, permutation-equivariant | pointmap + camera | No | No | Open weights |
+| **MapAnything** (2509.13414) | N, other inputs optional | factored metric representation | Optional (used if present) | Yes | Open weights |
+| **Depth Anything 3** (2511.10647) | N | depth-ray → pose / geometry | No | — | Open weights |
+| **VGGT-Ω** (2605.15195) | N, incl. dynamic scenes | depth + camera | No | No | Weights unverified |
+
+**MV-DUSt3R+** (2412.06974) is another transition route from DUSt3R to multi-view (multi-view decoder blocks + cross-reference-view fusion); a systematic survey of the family is arXiv:2507.08448.
+
+### 7.4　Feed-forward 3DGS
+
+The line above regresses geometry; a parallel line regresses a **directly renderable 3DGS** — replacing the 10-30 minutes of per-scene optimization from §4 with a single forward pass. **Note that this line is not uniform about needing input poses**:
+
+- **LGM** (2402.05054, Tang 2024 ECCV): an asymmetric U-Net takes 4 multi-view images and **emits one 3D Gaussian per pixel**, producing an asset in seconds. Those 4 images come from **preset, fixed orbit camera poses** that the upstream multi-view generator renders to.
+- **GS-LRM** (2404.19702): swaps LRM's transformer output for Gaussian parameters — **per-pixel Gaussians**, patch tokens in, Gaussians out, from **2-4 posed views**, in **0.23 s on an A100**. This is the pivot from "LRM outputs a triplane" to "LRM outputs 3DGS" (LRM itself is in §8.3).
+- **Long-LRM** (2410.12781): pushes the input to **32 posed views at 960×540**, reconstructing a room-scale scene in roughly **1 second** on an A100 — about **800×** faster than per-scene optimization, at comparable or better quality. Followed by Long-LRM++ (2512.10267).
+- **DepthSplat** (2410.13862, CVPR 2025): feeds pretrained monocular depth features into multi-view Gaussian prediction so depth and splatting reinforce each other — the depth prior supplies exactly the constraint that sparse views lack most. Its inputs are **calibrated** multi-view images.
+- **NoPoSplat** (2410.24207): **the Gaussian network itself needs no pose input** — it **defines the first input image's camera frame as canonical space**, emits all Gaussians there, and injects intrinsics as tokens. The "pose-free" claim is scoped to that network: rendering target views and evaluating still involve a separate pose-estimation procedure.
+- **AnySplat** (2505.23716): an uncalibrated image collection goes in and **Gaussians + intrinsics + extrinsics** come out — the point where the geometry-regression line and the 3DGS-regression line merge.
+
+> ⚠️ **Feed-forward 3DGS does not replace 3DGS** — what it replaces is the per-scene optimization step, not the representation; the output is still Gaussians, still rasterized per §4.3, and **still optimizable afterwards**. Which is higher quality is conditional: Long-LRM reports comparable or better quality than per-scene optimization in its room-scale setting, while optimization usually stays ahead when views are dense. The trade-off is Q15.
+
+## §8 Single-image / Few-view 3D generation
 
 A more practical setting: **given one image, generate 3D**.
 
-### 7.1　Zero-1-to-3 paradigm (novel view via diffusion)
+### 8.1　Zero-1-to-3 paradigm (novel view via diffusion)
 
 **Zero-1-to-3** (Liu 2023 ICCV): finetune Stable Diffusion on Objaverse so it accepts (input view, target camera) → output novel view.
 
@@ -614,7 +763,7 @@ A more practical setting: **given one image, generate 3D**.
 - **SyncDreamer** (Liu 2024 ICLR): **joint** prediction of multiple views in latent space (cross-attention lets views see each other), ensuring 3D consistency
 - **MVDream** (Shi 2024 ICLR): text-to-multi-view, generates 4 views simultaneously; followed by SDS refinement
 
-### 7.2　One-2-3-45 / InstantMesh / TripoSR / Stable Fast 3D
+### 8.2　One-2-3-45 / InstantMesh / TripoSR / Stable Fast 3D
 
 | Method | Input | Output | Speed | Key |
 | --- | --- | --- | --- | --- |
@@ -626,64 +775,124 @@ A more practical setting: **given one image, generate 3D**.
 
 **LRM (Hong et al. 2023 arXiv → ICLR 2024) setting**: treat the image as tokens + Plucker ray embedding, transformer outputs a NeRF triplane. This is the parent model of TripoSR / InstantMesh.
 
-### 7.3　LRM Triplane representation (**high-frequency interview topic**)
+### 8.3　LRM Triplane representation (**high-frequency interview topic**)
 
 - **Triplane** (Chan 2022 EG3D): 3 axis-aligned 2D planes (XY, YZ, XZ), total $3 \times C \times N \times N$ dim
 - Query 3D point $(x, y, z)$: bilinearly interpolate on each plane → **element-wise sum of the three plane features** (EG3D uses sum, not concat) → small MLP → $(\sigma, \mathbf{c})$
 - Advantages: less VRAM than a voxel grid ($O(N^2)$ vs $O(N^3)$), denser than a hash grid making it suitable as transformer output
 - LRM / TripoSR / InstantMesh all let the transformer directly regress triplane tokens
 
-## §8 3D Foundation Models (the 2024 open-source wave)
+## §9 3D Foundation Models (the 2024–26 open-source wave)
 
-### 8.1　Trellis (Microsoft 2024, open source)
+### 9.1　TRELLIS: SLAT and two-stage rectified flow
 
-**Trellis** (Xiang 2024 arXiv) is the first attempt at "Stable Diffusion for 3D" in the open-source space.
+**TRELLIS** (Xiang 2024, arXiv:2412.01506, Microsoft) is the most complete open attempt at a "Stable Diffusion for 3D", and the one worth explaining precisely in an interview — because its latent design directly determines its engineering shape.
 
-- **Structured Latent (SLAT)**: encode the 3D asset onto a sparse latent grid over voxels — preserving spatial structure (suitable for sparse conv / sparse attention) while being compact (only active voxels store latents)
-- **3D VAE**: mesh + texture (derived from signed distance field) → SLAT
-- **Flow matching prior**: rectified flow on SLAT, conditioned on text/image
-- **Multiple decoders**: decode SLAT into NeRF / 3DGS / mesh representations (same latent, choice of output format)
-- **Training data**: a subset of Objaverse-XL + internal high-quality set
-- **Effects**: text-to-3D / image-to-3D, seconds to tens of seconds, quality surpassing the SDS family
+**SLAT (Structured LATents)** is defined as
 
-### 8.2　Hunyuan3D-1 / -2 (Tencent 2024-25, open source)
+$$\boldsymbol z=\{(\boldsymbol z_i,\boldsymbol p_i)\}_{i=1}^{L},\qquad \boldsymbol p_i\in\{0,1,\dots,N-1\}^3,\quad N=64$$
 
-**Hunyuan3D** follows the **shape-then-texture** two-stage route.
+a set of "**latent vector + the voxel coordinate it sits at**". $N=64$ is the voxel resolution ($64^3\approx 2.6\times10^5$ cells), and $L\approx 20\text{K}$ is the number of occupied active voxels — roughly 8% occupancy.
 
-- **Hunyuan3D-1** (Yang 2024 arXiv):
-  - Stage 1: text/image → multi-view image (Zero-1-to-3 family)
-  - Stage 2: multi-view → 3D mesh (LRM-like reconstructor)
-  - Outputs textured mesh in seconds to tens of seconds
-- **Hunyuan3D-2** (Tencent 2025, arXiv 2501.12202):
-  - **Hunyuan3D-DiT**: geometry-only DiT generating mesh on SDF latents
-  - **Hunyuan3D-Paint**: multi-view PBR texture diffusion, UV-space refinement
-  - High-quality PBR texture (production-ready for game / VR assets)
-- **Open source**: complete weights + inference code on HuggingFace
+**Get the division of labour right**: $\boldsymbol p_i$ only fixes the **sparse support** — which cells contain material, at $64^3$ granularity. The actual **fine geometry and appearance are both encoded in $\boldsymbol z_i$**, since a 64-resolution voxel grid could never express sharp edges and smooth surfaces on its own. $\boldsymbol z_i$ comes from projecting each active voxel into multi-view renderings, sampling and aggregating from **DINOv2 feature maps**, then compressing with a sparse VAE. So SLAT encodes **geometry and appearance jointly** from the start.
 
-### 8.3　CLAY (Zhang 2024 SIGGRAPH, arXiv:2406.13897)
+**Two rectified-flow stages** (the order cannot be swapped):
 
-- **Multi-resolution VAE + latent DiT**: a 3D shape VAE encodes the mesh into a neural-field latent, then a DiT diffusion runs on that latent (distinct from 3DShape2VecSet, Zhang et al. 2023, arXiv:2301.11445, which is a separate vector-set representation work)
-- Large-scale training (Objaverse-XL + internal curated set)
-- Output SDF → marching cubes → mesh
-- Adds a PBR texture stage (similar to Hunyuan3D-2)
+1. **Structure stage**: generate *which* voxels are active, i.e. the sparse structure $\{\boldsymbol p_i\}$ itself.
+2. **Latent stage**: generate $\{\boldsymbol z_i\}$ on the already-determined active voxels.
 
-**Rodin** (Microsoft 2023, commercial): early production-grade text-to-3D-avatar system, diffusion on triplane, focused on characters / avatars.
+The direct payoff of splitting is that the second stage runs flow over ~20K tokens instead of the $64^3\approx262\text{K}$ cells — **fix the skeleton first, then fill in content, and the attention and forward compute on the 92% empty cells simply never happens**.
 
-### 8.4　Comparison table
+**Multiple decoders**: three decoders were trained on the same SLAT, producing **3DGS / Radiance Field / Mesh** (the mesh path goes through FlexiCubes, not naive marching cubes — see §5.2).
 
-| Method | Representation | Prior | Training scale | Open source |
+Model sizes are **342M / 1.1B / 2B**, trained on roughly **500K** assets filtered from four public datasets (Objaverse(-XL), ABO, 3D-FUTURE, HSSD). **Open weights.**
+
+**TRELLIS.2** (2512.14692) is its successor. Its Sparse Compression VAE takes **O-Voxel** as its **native representation** — sparse voxels carrying geometry and PBR material together; the VAE compresses O-Voxel into a tighter latent, **three flow models** split the generation work on that compressed latent, and meshes come out through its own dual-grid conversion. **Weights unverified.**
+
+### 9.2　The Hunyuan3D family: 2.0 → 2.1 → 2.5 → Omni / Studio / Buffalo
+
+Hunyuan3D takes the **shape-then-texture** two-stage route and is the fastest-iterating line in the Chinese open-source ecosystem.
+
+- **Hunyuan3D-1** (Yang 2024): stage 1 text/image → multi-view (Zero-1-to-3 family), stage 2 multi-view → mesh (LRM-like).
+- **Hunyuan3D 2.0** (2501.12202): **Hunyuan3D-DiT** — ShapeVAE encodes a point cloud into a **vecset shape latent**, **flow matching** runs on that latent, and the decoder produces an SDF; **Hunyuan3D-Paint** does multi-view texture diffusion plus UV-space refinement, outputting RGB textures. **Open weights.**
+- **Hunyuan3D 2.1** (2506.15442): **PBR material generation enters the main line at this version**, along with the released **training code** — the latter matters far more than the version number for anyone reproducing it.
+- **Hunyuan3D 2.5** (2506.16504): the geometry model becomes **LATTICE, 10B parameters**, with clearly better detail and sharp edges. **Weights unverified.**
+- **Hunyuan3D-Omni** (2509.21245): controllable generation — beyond image/text it accepts **pose / bounding box / voxel** control signals. **Weights unverified.**
+- **Hunyuan3D Studio** (2509.12815): a production-oriented asset toolchain (retopology, UV, texture integration). **Weights unverified.**
+- **Hunyuan3D Buffalo 1.0** (2608.02711): unifies **generation, understanding and editing** in one model. **Weights unverified.**
+
+> ⚠️ **There is no "Hunyuan3D 3.0"** — after 2.0 → 2.1 → 2.5 the line forks straight into the Omni / Studio / Buffalo naming scheme. Answering "3.0" when asked for the latest version reveals immediately that the answer came from a second-hand summary.
+
+### 9.3　The latent-representation axis: CLAY / Direct3D / Dora / Step1X-3D
+
+Sorting these by release date teaches nothing; sorting them by **latent representation and decoding target** is the structure an interview wants.
+
+- **CLAY** (Zhang 2024 SIGGRAPH, 2406.13897): **multi-resolution VAE + latent DiT**. Its shape VAE extends the vector-set representation of **3DShape2VecSet** (Zhang et al. 2023, arXiv:2301.11445), placing it in the VecSet lineage; the DiT diffuses on that latent and **decodes an occupancy field**, from which marching cubes extracts the surface, followed by a PBR texture stage.
+- **Direct3D** (2405.14832): D3D-VAE encodes the mesh into an **explicit triplane latent** and D3D-DiT diffuses on the triplane. Triplane lets you reuse the entire 2D conv/attention toolchain; the cost is projection ambiguity across the three planes (thin elongated structures overlap on some plane).
+- **Direct3D-S2** (2505.17412): switches to a **sparse voxel latent** with **spatial sparse attention (SSA)**, bringing **1024³** training within reach of **8 GPUs**. The reported 3.9× forward / 9.6× backward figures are **the SSA operator against FlashAttention-2**, not an end-to-end model speedup.
+- **Dora** (2412.17808, CVPR 2025): stays on **VecSet** and changes the sampling and attention — **Sharp Edge Sampling** tilts the sampling budget toward geometric sharp edges, paired with **dual cross-attention**. The result: Dora-VAE uses **1,280 latent codes** to match the dense XCube-VAE's reconstruction quality on Dora-bench, where the latter needs >10,000. **An order-of-magnitude drop in latent count directly sets the DiT's sequence length. Open weights.**
+- **Step1X-3D** (2505.07747): geometry via a hybrid VAE-DiT with a **VecSet latent decoded to TSDF**, trained on **2M** curated assets (filtered from 5M+); code, weights and the training pipeline for both the geometry and texture stages are fully open (Apache-2.0). **Open weights.**
+- **Meta AssetGen 2** (2605.26137): a closed product line pushing single-asset generation to roughly **30 seconds** on its H100 deployment, optimized for production usability rather than paper metrics.
+
+**Rodin** (Microsoft 2023, commercial): an early product-grade text-to-3D-avatar system, diffusion on triplane, aimed at characters / avatars.
+
+### 9.4　Comparison table: latent representation is the axis
+
+| Method | **Latent representation** | Decoding target | Prior | Weights |
 | --- | --- | --- | --- | --- |
-| **Trellis** | Structured Latent (SLAT) + multi decoders | Rectified Flow | Objaverse-XL subset | ✅ |
-| **Hunyuan3D-2** | SDF latent (Shape DiT) + UV texture diff | Diffusion | Internal large-scale set | ✅ |
-| **CLAY** | Multi-resolution VAE latent (latent DiT) | Diffusion | Objaverse-XL + internal | Partial |
-| **Rodin** | Triplane | Diffusion | Commercial internal | ❌ |
-| **TripoSR / SF3D** | NeRF/mesh feedforward | No prior, pure regression | Objaverse-class | ✅ |
+| **TRELLIS** | **SLAT** (sparse voxel support + per-voxel latent) | 3DGS / field / mesh (FlexiCubes) | Rectified Flow ×2 | Open weights |
+| **TRELLIS.2** | SC-VAE compressed latent (native representation **O-Voxel**, geometry + PBR) | mesh (dual-grid) + PBR | Flow ×3 | Weights unverified |
+| **Hunyuan3D 2.0 / 2.1** | **VecSet** (ShapeVAE shape latent) | SDF → mesh; texture in a separate stage | Flow matching | Open weights |
+| **Hunyuan3D 2.5** | VecSet (LATTICE 10B) | SDF → mesh | Diffusion | Weights unverified |
+| **CLAY** | **VecSet lineage** (multi-resolution, extends 3DShape2VecSet) | occupancy → mesh | Diffusion (DiT) | Partial |
+| **Direct3D** | **Triplane** | implicit field → mesh | Diffusion (DiT) | — |
+| **Direct3D-S2** | **Sparse voxel** + SSA | high-resolution implicit field → mesh | Diffusion | — |
+| **Dora** | **VecSet** (1,280 codes, Sharp Edge Sampling) | implicit field → mesh | VAE + DiT | Open weights |
+| **Step1X-3D** | **VecSet** | **TSDF** → mesh | Diffusion | Open weights |
+| **TripoSR / SF3D / LRM** | **Triplane** (feed-forward regression, no prior) | NeRF / mesh | None | Open weights |
+| **Rodin** | Triplane | avatar | Diffusion | ❌ |
 
-> 💡 **Architecture-choice intuition** — large scenes / general objects use **Trellis-style SLAT** (preserves spatial structure); high-quality single meshes use **CLAY-style latent DiT** (multi-resolution VAE latent, global attention); fast inference uses **LRM/TripoSR feedforward** (no diffusion, direct regression).
+The "Weights" column says "Open weights" only where verified, "Weights unverified" where no official release was found, and "—" where this tutorial did not check.
 
-## §9 Complexity / resource comparison
+> 💡 **What this axis actually decides** — all three latents **can be decoded by coordinate query**: triplane by projection, bilinear interpolation and element-wise sum (§8.3), VecSet by cross-attending from the query coordinate into the latent set, SLAT by indexing the voxel position. So "how many output formats" is a consequence of **which decoders each group trained**, not a prohibition of the representation — TRELLIS trained three, others trained only the mesh path. What the representation does decide is **where compute and memory go**: SLAT and sparse voxels hang latents on an explicit sparse support, which makes local computation and position-matched decoding most natural; VecSet has no spatial index but the set is tiny (Dora compresses it to 1,280), so full attention is cheap — the cost is losing locality; triplane reuses 2D engineering most cheaply, at the cost of plane memory growing with resolution. **Dense tokens can also run windowed / sparse attention** — Direct3D-S2's gain comes from a sparse support making the skipped computation genuinely nonexistent, not from "only sparse representations deserve sparse attention".
 
-| Method | Training | Inference (one frame) | VRAM (training) | VRAM (model) |
+### 9.5　Native mesh generation: why artists reject isosurface-extracted output
+
+The mesh output of the methods above comes mainly by **two different routes**: extracting an isosurface from a field — naive marching cubes (§5.1) or a differentiable variant such as FlexiCubes (§5.2, which is what TRELLIS uses); or, as in TRELLIS.2, **converting O-Voxel directly through a dual grid, never passing through a field at all**. **For both routes the problem is not extraction quality but topology**: the triangle layout follows the extraction or voxel grid rather than the shape's structure. They can be UV-unwrapped, decimated and turned into LODs — none of that is impossible, and methods like FlexiCubes preserve sharp edges to a considerable degree. What hurts is that **the output is not guaranteed to have edge flow suited to editing, rigging and deformation**: there are no edge loops organized along silhouettes and creases, so reshaping and skinning are awkward, and decimation has to fight the existing triangulation instead of following it. A hand-built **artist-created mesh** typically has a few hundred to a few thousand faces, with every edge hugging a geometric feature.
+
+Hence **native mesh generation**: no isosurface, no voxel conversion — **autoregressively emit the face sequence directly**. The main thread of this line is **token compression**: sequence length = face count × tokens per face, and transformers are quadratic. The baseline everyone is measured against is the **naive sequence of 9 coordinate tokens per face** (3 vertices × 3 coordinates) — until Meshtron, which changes tack and carries the long sequence with architecture instead of compressing further.
+
+- **MeshGPT** (2311.15475): the origin. Graph-convolutional encoding plus **residual quantization** compresses each face into **6 codebook tokens**, generated autoregressively by a decoder-only transformer.
+- **MeshAnything** (2406.10163): adds **shape conditioning** — obtain a coarse shape by any means (reconstruction, generation), then have the AR model "re-model" it into an artist-style mesh, with hundreds of times fewer faces than isosurface extraction gives.
+- **MeshAnything V2** (2408.02555): introduces **Adjacent Mesh Tokenization (AMT)** — since adjacent faces share vertices, most faces need only **one new vertex** encoded instead of three, bringing sequence length to about **half** the naive one and doubling the achievable face limit.
+- **BPT** (2411.07025): Blocked and Patchified Tokenization uses **block indexing** (coordinates split into block id + in-block offset) together with **vertex sharing inside a patch**, shortening the **naive sequence** by **~75%** and pushing generatable faces past **8K**.
+- **TreeMeshGPT** (2503.11629, CVPR 2025): replaces "order the faces somehow" with autoregression along an **adjacency tree** — decoding pops an edge from a stack of expandable edges and grows a face outward. The compressed sequence is **about 22% of the original length** (≈2 tokens/face) — that is "22% remaining", not "22% fewer". Its sequence construction also constrains face orientation, **markedly reducing normal flips**, though not eliminating post-processing entirely.
+- **Meshtron** (2412.09548): does not compress tokens but takes the long sequence head-on — **hourglass architecture + sliding-window attention** reaching **64K faces @ 1024 coordinate resolution**. **Weights unverified.**
+- **DeepMesh** (2503.15265): attaches **DPO** to AR mesh generation, writing "topology humans prefer" straight into the objective — among the first post-training work in mesh generation.
+
+> ⚠️ **The 2026 counter-current: Nexus** — Nexus (2607.13563) raises a criticism aimed at autoregression itself: **token-by-token generation lets earlier errors propagate down the sequence**, and since this task inherently needs long sequences, compression only shortens the sequence without removing that path. It switches to **coarse-to-fine vertex octree diffusion** to fix the vertex set first, then recovers edges and faces with **topology embeddings**, so there is no per-token error propagation. The cost belongs in the answer too: **the paper itself notes inference is slow** — so replying "it's slow" to a question about AR mesh generation is not wrong, it just stops short of the propagation argument.
+
+### 9.6　Part-level and sim-ready: from a part-less whole to a usable asset
+
+A generated asset usually **lacks explicit part and joint structure**. The drawer a robot must pull, the wheel it must turn, the button it must press are not separately addressable in the output — the simulator cannot assign them mass, friction, or joints. This is the closest and most blocked link between 3D generation and Embodied AI deployment.
+
+**Step one: split into parts.** Four works with different routes and one goal:
+
+- **PartGen** (2412.18608): multi-view diffusion → part-level segmentation + **completion of the occluded portions** (a segmented part is itself incomplete and must be generatively completed).
+- **HoloPart** (2504.07943): formalizes this as **3D part amodal segmentation** — decompose a whole mesh into semantically complete parts, each completed into an independent closed body.
+- **PartCrafter** (2506.05573): instead of "whole first, then split", it **denoises multiple parts jointly** — spatial relations between parts are learned in that joint training rather than fixed by post-hoc alignment.
+- **PartPacker** (2506.09980, NVIDIA): **dual volume packing** packs multiple parts into two volume fields generated at once, sidestepping the trouble that a variable part count causes for a network's output dimension.
+
+**Step two: geometry → parts → joints → materials → URDF.** Splitting parts only solves geometry; sim-ready is three steps further: what **joint** connects two parts (revolute / prismatic / fixed), where its axis sits, what its limits are; each part's **physical material** (mass, friction, restitution); and finally packaging into a **URDF / MJCF** the simulator can read.
+
+- **EmbodiedGen** (2506.10600): one of the most complete open works walking this whole chain, emitting **URDF assets** with physical attributes that plug into IsaacSim / MuJoCo.
+- **Artiverse** (2605.24403): **5.4K articulated objects across 88 categories**. For reference, PartNet-Mobility holds **2,346** — articulated assets remain at the thousands scale, and while Artiverse more than doubles that, it is still three orders of magnitude below the geometry layer.
+
+> 💡 **How to answer this section** — do not recite paper names. The structure here is "**one problem cut into five stages whose data supply differs wildly**": geometry has Objaverse-XL-scale data and works best; part level just got PartGen / HoloPart; articulated assets run from PartNet-Mobility's 2,346 to Artiverse's 5.4K, all still thousands-scale; physical materials are mostly specified by hand. **Naming which stage is the bottleneck is worth more than listing ten papers.**
+
+## §10 Complexity / resource comparison
+
+| Method | Training | Inference time | Runtime VRAM (stage noted) | Model / representation size |
 | --- | --- | --- | --- | --- |
 | NeRF vanilla | 1-2 days | several seconds | 8 GB | <10 MB MLP |
 | Instant-NGP | 5 seconds - 5 min | 30 fps+ | 4-12 GB | 100-500 MB hash |
@@ -693,27 +902,29 @@ A more practical setting: **given one image, generate 3D**.
 | DreamGaussian (3DGS+SDS) | 2 min / object | — | 8-16 GB | — |
 | ProlificDreamer (VSD) | 3-6 hr / object | — | 24 GB | — |
 | TripoSR feedforward | 50 GPU-days training | 0.5 s (A100) | 6 GB inference | 1.5 GB |
-| Trellis | 100+ GPU-days training | several seconds | 16 GB inference | a few GB |
-| Hunyuan3D-2 | Training on large cluster | tens of seconds | 24+ GB inference | combination of multiple models |
+| GS-LRM / Long-LRM (feed-forward 3DGS) | Large-scale multi-view training | 0.23 s / ~1 s (32 views at 960×540) | — | — |
+| VGGT (feed-forward reconstruction) | Large-scale multi-view training | seconds / N images in one pass | — | ~1B params |
+| TRELLIS | 100+ GPU-days training | several seconds | 16 GB inference | a few GB |
+| Hunyuan3D 2.0 / 2.1 | Training on large cluster | tens of seconds | 24+ GB inference | combination of multiple models |
 
-## §10 Comparison with related methods & Embodied AI applications
+## §11 Comparison with related methods & Embodied AI applications
 
-### 10.1　Key differences between 3D and 2D generation
+### 11.1　Key differences between 3D and 2D generation
 
 | Dimension | 2D generation (Stable Diffusion) | 3D generation |
 | --- | --- | --- |
-| **Data scale** | LAION-5B 5B images | Objaverse-XL 10M objects (500× smaller) |
+| **Data scale** | LAION-5B 5B images | Objaverse-XL (2307.05663) 10M objects (500× smaller) |
 | **Data format** | Image (uniform RGB) | mesh / SDF / point cloud / NeRF / 3DGS (**fragmented**) |
-| **Training prior** | Train diffusion directly | Distill from 2D diffusion (SDS / Zero-1-to-3) **or** 3D-native diffusion (Trellis / CLAY) |
+| **Training prior** | Train diffusion directly | Distill from 2D diffusion (SDS / Zero-1-to-3), **or** 3D-native diffusion (TRELLIS / CLAY), **or** pure feed-forward regression (LRM / VGGT) |
 | **Evaluation** | FID, CLIP score | Chamfer / IoU / PSNR (recon) + perceptual + user study |
 | **Downstream** | Output image directly | Output asset → rendering / simulation / editing |
 
-### 10.2　Embodied AI / AR / VR practical routes
+### 11.2　Embodied AI / AR / VR practical routes
 
 | Task | Recommended representation | Key toolchain / constraints |
 | --- | --- | --- |
-| **Sim2Real assets** | mesh (PBR) | Trellis / Hunyuan3D-2 → IsaacSim / MuJoCo |
-| **Large indoor scenes** | 3DGS | COLMAP → 3DGS (chunk-wise with VastGS / CityGS) |
+| **Sim2Real assets** | mesh (PBR) | TRELLIS / Hunyuan3D 2.1 → IsaacSim / MuJoCo; movable assets still need parts / joints / physical materials (§9.6) |
+| **Large indoor scenes** | 3DGS | COLMAP → 3DGS (chunk-wise with VastGS / CityGS); poses can also come from the VGGT family (§12.1) |
 | **NeRF/3DGS as simulator** | NeRF / 3DGS + physics | DreamGaussian-Sim / Splatting Physics |
 | **3D affordance / manipulation** | point cloud / 3DGS feature | OpenScene / LERF / RVT / 3D Diffuser Actor |
 | **AR object scanning** | 3DGS (realistic lighting + real-time) | mobile compute (PostShot / Luma), pruning / quantization |
@@ -723,13 +934,22 @@ A more practical setting: **given one image, generate 3D**.
 
 > ⚠️ **Embodied AI interview follow-up example** — "Biggest challenge in making NeRF a physics simulator?" Key points: NeRF is radiance, no mass / friction → physics priors must be added manually; mesh extraction has floaters → collision detection is hard; differentiable but slow backward; **industry mostly uses 3DGS / mesh rather than vanilla NeRF**.
 
-## §11 Engineering practice & common footguns
+## §12 Engineering practice & common footguns
 
-### 11.1　COLMAP / SfM preprocessing (essential for reconstruction)
+### 12.1　COLMAP or feed-forward?
 
-Input multi-view → output intrinsics $K$ + extrinsics $\{R_i, t_i\}$ + sparse point cloud; standard pipeline SIFT → matching → incremental SfM → bundle adjustment. **Common pitfalls**: SfM fails on texture-less / specular objects; dynamic objects pollute extrinsics.
+COLMAP: input multi-view → output intrinsics $K$ + extrinsics $\{R_i, t_i\}$ + sparse point cloud; standard pipeline SIFT → matching → incremental SfM → bundle adjustment. **Common pitfalls**: SfM fails on texture-less / specular objects; dynamic objects pollute extrinsics.
 
-### 11.2　Numerical stability (general NeRF/3DGS)
+After §7 this step is no longer mandatory, but it is nowhere near deletable. The division of labour is clear:
+
+- **Accuracy depends on conditions, not on the brand name.** COLMAP is strong on static scenes with enough texture and overlap; but **monocular SfM is itself up-to-scale** — absolute scale has to come from a calibration target, a known baseline or another sensor, and COLMAP does not supply it.
+- **Benchmarks do not share one GT convention.** Some reconstruction benchmarks do derive their poses from COLMAP; others use sensor ground truth or synthetic data. Match whichever convention the baseline you want to compare against used, rather than asserting that "the benchmark is COLMAP".
+- **Feed-forward models deliver seconds instead of hours**, and still produce results where COLMAP struggles: low overlap, few views, texture-less. Note that **unknown intrinsics are not a COLMAP failure condition** — it can self-calibrate, it just drifts more easily.
+- **Connecting the two costs engineering.** **VGGT-X** (2509.25191) existing at all is the evidence: feeding VGGT's outputs into large-scale 3DGS training needed extra work on memory, point-cloud noise and pose accuracy before it ran — this is not merely "swap the pose source".
+
+> 💡 **How to actually choose** — on capture conditions, time budget and **measured** accuracy: static, well-textured, offline, must match some existing benchmark's convention → COLMAP; online, few views or poor overlap → feed-forward; want both → feed-forward for initialization, then BA / COLMAP refinement. Treat scale as a separate question: neither DUSt3R-style training nor VGGT guarantees metres, and monocular COLMAP does not either; real scale needs a calibration target, a known baseline, or a metric model (§7.3) — and **a learned metric scale is not measurement-grade accuracy**.
+
+### 12.2　Numerical stability (general NeRF/3DGS)
 
 | Issue | Symptom | Fix |
 | --- | --- | --- |
@@ -740,9 +960,9 @@ Input multi-view → output intrinsics $K$ + extrinsics $\{R_i, t_i\}$ + sparse 
 | SDS Janus | Faces / heads in multiple views | Add view-conditioning ("front view" / "back view"); MVDream |
 | SDS over-saturation | Saturated colors | Lower CFG; switch to VSD; or negative prompt |
 
-### 11.3　Multi-machine distributed & evaluation metrics
+### 12.3　Multi-machine distributed & evaluation metrics
 
-**Distributed**: NeRF / Instant-NGP / 3DGS are single-GPU standard; large 3DGS scenes use chunk-wise (VastGaussian, CityGaussian); SDS/VSD runs 2 SD forwards per iter, 8×A100 gives significant speedup; Trellis / Hunyuan3D training is large-scale multi-node DDP.
+**Distributed**: NeRF / Instant-NGP / 3DGS are single-GPU standard; large 3DGS scenes use chunk-wise (VastGaussian, CityGaussian); SDS/VSD runs 2 SD forwards per iter, 8×A100 gives significant speedup; TRELLIS / Hunyuan3D training is large-scale multi-node DDP.
 
 | Evaluation metric | Use | Algorithm |
 | --- | --- | --- |
@@ -750,9 +970,12 @@ Input multi-view → output intrinsics $K$ + extrinsics $\{R_i, t_i\}$ + sparse 
 | **Chamfer Distance** | Mesh geometry | Average nearest-neighbor distance between two point clouds |
 | **F-Score (3D)** | Mesh / point | Precision + recall under threshold |
 | **CLIP Score / CLIP-R-Prec** | Text-to-3D alignment | Render → CLIP similarity / distinguish distractor prompts |
+| **ULIP / ULIP-2 alignment score** | 3D ↔ image ↔ text semantic alignment | Similarity in a tri-modal shared space (ULIP 2212.05171 / ULIP-2 2305.08275; ULIP-2 auto-generates language descriptions with a large model, removing manual annotation) |
 | **User study** | Final quality | MTurk / lab-internal |
 
-## §12 25 frequently-asked interview questions
+**Commonly used evaluation sets**: **GSO** (Google Scanned Objects, 2204.11918), 1000+ real scanned objects, the most common evaluation set for single-image-to-3D; **Toys4K** (2101.07296), ~4K objects across 105 categories, good category diversity, common for few-shot and part-level experiments; **Objaverse-XL** (2307.05663), 10M+ objects, treated by most work as a training source. **A dataset does not carry a "train" or "test" identity of its own** — the same assets are training data in one paper and evaluation data in another, so when you see a score, ask how the split was drawn; the generalization claim holds only on that split.
+
+## §13 25 frequently-asked interview questions
 
 Sorted into 3 tiers by difficulty (L1 must-know / L2 advanced / L3 top labs). Each question links to answer points + footguns.
 
@@ -980,19 +1203,21 @@ Saying only "for simplification" without the consequences. Or not realizing that
 
 <details>
 
-<summary>Q15. How does VSD alleviate SDS over-saturation?</summary>
+<summary>Q15. Feed-forward 3DGS vs per-scene 3DGS optimization: when is 800× not worth it?</summary>
 
-- SDS: pulls toward the modes of prior $p_\phi$; needs CFG=100 → over-saturation
+- **What each line wins on**: feed-forward (GS-LRM, 2-4 posed views, 0.23 s / Long-LRM, 32 views at 960×540, ~1 s) wins on latency and robustness under sparse views; per-scene optimization (§4, 10-30 min) wins by squeezing every observation of this one scene. **Which is higher quality is conditional** — Long-LRM reports parity or better than per-scene optimization in its room-scale setting, while optimization usually stays ahead when views are dense
 
-- **VSD**: treats the 3D parameters $\theta$ as a random variable $\mu(\theta)$, minimizes KL(rendered dist || prior)
+- **Not worth it, case one: dense views, offline** — tens to hundreds of images and no deadline: optimization keeps converging, while a feed-forward model's prior invents detail wherever observations are thin
 
-- Introduces an **auxiliary score** $\epsilon_\psi$ (LoRA-finetuned SD) tracking the score of the current $\mu$
+- **Not worth it, case two: outside the training distribution** — these models are trained mostly on object- and room-scale data, so capture conditions they never saw (scale, materials, lighting) become guesswork, whereas optimization only trusts the images in front of it. Note that "outdoor" is not automatically out-of-distribution; it depends on what the specific model was trained on
 
-- gradient = $(\epsilon_\phi - \epsilon_\psi)\cdot \partial x/\partial \theta$ — **relative score**, no huge CFG required
+- **Cases where it is worth it**: interactive / online use; very few views (2-8), where optimization is itself under-constrained and the prior is a net gain; batch-processing thousands of scenes, where total throughput beats per-scene fidelity
 
-- $\epsilon_\psi$ is the necessary term from differentiating the KL objective w.r.t. $\theta$, corresponding to the $q$ distribution's own score (dropping it degrades back to SDS) — not an RL actor-critic value baseline that only reduces variance
+- **What industry actually does**: feed-forward initialization plus optimization refinement — the Gaussians a feed-forward model emits are ordinary Gaussians and **can keep training**, so this removes optimization's slow cold start
 
-Saying VSD "uses variational inference" but not explaining $\epsilon_\psi$ replacing raw noise.
+- **It replaces the optimization, not the representation**: the output is still Gaussians, still rasterized per §4.3
+
+Treating 800× as a universal factor — it is Long-LRM's speedup over per-scene optimization in its own setting (32 views at 960×540, A100); change the view count, resolution or hardware and the number changes.
 
 </details>
 
@@ -1046,17 +1271,21 @@ Saying "use SDF" without explaining how NeuS plugs SDF into NeRF volume renderin
 
 <details>
 
-<summary>Q19. Core of the LRM family (TripoSR / InstantMesh)?</summary>
+<summary>Q19. You just captured a new dataset — COLMAP or VGGT?</summary>
 
-- **Triplane** representation: 3 axis-aligned 2D planes, $O(N^2)$ VRAM
+- **Ask four things first**: capture conditions (texture, overlap, moving objects), how fast you need results, whether downstream needs absolute scale, and whether you must match some existing benchmark's pose convention
 
-- Transformer maps image tokens + Plucker ray embeddings → regress triplane tokens
+- **COLMAP**: mature and controllable, accurate on static scenes with enough texture and overlap; failure modes cluster around texture-less / strongly specular / dynamic / low-overlap input. **Two caveats**: unknown intrinsics do not automatically break it (it can self-calibrate, it just drifts more easily); and it **does not always fail visibly** — every image can register with a decent reprojection error and the poses can still be wrong, so the consistency checks are needed either way
 
-- Inference is feedforward (no SDS / no iterative optimization), **seconds to a 3D output** (TripoSR ~0.5 s, InstantMesh ~10 s)
+- **The VGGT family** (§7): seconds, no dependence on pre-calibrated intrinsics, far more tolerant of thin overlap. Its failure mode is **always producing output with no accuracy guarantee**, which also has to be verified yourself
 
-- TripoSR (Stability+Tripo 2024) / InstantMesh (Xu 2024) / SF3D (2024) all belong to this family
+- **Scale**: DUSt3R-style training (two-sided prediction + GT normalization) is up-to-scale by default and VGGT normalizes only the GT — neither guarantees metres. **Monocular SfM is up-to-scale too**: COLMAP does not supply absolute scale on its own. Real scale comes from a calibration target, a known-baseline stereo/multi-sensor rig, or a model like MapAnything (2509.13414) that predicts a global scale — but **a learned metric scale is not the same thing as measurement-grade accuracy**
 
-Treating them as the SDS family — wrong, LRM is fully feedforward; it is not distillation.
+- **Benchmark conventions**: some reconstruction benchmarks do derive their poses from COLMAP; others use sensor ground truth or synthetic data. Match whichever convention the baseline you want to compare against used
+
+- **The combined answer**: feed-forward for initialization → BA / COLMAP for refinement; or run VGGT first to see whether structure emerges at all, then decide whether COLMAP's hours are worth waiting for
+
+Answering "VGGT has fully replaced COLMAP", or the reverse, "COLMAP is always more accurate". Choose on capture conditions, speed budget and **measured** accuracy. VGGT-X (2509.25191) is the concrete reminder: feeding VGGT outputs into large-scale 3DGS took extra engineering — the handoff is not free.
 
 </details>
 
@@ -1080,114 +1309,111 @@ Saying "just run MC" — 3DGS has no density field, MC doesn't work directly; su
 
 <details>
 
-<summary>Q21. Manually derive NeRF's discrete $\alpha$-compositing.</summary>
+<summary>Q21. Derive DUSt3R's confidence-weighted loss and explain the $-\alpha\log C$ term.</summary>
 
-- ODE $dT/dt = -\sigma(t) T(t)$, initial value $T(t_n) = 1$ → $T(t) = \exp(-\int_{t_n}^t \sigma\,ds)$
+- **Output convention**: both heads output pointmaps $X^{1,1}, X^{2,1}$, **both in the camera frame of $I^1$**. Pose comes from solving PnP on 2D-3D correspondences between $X^{2,1}$ and $I^2$'s pixels — **not from "registering the two pointmaps"**, which are already in the same frame
 
-- On segment $[t_i, t_{i+1}]$ $\sigma$ is constant $= \sigma_i$, so $T(t_{i+1}) = T(t_i)e^{-\sigma_i\delta_i}$
+- **Regression term**: for valid pixels $i\in\mathcal{D}^v$, $\ell_{\text{regr}}(v,i)=\lVert \tfrac{1}{z}X^{v,1}_i-\tfrac{1}{\bar z}\bar X^{v,1}_i\rVert$ — a Euclidean norm, **not a squared error**
 
-- Inter-segment accumulation $T_i = T(t_i) = \prod_{j<i} e^{-\sigma_j\delta_j} = \prod_{j<i}(1 - \alpha_j)$, where $\alpha_j = 1 - e^{-\sigma_j\delta_j}$
+- **Scale normalization**: $z=\text{norm}(X^1,X^2)=\frac{1}{\lvert\mathcal{D}^1\rvert+\lvert\mathcal{D}^2\rvert}\sum_v\sum_{i}\lVert X^v_i\rVert$, the mean distance of all valid points to the origin, computed over **both images jointly**. Dividing by it makes the loss invariant to global scaling, so DUSt3R-style training is up-to-scale. Absolute scale is obtained differently, and MapAnything is one way: it keeps this scale-invariant supervision and **separately predicts a global scale**. Normalisation is a separate matter — VGGT normalizes only the GT and still learns the normalised scale
 
-- Within-segment color contribution $\int_{t_i}^{t_{i+1}} T(t)\sigma_i\mathbf{c}_i\,dt = \mathbf{c}_i T_i \int_0^{\delta_i}\sigma_i e^{-\sigma_i s}ds = T_i\mathbf{c}_i(1 - e^{-\sigma_i\delta_i}) = T_i\alpha_i\mathbf{c}_i$
+- **Confidence form**: $\mathcal{L}_{\text{conf}}=\sum_v\sum_i\big[\,C^{v,1}_i\,\ell_{\text{regr}}(v,i)-\alpha\log C^{v,1}_i\,\big]$ with $C=1+\exp(\check C)\gt 1$. The paper calls $-\alpha\log C$ a **regularization term**
 
-- Compositing: $C \approx \sum_i T_i\alpha_i \mathbf{c}_i$
+- **Without the $\log$ term**: $f(C)=C\ell$ is non-decreasing in $C$, so the optimum pushes $C$ to the lower end of the domain, $C\to 1$, and **the per-pixel loss falls back to the plain regression loss $\ell$**. Geometry is still learned; what degenerates is the confidence head, which becomes a constant carrying no information
 
-- **Key**: $\alpha_i = 1 - e^{-\sigma_i\delta_i}$ exactly, vs $\alpha_i \approx \sigma_i\delta_i$ first-order approximation (consistent when $\sigma\delta \ll 1$)
+- **With the $\log$ term, take the infimum over $C$** (an optimization elimination, not a probabilistic marginalization): $f'(C)=\ell-\alpha/C$, so for $\ell\lt \alpha$ the stationary point $C^\star=\alpha/\ell\gt 1$ lies inside the domain, while for $\ell\ge\alpha$ we have $f'\gt 0$ and the infimum is still at $C\to1^+$:
 
-Skipping the ODE derivation and going straight to the conclusion; or using $\sigma_i\delta_i$ to substitute for $\alpha_i$ when $\sigma\delta$ is large, which is wrong.
+  $$\inf_{C\gt 1}f(C)=\begin{cases}\alpha+\alpha\log(\ell/\alpha), & 0\lt \ell\lt \alpha\\[2pt] \ell, & \ell\ge\alpha\end{cases}$$
 
-</details>
+- **State the conclusion precisely**: only the $\ell\lt \alpha$ branch is reshaped into a logarithm; **large residuals with $\ell\ge\alpha$ are still counted linearly** — this is not a robust loss that suppresses outliers. $\alpha$ is the boundary: raising $C$ only pays once the residual drops below $\alpha$ (buying a negative $\alpha\log(\ell/\alpha)$), so $C$ learns "can I get this pixel right"; on sky, specularities and moving objects, where it cannot, $C$ sits near 1 and earns no reward
 
-<details>
-
-<summary>Q22. How are Instant-NGP hash collisions automatically disambiguated by the MLP?</summary>
-
-- **When collisions happen**: at fine levels, grid-point count $N_\ell^d > T$ (hash table size), multiple grid points map to the same entry
-
-- **Sparse activation**: most scene voxels are background, **only voxels near the surface have non-zero supervised gradients** — two colliding "background entries" never receive signals and don't pollute each other
-
-- **Multi-resolution redundancy**: at coarse levels $N_\ell^d \le T$ guarantees uniqueness; fine levels add detail. Even if a fine level collides, the non-colliding features at coarse levels already uniquely identify the point
-
-- **MLP post-processing**: the tiny MLP learns nonlinear fusion over the $L\times F$ concatenated features; on colliding entries, it can use **non-colliding features from other levels to disambiguate**
-
-- **Auto-regulated gradients**: during training high gradients naturally concentrate at surface entries; if colliding entries are simultaneously on the surface (rare), the loss pushes them to a compromise position (averaging multiple samples)
-
-- **Physical intuition**: rather than pay the cost of perfect hashing, allow collisions and use data-driven implicit disambiguation ("lazy collision resolution")
-
-Saying "hash collisions are solved by the MLP" without explaining which mechanisms (sparsity + multi-scale + MLP nonlinearity) act together.
+Answering "marginalizing out confidence gives a logarithmic robust loss": first, this is an infimum-based optimization elimination, not an integral marginalization; second, only the $\ell\lt \alpha$ half is logarithmic, the large-residual half stays linear. The other way to lose points is claiming "without the log term geometry stops being learned" — without it $C\to 1$ and the loss is exactly the plain regression loss.
 
 </details>
 
 <details>
 
-<summary>Q23. Derive the 3DGS 3D→2D covariance projection Jacobian.</summary>
+<summary>Q22. VGGT predicts four quantities from one backbone — why does joint training beat specialists, and what does DA3's "one depth-ray target is enough" say about that?</summary>
 
-- World → Camera: rigid transform $\mathbf{x}_\text{cam} = W\mathbf{x} + t$; covariance is only affected by rotation, $\Sigma_\text{cam} = W\Sigma W^\top$
+- **Describe the four heads precisely**: camera (extrinsics + intrinsics), depth (dense depth per image), point map (3D points in the common frame), track (**given query pixels, the 2D position of the same physical point in every image** — 2D correspondence, not "cross-view 3D trajectories")
 
-- Camera → Screen: perspective projection $\pi(x, y, z) = (f_x x/z, f_y y/z)$ is nonlinear
+- **The case for joint training**: all four targets share one geometry — depth plus camera yields the point cloud, and the points' 2D projections across images are the tracks. They constrain each other, forcing the backbone into a self-consistent 3D representation; a single-task model has no other head to expose its inconsistencies
 
-- First-order Taylor at the mean $\mu_\text{cam}$: $\pi(\mathbf{x}) \approx \pi(\mu_\text{cam}) + J(\mathbf{x} - \mu_\text{cam})$, $J = \partial\pi/\partial\mathbf{x}|_{\mu_\text{cam}}$
+- **VGGT's own observation**: the paper reports that **at inference, combining the depth head with the camera head gives a more accurate point cloud than the point map head's direct output**. This is an empirical observation and **does not by itself establish that the multi-task benefit lives in the shared representation rather than in that head**; its safe reading is that which supervision targets you train on and which inference path you take are separable decisions
 
-- $J = \begin{pmatrix} f_x/z & 0 & -f_x x/z^2 \\ 0 & f_y/z & -f_y y/z^2 \end{pmatrix} \in \mathbb{R}^{2\times 3}$
+- **DA3's subtraction (2511.10647)**: no four heads, no bespoke architecture — **a plain transformer with a single depth-ray prediction target**, reporting average relative improvements over VGGT on the authors' own benchmark: 44.3% on pose, 25.1% on geometry
 
-- $\text{Cov}[\pi(\mathbf{x})] = J\Sigma_\text{cam} J^\top = JW\Sigma W^\top J^\top \in \mathbb{R}^{2\times 2}$
+- **How to read that comparison**: the two papers differ in data, training scale and evaluation set, so **a cross-paper score gap cannot prove which supervision mechanism caused the gain**. What holds up is weaker and still useful: there exists at least one configuration where a single prediction target suffices for both pose and geometry, so head count is not a necessary condition — causal claims need same-paper ablations
 
-- This is the classic corollary of EWA splatting (Zwicker 2001); 3DGS adopts it directly
+- **One extra point worth making**: depth + ray already span pose and point cloud informationally, so extra heads mostly supervise the same information in pieces, at the cost of more architecture and loss-weight tuning surface
 
-- Real implementations also add a $0.3 I$ low-pass filter (anti-aliasing)
-
-Unable to do the first-order Taylor linearization of the nonlinear projection; or missing the World→Cam step.
+Stopping at "multi-task = more supervision = better"; or, in the other direction, citing DA3's scores as proof that multi-task is useless — that is a cross-paper comparison and cannot carry a causal conclusion.
 
 </details>
 
 <details>
 
-<summary>Q24. Which Jacobian does SDS gradient drop? Why does it still "work"?</summary>
+<summary>Q23. The token budget of AR mesh generation: what do AMT / BPT / tree sequencing each compress, and why is maximal compression still not enough?</summary>
 
-- **Naive diffusion training gradient**:
+- **The baseline**: the naive sequence is 3 vertices × 3 coordinates = **9 coordinate tokens per face**. Sequence length = face count × tokens per face, transformers are quadratic, so token count converts directly into "how many faces can be generated at all"
 
-  $\nabla_\theta \mathcal{L}_\text{diff} = \mathbb{E}[w(t)\cdot 2(\epsilon_\phi - \epsilon)\cdot \underbrace{\partial \epsilon_\phi/\partial x_t}_{\text{U-Net Jacobian}}\cdot \alpha_t \cdot \partial x/\partial\theta]$
+- **MeshGPT** (2311.15475): graph-convolutional encoding plus **residual quantization** compresses each face into **6 codebook tokens** (not 9 — 9 is the naive baseline it set out to beat)
 
-- **SDS** drops the U-Net Jacobian $\partial \epsilon_\phi/\partial x_t$:
+- **AMT** (MeshAnything V2, 2408.02555) compresses **vertex repetition**: adjacent faces share vertices, so most faces encode **one new vertex** instead of three → about **half** the naive sequence length
 
-  $\nabla_\theta \mathcal{L}_\text{SDS} = \mathbb{E}[w(t)(\epsilon_\phi - \epsilon)\cdot \partial x/\partial\theta]$
+- **BPT** (2411.07025) compresses **coordinate representation**: **block indexing** (coordinate split into block id + in-block offset) plus **vertex sharing within a patch**, shortening the **naive sequence** by **~75%** and pushing faces past **8K**
 
-- **Why dropping it is reasonable**:
-  - The U-Net Jacobian is expensive (H×W×3 input → H×W×3 output second-order)
-  - U-Net is not trained for second-order stability, the Jacobian is numerically poor
-  - $(\epsilon_\phi - \epsilon)$ itself is already a proxy for the score ($\epsilon_\phi/\sigma_t \approx -\nabla_{x_t}\log p_\phi$); dropping the Jacobian amounts to using a first-order score signal
+- **TreeMeshGPT** (2503.11629) compresses **face ordering freedom**: autoregression along an adjacency tree, popping an edge from a stack of expandable edges and growing a face outward. The compressed length is **about 22% of the original** (≈2 tokens/face) — "22% remaining", not "22% fewer". Its construction also constrains orientation, **markedly reducing normal flips**, without fully eliminating post-processing
 
-- **Cost**: SDS mathematically becomes a mode-seeking KL (toward modes of the prior), needing large CFG (100) to escape mean-blur
+- **Do the arithmetic for 64K faces (where L3 follow-ups land)**: naive at 9/face → ~**576K** tokens; AMT at about half → ~**288K**; tree sequencing at ≈2/face → ~**128K**. **Even the best is still six figures**, beyond ordinary context lengths, and quadratic attention cannot carry it
 
-- **Symptoms**: over-saturation (saturated colors) + Janus (same face in multiple views) + over-smoothing (blurry details)
+- **Which is why Meshtron (2412.09548) takes a different route**: rather than expecting compression to make the sequence "fit", it makes a six-figure sequence trainable — an **hourglass architecture** downsamples tokens in the middle and **sliding-window attention** truncates the quadratic cost, reaching **64K faces @ 1024 coordinate resolution**
 
-Saying only "drop the Jacobian for simplicity" without explaining the mode-seeking consequence + why large CFG is needed.
+- **Nexus's critique (2607.13563) targets autoregression itself**: token-by-token generation lets earlier errors propagate down the sequence, and compression only shortens the sequence without removing that path. It switches to **coarse-to-fine vertex octree diffusion** to fix the vertex set, then **topology embeddings** to recover edges and faces, so there is no per-token propagation; the cost, which the paper states, is **slow inference**
+
+Reading "22%" as "22% fewer" (it means 22% remaining), or describing MeshGPT as 9 tokens per face (that is its baseline). The other way to lose points: treating compression as the endpoint — applied individually, the best of these still lands at six-figure token counts (the compression rates do not multiply), and Meshtron's answer is architecture, not a fiercer tokenizer.
 
 </details>
 
 <details>
 
-<summary>Q25. Why can VSD avoid over-saturation under small CFG?</summary>
+<summary>Q24. SLAT / VecSet / triplane: what is each one's actual architectural trade-off?</summary>
 
-- **SDS view**: $\theta$ is a point estimate; the gradient pulls toward modes of $p_\phi(\cdot|y)$; large CFG sharpens the modes further → over-saturation
+- **First, dismantle a common wrong answer**: all three latents **can be decoded by coordinate query** — triplane by projecting onto three planes, bilinear interpolation and element-wise sum (§8.3); VecSet by cross-attending from the query coordinate into the latent set; SLAT by indexing the voxel position. So "how many formats it can emit" follows from **which decoders each group trained**, not from a prohibition in the representation
 
-- **VSD view**: $\theta$ is a random variable $\mu(\theta)$; **minimizes the KL between noised rendered-image distributions**: $\mathbb{E}_t[D_\text{KL}(q_\mu^t(x_t|y) \,\|\, p_\phi^t(x_t|y))]$ (not a direct KL against a 3D prior in the $\theta$ domain)
+- **SLAT** (TRELLIS, 2412.01506): $\boldsymbol z=\{(\boldsymbol z_i,\boldsymbol p_i)\}$, voxel resolution $N=64$, $L\approx 20\text{K}$ active voxels (~8% occupancy). $\boldsymbol p_i$ supplies only the **sparse support**; fine geometry and appearance both live in $\boldsymbol z_i$. An explicit support makes local computation and position-matched decoding most natural, which is why TRELLIS trained 3DGS / field / mesh decoders; the price is an extra "generate the structure" stage
 
-- Introduces an **auxiliary score** $\epsilon_\psi$ (LoRA-finetuned Stable Diffusion) tracking the score of the current rendered distribution
+- **VecSet** (3DShape2VecSet / Hunyuan3D ShapeVAE / Dora / Step1X-3D): **an unordered latent set with no spatial index**. The upside is that the set can be tiny — Dora (2412.17808) uses Sharp Edge Sampling plus dual cross-attention to reach **1,280 codes**, matching the dense XCube-VAE on Dora-bench (which needs >10,000) — and a short sequence makes the downstream DiT cheap. The price is losing locality: the latent carries no "which part of space is this" structure to exploit
 
-- **VSD gradient**:
+- **Triplane** (EG3D / Direct3D 2405.14832 / LRM): three **dense** 2D planes, whose biggest advantage is reusing the whole 2D conv and attention toolchain; the price is plane memory growing with resolution, plus axis-aligned projection ambiguity (thin elongated structures overlap on some plane)
 
-  $\nabla_\theta \mathcal{L}_\text{VSD} = \mathbb{E}[w(t)(\epsilon_\phi - \epsilon_\psi)\cdot \partial x/\partial \theta]$
+- **The decoding target is its own axis**: CLAY emits an occupancy field, Hunyuan3D-DiT and Dora emit implicit fields, Step1X-3D emits a **TSDF**, and TRELLIS goes through FlexiCubes to a mesh. Same VecSet family, completely different decoding targets
 
-  i.e. **relative score** (target prior score $-$ current rendered score)
+- **The correct statement about sparse attention**: **dense tokens can run windowed / sparse attention too**. Direct3D-S2's (2505.17412) gain comes from a sparse support making the skipped computation genuinely nonexistent; its reported 3.9× / 9.6× figures are **the SSA operator against FlashAttention-2**, not an end-to-end model speedup
 
-- **Geometric intuition**: points from "where I am now" to "where the prior is" — a local "gradient direction" rather than a global mode; no large CFG sharpening needed
+Saying "VecSet can only produce meshes" or "sparse attention is meaningless for triplane" — neither holds; the first is a decoder choice, and dense tokens can be attended sparsely. The other way to lose points is calling SLAT "just a voxel grid": voxels are only $\boldsymbol p_i$, while $\boldsymbol z_i$ comes from projecting active voxels into multi-view DINOv2 feature maps, sampling, and compressing.
 
-- **Not an RL baseline**: $\epsilon_\psi$ is the necessary term corresponding to the $q$ distribution's own score from differentiating the KL objective w.r.t. $\theta$; dropping it degrades the gradient objective back to SDS's mode-seeking (changing the expected gradient direction), unlike an RL actor-critic value baseline, which only reduces variance without changing the expected gradient
+</details>
 
-- **Effects (ProlificDreamer)**: CFG can drop to 7.5, natural colors; finer geometry; can maintain multiple modes (diversity)
+<details>
 
-Saying only "VSD introduces variational inference" without explaining the role of $\epsilon_\psi$ + the relative-gradient view.
+<summary>Q25. What failure of reference-view anchoring does π³'s permutation equivariance fix, and how is NoPoSplat's canonical frame different?</summary>
+
+- **What reference-view anchoring is**: DUSt3R places all pointmaps in the camera frame of $I^1$; the VGGT family likewise nominates one image as the common coordinate origin
+
+- **What is wrong with it**: (1) the result depends on which image was picked — reorder the same images and the output changes, which is variance that should not exist; (2) when the reference is degenerate, it is still treated as the global datum. **Do not invent an "error accumulates with distance to the reference" story**: models like VGGT predict all views jointly, so there is no chained hop-by-hop path
+
+- **What π³'s (2507.13347) permutation equivariance actually is**: $f(PX)=P f(X)$ — a constraint on **permutation behaviour**. What it deterministically removes is **dependence on reference choice and input ordering**; it is **not the same as** being insensitive to a bad view. The robustness gains π³ reports come from its experiments, not from equivariance by derivation
+
+- **When comparing two reconstructions in different reference frames**: align the coordinate transform first, then compare geometry — otherwise you are measuring a change of frame, not a change in quality
+
+- **NoPoSplat (2410.24207) deliberately keeps the anchor**: it **defines the first input image's camera frame as canonical space**, emits all Gaussians there, and injects intrinsics as tokens. Its "pose-free" claim is scoped to the Gaussian network itself
+
+- **Why this is not a contradiction — they cure different diseases**: π³ wants **independence from any particular view** (geometric reconstruction, where views have no natural hierarchy); NoPoSplat wants **independence from the pose-estimation step** (under sparse views, estimating pose then reconstructing propagates error, so a fixed convention replaces it)
+
+- **L3 follow-up: canonical frame and scale are two different things, and three distinctions settle it**: (1) **choosing a reference frame fixes only the origin and axes** and says nothing about scale; (2) **known intrinsics do not remove the global scale freedom** — with an unknown baseline, scaling the scene and the baseline together produces identical images, so scale is unobservable; (3) NoPoSplat's novel-view evaluation is **not "align the scale first"** — it **fixes the Gaussians and optimizes the target camera poses**. Relatedly, AnySplat's (2505.23716) joint intrinsics/extrinsics prediction solves calibration and registration — it **does not yield absolute scale either**
+
+Treating "pose-free" and "reference-free" as synonyms: NoPoSplat is pose-free but **not** reference-free — its canonical frame is precisely a privileged reference view.
 
 </details>
 
@@ -1195,7 +1421,7 @@ Saying only "VSD introduces variational inference" without explaining the role o
 
 ### A.1　Complete from-scratch code includes
 
-`volume_render()` (NeRF α-compositing with numerical stability) · `positional_encoding()` (γ(p) Fourier features) · `gaussian_splat_forward()` (3DGS pedagogical forward + projection Jacobian) · `densify_and_prune()` (3DGS densification heuristics) · `sds_loss()` (SDS gradient surrogate) · `marching_cubes_sketch()` (mesh extraction interface using scikit-image).
+`volume_render()` (NeRF α-compositing with numerical stability) · `positional_encoding()` (γ(p) Fourier features) · `gaussian_splat_forward()` (3DGS pedagogical forward + projection Jacobian) · `densify_and_prune()` (3DGS densification heuristics) · `sds_loss()` (SDS gradient surrogate) · `dust3r_conf_loss()` (DUSt3R confidence-weighted pointmap loss, with scale normalization and a metric switch) · `marching_cubes_sketch()` (mesh extraction interface using scikit-image).
 
 ### A.2　Key papers reading list
 
@@ -1204,12 +1430,17 @@ Saying only "VSD introduces variational inference" without explaining the role o
 - **Mesh / SDF**: Shen **DMTet** NeurIPS 2021 / **FlexiCubes** SIGGRAPH 2023.
 - **SDS family**: Poole **DreamFusion** arXiv 2022.09 → ICLR 2023 Outstanding; Wang **ProlificDreamer (VSD)** NeurIPS 2023 Spotlight; Lin **Magic3D** CVPR 2023; Chen **Fantasia3D** ICCV 2023; Tang **DreamGaussian** ICLR 2024; Yi **GaussianDreamer** CVPR 2024.
 - **Single-image 3D**: Liu **Zero-1-to-3** ICCV 2023 / **One-2-3-45** NeurIPS 2023 / **SyncDreamer** ICLR 2024; Shi **Zero-1-to-3++** arXiv 2023 / **MVDream** ICLR 2024; Hong **LRM** arXiv 2023.11 → ICLR 2024; Tochilkin **TripoSR** arXiv 2024; Xu **InstantMesh** arXiv 2024; Boss **Stable Fast 3D** arXiv 2024.
-- **3D Foundation Models**: Xiang **Trellis** arXiv 2024 (Microsoft); Tencent **Hunyuan3D-2** arXiv 2501.12202 (2025); Zhang **CLAY** SIGGRAPH 2024.
+- **3D Foundation Models**: Xiang **TRELLIS** 2412.01506 (Microsoft) / **TRELLIS.2** 2512.14692; Tencent **Hunyuan3D 2.0** 2501.12202 / **2.1** 2506.15442 / **2.5** 2506.16504 / **Omni** 2509.21245 / **Studio** 2509.12815 / **Buffalo 1.0** 2608.02711; Zhang **CLAY** SIGGRAPH 2024 (2406.13897); **Direct3D** 2405.14832 / **Direct3D-S2** 2505.17412; **Dora** 2412.17808 (CVPR 2025); **Step1X-3D** 2505.07747; Meta **AssetGen 2** 2605.26137.
+- **Feed-forward reconstruction**: **DUSt3R** 2312.14132 (CVPR 2024) / **MASt3R** 2406.09756; **VGGT** 2503.11651 (CVPR 2025 Best Paper); **Fast3R** 2501.13928 (CVPR 2025); **CUT3R** 2501.12387; **π³** 2507.13347; **MapAnything** 2509.13414 (3DV 2026); **Depth Anything 3** 2511.10647; **VGGT-Ω** 2605.15195 (CVPR 2026 Oral); **MV-DUSt3R+** 2412.06974; **VGGT-X** 2509.25191; survey 2507.08448.
+- **Feed-forward 3DGS**: **LGM** 2402.05054; **GS-LRM** 2404.19702; **Long-LRM** 2410.12781 / **Long-LRM++** 2512.10267; **DepthSplat** 2410.13862 (CVPR 2025); **NoPoSplat** 2410.24207; **AnySplat** 2505.23716.
+- **Native mesh generation**: **MeshGPT** 2311.15475; **MeshAnything** 2406.10163 / **V2** 2408.02555; **BPT** 2411.07025; **TreeMeshGPT** 2503.11629 (CVPR 2025); **Meshtron** 2412.09548; **DeepMesh** 2503.15265; **Nexus** 2607.13563.
+- **Part-level / sim-ready**: **PartGen** 2412.18608; **HoloPart** 2504.07943; **PartCrafter** 2506.05573; **PartPacker** 2506.09980 (NVIDIA); **EmbodiedGen** 2506.10600; **Artiverse** 2605.24403.
+- **Datasets / evaluation**: **Objaverse-XL** 2307.05663 (10M+); **GSO** 2204.11918 (real scanned objects); **Toys4K** 2101.07296 (~4K objects / 105 categories); **ULIP** 2212.05171 / **ULIP-2** 2305.08275 (3D-image-text alignment).
 
 ### A.3　Common Embodied AI / AR / VR follow-ups
 
-3DGS connected to a physics engine → first extract mesh via 2DGS / SuGaR → IsaacSim / MuJoCo; dynamic NeRF → 4DGS / D-NeRF / K-Planes; real-time AR 3DGS → mobile-friendly (PostShot, Luma) + pruning / quantization; insufficient 3D data → Objaverse-XL (Trellis), 2D distillation (DreamFusion family), or multi-view heuristics (MVDream).
+3DGS connected to a physics engine → first extract mesh via 2DGS / SuGaR → IsaacSim / MuJoCo; dynamic NeRF → 4DGS / D-NeRF / K-Planes; real-time AR 3DGS → mobile-friendly (PostShot, Luma) + pruning / quantization; insufficient 3D data → Objaverse-XL (TRELLIS), 2D distillation (DreamFusion family), or multi-view heuristics (MVDream); a fresh capture to reconstruct → run VGGT first for structure, then decide whether COLMAP is worth waiting for (§12.1); a generated asset heading into a simulator → mesh alone is not enough, parts, joints and physical materials are still missing (§9.6).
 
 ---
 
-**3D Generation Quick Reference** · Main references: Mildenhall 2020 (NeRF), Müller 2022 (Instant-NGP), Kerbl 2023 (3DGS), Poole 2022/ICLR 2023 (DreamFusion), Wang 2023 (VSD), Xiang 2024 (Trellis), Tencent 2025 (Hunyuan3D-2). Covers: NeRF volume-rendering derivation, Instant-NGP hash grid, 3DGS projection Jacobian, SDS / VSD gradient derivation, single-image 3D, 3D foundation models. Essential for Embodied AI / AR / VR.
+**3D Generation Quick Reference** · Main references: Mildenhall 2020 (NeRF), Müller 2022 (Instant-NGP), Kerbl 2023 (3DGS), Poole 2022/ICLR 2023 (DreamFusion), Wang 2023 (VSD), Wang 2024 (DUSt3R), Wang 2025 (VGGT), Xiang 2024 (TRELLIS), Tencent 2025-26 (Hunyuan3D 2.x / Omni / Buffalo). Covers: NeRF volume-rendering derivation, Instant-NGP hash grid, 3DGS projection Jacobian, SDS / VSD gradient derivation, DUSt3R's confidence-weighted loss, feed-forward reconstruction and feed-forward 3DGS, single-image 3D, the latent-representation axis across 3D foundation models, native mesh generation, and part-level / sim-ready assets. Essential for Embodied AI / AR / VR.

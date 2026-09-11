@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/quantization_tutorial.md",
-  "source_sha256": "ec55cbec4018dcb5c321ae1d5e883e42fc95c6172ebfef382685ab16ae3d7488",
+  "source_sha256": "69cf8029d0ecbf0963fb2aa8fed30f2db012c38d3b58b42ae2703bd5efdc08e4",
   "source_sha256_backfilled": "added 2026-05-31 post-hoc; source git-verified unchanged since review (2026-05-19); not a new codex review",
   "output": "docs/tutorials/quantization_tutorial.html",
   "topic": "Quantization (GPTQ / AWQ / FP8 / NVFP4 / SmoothQuant / QuaRot / SpinQuant)",
@@ -62,5 +62,20 @@
   },
   "summary": "Quantization tutorial: subagent did multiple rounds before continuation hung. Main-session DIY did 1 substantive round (WARN on length + style nit). Final 13/13 render PASS. 1343 lines content-dense. UPDATE 2026-07-12 (round 5, P0 resweep): Codex GPT-5.6-sol candidate pass + independent Claude Sonnet 5 adversarial verification (tried to refute every finding — none REFUTED) surfaced 15 CONFIRMED + 1 NEEDS_NUANCE precision/correctness issues, all fixed in both ZH/EN: (1) rounding tie-point discrepancy corrected from '0.5 ULP' to 'a full quantization step s (1 LSB)'; (2) GPTQ complexity formula fixed to O(MK²+K³+NK²), and the §4.5 pseudocode's docstring now clarifies it's a direct (non-batched, mathematically correct) update rather than the real lazy block-batched implementation, plus a block_size-vs-group_size distinction; (3) AWQ's salient-channel protection mechanism corrected (not 'finer per-channel scale' — protection comes from the inverse-transform error reduction, ~1/s_c); (4) an `s.mean()` docstring fixed from 'geometric mean' to 'arithmetic mean' (code unchanged); (5) the LayerNorm-fusion equivalence for AWQ/SmoothQuant scale-merging now notes the bias term (`prev_ln_bias`) must also be divided by s for bias-bearing LayerNorm (OPT/BLOOM) — `apply_smoothing()` gained an optional `prev_ln_bias` parameter; (6) SmoothQuant's 'skip out_proj/down_proj smoothing' clarified to NOT mean 'keep FP16' — those layers still get INT8 quantized; (7) QuIP's W'=UWV^T equivalence completed to the full Wx=U^T W'(Vx) relation; (8) QuaRot's RMSNorm-γ/Hadamard commutativity fix corrected (γ is fused offline into the next layer's weights, not resolved by online Hadamard); (9) **a genuine E4M3FN encoder round-trip bug**: `fp8_e4m3_encode`'s overflow check `if biased_e >= 15` incorrectly saturated ALL legal values in [256,448) to 448 — fixed to `if biased_e > 15`, manually verified (ax=300 now correctly encodes to 288.0 instead of being wrongly saturated to 448.0; 11 sample points across [256,448) now decode to 6 distinct legal values instead of all collapsing to one); (10) E8M0's legal exponent range corrected from [0,255] to [0,254] (255=0xFF reserved for NaN); (11) Q11's H=X^TX 'input Hessian vs weight Hessian' false dichotomy resolved (they're the same object); (12) the Hadamard incoherence bound now notes it requires randomized-sign Hadamard and holds with high probability, plus a missing √(log d) factor; (13) QServe's unsourced '1000+ tokens/s/H100' claim removed (paper's actual hardware is A100/L40S); (14) Q22's dequant+MMA 'fused in one warp instruction' corrected to software-pipelined overlap (mma.sync has no built-in dequant logic); (15) §2.3's bits/weight formula (4+16/g) now correctly labeled as symmetric-quantization-only (no zero-point), with the asymmetric formula 4+(16+4)/g added; (16) OCP MX spec year corrected 2024→2023 (v1.0 published 2023). No standalone .py script exists for this tutorial (all code lives inline in markdown code blocks).",
   "rendered_at": "2026-05-19",
-  "last_updated": "2026-07-12"
+  "last_updated": "2026-07-12",
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-11",
+      "verdict": "PASS",
+      "reviewer": "codex gpt-6-astra xhigh, 3 fresh threads",
+      "thread_ids": [
+        "01a08f48-02cb-73c1-b9e5-0914cc501f95",
+        "01a08f80-64f4-7162-8cac-8fe5859265ab",
+        "01a08f95-4813-7ef1-a8cb-1f7c439478e3",
+        "01a08fa1-973d-7f82-b05e-d4d530d43929"
+      ],
+      "scope": "§10 rewritten as 'QAT 与低精度训练' (10.0–10.8): STE bias (1308.3432, 2606.09012, CAGE), PACT/LSQ/LSQ+ derivations with the LSQ gradient-scale argument and runnable fake-quant code, three QAT recipes (EfficientQAT, BitNet b1.58 2B4T / v2), budget (ParetoQ, Compute-Optimal QAT, Gemma 3's ~5,000 steps), shipped QAT (Gemma 3/4, Llama 3.2 QLoRA-QAT vs SpinQuant, Apple 2 bpw, NVIDIA QAD), sub-4-bit (ParetoQ), low-precision training (DeepSeek-V3 FP8, MXFP8, NVFP4 pretraining, Quartet), pitfalls; new §7.4 FlatQuant; Q14/Q16/Q23 replaced; §0/§1.3/§A.2–A.3 carry the 2026 PTQ-vs-QAT guidance.",
+      "notes": "Round 1 (10 blocking) incl. ParetoQ's Finding-1 direction, tokens-per-parameter-byte missing N, Apple deltas not in the cited table, QAD order, the claim 'post-trained with quantization ⇒ not QAT' (unwarranted — the card does not say), the verdict written as exclusive rules, SpinQuant's objective, E2M1 mantissa. Round 2 (2 blocking): the '100–1000× is dated' assertion was itself unsupported — the Llama 3.2 model card's paired QLoRA vs SpinQuant costs (1,300 vs 1.7 GPU-h @1B) are cited instead and the tutorial now says budget share does not convert to a multiplier over PTQ; SpinQuant learns only R1/R2. Round 3: PASS."
+    }
+  ]
 }

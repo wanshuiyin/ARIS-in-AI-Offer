@@ -1,6 +1,6 @@
 ## §0 TL;DR Cheat Sheet
 
-> 💡 **8 句话搞定 LLM Quantization** — 一页拿下面试核心要点（详见后文 §2–§11 推导）。
+> 💡 **9 句话搞定 LLM Quantization** — 一页拿下面试核心要点（详见后文 §2–§11 推导）。
 
 1. **Affine quantization 公式**：$q = \mathrm{round}(x / s) + z$，反量化 $\hat{x} = s\,(q - z)$。对称量化 $z = 0$；非对称量化 $z$ 把 zero-point 对齐到一个整数。
 
@@ -17,6 +17,8 @@
 7. **低精度浮点格式族**：FP8 (E4M3/E5M2, Hopper)、MX (OCP MXFP8/MXFP6/MXFP4, 32-elem block + E8M0 shared exp)、NVFP4 (Blackwell B100/B200, FP4 E2M1 + per-16-elem FP8 E4M3 scale + per-tensor FP32 scale)。Blackwell tensor core 原生支持 FP4 matmul。
 
 8. **KV cache quant**：K 用 **per-channel**（K 的 outlier 沿 channel 维稳定），V 用 **per-token**（V outlier 沿 token 维变化）——KIVI / KVQuant 的基本设计。QServe 进一步把 W4A8KV4 整套量化做 SM89/SM90 kernel-level co-design。
+
+9. **PTQ / QAT 的 2026 取舍**：≥4-bit weight-only 通常先考虑 PTQ（GPTQ / AWQ 没被取代）。QAT 值得考虑的条件是：亚 4-bit；W4A4 而 PTQ 的平滑 / 旋转变换达不到目标；端侧内存硬约束；以及你本来就掌握训练管线。它已是发布路径——Gemma 3/4 官方 QAT 权重、Apple 端侧 2 bits/weight、Llama 3.2 的 QLoRA-QAT 胜过 SpinQuant PTQ。代价因配方而异：ParetoQ 的 **~10%**（125M / 100B token）是训练预算占比，不能换算成相对 PTQ 的倍率；要成对的倍率就看 Llama 3.2 model card 的发布成本——QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h（1B）。
 
 ## §1 直觉：为什么 LLM 需要量化、为什么这么难
 
@@ -49,6 +51,8 @@ CNN 时代的 INT8 PTQ（NVIDIA TensorRT 2017 那一套）几乎免费：CNN act
 | **Weight-only PTQ** | W4/W8, A 保持 FP16 | GPTQ, AWQ, QuIP, GGUF Q4_K | weight 易量化；用 calibration data 找最优量化误差补偿 |
 | **Weight + Activation PTQ** | W8A8 | SmoothQuant, ZeroQuant, FP8 | 必须处理 activation outlier（迁移 / 旋转） |
 | **Weight + Act + KV (低 bit)** | W4A8KV4 / W4A4 | QuaRot, QServe, SpinQuant | Hadamard / 学习旋转把所有方向上的 outlier 打平 |
+
+这三类都是 PTQ。第四条线是 **QAT**：不改推理时的量化形式，而是在训练里就让模型适应它。2026 年的实际取舍是——≥4-bit weight-only 通常先考虑 PTQ，2025–26 没有方法在这个档位取代 GPTQ / AWQ；当目标落到亚 4-bit、或 W4A4 而 PTQ 的平滑 / 旋转变换达不到目标、或端侧有内存硬约束、或你本来就掌握训练管线时，QAT 值得考虑，而且已是发布路径（Gemma 3/4 官方 QAT 权重、Apple 端侧 2 bits/weight、Meta 在 Llama 3.2 上 QLoRA-QAT 胜过 SpinQuant PTQ）。代价因配方而异：ParetoQ 的 ~10%（125M / 100B token）是训练预算占比，不能换算成相对 PTQ 的倍率；而 Llama 3.2 model card 上成对的发布成本是 QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h（1B）、1,600 vs 2.4（3B）。详见 §10。
 
 > ⚠️ **decode 与 prefill 区别** — Decode 是 memory-bound（KV cache + weight 读取量主导），低 bit weight + KV 直接降延迟。Prefill 是 compute-bound（$L^2$ 的 attention + 大 batch GEMM），W4A4 / FP8 才有意义；纯 weight-only 量化在 prefill 上几乎不省时间（甚至因 dequant overhead 反而变慢）。
 
@@ -536,7 +540,7 @@ def apply_smoothing(
 
 - ⚠️ INT4 activation：W4A4 用 SmoothQuant 单独不够，需要配合 QuaRot / SpinQuant 旋转。
 
-## §7 旋转方法：QuIP / QuaRot / SpinQuant
+## §7 旋转方法：QuIP / QuaRot / SpinQuant / FlatQuant
 
 SmoothQuant 用 **diagonal**（per-channel）scale 抑制 outlier；但 outlier 仍存在于某些 channel 子空间。**Rotation methods** 用一个 random / learned **正交矩阵** $R$ 把 outlier 在 hidden dim 上"打散"，让分布更接近 Gaussian。
 
@@ -566,11 +570,15 @@ SmoothQuant 用 **diagonal**（per-channel）scale 抑制 outlier；但 outlier 
 
 ### 7.3 SpinQuant (Liu et al. 2024 → ICLR 2025, Meta)
 
-把 QuaRot 的随机 Hadamard 换成**学习的旋转矩阵** $R_1, R_2, R_3, R_4$，分别作用于 residual stream / attention input / FFN input / KV cache。优化目标：layer-wise output MSE。
+把 QuaRot 的随机 Hadamard 换成**学习的旋转矩阵**——但只换了一部分：SpinQuant 学的是 $R_1$（residual stream）和 $R_2$（value / output-projection 这一对），$R_3$（Q / K）和 $R_4$（FFN down-projection 的输入）仍是在线 Hadamard。优化目标（§3.2 Eq. 2）是**量化后整网在校准数据上的 task loss**，不是 layer-wise output MSE。
 
 - $R_i \in SO(d)$（特殊正交群），用 Cayley parameterization 或 stochastic gradient on Stiefel manifold 优化。
 
 - 比 QuaRot 多 ~0.5 PPL 改进，但训练时间增加（每个模型需 ~1 GPU 小时学 R）。
+
+### 7.4 FlatQuant (2410.09426, ICML 2025)
+
+和 SpinQuant 的差别不在"看不看得到量化误差"——SpinQuant §3.2 Eq. 2 优化的已经是量化后网络的 task loss——而在**搜索空间**：SpinQuant 被正交约束锁在 $SO(d)$ 里，而正交性本身并不是任务需要的。FlatQuant 因此放宽到更一般的**可学习可逆仿射变换**，每层学一套；为了不让 $d \times d$ 的变换把参数量和 matmul 成本吃掉，它用 Kronecker 分解 $P = P_1 \otimes P_2$ 把变换拆成两个小矩阵，并把整条 transform + quantize 路径 fuse 成一个 kernel。效果是 W4A4 下 LLaMA-3-70B 相对 FP16 掉点 < 1%，比 SpinQuant 高 7.5 分；prefill 2.3$\times$ 是另一组设置下的最好情形（LLaMA-2-7B、RTX 3090、batch 64、length 2048、对 FP16），不是上一句 70B 的结果。后续 2608.25188 补了一条边界：最优变换取决于**目标数字格式**，INT4 和 NVFP4 的最优变换不是同一个（两者量化误差随幅度的分布不同），所以顺序是先定格式、再学变换。
 
 > 💡 **旋转方法 vs SmoothQuant** — Smoothing 解决"channel 维 outlier"；rotation 解决"channel-subspace outlier"。Rotation 更通用，但工程成本更高（dense matmul 不能 fuse 进 LN，需要 online compute 或 explicit kernel）。LLaMA-3 / Qwen-2 部署上 W4A8KV4 主流仍是 SmoothQuant + GPTQ；W4A4 才需要 QuaRot / SpinQuant 级别旋转。
 
@@ -803,11 +811,15 @@ def dequantize_kv(K_q, s_K, V_q, s_V, dtype=torch.float16):
 
 > ⚠️ **RoPE 前还是 RoPE 后量化？** — 学术界共识：**RoPE 前量化 K**（KVQuant 主张）。原因：RoPE 是 frequency-band 上的 rotation，把 channel 维度上的 outlier"打散"到其他 dim，破坏 per-channel scale 的稳定性。RoPE 前每个 head_dim 的 outlier 是固定 channel，post-RoPE 则在每个 token 上不同。但 RoPE 前 quant 需要在 attention kernel 内 dequant 再做 RoPE，工程上 fuse 比较麻烦；折中方案：post-RoPE 但用更细 group_size（如 32）。
 
-## §10 QAT 与训练时量化
+## §10 QAT 与低精度训练
 
-PTQ (Post-Training Quantization) 不动 weight；QAT (Quantization-Aware Training) 在训练或 finetune 时模拟量化，让模型适应。
+### 10.0 一句话定位
 
-### 10.1 STE (Straight-Through Estimator)
+PTQ 回答"已有 checkpoint 怎么压"，QAT 回答"在 ≤4-bit / W4A4 / 端侧内存硬约束下怎么不掉点"。2025 年起这条线不再是研究玩具：Google 为 Gemma 3 / Gemma 4 发官方 QAT 权重，Apple 的端侧模型以 2 bits/weight 发布，Meta 在自家 Llama 3.2 1B/3B 的 model card 上把 QLoRA-QAT 和 SpinQuant PTQ 并排列出。
+
+> ✅ **2026 年怎么选** — ≥4-bit weight-only，PTQ 仍是默认，2025–26 没有方法在这个档位取代 GPTQ / AWQ。QAT 值得考虑的条件：亚 4-bit；W4A4 而 SmoothQuant / 旋转类 PTQ 达不到目标；端侧内存硬约束；你本来就掌握训练管线。它已是发布路径而非研究玩具。代价因配方而异：ParetoQ 的 ~10%（125M / 100B token，§10.4）是训练预算占比，不能换算成相对 PTQ 的倍率；Llama 3.2 model card 上成对的发布成本则是 QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h（1B）、1,600 vs 2.4（3B，§10.5）。两个数回答的是两个问题。
+
+### 10.1 可微化：STE 及其偏差
 
 Round / clamp 在数学上是不可导（round 的导数几乎处处为 0），反向传播无信号。**STE** 把量化-反量化函数 $\mathrm{QDQ}(x) = s\,(\mathrm{clamp}(\mathrm{round}(x/s), Q_\min, Q_\max))$（对称量化为例）的梯度近似为：
 
@@ -815,23 +827,148 @@ $$\frac{\partial \mathrm{QDQ}(x)}{\partial x} \;\overset{\text{STE}}{:=}\; \math
 
 即"前向用量化值，反向在 clipping 范围内 pass-through 梯度（饱和区梯度置 0）"。这是 LSQ / DoReFa / PACT 等 QAT 方法的基础。
 
-### 10.2 LLM-QAT (Liu et al. 2023)
+工程上这套东西叫 **fake quant**：forward 里权重走一遍 $W \to \mathrm{QDQ}(W) \to$ GEMM，GEMM 本身仍是 BF16；backward 里梯度绕过 round 落到 FP32 的 latent weight 上，优化器更新的也是这份 latent weight；只有导出推理权重时才真正量化并打包成 INT4 存下来。
 
-- 用**自蒸馏 data**（teacher 是 FP16 模型本身生成的 sequence）做 QAT，避免下载额外训练数据。
+STE 从一开始就是**启发式**，通常不是量化目标的真梯度（Bengio et al. 2013, arXiv 1308.3432 提出时就是这么讲的）。失配点很具体：loss 在**量化后**的权重上算，更新却打在**量化前**的 FP 权重上，中间差一个 rounding，所以这个梯度是有偏的。2606.09012 分析了偏差的方向，结论是它并非随机噪声：在该文的局部 river–valley–basin 几何模型下，这个偏差系统性地把 latent weight 推向量化后 loss 更低的 basin，这解释了 STE 为什么实践上远好于它的理论地位。CAGE (2510.18784) 顺着这条线做显式修正：用曲率信息（curvature-aware）改写 STE 的更新方向，在 Llama 式预训练、对照 QuEST 的设置下把 W3A3 训到与 W4A4 相当的质量。
 
-- 在每个 forward step 内 simulate INT4 weight quant，反向用 STE。
+### 10.2 可学习量化参数：PACT → LSQ → LSQ+
 
-- 适合 W4A8 / W4A4 finetune 几千 step 后 PPL 接近 FP16。
+STE 解决了"梯度传不传得下去"，但 clipping 范围和 step size 仍是手调超参。这条线把它们变成可学习参数。
 
-代价：QAT 比 PTQ 慢 100-1000$\times$。Production 上 PTQ (GPTQ + AWQ) 已经够好，QAT 主要用于 < 4-bit（W2A4 / W1.58 ternary 等）。
+**PACT (1805.06085)** 学 activation 的 clipping 上界 $\alpha$。先做一个三段式的 clipped ReLU：
 
-### 10.3 FP8 Training（Transformer Engine）
+$$y = 0.5\left(\lvert x \rvert - \lvert x - \alpha \rvert + \alpha\right)$$
 
-见 §8.5。FP8 training 是 QAT 的特例：训练全程用 FP8 GEMM，scale 用 amax history 周期更新，loss / opt state 仍 FP32。
+展开就是 $x \lt 0$ 时 $y = 0$，$0 \le x \lt \alpha$ 时 $y = x$，$x \ge \alpha$ 时 $y = \alpha$。再均匀量化到 $k$ bit：
 
-### 10.4 BitNet b1.58 / b2
+$$y_q = \mathrm{round}\!\left(y \cdot \frac{2^k - 1}{\alpha}\right) \cdot \frac{\alpha}{2^k - 1}$$
 
-最近 (Ma et al. 2024) 微软推 **BitNet b1.58**：weight 是 ternary $\{-1, 0, +1\}$（$\log_2 3 \approx 1.58$ bits），activation INT8。需要 from-scratch QAT 训练（不能 PTQ 转换），3B 规模与 FP16 LLaMA 持平。这是当前最低 bit 的 production-ready LLM 量化方案。
+论文对 $\alpha$ 的求导（Eq. 3）是一个**近似**：把 QDQ 对 $y$ 的梯度当成恒等（round 用 STE 穿过），同时忽略量化步长 $\alpha/(2^k-1)$ 本身对 $\alpha$ 的显式依赖。在这个近似下：
+
+$$\frac{\partial y_q}{\partial \alpha} = \begin{cases} 0, & x \lt \alpha \\ 1, & x \ge \alpha \end{cases}$$
+
+保留 round 的 STE、完整展开 $\alpha$ 的显式依赖后，还会多出一项 $(\mathrm{round}(m y/\alpha) - m y/\alpha)/m$（$m = 2^k - 1$），即范围内元素的 rounding 残差；PACT 把它丢掉了，LSQ 保留的正是这一项（见下）。
+
+读法：在这个近似下，落在 clipping 范围内的元素完全不关心 $\alpha$ 取多少，只有**被截断的元素**才给 $\alpha$ 传梯度。上游 loss 传来的梯度正负都有，所以这不是"$\alpha$ 只会被推大"；真正的麻烦是 $\alpha$ 一旦大到几乎没有元素被截断，梯度就变得稀疏，$\alpha$ 卡在平台上不动，而量化范围已经被撑得过宽。PACT 因此在 $\alpha$ 上加 L2 正则往回拉。
+
+**LSQ (1902.08153)** 直接学 step size $s$（weight 和 activation 都学）：
+
+$$\bar v = \left\lfloor \mathrm{clip}(v / s,\, -Q_N,\, Q_P) \right\rceil, \qquad \hat v = \bar v \cdot s$$
+
+对 $s$ 的梯度是：
+
+$$\frac{\partial \hat v}{\partial s} = \begin{cases} -v/s + \lfloor v/s \rceil, & -Q_N \lt v/s \lt Q_P \\ -Q_N, & v/s \le -Q_N \\ Q_P, & v/s \ge Q_P \end{cases}$$
+
+和 PACT 的关键差别在第一行：范围**内**的元素也给 $s$ 梯度，大小正好是 rounding error $\lfloor v/s \rceil - v/s$。所以 $s$ 被整层的 rounding 误差驱动，而不是只被截断项驱动，这是 LSQ 在低 bit 上稳定胜过 PACT 的原因。
+
+★必考的一步★ 是 **gradient scale**：反向时把 $\partial L / \partial s$ 乘上
+
+$$g = \frac{1}{\sqrt{N_W Q_P}}\ \text{(weight)}, \qquad g = \frac{1}{\sqrt{N_F Q_P}}\ \text{(activation)}$$
+
+$N_W$ 是该层权重元素数，$N_F$ 是该层 activation 元素数。为什么需要：LSQ 要平衡的是**相对更新量**——单个 $w_i$ 的梯度只来自它自己一个元素，而 $s$ 被整层共享，它的梯度是 $N$ 个元素贡献的和。不校正的话，$s$ 的"更新量 / 自身量级"比权重大约 $\sqrt{N Q_P}$ 倍（$Q_P$ 来自 $s$ 自身量级比权重小这一侧），同一个学习率下要么 $s$ 直接跑飞、要么训练震荡。乘上 $g$ 就是把这个比值拉回和权重同一量级。
+
+```python
+import torch, torch.nn as nn
+
+def grad_scale(x, g):                       # 前向恒等，反向梯度乘 g
+    return (x - x * g).detach() + x * g
+
+def round_ste(x):                           # 前向 round，反向恒等
+    return (x.round() - x).detach() + x
+
+class LSQWeightFakeQuant(nn.Module):
+    """LSQ (1902.08153) 的 weight 量化器：step size 可学 + gradient scale。"""
+    def __init__(self, num_elements, bits=4):
+        super().__init__()
+        self.Qn, self.Qp = 2 ** (bits - 1), 2 ** (bits - 1) - 1   # INT4: -8 / 7
+        self.g = 1.0 / (num_elements * self.Qp) ** 0.5            # 1/sqrt(N_W * Q_P)
+        self.s = nn.Parameter(torch.tensor(1.0))
+
+    def forward(self, w):
+        s = grad_scale(self.s, self.g)
+        v = round_ste((w / s).clamp(-self.Qn, self.Qp))
+        return v * s                        # fake quant：值域已离散，dtype 仍是 FP
+
+w = torch.randn(256, 512, requires_grad=True)
+q = LSQWeightFakeQuant(w.numel(), bits=4)
+q.s.data.fill_(2 * w.abs().mean().item() / q.Qp ** 0.5)   # LSQ 论文给的初始化
+q(w).square().sum().backward()
+print(q.s.grad, w.grad.abs().mean())               # 去掉 g，s.grad 会再放大约 958 倍（本例两打印值之比约变成 8,400）
+```
+
+**LSQ+ (2004.09576)** 补两件事：一是给量化器加**可学习的 offset**，让它能表达非对称范围——ReLU 时代 activation 恒非负，对称量化够用，但 GELU / Swish 有一段负值，没有 offset 就要浪费掉一整个符号位或者直接把负半边截掉；二是用 **MSE 最小化初始化** $s$ 和 offset 而不是从 min/max 起步，低 bit 下 LSQ 对初值敏感到换个种子能差好几个点。
+
+**学什么、不学什么**：$s$、offset、$\alpha$ 是学的；bit width、粒度、哪几层不量化（embedding / lm_head / norm）是人定的。粒度上 weight 在 4-bit 用 per-channel 就够；低于 4-bit 常见做法是退到 per-group（$g = 32/64/128$），但这是工程选择不是硬性要求——ParetoQ 在 channel 粒度上也给了可用的亚 4-bit 结果。
+
+2505.14302 用 268 次 QAT 实验拟了一条 scaling law，量的是 QAT 相对 BF16 的**训练 loss gap**，两个结论值得记：gap 随 group 变粗而增大，也**随训练 token 数增多而增大**——同一配置训得越久，QAT 之后的 gap 反而更大（常被解释成训练把权重推得更"满"、留给量化的余量更小，但这只是解释，论文没有验证这个机制）；另外在他们的实验里 W4A4 的瓶颈不在权重，而在 **FC2 的 activation outlier**（FFN 第二个 Linear 的输入）——这是观察到的主导项，不是普适定律。
+
+> ⚠️ **BN folding 不要往 LLM 上套** — "先把 BatchNorm 折进 conv 权重再做 fake quant"是 CNN QAT 的标准动作，因为 BN 的 running mean/var 在推理时是常数，不折就会让训练和推理量化的对象对不上。LLM 用 RMSNorm，没有 running statistics，这一步整个不存在。LLM QAT 里形似的操作是把 RMSNorm 的 $\gamma$ 吸收进下一层权重（§7.2），目的是让旋转可交换，和 BN folding 不是一回事。
+
+### 10.3 QAT 的三种用法
+
+(a) **PTQ 初始化 + STE finetune**：先用 GPTQ / AWQ 把 checkpoint 压到目标 bit，拿它初始化量化参数和权重，再 STE finetune 几千步。好处是起点已经接近目标量化形式；风险是被 PTQ 找到的那个解锁住。
+
+(b) **从 FP checkpoint 直接 QAT**：跳过 PTQ 初始化，从 BF16 权重开始 fake-quant 训练。Gemma 的 QAT 权重和 ParetoQ 走这条路；bit 越低这条路越有吸引力——2-bit 的 PTQ 起点本身质量就低，未必值得当锚点。
+
+(c) **from scratch 原生低 bit**：**BitNet b1.58 2B4T (2504.12285)** 是目前最完整的公开例子——2B 参数、4T token 从零训练，weight ternary $\{-1, 0, +1\}$。**BitNet v2 (2504.18415)** 把 activation 也拿下：H-BitLinear 在矩阵乘之前插一个 online Hadamard 变换把 activation 分布打平，使原生 INT4 activation 可行（不是 INT8 退让）。
+
+**EfficientQAT (2407.11062)** 单独记，它把"QAT 很贵"这个前提直接拆掉：两阶段——Block-AP 逐 block 训练该 block 的全部参数（显存只需装下一个 block）+ E2E-QP 只训量化参数做端到端对齐。2-bit Llama-2-70B 在**单张 A100-80GB 上 41 小时**训完，下游平均 69.48 vs FP16 的 72.41。
+
+### 10.4 预算怎么分
+
+**ParetoQ (2502.02631)** Finding-1 是这条线最该背的数：固定 100B token 总预算、MobileLLM-125M，把预算切成"FP 预训练 + QAT finetune"两段，最优点在 **~90% FP 预训练 + ~10% QAT**；**FP 预训练占比再往上超过 ~90%** 就开始掉点——留给 QAT 的预算不够了。
+
+Finding-2 解释了 bit 越低为什么越要多给 QAT：≥3-bit 时 QAT 做的是**补偿**（compensation），权重相对 FP 起点的 **L1 相对变化**只有 10–20%；≤2-bit 时做的是**重构**（reconstruction），相对变化约 40%。这是权重移动幅度的度量，论文并没有据此论证"换了一个 basin"。
+
+**Compute-Optimal QAT (2509.22935, Apple + EPFL, ICLR 2026)** 把这件事外推到更大规模：最优 QAT 占比不是常数，随总算力增大而上升，并且可以用 **tokens-per-parameter-byte** $D / [N \cdot (B/8)]$（训练 token 数 ÷ 量化后**全部**参数字节数，$N$ 是参数量、$B$ 是位宽）预测——同样的 token 数，模型压得越狠，该分给 QAT 的比例越高。
+
+落到具体工程：**Gemma 3 QAT 公布的数字是约 5,000 步**，teacher 用的是未量化 checkpoint 的输出概率。5,000 步，对着一个已经预训练完的模型——这是 Gemma 3 这一份配方的量级，不是通用数字。
+
+### 10.5 发布实践：谁在发 QAT 权重
+
+- **Gemma 3 QAT**（Google 博客 2025-04-18）：int4 覆盖 1B / 4B / 12B / 27B。博客给的数字是 perplexity 掉点相对 llama.cpp Q4_0 PTQ **减少 54%**；weights-only 显存 27B 54 → 14.1 GB、12B 24 → 6.6 GB、4B 8 → 2.6 GB、1B 2 → 0.5 GB。
+
+- **Gemma 4 QAT**（博客 2026-06-05）：QAT 覆盖 E2B / E4B / 12B / 26B-MoE，除 Q4_0 外另发一个移动端格式，并对**生成 token 的那几层**做定向 2-bit，把 E2B 压到 1 GB 级。Google 只说 QAT 优于自家 PTQ baseline，没有公布百分比——面试里别替他们编一个数。
+
+- **Llama 3.2 1B / 3B**（Meta 博客 2024-10-24）：把 QLoRA-QAT 和 SpinQuant PTQ 并排发。1B 平均分 BF16 36.1 / QLoRA-QAT 35.7 / SpinQuant 33.1——QAT 几乎接平 BF16，同规模 PTQ 掉 3 分。配置是 weight 4-bit group-32、activation 8-bit per-token 动态；端侧实测 2–4$\times$ 速度，体积 −56%、内存 −41% 是 Android OnePlus 12 上的平均值。这份 card 也同时给出了两条路线的发布成本，是目前少见的成对数字：QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h（1B）、1,600 vs 2.4（3B）——约 765$\times$ / 667$\times$。
+
+- **Apple 端侧模型 (2507.13575, 2025-07)**：3B decoder 压到 **2 bits/weight**，手段是 QAT + learnable weight clipping（正是 §10.2 那条线）；embedding 走 4-bit QAT，KV cache 8-bit，再挂 LoRA quality-recovery adapter 把质量拉回来；论文 Table 3 给的端侧质量是 MMLU **67.8 → 64.4**。同一篇里 server 侧用 ASTC **PTQ**（MMLU **80.0 → 79.2**）——端侧上 QAT、数据中心上 PTQ，这个分野比任何论证都直白。ASTC 那个 3.56 bpw 是编码载荷（128 bit / 36 个权重），算上 FP16 的 block 最小开销后是 **4 bpw**，而且还没算 adapter——别把 3.56 说成 server 模型整体的存储率。
+
+- **NVIDIA QAD (2601.20088, 2026-01)**：quantization-aware distillation，用 FP teacher 的分布对 NVFP4 student 做 KL 蒸馏。重点不在压缩率：论文验证的是把 QAD 用在**已经走完 SFT / RL / model merging 的模型**上，把量化掉的精度重新训回来。
+
+### 10.6 亚 4-bit 的真相：ParetoQ
+
+ParetoQ 的另一半贡献是**统一比较框架**：1 / 1.58 / 2 / 3 / 4-bit 在同一套流程里训，按 bit 选择量化函数与训练预算（binary / ternary / 2-bit 的学习率和训练长度和 3 / 4-bit 不同，典型饱和预算约 30B vs 10B token），不是所有 bit 共用一套超参。bit 之间的比较由此才成立（此前各 bit 的 SoTA 来自不同论文、不同配方，横着比没有意义）。在这个前提下：
+
+- **ternary / 2-bit / 3-bit 普遍优于 4-bit 和 binary**——不是"bit 越低越差"的单调曲线，binary 是断崖，4-bit 则在同等模型体积下浪费了容量。
+
+- ternary 600M 超过此前 SoTA 的 ternary 3B。
+
+- 综合硬件，**2-bit 往往最实用**：论文提到**有些实现**把 ternary 的 1.58 bit 按 2 bit 存，那种情况下 2-bit 吃到同样的带宽收益。它在体积—精度上的结论是 ternary / 2-bit / 3-bit 大体相当，不是 2-bit 必然更好。
+
+### 10.7 QAT 的兄弟：低精度训练
+
+QAT 是"低精度推理 + 高精度训练"；低精度训练是把 GEMM 本身降到 FP8 / FP4。两者共用 STE、scaling、outlier 这三个问题，所以面试常连着问。
+
+- **DeepSeek-V3 FP8 (2412.19437 §3.3)**：第一个公开的大规模 FP8 训练配方。关键是**细粒度 scaling**——activation 按 $1 \times 128$ tile、weight 按 $128 \times 128$ block 各算各的 scale，而不是 per-tensor；以及**周期性 FP32 promotion**：tensor core 的 FP8 累加精度不够，每累 $N_C = 128$ 个元素（约 4 个 WGMMA）就把部分和搬到 CUDA core 上按 FP32 加。embedding、output head、MoE gating、norm、attention 仍是 BF16 / FP32。结果是相对 loss 误差 < 0.25%——这个数来自两次约 1T token 的验证规模对照，不是 14.8T 全程和 BF16 对跑；正式训练则是 14.8T token 全程 FP8。
+
+- **MXFP8 (2506.08027)**：两个和 OCP MX v1 规范不同的选择——所有 tensor 统一用 **E4M3**（规范允许梯度用 E5M2），以及 block scale 的 round **向上取整**（规范是向下）。向下会让 block 内最大值溢出，向上只损失一点分辨率。8B 模型 15T token，ppl 与 BF16 差在 0.5% 以内。
+
+- **NVFP4 预训练 (2509.25149, NVIDIA)**：E2M1、16 元素一个 block、每 block 一个 E4M3 scale，外面再套 per-tensor FP32 scale；编码 scale 取 $s_{enc} = 6 \cdot 448 / \mathrm{amax}$（6 是 E2M1 的最大值，448 是 E4M3 的最大值）。四个工程决定值得背：weight 用 **2D $16 \times 16$ block**，这样 forward 和用 $W^\top$ 的 backward 看到的是同一套量化；**random Hadamard 只加在 Wgrad 的输入上**，不是全局；**stochastic rounding 只用在梯度上**，用在 forward 上反而有害（forward 要的是确定性最优，不是无偏）；**前 2 个和后 8 个 block 保持 BF16**，占线性层的 16%。12B 模型 10T token，MMLU-Pro 62.58 vs FP8 的 62.62。另有一组 8B 的对照：MXFP4 要 1.36T token 才追平 NVFP4 1T token 的 loss（+36%）——那是 loss 对齐实验，不是上面这组 12B / 10T 的 MMLU-Pro 比较。
+
+- **Quartet (2505.14669) / Quartet II (2601.22813)**：给 FP4 训练拟 scaling law，并提出 MS-EDEN 这个无偏量化器——回答的是"FP4 训练在什么规模上才划算"，不是"能不能跑"。
+
+> ⚠️ **别把 FP8 和 FP4 训练说成一回事** — FP8 预训练是 production（DeepSeek-V3 已用 14.8T token 证明）；FP4 预训练目前只到研究验证的 12B / 10T 规模，**没有任何前沿模型是 FP4 预训练出来的**。DeepSeek-V4 里提到的 FP4 走的是存储和 indexer 路径，不是 pretraining 的 GEMM——这是最常见的读错。
+
+### 10.8 易踩坑
+
+- **gpt-oss 的量化别替它下结论**：2508.10925 §2.1 的原话是 MoE 权重"post-trained with quantization"到 MXFP4、4.25 bits/param，覆盖 90+% 的参数。card 没有说明这次量化是不是 training-aware——"在 post-training 阶段量化"和 QAT 并不互斥，QAT 本来就可以发生在 post-training。面试里照原话讲。
+
+- **别用"~10% 预算"去换算"比 PTQ 慢几倍"**：ParetoQ 的 ~10% 是 125M / 100B token 下训练预算怎么切（§10.4），Gemma 3 的 ~5,000 步蒸馏、EfficientQAT 单张 A100 41 小时训完 2-bit 70B 也都是没有配对 PTQ 分母的绝对量——三个数都答不了"相对 PTQ 多少倍"。要倍率就得找同一份 card 上成对的两条路线：Llama 3.2 的 QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h（1B）、1,600 vs 2.4（3B），约 765$\times$ / 667$\times$。也就是说"100–1000$\times$"在这个量级上并不离谱；错的是把它当成普适常数，或当成要不要上 QAT 的唯一依据。
+
+- **BN folding 是 CNN 习惯**：LLM 没有 BatchNorm，见 §10.2 的 callout。
+
+- **QAT 的粒度要对齐部署 kernel**：用 group-64 训出来的 QAT 权重，落到只支持 group-128 的推理 kernel 上就得重新量化，训练时换来的精度可能大半还回去（还多少取决于模型和 bit 宽，不是必然全丢）。先确认目标后端支持的 group size，再定 QAT 配置。
 
 ## §11 框架与生态对照
 
@@ -1062,17 +1199,17 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 
 <details>
 
-<summary>Q14. AWQ 与 GPTQ 哪个更快？精度差多少？</summary>
+<summary>Q14. 为什么 2025 年后旋转类方法从固定 Hadamard 转向可学习仿射变换？</summary>
 
-- 量化耗时：AWQ 更快（一次 grid search $\alpha$，5-15 min/7B）；GPTQ 慢（Hessian + Cholesky 迭代，30-60 min/7B）
+- 固定 Hadamard 只保证把 outlier **打散**（严格讲是随机符号 Hadamard 的高概率 incoherence 保证），它是一个与数据、与层都无关的构造
 
-- 精度：W4 上几乎打平（LLaMA-7B 两者都 < +0.2 PPL）
+- SpinQuant 已经把"旋转可学"这步做了，优化的也已经是量化后网络的 task loss，但它仍被正交约束关在 $SO(d)$ 里；FlatQuant (2410.09426) 放宽到更一般的**可学习可逆仿射变换**，每层学一套，并用 Kronecker 分解 $P = P_1 \otimes P_2$ 控制参数量和 matmul 成本。差别是**搜索空间**，不是"看不看得到量化误差"
 
-- 推理：AWQ 的 scale 可 merge 进 LN weight，runtime 零开销；GPTQ act_order=True 时有 reorder 索引开销
+- 数字：LLaMA-3-70B W4A4 相对 FP16 掉点 < 1%，比 SpinQuant 高 7.5 分；整条 transform + quantize 可 fuse 成一个 kernel，prefill 2.3$\times$（LLaMA-2-7B、RTX 3090、batch 64、length 2048、对 FP16 的最好情形，不是 70B 那组）
 
-- 工程：AWQ 与 Marlin W4A16 kernel 配合好，vLLM 默认 W4 路径用 AWQ
+- 2608.25188 再补一条：最优变换取决于**目标数字格式**，INT4 和 NVFP4 的最优变换不是同一个——先定格式，再学变换
 
-说"GPTQ 一定更准"——错，W4 上等价；说"AWQ 不需要 calibration"——错，需要 mean(|x|) per channel。
+说"Hadamard 是最优的"——它给的是 incoherence 保证，对任意数据分布并不是最优变换；也答不出 SpinQuant（正交）与 FlatQuant（仿射）差在哪。
 
 </details>
 
@@ -1094,17 +1231,17 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 
 <details>
 
-<summary>Q16. PTQ vs QAT 区别？什么时候用 QAT？</summary>
+<summary>Q16. PTQ 和 QAT 在 2026 年各自的位置？QAT 要花多少算力？</summary>
 
-- PTQ：训练后 calibration + closed-form 量化（GPTQ, AWQ, SmoothQuant）
+- **≥4-bit weight-only 通常先考虑 PTQ**：GPTQ / AWQ / NVFP4 PTQ 仍是默认，2025–26 没有方法在这个档位取代它们；Mistral Large 3 和 NVIDIA 发的多数 NVFP4 checkpoint 是 PTQ 产物（但 NVIDIA 自己也发了 QAD 这条训练路线，见 §10.5，别说成"NVFP4 checkpoint 一定是 PTQ"）
 
-- QAT：训练或 finetune 时模拟量化（STE 反向）
+- **QAT 值得考虑的条件**：亚 4-bit；W4A4 而 PTQ 的平滑 / 旋转变换达不到目标；端侧内存硬约束；以及你本来就掌握训练管线。它已经是发布路径：Gemma 3 / Gemma 4 的官方 QAT 权重、Apple 端侧 2 bits/weight、Llama 3.2 的 QLoRA-QAT 在 model card 上胜过 SpinQuant PTQ（1B 平均 35.7 vs 33.1）
 
-- LLM 工业现状：W8 / W4 PTQ 已足够（< 0.2 PPL 损失），不需要 QAT
+- **代价**：看清楚在答哪个问题。"训练预算怎么切"——ParetoQ 在 MobileLLM-125M / 100B token 下的最优切分是 ~10% 给 QAT，Gemma 3 公布的是 ~5,000 步蒸馏。"相对 PTQ 贵多少"要成对的数：Llama 3.2 model card 上 QLoRA-QAT 1,300 GPU-h vs SpinQuant 1.7 GPU-h（1B）、1,600 vs 2.4（3B）
 
-- W2 / 1.58-bit BitNet 必须 from-scratch QAT；finetune 后 W4A4 也常做 QAT
+- 判断顺序：先看目标 bit 和是否量化 activation，再看有没有硬内存上限、能不能动训练管线；决定走 QAT 才谈预算怎么切（§10.4）
 
-说"QAT 一定更准所以总是用它"——成本 100-1000$\times$ PTQ，对 W8/W4 没必要。
+把"QAT 比 PTQ 慢 100–1000$\times$"当成普适常数、或当成要不要上 QAT 的唯一依据——这个量级本身在 Llama 3.2 那种成对发布路径上站得住，但成本因配方而异，先要问的是目标 bit、是否量化 activation、有没有硬内存上限。反过来说"QAT 一定更准所以都用它"同样错，≥4-bit weight-only 上 PTQ 已经够好，多出来的训练成本通常不划算。
 
 </details>
 
@@ -1218,19 +1355,19 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 
 <details>
 
-<summary>Q23. FP8 training 的 amax history / delayed scaling 是什么？</summary>
+<summary>Q23. FP8/FP4 训练的 scaling 从 delayed scaling 演进到什么了？</summary>
 
-- 每个 GEMM 的输入 / 输出维护一个 amax history（最近 N 个 step 的 max abs，N = 16 典型）
+- **起点**：delayed scaling（§8.5）是 per-tensor 时代的做法——每个 tensor 一个 scale，用上一窗口的 amax history 算当前窗口的 scale，避免 forward 阻塞等 amax。FP8 下够用，FP4 下必崩：一个 scale 要同时罩住 outlier 和正常值，而 E2M1 只有 **1 bit 尾数**、动态范围主要由那 2 bit 指数提供，根本撑不开
 
-- Scale 用 history max 算（$s = \max\text{history} / 448$ for E4M3），保证下一 window 不 overflow
+- **现在是 fine-grained block scaling**，scale 从"时间维上滞后的一个数"变成"空间维上细分的一组数"，amax 当场算，不再依赖 history：
 
-- "Delayed"：用**上一**窗口的 amax 算**当前**窗口的 scale，避免阻塞 forward 等 amax 算出来
+- DeepSeek-V3：activation $1 \times 128$ tile、weight $128 \times 128$ block 各算 scale，外加每 $N_C = 128$ 个元素一次 FP32 promotion 补 tensor core 的累加精度
 
-- Cast 在 GEMM 入口：FP32 → FP8 用 scale，GEMM 输出累积 FP32 再 cast 出去
+- MXFP8：32 元素 block + E8M0 scale；NVIDIA 的配方是所有 tensor 都用 E4M3、block scale 向上取整（否则 block 内最大值溢出）
 
-- LLaMA-3 / DeepSeek-V3 FP8 train 比 BF16 提升 1.5-2$\times$ throughput
+- NVFP4：16 元素 block 的 E4M3 scale 套在 per-tensor FP32 scale 下面；weight 用 2D $16 \times 16$ block 让 forward 和 backward 看到同一套量化；random Hadamard 只加在 Wgrad 输入上；stochastic rounding 只用在梯度上
 
-把 delayed scaling 当成 loss scaling 同一个东西——loss scaling 是 backward 路径上抗 underflow，delayed scaling 是 per-GEMM forward/backward 的 amax 用法。
+把 per-tensor delayed scaling 当成 FP4 上还能用的办法——FP4 配方全是 block-scaled。但别把话说反：Transformer Engine 今天同时提供 DelayedScaling、per-tensor CurrentScaling 和 block scaling，FP8 上三条路都在用，所以"还在用 delayed scaling"本身不是错答案。另外别把它和 loss scaling 混为一谈（后者是 backward 路径上抗 underflow）。
 
 </details>
 
@@ -1296,7 +1433,7 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 | AWQ | Lin et al., MLSys 2024 | Activation-aware per-channel scale (W4) |
 | QuIP | Chee et al., NeurIPS 2023 | Random Hadamard for weight incoherence |
 | QuaRot | Ashkboos et al., NeurIPS 2024 | Full Hadamard rotation, W4A4KV4 |
-| SpinQuant | Liu et al., ICLR 2025 (Meta) | Learned rotations $R_1$-$R_4$ |
+| SpinQuant | Liu et al., ICLR 2025 (Meta) | 学习 $R_1$ / $R_2$，$R_3$ / $R_4$ 仍为在线 Hadamard |
 | OmniQuant | Shao et al., ICLR 2024 | Learnable equivalent transforms |
 | KIVI | Liu et al., ICML 2024 | per-channel K + per-token V, INT2 KV |
 | KVQuant | Hooper et al., NeurIPS 2024 | Pre-RoPE quant K, non-uniform V |
@@ -1306,6 +1443,27 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 | FP8 Training | Micikevicius et al., 2022 | E4M3 forward / E5M2 backward |
 | MX formats | OCP / Microsoft, 2023 | Block-scaled FP4/6/8 with E8M0 |
 | NVFP4 | NVIDIA Blackwell, 2025 | FP4 E2M1 + FP8 E4M3 block + FP32 tensor scale |
+| FlatQuant | 2410.09426, ICML 2025 | 可学习 Kronecker 仿射变换，W4A4 优于固定/学习旋转 |
+| 变换与格式耦合 | 2608.25188 | 最优变换取决于目标数字格式 |
+| STE | Bengio et al., 1308.3432 (2013) | 不可导算子的启发式梯度估计 |
+| STE 偏差分析 | 2606.09012 | STE 的偏差方向指向低 loss basin |
+| CAGE | 2510.18784 | 曲率感知的 STE 修正，W3A3 ≈ 此前 W4A4 |
+| PACT | 1805.06085 | 可学习 activation clipping 上界 $\alpha$ |
+| LSQ | 1902.08153 | 可学习 step size + gradient scale $1/\sqrt{N Q_P}$ |
+| LSQ+ | 2004.09576 | 可学习 offset（非对称激活）+ MSE 初始化 |
+| QAT scaling law | 2505.14302 | 268 次实验：误差随 group 变粗、随 token 增多而增大 |
+| ParetoQ | 2502.02631 | 1/1.58/2/3/4-bit 统一比较框架（按 bit 选量化函数与预算）；125M/100B 下 ~10% 预算给 QAT |
+| Compute-Optimal QAT | 2509.22935, ICLR 2026 (Apple + EPFL) | 最优 QAT 占比随算力上升，由 tokens-per-parameter-byte 预测 |
+| EfficientQAT | 2407.11062 | Block-AP + E2E-QP，2-bit 70B 单卡 A100 41 h |
+| BitNet b1.58 2B4T | 2504.12285 | 2B 参数 / 4T token 原生 ternary 训练 |
+| BitNet v2 | 2504.18415 | H-BitLinear online Hadamard → 原生 INT4 activation |
+| Apple on-device | 2507.13575 (2025) | 端侧 2 bits/weight QAT + LWC，server 侧 ASTC PTQ（3.56 bpw 载荷，含 block 后 4 bpw） |
+| NVIDIA QAD | 2601.20088 (2026) | 对已走完 SFT / RL / merging 的模型做 KL 蒸馏，恢复 NVFP4 精度 |
+| DeepSeek-V3 FP8 | 2412.19437 §3.3 | $1\times128$ / $128\times128$ 细粒度 scaling + $N_C=128$ FP32 promotion |
+| MXFP8 训练 | 2506.08027 | 全 E4M3 + block scale 向上取整；8B/15T ppl 差 < 0.5% |
+| NVFP4 预训练 | 2509.25149 (NVIDIA) | 2D weight block、Wgrad RHT、仅梯度用 SR；12B/10T |
+| Quartet / Quartet II | 2505.14669 / 2601.22813 | FP4 训练 scaling law + MS-EDEN 无偏量化器 |
+| gpt-oss | 2508.10925 §2.1 | MoE 权重 post-training 量化到 MXFP4 4.25 bits/param（card 未说明是否 training-aware） |
 
 ### A.2 一图速查：选什么量化方案
 
@@ -1331,10 +1489,28 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
      │ 是         │  否
      ↓           ↓
  [W4A4]            [W4A8KV4 / QoQ]
- QuaRot / SpinQuant  AWQ + KV4
- + Hadamard rotation 用 QServe kernel
+ QuaRot / FlatQuant  AWQ + KV4
+ + 旋转 / 仿射变换   用 QServe kernel
  PPL +0.5 (70B)      PPL +0.2
+
+  ┌─────────────────────────┐
+  │ 下面任一条成立?         │
+  │  ≤3-bit                 │
+  │  W4A4 且 PTQ 变换不够   │
+  │  端侧内存硬约束         │
+  │  你掌握训练管线         │
+  └────────┬────────────────┘
+           │
+     ┌─────┴─────┐
+     │ 是         │  否
+     ↓           ↓
+ [考虑 QAT]         [先试 PTQ]
+ 官方 QAT 权重优先   GPTQ / AWQ / NVFP4 PTQ
+ 自训约 ~10% 预算¹   一次 calibration 即可
+ (Gemma 3/4, Apple)  (¹ 这条用不上)
 ```
+
+¹ ParetoQ 在 MobileLLM-125M / 100B token 上的最优切分，规模一换就要重估，不是通用比例。
 
 ### A.3 量化 quick reference 卡片
 
@@ -1347,6 +1523,10 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 | QLoRA finetune | NF4 + double quant + LoRA | bitsandbytes + peft |
 | 极致 throughput H100/B200 serving | QoQ W4A8KV4 / NVFP4 | QServe / TensorRT-LLM |
 | 边缘 < 100 MB model | BitNet b1.58 (1.58-bit) from scratch | 自定义 / bitnet.cpp |
+| 手机 / 端侧 int4 通用模型 | 直接用官方 QAT 权重（Gemma 3/4 QAT、Llama 3.2 QLoRA-QAT） | llama.cpp / ExecuTorch |
+| 端侧 ≤2 bits/weight | QAT + learnable weight clipping + LoRA 恢复 adapter | 自建（Apple 2507.13575 配方） |
+| 自己训 ≤3-bit 模型 | 总预算的 ~10% 分给 QAT（ParetoQ 在 125M / 100B token 上的最优切分，换规模要重估）；显存紧就用 EfficientQAT | 自建 |
+| 大规模低精度预训练 | FP8 细粒度 block scaling（DeepSeek-V3 配方）；FP4 仍属研究 | Transformer Engine / 自建 |
 
 ### A.4 Sanity check checklist
 
@@ -1366,4 +1546,4 @@ codex (gpt-5.5 xhigh) 顶级 lab 面试官视角列的，按难度分 3 档。�
 
 - [ ] **峰值显存**：实测 vs nominal $\text{bits} \cdot \text{params} / 8 + \text{KV cache} + \text{activations}$
 
-**Quantization Quick Reference** · 主要参考：Dettmers 2022 (LLM.int8()), Frantar 2023 (GPTQ), Xiao 2023 (SmoothQuant), Lin 2024 (AWQ), Ashkboos 2024 (QuaRot), Lin 2025 (QServe). 最后更新：2026-05。
+**Quantization Quick Reference** · 主要参考：Dettmers 2022 (LLM.int8()), Frantar 2023 (GPTQ), Xiao 2023 (SmoothQuant), Lin 2024 (AWQ), Ashkboos 2024 (QuaRot), Lin 2025 (QServe), ParetoQ 2025, NVFP4 pretraining 2025. 最后更新：2026-09。

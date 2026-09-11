@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Models Tutorial En</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/tutorials/world_models_tutorial_en.md">
+<meta name="aris:source-sha256" content="d8cb6669bce214e4d16faf2de85ddfca5a5d745beaf2803155186e501e73bfd9">
+<meta name="aris:generated-at" content="2026-09-11 08:33 UTC">
+
+<!-- MathJax 3 -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
+<!-- highlight.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  font-family: inherit;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table-wrap table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+  #cite-pop, dialog.lightbox { display: none !important; }
+}
+
+/* --- P0 polish: TOC scrollspy active state ---------------------------- */
+nav.toc a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* --- P0 polish: Long-code auto-collapse ------------------------------- */
+details.code-card {
+  margin: 14px 0;
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+}
+details.code-card > summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  list-style: none;
+  user-select: none;
+}
+details.code-card > summary::-webkit-details-marker { display: none; }
+details.code-card > summary::before { content: none; }
+details.code-card > pre {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+}
+@media print {
+  details.code-card { border: 1px solid #ccc; background: white; }
+  details.code-card > summary { display: none !important; }
+  details.code-card > pre { border: 1px solid #ddd; border-radius: 4px; background: white; }
+}
+
+/* --- P0 polish: Paper popover ([[ref]] popups) ------------------------ */
+[data-ref] {
+  color: var(--primary);
+  border-bottom: 1px dotted var(--primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-ref]:hover { background: rgba(26, 74, 140, 0.08); }
+#cite-pop {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 1000;
+}
+#cite-pop[hidden] { display: none; }
+#cite-pop .cp-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  padding-right: 24px;
+}
+#cite-pop .cp-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+#cite-pop .cp-key {
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+#cite-pop .cp-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 500;
+}
+#cite-pop .cp-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ink-muted);
+}
+
+/* --- P0 polish: Figure lightbox (native <dialog>) --------------------- */
+dialog.lightbox {
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  width: 96vw;
+  height: 96vh;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.92); }
+dialog.lightbox .lb-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  position: relative;
+}
+dialog.lightbox img {
+  max-width: 90vw;
+  max-height: 84vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+dialog.lightbox figcaption {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  text-align: center;
+  max-width: 700px;
+}
+dialog.lightbox .lb-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* --- P0 polish: blog/talk mode active-H2 highlight (opt-in) ----------- */
+body.aris-blog h2 { scroll-margin-top: 24px; }
+body.aris-blog h2.aris-active-h2 {
+  background: linear-gradient(to right, rgba(26, 74, 140, 0.06), transparent);
+  border-radius: 4px;
+  padding-left: 12px;
+  margin-left: -12px;
+}
+
+/* --- Focus-dim reading mode (B1) + floating toggle (B2) + ↑/↓ nav (B4) -----
+   Blog opt-in. Everything is scoped under body.aris-blog(.aris-focus-dim) so
+   the 46 non-blog tutorials are completely unaffected (no .aris-blog → button
+   hidden, dim rule never matches). While ON, dims every <main> child except
+   the current section and the intro (header.hero stays bright). F7's io2 is
+   paused while ON; the scroll listener is bound only while ON. */
+body.aris-blog.aris-focus-dim main > *:not(.aris-in-focus) {
+  opacity: 0.28;
+  transition: opacity 0.25s ease;
+}
+body.aris-blog.aris-focus-dim main > .aris-in-focus { opacity: 1; }
+.aris-focus-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 6px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+body.aris-blog .aris-focus-toggle { display: inline-block; }
+.aris-focus-toggle:hover { color: var(--primary); }
+.aris-focus-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aris-focus-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 16px;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.aris-focus-hint.show { opacity: 1; }
+@media print {
+  .aris-focus-toggle, .aris-focus-hint { display: none !important; }
+  body.aris-focus-dim main > * { opacity: 1 !important; }
+}
+</style>
+</head>
+<body class="">
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</a>
+</li>
+<li><a href="#1-one-question-three-lineages">§1 One question, three lineages</a>
+<ul>
+<li><a href="#11-what-a-world-model-is">1.1　What a world model is</a></li>
+<li><a href="#12-three-lineages-they-overlap">1.2　Three lineages (they overlap)</a></li>
+<li><a href="#13-selection-criterion-for-this-tutorial">1.3　Selection criterion for this tutorial</a></li>
+<li><a href="#14-term-disambiguation-where-interviews-most-often-talk-past-each-other">1.4　Term disambiguation (where interviews most often talk past each other)</a></li>
+</ul>
+</li>
+<li><a href="#2-convention-used-throughout">§2 Convention (used throughout)</a>
+<ul>
+<li><a href="#21-time-convention">2.1　Time convention</a></li>
+<li><a href="#22-symbol-table">2.2　Symbol table</a></li>
+<li><a href="#23-prediction-heads-which-ones-are-necessary">2.3　Prediction heads: which ones are necessary</a></li>
+<li><a href="#24-number-provenance">2.4　Number provenance</a></li>
+</ul>
+</li>
+<li><a href="#3-lineage-one-latent-dynamics-and-model-based-rl">§3 Lineage one: latent dynamics and model-based RL</a>
+<ul>
+<li><a href="#31-the-starting-point-training-a-policy-in-a-dream">3.1　The starting point: training a policy in a dream</a></li>
+<li><a href="#32-rssm-why-the-state-is-half-deterministic-half-stochastic">3.2　RSSM: why the state is half deterministic, half stochastic</a></li>
+<li><a href="#33-the-objective-start-from-the-negative-elbo-with-no-coefficients">3.3　The objective: start from the negative ELBO with no coefficients</a></li>
+<li><a href="#34-kl-balancing-and-free-bits">3.4　KL balancing and free bits</a></li>
+<li><a href="#35-where-actions-come-from-online-planning-vs-an-actor-critic-inside-imagination">3.5　Where actions come from: online planning vs an actor-critic inside imagination</a></li>
+<li><a href="#36-discrete-latents-and-dreamerv3s-three-pieces-of-engineering">3.6　Discrete latents and DreamerV3&#x27;s three pieces of engineering</a></li>
+<li><a href="#37-dreamer-4-after-the-backbone-is-swapped">3.7　Dreamer 4: after the backbone is swapped</a></li>
+<li><a href="#38-planning-without-reconstruction-muzero-and-td-mpc2">3.8　Planning without reconstruction: MuZero and TD-MPC2</a></li>
+<li><a href="#39-what-to-do-about-model-error-pets-and-mbpo">3.9　What to do about model error: PETS and MBPO</a></li>
+<li><a href="#310-what-imagination-generates-tokens-or-pixels">3.10　What imagination generates: tokens or pixels</a></li>
+</ul>
+</li>
+<li><a href="#4-lineage-two-predicting-in-representation-space-jepa">§4 Lineage two: predicting in representation space (JEPA)</a>
+<ul>
+<li><a href="#41-the-shared-structure">4.1　The shared structure</a></li>
+<li><a href="#42-i-jepa-representation-prediction-on-static-images">4.2　I-JEPA: representation prediction on static images</a></li>
+<li><a href="#43-v-jepa-moving-to-video">4.3　V-JEPA: moving to video</a></li>
+<li><a href="#44-what-actually-prevents-collapse">4.4　What actually prevents collapse</a></li>
+<li><a href="#45-v-jepa-2-and-2-ac-action-enters-in-the-second-stage">4.5　V-JEPA 2 and 2-AC: action enters in the second stage</a></li>
+<li><a href="#46-v-jepa-21-what-changed-and-how-to-break-down-the-gains">4.6　V-JEPA 2.1: what changed, and how to break down the gains</a></li>
+<li><a href="#47-dino-wm-and-one-common-misattribution">4.7　DINO-WM and one common misattribution</a></li>
+<li><a href="#48-theory-progress-and-its-boundary">4.8　Theory progress and its boundary</a></li>
+<li><a href="#49-what-this-lineage-is-missing">4.9　What this lineage is missing</a></li>
+</ul>
+</li>
+<li><a href="#5-lineage-three-generative-and-interactive-world-models">§5 Lineage three: generative and interactive world models</a>
+<ul>
+<li><a href="#51-the-action-interface-the-real-technical-core-of-this-lineage">5.1　The action interface: the real technical core of this lineage</a></li>
+<li><a href="#52-real-time-interaction-and-memory">5.2　Real-time interaction and memory</a></li>
+<li><a href="#53-multimodality-and-spatial-conditioning">5.3　Multimodality and spatial conditioning</a></li>
+<li><a href="#54-driving-and-sora-as-a-contrast">5.4　Driving, and Sora as a contrast</a></li>
+</ul>
+</li>
+<li><a href="#6-three-roads-in-embodied-ai">§6 Three roads in embodied AI</a>
+</li>
+<li><a href="#7-evaluation-and-the-definition-fight">§7 Evaluation and the definition fight</a>
+<ul>
+<li><a href="#71-can-photorealistic-video-prove-an-understanding-of-physics">7.1　Can photorealistic video prove an understanding of physics</a></li>
+<li><a href="#72-two-benchmarks-two-questions">7.2　Two benchmarks, two questions</a></li>
+<li><a href="#73-what-the-two-newer-benchmarks-each-add">7.3　What the two newer benchmarks each add</a></li>
+<li><a href="#74-the-definition-fight-several-proposals-not-a-consensus">7.4　The definition fight: several proposals, not a consensus</a></li>
+<li><a href="#75-two-things-to-say-fairly">7.5　Two things to say fairly</a></li>
+</ul>
+</li>
+<li><a href="#8-the-three-lineages-side-by-side">§8 The three lineages side by side</a>
+</li>
+<li><a href="#9-code-patterns">§9 Code Patterns</a>
+<ul>
+<li><a href="#91-one-rssm-step--balanced-kl">9.1　One RSSM step + balanced KL</a></li>
+<li><a href="#92-jepa-asymmetric-predictor--ema-target">9.2　JEPA: asymmetric predictor + EMA target</a></li>
+<li><a href="#93-the-vq-bottleneck-of-a-latent-action-model">9.3　The VQ bottleneck of a latent action model</a></li>
+</ul>
+</li>
+<li><a href="#10-25-high-frequency-interview-questions">§10 25 high-frequency interview questions</a>
+<ul>
+<li><a href="#l1-essentials-10">L1 essentials (10)</a></li>
+<li><a href="#l2-advanced-10">L2 advanced (10)</a></li>
+<li><a href="#l3-top-lab-5">L3 top-lab (5)</a></li>
+</ul>
+</li>
+<li><a href="#a-appendix">§A Appendix</a>
+<ul>
+<li><a href="#a1-papers-and-provenance">A.1　Papers and provenance</a></li>
+<li><a href="#a2-exclusion-list-and-reasons">A.2　Exclusion list and reasons</a></li>
+<li><a href="#a3-runnable-toy">A.3　Runnable toy</a></li>
+</ul>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  
+  <h1>World Models Tutorial En</h1>
+  
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/tutorials/world_models_tutorial_en.md</code></span>
+    <span><strong>SHA256:</strong> <code>d8cb6669bce2</code></span>
+    <span><strong>Rendered:</strong> 2026-09-11 08:33 UTC</span>
+    
+  </div>
+</header>
+
+<h2 id="0-tldr-cheat-sheet">§0 TL;DR Cheat Sheet</h2>
+<div class="callout callout-info"><div class="callout-title">One sentence</div><p>world-model interview questions are never "whose world model is stronger"; they are three mechanism questions: <strong>what information the model keeps, how it predicts the consequence of an action, and how those predictions enter a decision</strong>. The three technical lineages give three sets of answers, and they overlap each other.</p></div>
+<ol><li><strong>Three lineages</strong>: (1) latent dynamics / model-based RL — learn a compact state space you can roll out inside; (2) predict-in-representation-space (JEPA) — predict only the encoder's output, never reconstruct pixels; (3) generative video and interactive simulators — generate the interactive future observation itself.</li><li><strong>Lineages are not camps</strong>: Dreamer 4 is both a generative dynamics model and imagination RL; Cosmos 3 spans understanding, generation and action; video diffusion models also work inside a VAE latent — "latent" is not a word owned by RSSM or JEPA.</li><li><strong>State</strong>: the environment's true state $x_t$ is unobservable; the model state $s_t=(h_t,z_t)$ is its stand-in. The RSSM recursion is written $h_t=f_\theta(h_{t-1},z_{t-1},a_{t-1})$ throughout: $h_t$ supplies memory across time, $z_t$ carries stochasticity and new information.</li><li><strong>prior vs posterior</strong>: $p_\theta(z_t\mid h_t)$ is used for prediction, $q_\phi(z_t\mid h_t,o_t)$ absorbs the current observation. <strong>Only the prior may be used inside imagination</strong> — calling the posterior means peeking at an observation that has not happened yet.</li><li><strong>KL balancing</strong>: $\mathcal L_{KL}=\beta_{dyn}D_{KL}(\mathrm{sg}\,q\Vert p)+\beta_{rep}D_{KL}(q\Vert\mathrm{sg}\,p)$. Both terms are in the $q\Vert p$ direction; what is split is <strong>whose gradient is stopped</strong>, not the KL direction, and certainly not "turn the coefficient down".</li><li><strong>Four decision interfaces</strong>: PlaNet plans online in latent space; Dreamer trains an actor-critic inside imagination; MuZero uses MCTS and reconstructs no observation at all; TD-MPC2 learns dynamics, reward and value decoder-free for MPC to use.</li><li><strong>The shared JEPA structure</strong>: $P_\theta(E_\phi(x),m)\to\mathrm{sg}(E_{\bar\phi}(y))$ — an asymmetric predictor + an EMA target branch + stop-gradient. This combination <strong>is not a no-collapse theorem</strong>: a constant encoder with a constant predictor is still a degenerate solution.</li><li><strong>What matters on the generative route is not image quality but the action interface</strong>: a latent action model's small codebook, camera pose, text conditioning and actuator commands mean completely different things; action-free video supplies only a prior — to use it for action selection you still have to add the interface and the evidence that goes with it.</li><li><strong>Numbers come with provenance</strong>: Genie 3's 720p / 24 FPS / few-minutes consistency all come from the official blog post of 2025-08-05 — no paper, no published parameter count (11B is Genie 1's); GameNGen's speed is reported per version — the v1 abstract says "&gt;20 FPS", the v2 body gives <strong>20 FPS on a single TPU-v5 with 4-step DDIM</strong> — and 29.4 dB is the PSNR of <strong>next-frame prediction</strong>, not the fidelity of a long rollout, and still less evidence of physical correctness.</li><li><strong>Killer questions</strong>: why KL balancing is not the same as shrinking the coefficient, what exactly is zero in V-JEPA 2-AC's zero-shot, and whether photorealistic video can prove an understanding of physics — Physics-IQ gives an experimental answer (across models $r=-0.46$, $p=0.249$, no significant correlation detected), not a verdict that the two are unrelated.</li></ol>
+<hr />
+<h2 id="1-one-question-three-lineages">§1 One question, three lineages</h2>
+<h3 id="11-what-a-world-model-is">1.1　What a world model is</h3>
+<p>A world model is an agent's <strong>internally learned model of the environment's structure and dynamics</strong>: given the observations and actions so far, it can predict "if I do this, what happens next". The definition deliberately leaves the output form open, because <strong>which output is necessary depends on the use</strong> — to do RL inside the model you need a way to compute returns in imagination and to truncate episodes (the Dreamer family does this by learning a reward head and a continuation head; when the reward function or the termination rule is known, using the known one is equally fine); for visual goal-directed navigation you only need to compare distances between goal representations; to serve as a playable simulator you must generate observations a human can look at.</p>
+<p>So "does it count as a world model" is mostly a fake question. The real ones are three: <strong>what information is kept, which quantity is predicted, and which kind of decision that quantity can support</strong>. This tutorial is organised around those three.</p>
+<h3 id="12-three-lineages-they-overlap">1.2　Three lineages (they overlap)</h3>
+<div class="table-wrap"><table><thead><tr><th>Lineage</th><th>What it predicts</th><th>Typical decision interface</th><th>Representative work</th></tr></thead><tbody><tr><td>latent dynamics / MBRL</td><td>transitions of a compact latent state, usually with reward and continuation</td><td>latent-space planning, actor-critic inside imagination, MCTS</td><td>PlaNet, the Dreamer family, MuZero, TD-MPC2</td></tr><tr><td>predict-in-representation-space</td><td>the representation output by a frozen or EMA encoder</td><td>MPC in representation space (minimise the distance to the goal representation)</td><td>I-JEPA, the V-JEPA family, DINO-WM</td></tr><tr><td>generative video / interactive simulator</td><td>the future observation itself (pixels or video tokens)</td><td>action-conditioned generation + a human or policy interacting in the loop</td><td>the Genie family, GameNGen, Cosmos, Matrix-Game</td></tr></tbody></table></div>
+<div class="callout callout-warn"><div class="callout-title">Classify by &quot;which quantity is predicted&quot;, not by camp</div><p>Dreamer 4 is both a transformer generative dynamics model and imagination RL; Cosmos 3 is a single model spanning language, image, video, audio and action; video diffusion models generate inside a VAE latent, which shares only its name with RSSM's latent. Classifying by camp contradicts itself immediately; classifying by "which quantity is predicted and how it enters a decision" does not.</p></div>
+<h3 id="13-selection-criterion-for-this-tutorial">1.3　Selection criterion for this tutorial</h3>
+<p>"This tutorial gives priority to work that establishes a key mechanism, represents a major technical route, or was released by a major research group and is closely tied to embodied decision-making; at equal representativeness, open weights come first. The newest releases are used to indicate direction, and their maturity is stated separately."</p>
+<p>The work that was excluded and the reason for each entry are in §A.2 — when an interview asks about a name this tutorial does not cover, knowing why it was excluded is more useful than memorising one more name.</p>
+<h3 id="14-term-disambiguation-where-interviews-most-often-talk-past-each-other">1.4　Term disambiguation (where interviews most often talk past each other)</h3>
+<ul><li><strong>The environment model of RL</strong>: $p(s_{t+1}, r_{t+1} \mid s_t, a_t)$, in service of planning and imagination. Lineage one here.</li><li><strong>The world model in LeCun's sense</strong>: prediction in an abstract representation space, explicitly refusing pixel-level reconstruction. His position paper was published on OpenReview (v0.9.2, 2022-06-27) and has <strong>no arXiv number</strong> — don't invent one when citing it. Lineage two here.</li><li><strong>"World simulator"</strong>: a generative model that can produce interactive video conditioned on actions. Lineage three here.</li><li><strong>The "world model" inside an LLM</strong>: whether a language model's activations encode external state such as a chess board or a map. That asks "is it in the representation", not "can it predict the consequence of an action". A different question, not covered here.</li><li><strong>"World model" in the sense of code execution</strong>: a model that predicts program execution state. This is a <strong>terminology collision</strong> with the present topic, not the same line of work.</li></ul>
+<p>Two more pairs of symbols and scopes that must be kept apart:</p>
+<ul><li><strong>$x_t$ vs $s_t$</strong>: $x_t$ is the environment's true state, unobservable, and the model makes no promise to recover it; $s_t$ is the model's own state. Saying "the latent state is the true state" is wrong.</li><li><strong>Static representation vs interactive dynamics</strong>: I-JEPA is a static image representation method and <strong>does not by itself constitute an interactive dynamics model</strong>; calling it "the image version of a world model" collapses under the first follow-up.</li></ul>
+<hr />
+<h2 id="2-convention-used-throughout">§2 Convention (used throughout)</h2>
+<h3 id="21-time-convention">2.1　Time convention</h3>
+<p>One timeline throughout: <strong>receive $o_t, r_t, c_t$ → form $s_t$ → execute $a_t$ → receive $o_{t+1}, r_{t+1}, c_{t+1}$</strong>.</p>
+<p>So $r_{t+1}$ is the immediate reward of action $a_t$, and $c_{t+1}\in\{0,1\}$ flags "the episode has not ended at $t+1$". Index shifts of one between papers almost always come from a different version of this convention — <strong>align the convention first, then compare formula coefficients</strong>.</p>
+<h3 id="22-symbol-table">2.2　Symbol table</h3>
+<div class="table-wrap"><table><thead><tr><th>Symbol</th><th>Meaning</th><th>Note</th></tr></thead><tbody><tr><td>$x_t$</td><td>the environment's true state</td><td>unobservable; the model makes no promise to recover it</td></tr><tr><td>$o_t$</td><td>observation (image, proprioception, …)</td><td>partial observability is the norm</td></tr><tr><td>$a_t$</td><td>the action executed after $s_t$</td><td>its semantics change with the interface (see §5.1)</td></tr><tr><td>$r_{t+1}, c_{t+1}$</td><td>reward and continuation</td><td>indexed as in §2.1</td></tr><tr><td>$s_t=(h_t,z_t)$</td><td>model state</td><td>RSSM's deterministic + stochastic halves</td></tr><tr><td>$p_\theta(z_t\mid h_t)$</td><td>prior</td><td>no observation; used for prediction and imagination</td></tr><tr><td>$q_\phi(z_t\mid h_t,o_t)$</td><td>posterior</td><td>absorbs the observation; <strong>must not</strong> be called inside imagination</td></tr><tr><td>$E_\phi, E_{\bar\phi}, P_\theta$</td><td>online encoder, EMA target encoder, predictor</td><td>the JEPA trio</td></tr><tr><td>$\mathrm{sg}[\cdot]$</td><td>stop-gradient</td><td>applies to a computation path, not to freezing a network</td></tr></tbody></table></div>
+<h3 id="23-prediction-heads-which-ones-are-necessary">2.3　Prediction heads: which ones are necessary</h3>
+<p>A Dreamer-style world model usually carries three heads: <strong>observation</strong> (reconstruction or token prediction), <strong>reward</strong> and <strong>continuation</strong>. The latter two exist so that "RL inside the model" can run — <strong>in the Dreamer implementation described here</strong>, returns in imagination come from the learned reward head and episode truncation from the learned continuation head; remove either one and the computation no longer closes.</p>
+<p>That necessity holds only for this implementation; don't promote it into a general law. When the reward function or the termination rule is known (which is true of many simulators and games), calling the known one computes returns and truncates episodes in imagination just as well. Observation reconstruction is even further from necessary for "RL inside the model" — MuZero and TD-MPC2 both plan without reconstructing observations (§3.8).</p>
+<p>A pure video generation model <strong>does not necessarily need reward and continuation</strong>: its purpose is to generate a future you can look at. Treating "no reward head" as a defect, or "has a reward head" as the definition of a world model, both give wrong answers.</p>
+<h3 id="24-number-provenance">2.4　Number provenance</h3>
+<p>Every external number in this tutorial states, at its first appearance in the body, the <strong>task, metric, model version and setting</strong>; speed numbers name the hardware; improvements distinguish <strong>percentage points</strong> from <strong>relative percentages</strong>. Openness is reported per artefact — paper, code, weights and data are four different things, and <strong>a planned release is not written as already open</strong>. Claims supported only by an official blog post or press release are labelled "blog-only" throughout.</p>
+<hr />
+<h2 id="3-lineage-one-latent-dynamics-and-model-based-rl">§3 Lineage one: latent dynamics and model-based RL</h2>
+<h3 id="31-the-starting-point-training-a-policy-in-a-dream">3.1　The starting point: training a policy in a dream</h3>
+<p>Ha &amp; Schmidhuber 2018 (<em>World Models</em>, arXiv 1803.10122) split the structure into three pieces: a VAE compresses each frame into a low-dimensional $z$; an MDN-RNN predicts the next-step mixture-of-Gaussians distribution over the $z$ sequence; and a <strong>linear</strong> controller reads an action out of $(z,h)$. The key step is the last one — in the paper's <strong>VizDoom</strong> experiment the controller is trained entirely inside rollouts generated by the RNN (the paper calls them "dream"), then put back into the real environment; <strong>the CarRacing experiment is not like this</strong>, its controller is trained directly in the real environment. "The policy is trained entirely in a dream" is true only of the former.</p>
+<p>Those three pieces set the division of labour that followed: <strong>representation</strong> (compress the observation into something predictable), <strong>dynamics</strong> (extrapolate on that quantity), and <strong>decision</strong> (read an action out of the state). Later work either changes one of them or merges them.</p>
+<h3 id="32-rssm-why-the-state-is-half-deterministic-half-stochastic">3.2　RSSM: why the state is half deterministic, half stochastic</h3>
+<p>PlaNet (Hafner et al., arXiv 1811.04551) introduced the Recurrent State-Space Model:</p>
+<p>$$h_t=f_\theta(h_{t-1},z_{t-1},a_{t-1}),\qquad z_t\sim p_\theta(z_t\mid h_t)\ \text{(prior)},\qquad z_t\sim q_\phi(z_t\mid h_t,o_t)\ \text{(posterior)}$$</p>
+<p>$h_t$ is <strong>deterministic</strong>: it provides a recurrent memory channel that does not pass through random resampling. A purely stochastic state has to be resampled at every step, and over a long horizon the information is washed out by sampling noise. Don't read "deterministic" as "lossless" — a fixed-width GRU state still compresses and forgets; it is merely no longer scoured by per-step sampling noise. Nor does this say other architectures cannot have memory — a transformer looks back at history directly through attention, so memory exists there too, it is just not squeezed into one recurrent vector.</p>
+<p>$z_t$ is <strong>stochastic</strong>: the environment itself is stochastic and observations are incomplete, so $z_t$ carries "the genuinely new information at this step". Don't take the opposite extreme either — deterministic dynamics can work very well in a deterministic environment; the value of $z_t$ rises with environment stochasticity and with the degree of partial observability.</p>
+<p>The division of labour between prior and posterior is the core of the whole lineage: <strong>the posterior sees the observation, the prior does not</strong>. Both exist during training; at rollout time there is no future observation, so only the prior is left.</p>
+<h3 id="33-the-objective-start-from-the-negative-elbo-with-no-coefficients">3.3　The objective: start from the negative ELBO with no coefficients</h3>
+<p>$$\mathcal L_t=\underbrace{-\log p_\theta(o_t\mid h_t,z_t)}_{\text{reconstruction NLL}}+\underbrace{D_{KL}\big(q_\phi(z_t\mid h_t,o_t)\,\Vert\,p_\theta(z_t\mid h_t)\big)}_{\text{consistency term}},\qquad z_t\sim q_\phi(z_t\mid h_t,o_t)$$</p>
+<p>This is the <strong>single-step, single-sample estimate</strong> of the standard sequential-VAE negative ELBO: the reconstruction term should be $\mathbb E_{z_t\sim q_\phi}[\cdot]$, and one $z_t$ sample stands in for the expectation; the full objective also sums over $t$ along the whole sequence. Written out it is $\sum_t \mathbb E_{q}\left[\mathcal L_t\right]$, <strong>with no weights whatsoever</strong>. It reads as two sentences: the decoder must be able to restore the observation from $(h_t,z_t)$; and the prior must be able to guess what the posterior guessed, without seeing the observation.</p>
+<p>Every KL weight, KL balancing and free-bits trick that follows is an <strong>engineering change</strong> to the relative influence of two objectives during optimisation — not a new probabilistic derivation.</p>
+<div class="callout callout-warn"><div class="callout-title">The KL term presses on two parties</div><p>the consistency term acts on $q$ and $p$ at once. With a single coefficient attached, the optimiser gets a cheap way out: let the posterior degenerate into the prior, the KL goes to zero, and reconstruction rides entirely on $h_t$ — posterior collapse. Toy experiment 1 in §9 reproduces this collapse in an analytically solvable setting.</p></div>
+<h3 id="34-kl-balancing-and-free-bits">3.4　KL balancing and free bits</h3>
+<p>DreamerV2 (Hafner et al., arXiv 2010.02193) splits the KL in two:</p>
+<p>$$\mathcal L_{KL}=\beta_{dyn}D_{KL}(\mathrm{sg}\,q\Vert p)+\beta_{rep}D_{KL}(q\Vert\mathrm{sg}\,p)$$</p>
+<p><strong>Both terms are in the $q\Vert p$ direction.</strong> Balancing does not touch the KL direction; it decides where the gradient goes: the first term stops $q$'s gradient so only the prior chases the posterior (dynamics learning); the second stops $p$'s gradient so only the posterior concedes to the prior (representation regularisation). Taking $\beta_{dyn}\gg\beta_{rep}$ says: <strong>let the dynamics learn to predict first, then let the representation give ground for the sake of predictability</strong>.</p>
+<p><code>sg</code> targets the <strong>computation path</strong>. $q$ and $p$ share $h_t$, and $h_t$'s gradient still flows back along the other path — in code this is a new distribution built with <code>probs.detach()</code>, not some block of the network set to <code>requires_grad_(False)</code>.</p>
+<p><strong>free bits</strong> is a different thing: $\max(\tau, D_{KL})$ flattens the KL at a floor $\tau$, so once the KL is small enough it is not pushed further and the spare capacity goes to reconstruction. It applies to the <strong>joint KL</strong> — sum over all latent groups first, then truncate; it is not a truncation per categorical probability.</p>
+<p>DreamerV3 paper v1 (Hafner et al. 2023, arXiv 2301.04104, Eq. 4 and Table W.1) takes $\beta_{dyn}=0.5$, $\beta_{rep}=0.1$; the v2 body of the same paper writes $\beta_{dyn}=1$, $\beta_{rep}=0.1$. This tutorial uses v1 throughout — <strong>when quoting coefficients, always say which version</strong>.</p>
+<h3 id="35-where-actions-come-from-online-planning-vs-an-actor-critic-inside-imagination">3.5　Where actions come from: online planning vs an actor-critic inside imagination</h3>
+<p>PlaNet trains no policy network. At every step it plans online <strong>in latent space</strong> using <strong>CEM</strong>: sample a batch of action sequences from a Gaussian, roll them forward with the prior, score them with the reward head, take the elite sequences with the highest returns and <strong>refit</strong> the distribution to them, and iterate for several rounds; finally execute the first action of the <strong>final round's distribution mean</strong>, then start over at the next step. Note it is <strong>not</strong> "sample once and execute the best sample" — iterative refitting is the substance of CEM. Planning never decodes an image, so the sample count can be set very large.</p>
+<p>PlaNet also has <strong>latent overshooting</strong>: instead of only pulling the one-step prior close to the posterior, it pulls <strong>multi-step</strong> unrolled priors close to the posteriors at the corresponding times. It is a <strong>multi-step consistency signal</strong>, not "make the training horizon longer" — a model that is accurate one step at a time can still drift into absurdity after a few dozen compositions, and overshooting penalises that drift directly.</p>
+<p>Dreamer (Hafner et al., arXiv 1912.01603) changed the decision interface: <strong>train an actor-critic inside imagination</strong>. Take a real segment from the replay buffer, use the posterior to get a starting point $s_t$, then unroll $H$ steps forward with the prior only, and update policy and value on those imagined states. Policy updates no longer consume real interaction, so sample efficiency rises sharply; the price is that <strong>the policy has only ever seen what the model believes will happen</strong>.</p>
+<p>The λ-return, written under the time convention of §2.1:</p>
+<p>$$G_t^\lambda=\hat r_{t+1}+\gamma\hat c_{t+1}\big[(1-\lambda)v(s_{t+1})+\lambda G_{t+1}^\lambda\big],\qquad G_H^\lambda=v(s_H)$$</p>
+<p>The critic's regression target takes a stop-gradient. DreamerV3 v1 Table W.1 takes $H=15$ while the body's prediction sequence length is $T=16$: <strong>this tutorial always counts action transitions by $H$, so the state sequence including the start point has $H+1$ states</strong>. That difference of 1 is not a typo, it is "counting states versus counting transitions".</p>
+<div class="callout callout-warn"><div class="callout-title">Write the actor gradient per version, don&#x27;t fuse them into one formula</div><p>Dreamer uses <strong>pathwise gradients</strong>: the return is differentiable with respect to the action, and the gradient travels back to the actor through the learned dynamics. DreamerV3's actor loss is of the <strong>score-function (REINFORCE-style)</strong> form, with return normalization and an entropy regulariser. Also, "freeze the world-model parameters when updating actor/critic" means not changing the dynamics model's parameters; it is <strong>not</strong> the same as putting the whole imagination under <code>no_grad()</code> — a pathwise gradient only exists if it can pass through the dynamics graph.</p></div>
+<h3 id="36-discrete-latents-and-dreamerv3s-three-pieces-of-engineering">3.6　Discrete latents and DreamerV3's three pieces of engineering</h3>
+<p>DreamerV2 changed $z_t$ from a Gaussian to <strong>a set of categorical distributions</strong> (several groups, each a one-hot over several classes), sampled in the forward pass and approximated with straight-through in the backward pass. That is a <strong>biased</strong> gradient estimate — it passes gradients through a non-differentiable sampling operation as if it were the identity.</p>
+<p>Mixing <strong>1% of a uniform distribution</strong> into the categorical probabilities is a <strong>DreamerV3</strong> change (v1 body and Appendix C), not a DreamerV2 one — don't cross the versions when quoting; its purpose is to stop some class probability being squeezed to 0 and blowing up the $\log$. <strong>Uniform mixing and free bits are two independent mechanisms</strong>: one prevents probability degeneration, the other prevents the KL from being pressed too hard.</p>
+<p>Besides that uniform mixing, DreamerV3 adds three more mutually independent pieces of engineering:</p>
+<ol><li><strong>symlog</strong>: $\mathrm{symlog}(x)=\mathrm{sign}(x)\log(1+\lvert x\rvert)$, inverted by symexp. It compresses signals spanning orders of magnitude into a trainable range, symmetrically and approximately as the identity near 0.</li><li><strong>twohot</strong>: encode a continuous scalar onto a fixed set of bins — find which two neighbouring bins it falls between and split a weight of 1 between them by distance. Regression thus becomes classification, and the expected value is recovered exactly.</li><li><strong>return normalization</strong>: take the <strong>difference between the 95th and the 5th percentile</strong> $S$ of a batch of returns, smooth it with an EMA, and divide by $\max(1,S)$. The floor of 1 is the crux: in sparse-reward tasks almost all returns are 0, so $S$ is tiny, and without the floor the noise of near-zero returns would be amplified into enormous gradients. <strong>This is not ordinary advantage normalisation</strong> (subtract the mean, divide by the standard deviation) — it only rescales, it has a floor, and it is smoothed across batches.</li></ol>
+<p>In v1 (the body after Eq. 10 and Appendix C), <strong>both reward and critic use symlog twohot</strong>: symlog compresses first, then twohot encodes into a categorical regression. <strong>Do not generalise this to every prediction head</strong> — the observation and continuation heads are another matter.</p>
+<p>The most frequently misquoted thing about DreamerV3 is its headline sentence: <strong>one set of hyperparameters</strong> covering more than 150 tasks. That says there is no need to tune per environment; it does <strong>not</strong> say one set of weights handles every environment (each task is still trained separately). Collecting a diamond from scratch in Minecraft was achieved <strong>through interaction with the environment</strong>, not from offline data.</p>
+<h3 id="37-dreamer-4-after-the-backbone-is-swapped">3.7　Dreamer 4: after the backbone is swapped</h3>
+<p>Dreamer 4 (arXiv 2509.24527) is no longer an RSSM: <strong>tokenizer + transformer dynamics + shortcut forcing</strong>. Don't drape V3's RSSM/KL/categorical-latent description over it; that is a different backbone.</p>
+<p>Its most eye-catching conclusion must be memorised together with its qualifiers: the diamond is obtained under the paper's <strong>offline Minecraft setting</strong>, and the training pipeline includes behaviour cloning, reward modelling and RL inside the model; the "real time on a single GPU" the paper reports refers to <strong>interactive inference</strong>, not training.</p>
+<h3 id="38-planning-without-reconstruction-muzero-and-td-mpc2">3.8　Planning without reconstruction: MuZero and TD-MPC2</h3>
+<p>MuZero (Schrittwieser et al., arXiv 1911.08265) learns only <strong>the quantities planning needs</strong>: reward, value and policy prior, with MCTS search. It reconstructs no observation at all and does not require the latent state to recover $x_t$. The core is <strong>predictive sufficiency for planning</strong> — as long as those quantities are predicted accurately inside the search tree, the search can pick the right action. This is a design principle plus an empirical result, <strong>not</strong> a strict value-equivalence theorem.</p>
+<p>TD-MPC2 (Hansen et al., arXiv 2310.16828) carries the same idea into continuous control: learn latent dynamics, reward and value <strong>decoder-free</strong> and use them for MPC, with no observation reconstruction. In the paper's scaling experiments, a single 317M-parameter agent covers 80 tasks.</p>
+<div class="callout callout-info"><div class="callout-title">The price of not reconstructing</div><p>with no decoder there is no direct way to visualise "what the model is thinking", and debugging must rely on indirect signals (reward prediction error, planning returns). The generative route is exactly the reverse: you can look, but looking right is not the same as working right (§7.1).</p></div>
+<h3 id="39-what-to-do-about-model-error-pets-and-mbpo">3.9　What to do about model error: PETS and MBPO</h3>
+<p>These two are often mentioned together, yet they do not solve the same problem:</p>
+<ul><li><strong>PETS</strong> (Chua et al. 2018, arXiv 1805.12114) handles <strong>uncertainty representation</strong>: an ensemble of probabilistic models expresses both environment noise and the uncertainty caused by insufficient data, and trajectory sampling propagates it during planning.</li><li><strong>MBPO</strong> (Janner et al. 2019, arXiv 1906.08253) handles <strong>error accumulation</strong>: instead of rolling out from scratch, it <strong>branches</strong> very short model rollouts from states in the real data and then does off-policy updates, keeping accumulated model bias within an acceptable range.</li></ul>
+<p>In one line: PETS says "I'm not sure", MBPO says "I only dare look a few steps ahead".</p>
+<h3 id="310-what-imagination-generates-tokens-or-pixels">3.10　What imagination generates: tokens or pixels</h3>
+<p>IRIS (Micheli et al., arXiv 2209.00588) imagines over token sequences with a discrete tokenizer + transformer; DIAMOND (Alonso et al. 2024, arXiv 2405.12399) uses a <strong>diffusion</strong> world model to generate image-level imagined trajectories, and its experiments support one concrete conclusion: <strong>visual detail affects control returns</strong> — the small objects and fine edges that get compressed away are often exactly what triggers a reward or a collision.</p>
+<p>DayDreamer (Wu et al., arXiv 2206.14176) is this lineage's representative on real hardware: in that paper's experiments, a quadruped learned to walk with <strong>about one hour</strong> of real interaction. That number belongs to that experiment; it cannot be read as "model-based RL learns any skill in an hour".</p>
+<hr />
+<h2 id="4-lineage-two-predicting-in-representation-space-jepa">§4 Lineage two: predicting in representation space (JEPA)</h2>
+<h3 id="41-the-shared-structure">4.1　The shared structure</h3>
+<p>LeCun's position paper (OpenReview v0.9.2, 2022-06-27) argues that prediction should not happen on pixels, because most of the pixel detail of the future is <strong>neither predictable nor worth predicting</strong>. The JEPA family turns that argument into a trainable structure:</p>
+<p>$$P_\theta\big(E_\phi(x),\,m\big)\ \longrightarrow\ \mathrm{sg}\big[E_{\bar\phi}(y)\big]$$</p>
+<p>$x$ is the context, $y$ the target, $m$ the condition describing "which part to predict" (mask tokens, positions, etc.), $E_{\bar\phi}$ is an EMA copy of the online encoder, and the target branch takes a stop-gradient. Papers differ in three places — <strong>how the distance is computed, how the mask is built, how the target is constructed</strong> — discussed separately below; don't generalise any one paper's details into "that's how all JEPAs work".</p>
+<h3 id="42-i-jepa-representation-prediction-on-static-images">4.2　I-JEPA: representation prediction on static images</h3>
+<p>I-JEPA (Assran et al. 2023, arXiv 2301.08243) works on a single image: take several <strong>target blocks</strong> from the image plus a context block, and use an asymmetric predictor to predict each target block's representation from the context representation. The loss is the <strong>squared $L_2$</strong> between patch representations; the target branch comes from the EMA encoder and is not back-propagated; masking is a <strong>multi-block</strong> strategy (target blocks large enough, context block not overlapping the targets).</p>
+<div class="callout callout-warn"><div class="callout-title">Don&#x27;t bolt a VICReg term onto I-JEPA</div><p>it relies on an asymmetric predictor + an EMA target, and contains no variance/covariance regularisers. Attaching VICReg's three-term loss to I-JEPA is a common crossed wire. Also, I-JEPA is a <strong>static image representation method</strong>: it takes no action input, predicts no temporal evolution, and <strong>does not by itself constitute an interactive dynamics model</strong>.</p></div>
+<h3 id="43-v-jepa-moving-to-video">4.3　V-JEPA: moving to video</h3>
+<p>V-JEPA (Bardes et al. 2024, arXiv 2404.08471) moves the same structure to video: masked feature prediction, with the distance switched to <strong>$L_1$</strong>, still with stop-gradient + EMA target + predictor. It <strong>needs no negative samples, does no pixel reconstruction, and requires no pre-trained image encoder</strong> — those three "no"s are its position relative to contrastive learning and reconstruction-based self-supervision.</p>
+<p>Note the prediction here is still <strong>action-free</strong>: the model learns to <strong>predict masked spatio-temporal representations</strong> (mask prediction, where masked blocks may lie before, inside or after the context in time), not to "predict the future causally given the past"; and there is certainly no "what I did" in it.</p>
+<h3 id="44-what-actually-prevents-collapse">4.4　What actually prevents collapse</h3>
+<p>The standard answer is a set of mechanisms: the asymmetric structure (a predictor on one side only), the slow EMA target branch, stop-gradient, and the difficulty of the masking task itself. But the point is the next sentence:</p>
+<div class="callout callout-warn"><div class="callout-title">Stop-gradient and EMA are not a no-collapse theorem</div><p>a constant encoder with a constant predictor is still a degenerate solution with very low loss. These mechanisms make the training dynamics <strong>tend to</strong> avoid collapse, and the effect depends on initialisation, the EMA coefficient, mask difficulty and optimiser settings. Calling it "theoretically guaranteed not to collapse" in an interview is wrong; "in practice it relies on these few things plus monitoring representation variance" is right. The toy in §9.2 shows it: with shared weights and no stop-gradient, representation variance decays geometrically to 0; with the stop-gradient EMA target, the gradient vanishes at the symmetric point, so collapse is no longer an attractor — but starting from a collapsed initialisation it <strong>also stays on the collapsed solution</strong>.</p></div>
+<h3 id="45-v-jepa-2-and-2-ac-action-enters-in-the-second-stage">4.5　V-JEPA 2 and 2-AC: action enters in the second stage</h3>
+<p>V-JEPA 2 (Assran et al. 2025, arXiv 2506.09985) is still pre-trained with <strong>action-free masked prediction</strong> ($L_1$, EMA target, stop-gradient). The <strong>77.3</strong> it is so often cited for is the <strong>top-1 accuracy of an attentive probe</strong> on Something-Something v2 — a representation-quality metric, <strong>not a robot success rate</strong>.</p>
+<p>Action enters in the second stage: <strong>V-JEPA 2-AC</strong> freezes the pre-trained encoder and trains only an <strong>action-conditioned predictor</strong> whose input includes robot actions and end-effector state. The paper's "&lt;62 h unlabeled robot video" means <strong>no task-semantic labels</strong>, not no action records — an action-conditioned predictor cannot be trained without actions.</p>
+<p>Its planning interface is <strong>MPC in representation space</strong>: given a goal image, encode it into a goal representation; predict the representation reached after executing each candidate action sequence and minimise the <strong>$L_1$ distance</strong> to the goal representation; search action sequences with CEM, execute the first action and replan. <strong>The goal representation is not a reward label</strong> — it is one end of a distance being minimised, with no return regression anywhere.</p>
+<div class="callout callout-warn"><div class="callout-title">What exactly is zero in zero-shot</div><p>it refers to the <strong>new deployment environment</strong>: on a Franka arm, doing reaching / grasp / pick-and-place from a visual goal, <strong>without re-collecting data in the deployment lab</strong>. It does not prove "any robot, any task, any long-horizon decomposition needs no data collection". Say all three qualifiers when you answer.</p></div>
+<h3 id="46-v-jepa-21-what-changed-and-how-to-break-down-the-gains">4.6　V-JEPA 2.1: what changed, and how to break down the gains</h3>
+<p>V-JEPA 2.1 (arXiv 2603.14482) has three increments: apply prediction supervision to <strong>both masked tokens and visible-context tokens</strong> (the context term carries its own weight); use <strong>multi-layer outputs for deep self-supervision</strong>; and extend the image/video tokenizer and the model scale (the smaller sizes involve distillation).</p>
+<p>The robotics gains must be reported broken apart: in the paper's Table 6, under the <strong>same planning setting</strong>, grasp goes from 60% to 70% (<strong>+10 percentage points</strong>); after changing the planning setting and lengthening the horizon it reaches 80% (<strong>+20 percentage points</strong>, at which point it is <strong>no longer a pure representation comparison</strong>). 10 tasks per skill. Blending the two tiers into "a 20% improvement" is the classic provenance accident — it mixes percentage points with relative percentages and mixes two settings at once.</p>
+<h3 id="47-dino-wm-and-one-common-misattribution">4.7　DINO-WM and one common misattribution</h3>
+<p>DINO-WM (Zhou et al. 2024, arXiv 2411.04983) learns dynamics on <strong>frozen DINOv2 features</strong>, and plans towards the features of a goal image. What it demonstrates is: <strong>the representation can be off the shelf, and the dynamics is the part you have to learn</strong> — there is no need to retrain an encoder just to build a world model.</p>
+<p>Navigation World Models (Bar et al. 2024, arXiv 2412.03572) is often filed under JEPA, but it <strong>does not belong here</strong>: it is a <strong>conditional diffusion transformer</strong> over first-person video and actions, and what it predicts is the <strong>future observation</strong>, which puts it in lineage three (see §5.2). Both do "goal-conditioned navigation planning", but they predict different quantities — the most decisive of the three questions in §1.1.</p>
+<h3 id="48-theory-progress-and-its-boundary">4.8　Theory progress and its boundary</h3>
+<p>A 2026 paper on JEPA generalisation (arXiv 2606.27014) connects pre-training error to the regret of downstream planning, in a setting of <strong>low-rank factorisation</strong> of a conditional spectral graph / action-conditioned co-occurrence matrix. The conclusion holds only under those assumptions — it is <strong>not an unconditional guarantee that "small representation loss implies good planning"</strong>. Cite it together with its setting, or you are substituting a paper's title for an argument.</p>
+<p>VL-JEPA (arXiv 2512.10942) brings language into the same framework; this tutorial mentions it directionally only and cites none of its numbers.</p>
+<h3 id="49-what-this-lineage-is-missing">4.9　What this lineage is missing</h3>
+<p>Read against lineage one, the gap is clear — <strong>confined to the planning instance described here</strong> (2-AC's representation-space MPC): <strong>no reward, no continuation, no explicit uncertainty</strong>, with the decision resting entirely on one quantity, the distance to the goal representation. That is a property of that interface, not a law of the whole lineage: reward or uncertainty estimation can perfectly well be attached on top of the same representation.</p>
+<p>It is therefore naturally suited to <strong>goal-conditioned</strong> tasks (move the gripper to this visual goal), and when long-horizon returns or risk aversion are needed you have to supply the missing quantities yourself. Don't count "sparse reward" among the exclusions either — sparse-reward tasks can often be written in goal-conditioned form, which makes goal-conditioned MPC the convenient choice.</p>
+<p>It also inherits an evaluation gap: probe accuracy measures whether the information is in the representation, <strong>not whether the consequences of actions are predicted correctly</strong>. So papers on this line must give both kinds of evidence — representation metrics and closed-loop success rates; giving only the former shows only that the representation is good.</p>
+<hr />
+<h2 id="5-lineage-three-generative-and-interactive-world-models">§5 Lineage three: generative and interactive world models</h2>
+<h3 id="51-the-action-interface-the-real-technical-core-of-this-lineage">5.1　The action interface: the real technical core of this lineage</h3>
+<p>Video generation models carry no action by nature. <strong>How to plug "what I did" into them</strong> is the most valuable stretch of this lineage.</p>
+<p><strong>latent action model (LAM)</strong>: <strong>infer</strong> an "action" backwards from adjacent observations. The example here is the Genie-style <strong>discrete VQ</strong> LAM (DreamGen uses the continuous pre-quantisation embedding as a pseudo-action, see §6). The VQ bottleneck does three things:</p>
+<p>$$k=\arg\min_j\big\lVert E(o_t,o_{t+1})-e_j\big\rVert^2$$</p>
+<p>The encoder sees $(o_t,o_{t+1})$ and emits a continuous vector, which is quantised to the nearest code $e_k$ in the codebook; the decoder predicts the future observation from <strong>the current information and $e_k$</strong>; the training loss has three terms — a prediction term, a codebook term and a commitment term (straight-through is the standard VQ formulation, code in §9.3).</p>
+<p>Why must the codebook be small? A <strong>capacity argument</strong>: one code carries at most $\log_2 K$ bits, which is 3 bits at $K=8$. Narrow the bottleneck until it only fits "the few directions that best explain the change between frames", and the model has no room left to stuff a whole frame's appearance difference through it.</p>
+<div class="callout callout-warn"><div class="callout-title">A small codebook does not guarantee that what is learned is an action</div><p>small capacity only guarantees "little information survives", not "what survives is the actuator action", and not that the same code means the same thing across scenes. arXiv 2506.15691 gives the mechanism: <strong>action-induced change and exogenous change compete for the same bottleneck capacity</strong>, and high-variance irrelevant change (lighting, camera shake, background motion) may be encoded first; in the linear case this connects directly to PCA keeping the maximum-variance directions.</p></div>
+<p>Genie (Bruce et al. 2024, arXiv 2402.15391) is the first paper to scale a LAM into a product: <strong>11B</strong> parameters, three components — a video tokenizer, a latent action model with <strong>8 codes</strong>, and a dynamics model; generation uses <strong>MaskGIT-style parallel masked sampling</strong>, not GPT-style token-by-token decoding. Keep those three components separate; fused into "Genie is a video model", you cannot explain why it is interactive.</p>
+<p>Besides LAM there are three other interfaces, <strong>semantically completely different and not interchangeable</strong>:</p>
+<div class="table-wrap"><table><thead><tr><th>Interface</th><th>What goes in</th><th>Which decisions it can support</th></tr></thead><tbody><tr><td>text conditioning</td><td>scene/event description</td><td>content generation, scene construction; no correspondence to an actuator</td></tr><tr><td>camera motion / pose</td><td>viewpoint trajectory</td><td>viewpoint control, spatial consistency; not "what the body did"</td></tr><tr><td>actuator action</td><td>joint / end-effector / steering commands</td><td>directly corresponds to executable control</td></tr><tr><td>LAM code</td><td>a discrete code inferred backwards from video</td><td>interactive, but the semantics need separate verification</td></tr></tbody></table></div>
+<div class="callout callout-warn"><div class="callout-title">Action-free video supplies only a prior</div><p>it can learn "how the world usually evolves", which is valuable. But to use it to <strong>select actions</strong> you must add an action interface and provide decision evidence under that interface. Turning "the video prediction is good" directly into "it can control a robot" is this lineage's most common over-inference.</p></div>
+<h3 id="52-real-time-interaction-and-memory">5.2　Real-time interaction and memory</h3>
+<p><strong>GameNGen</strong> (Valevski et al. 2024, arXiv 2408.14837) shows a diffusion model can serve as an interactive engine, and both the speed and the fidelity number must be memorised together with their scope: the speed is written "<strong>over 20 FPS</strong>" in the v1 abstract, while the v2 body gives <strong>20 FPS on a single TPU-v5 with 4-step DDIM sampling</strong>; the <strong>29.4 dB PSNR</strong> is a <strong>next-frame prediction</strong> metric measuring single-step prediction, <strong>not the fidelity of a long rollout</strong>. The point is that these two numbers measure <strong>the speed and fidelity of simulating the game DOOM</strong>, not physical correctness — DOOM's "physics" is itself a set of game rules.</p>
+<p><strong>Genie 3</strong> (Google DeepMind official blog, 2025-08-05, <strong>blog-only</strong>): <strong>720p, 24 FPS</strong>, with consistency officially described as on the order of "<strong>a few minutes</strong>" and visual memory of about <strong>one minute</strong>. There is <strong>no paper and no published parameter count</strong> — 11B belongs to Genie 1, don't graft it onto Genie 3, and don't use Genie 1's three-component structure to infer Genie 3's internals either.</p>
+<p><strong>Project Genie</strong> (official blog, 2026-01-29, <strong>blog-only</strong>) is a consumer-facing prototype; the 60-second world length it announces is <strong>a limit of the product prototype</strong>, not a research ceiling for Genie 3.</p>
+<p><strong>Matrix-Game 3.0</strong> (arXiv 2604.08995) puts the weight on three pieces of engineering: action control, <strong>memory retrieval</strong>, and streaming generation. The speed scope must be complete: a <strong>5B</strong> model reaching at most <strong>40 FPS @ 720p</strong> under <strong>asynchronous deployment</strong>, where that deployment uses <strong>8 GPUs running the DiT + 1 doing VAE decoding</strong>. Writing it as "40 FPS on one GPU" is wrong.</p>
+<p><strong>Navigation World Models</strong> (arXiv 2412.03572) trains a conditional diffusion transformer on first-person video and actions, and uses it to evaluate candidate trajectories for goal-directed navigation — an example of a generative model acting directly as a navigation planner.</p>
+<div class="callout callout-info"><div class="callout-title">Real time and memory pull against each other</div><p>interaction demands a fixed compute budget per frame, while remembering a room you walked through ten seconds ago demands that information cross a long time span. The most direct approach — keep the full history verbatim and process it every frame — has a compute cost that grows with time; a fixed-size state or an external memory does not need the per-frame context to grow without bound, but it hands the choice of "what to remember" to training or to a retrieval mechanism. The three engineering compromises are: truncate the context (fast, but when you turn back the room <strong>may have</strong> changed — truncation only raises the risk of that inconsistency, it does not guarantee it happens), compress the history into a fixed-size state (fast and cheap, but training decides what is compressed), or retrieve historical segments explicitly (Matrix-Game 3.0's memory-retrieval route, at the cost of computing the retrieval). When you see "consistency maintained for N minutes", first ask which of these it is, and whether anybody actually turned around and looked back within those N minutes.</p></div>
+<h3 id="53-multimodality-and-spatial-conditioning">5.3　Multimodality and spatial conditioning</h3>
+<p><strong>UniSim</strong> (Yang et al., arXiv 2310.06114) proposes the "universal action-conditioned simulator" route: unify data from different sources (human activity video, robot data, navigation data and so on) into an "observation–action–observation" conditional generation problem, and train an interactive video simulator.</p>
+<p><strong>Cosmos</strong> is a family, and <strong>cannot be compressed into one architecture</strong>:</p>
+<ul><li><strong>Cosmos WFM</strong> (NVIDIA 2025, arXiv 2501.03575) gives both an <strong>autoregressive</strong> and a <strong>diffusion</strong> path, and treats <strong>Predict / Transfer / Reason</strong> as <strong>different tasks</strong> rather than three modes of one model.</li><li><strong>Cosmos-Reason1</strong> (arXiv 2503.15558) is a <strong>vision-language model</strong> for physical common sense and embodied reasoning; it <strong>cannot</strong> be used as evidence of a "dynamics model" — it answers questions, it does not predict the consequences of actions.</li><li><strong>Cosmos-Predict2.5</strong> (arXiv 2511.00062) announces 2B / 14B configurations; it <strong>has a paper</strong> and does not belong in the "blog-only" tier; these configurations are <strong>not inherited</strong> by Cosmos 3.</li><li><strong>Cosmos 3</strong> (arXiv 2606.02800) is omnimodal: language, image, video, audio, action. Its <strong>mixture-of-transformers</strong> means <strong>every layer holds both a set of autoregressive reasoner parameters and a set of diffusion generator parameters</strong> — it is <strong>not</strong> a sparse-FFN MoE, and <strong>not</strong> "one expert per modality". Per its paper §2.5 and the HF model cards, the sizes are <strong>Edge 4B / Nano 16B / Super 64B</strong>, <strong>all three released</strong> (Edge on 2026-07-20), under the <strong>OpenMDW-1.1</strong> licence.</li></ul>
+<p><strong>Atlas</strong> (World Labs official blog, 2026-09-01, <strong>blog-only</strong>) has to be described at the level of its interfaces: autoregressive diffusion conditioned on <strong>text, image, camera pose, depth and spatial context</strong>; the blog shows results of <strong>up to one minute at 1440p</strong>. Demo length is <strong>not</strong> evidence of real-time speed, and "camera controllable", "sparse reconstruction" and "robot contact dynamics" are three different kinds of evidence that cannot substitute for one another.</p>
+<h3 id="54-driving-and-sora-as-a-contrast">5.4　Driving, and Sora as a contrast</h3>
+<p>For driving this tutorial keeps only the <strong>task difference</strong>: <strong>GAIA-2</strong> (Wayve 2025, arXiv 2503.20523) makes one concrete point — adding <strong>action, road layout and driving conditions</strong> as conditions gets much closer to the controllability that driving decisions need than unconditional video generation does. <strong>GAIA-3</strong> currently has information only at the press-release level (<strong>blog-only</strong>), so this tutorial mentions it only at the level of its release.</p>
+<p>Sora / Sora 2 appear here as a <strong>contrast</strong>, not a protagonist: their public material is high-level reporting, and their goal is the quality and usability of general video generation, which is not the same problem as the "consequences of actions and decisions" this cheat sheet is about (reasons for exclusion in §A.2). Equating "video generator" with "world model" is exactly the starting point of the definition fight in §7.4.</p>
+<hr />
+<h2 id="6-three-roads-in-embodied-ai">§6 Three roads in embodied AI</h2>
+<p>For a generative model to actually help a robot, it must cross the same gap: <strong>what it generates is pixels, what the policy needs is actions</strong>. There are three clear roads today.</p>
+<p><strong>Road one: video as the plan, actions by inference.</strong> UniPi (Du et al. 2023, arXiv 2302.00111) first generates the task as a video of "how it should be done", then converts the video into executable actions with something like inverse dynamics. The plan lives in pixel space, the landing happens in action space.</p>
+<p><strong>Road two: generate data, then supply action labels.</strong> DreamGen (NVIDIA 2025, arXiv 2505.12705) augments training data with generated video, but generated video has no action labels — it recovers <strong>pseudo-actions with a LAM or an inverse dynamics model (IDM)</strong> (the LAM route takes the continuous pre-quantisation embedding, not the discrete code), turning "video" into "policy training data". That step is the necessary bridge; without it, synthetic video is of no direct use for policy training.</p>
+<p><strong>Road three: the model itself is the environment.</strong> Genie Envisioner (arXiv 2508.05635) connects the world model to policy learning and simulated evaluation, so the model is both data source and evaluation arena. <strong>SIMA 2</strong> (Google DeepMind 2025, arXiv 2512.04797) is an <strong>agent</strong> acting inside Genie-generated worlds — it shows "you can play inside a generated world", which <strong>does not mean</strong> real-world transfer has been established.</p>
+<div class="table-wrap"><table><thead><tr><th>Road</th><th>What the model produces</th><th>Where actions come from</th><th>Main risk</th></tr></thead><tbody><tr><td>video as the plan</td><td>a video of "how it should be done"</td><td>inverse dynamics from adjacent frames</td><td>the actions in the video are not physically executable</td></tr><tr><td>generate training data</td><td>large amounts of synthetic trajectory video</td><td>pseudo-actions recovered by a LAM or IDM</td><td>pseudo-actions are noisy and the error enters the policy</td></tr><tr><td>the model as environment</td><td>an interactive world</td><td>the policy explores inside the model itself</td><td>the policy exploits model error and it fails on real hardware</td></tr></tbody></table></div>
+<div class="callout callout-warn"><div class="callout-title">None of the three roads gets around real data, but the &quot;real data&quot; they need is not the same kind</div><p>road one's inverse dynamics needs <strong>real observation–action pairs</strong> to train. Road two's two sources of pseudo-actions fall on opposite sides (DreamGen §2.3 distinguishes them explicitly): <strong>IDM depends on action supervision</strong>, that is, real observation–action pairs; <strong>a LAM can be trained from action-free real video alone</strong>. Both need real data, but "needs real video" and "needs real observation–action pairs" are thresholds of substantially different magnitudes — don't merge them into one sentence. Whether the codes a LAM learns line up with actuator actions is <strong>a separate question</strong> (the semantic alignment of §5.1), and it cannot be used to deny that a LAM needs no action annotation. Road three's evaluation still has to return to real hardware in the end. "Replace real data with a world model" is a direction, not a conclusion, today.</p></div>
+<hr />
+<h2 id="7-evaluation-and-the-definition-fight">§7 Evaluation and the definition fight</h2>
+<h3 id="71-can-photorealistic-video-prove-an-understanding-of-physics">7.1　Can photorealistic video prove an understanding of physics</h3>
+<p><strong>Physics-IQ</strong>'s design (Motamed et al. 2025, arXiv 2501.09038) must be remembered precisely: <strong>66 physical scenes, 396 videos</strong> filmed for real; the model is given a <strong>conditioning frame or a conditioning video</strong> (depending on whether the model under test is image-to-video or video continuation) and asked to generate <strong>five seconds</strong> of continuation, which is then compared with the real continuation; the metrics are <strong>spatial IoU, spatio-temporal IoU, weighted spatial IoU and MSE</strong>. It measures <strong>conditional video continuation</strong>, <strong>not</strong> physics question answering.</p>
+<p>It also measures <strong>visual realism</strong> by "can an MLLM tell real video from generated video". Across models, the correlation between realism and the physics metrics is $r=-0.46$, $p=0.249$ — <strong>no significant correlation was detected with this set of models and this sample size</strong>.</p>
+<div class="callout callout-warn"><div class="callout-title">This is an experimental conclusion and cannot be promoted into &quot;visual quality and physical understanding are unrelated&quot;</div><p>no significant correlation detected ≠ proof of independence; the number of models is small and the correlation coefficient is itself moderately negative. The correct statement is: <strong>in this set of measurements from Physics-IQ, looking realistic did not buy an advantage on the physics metrics</strong>. Saying that in an interview is far safer than reciting "the two are unrelated".</p></div>
+<h3 id="72-two-benchmarks-two-questions">7.2　Two benchmarks, two questions</h3>
+<p><strong>WorldModelBench</strong> (arXiv 2502.20694) measures <strong>instruction following</strong> plus detection of <strong>physics/common-sense</strong> violations — whether the generated content follows the instruction and whether it breaks basic common sense. <strong>WorldScore</strong> (arXiv 2504.00983) measures <strong>controllability, quality and dynamics</strong>. They cannot substitute for each other: the former asks "is it obedient, does it make common-sense errors", the latter asks "is it controllable, does it look good, does it move correctly".</p>
+<h3 id="73-what-the-two-newer-benchmarks-each-add">7.3　What the two newer benchmarks each add</h3>
+<p><strong>WorldArena 2.0</strong>'s (arXiv 2605.17912) increment is <strong>visuo-tactile signals, policy optimisation inside the model, and a real robot platform</strong> — pushing evaluation from "watch the video" to "optimise a policy inside the model and verify it on real hardware". <strong>WorldRoamBench</strong>'s (arXiv 2606.31672) increment is stability <strong>during interaction</strong>: whether action following, visual consistency, physical plausibility and memory retention can all be maintained over a long interaction.</p>
+<p>Both papers reach conclusions of the form "no model meets the requirements across the board". <strong>That conclusion is confined to the models and protocols each of them tested</strong>, and is not a universal judgement about the whole field.</p>
+<h3 id="74-the-definition-fight-several-proposals-not-a-consensus">7.4　The definition fight: several proposals, not a consensus</h3>
+<ul><li><strong>GLP critique</strong> (arXiv 2507.05169) criticises the route of treating generative video models directly as general-purpose world models, and argues that predictive capability and decision utility must be argued separately.</li><li><strong>Definition &amp; Roadmap</strong> (arXiv 2607.06401) offers a definition and a roadmap proposal whose taxonomy uses a different set of roles (Renderer / Simulator / Planner, etc.). <strong>It is not the Predictor / Simulator / Evolver one</strong> — the easiest misattribution in this field.</li><li><strong>L0–L7 position</strong> (arXiv 2606.15032) proposes a grading over <strong>several crossing axes</strong>, not levels along a single line.</li><li><strong>Agentic World Modeling</strong> (arXiv 2604.22748) discusses world models inside an agent's decision loop, caring about "which step of the decision the model serves"; <strong>"Predictor / Simulator / Evolver" comes from this paper</strong>.</li></ul>
+<div class="callout callout-warn"><div class="callout-title">Don&#x27;t mix the grading schemes, and don&#x27;t treat them as consensus</div><p>L0–L7 (2606.15032) is a multi-axis grading, Predictor/Simulator/Evolver comes from Agentic World Modeling (2604.22748), and Definition &amp; Roadmap (2607.06401) is yet another division; <strong>all of them are the authors' positions, not a consensus of the field</strong>. The L1/L2/L3 in §10 of this tutorial denote only <strong>interview question difficulty</strong> and have nothing to do with any of those gradings.</p></div>
+<h3 id="75-two-things-to-say-fairly">7.5　Two things to say fairly</h3>
+<p><strong>The value of the generative route</strong>: visible detail may directly determine contact, collision and reward — DIAMOND is the experimental support for that argument. Also, diffusion generation is <strong>not</strong> "predicting one average future with an MSE"; it models the conditional distribution, and a sample gives one concrete, sharp future rather than a blurred superposition of several.</p>
+<p><strong>The value of the representation-prediction route</strong>: ignoring unpredictable detail can save a great deal of compute and concentrates prediction on quantities that are useful downstream. But it has a hard boundary in the other direction — <strong>a small representation loss does not mean the consequences of actions are predicted correctly</strong>. Distance in representation space is defined by the model itself, and there is no free equivalence between it and "will this action knock the cup over".</p>
+<hr />
+<h2 id="8-the-three-lineages-side-by-side">§8 The three lineages side by side</h2>
+<div class="table-wrap"><table><thead><tr><th>Dimension</th><th>latent dynamics / MBRL</th><th>predict-in-representation-space</th><th>generative / interactive</th></tr></thead><tbody><tr><td>Quantity predicted</td><td>latent state transitions (mostly with reward and continuation)</td><td>representations of an EMA/frozen encoder</td><td>future observations (pixels or video tokens)</td></tr><tr><td>Memory</td><td>recurrent $h_t$ (or a transformer context)</td><td>context representation + action-conditioned predictor</td><td>context window, explicit memory retrieval</td></tr><tr><td>Action interface</td><td>environment actions, present by nature</td><td>pre-training carries no action; <strong>the V-JEPA 2-AC pipeline</strong> puts action in a second stage (freeze the encoder, train an action-conditioned predictor), which is not a rule of the lineage</td><td>must be designed on purpose: LAM code / camera pose / actuator / text</td></tr><tr><td>Decision interface</td><td>latent-space planning, imagination actor-critic, MCTS</td><td>MPC in representation space (distance to the goal representation)</td><td>a human or a policy interacting in the loop; landed through action inference</td></tr><tr><td>Main loss</td><td>reconstruction NLL + KL (or regression on planning quantities with no reconstruction)</td><td>representation distance ($L_1$ / squared $L_2$)</td><td>generative loss (diffusion / token prediction)</td></tr><tr><td>Typical evidence</td><td>task return, sample efficiency</td><td>probe accuracy + closed-loop success rate</td><td>video quality, controllability, FPS, consistency duration</td></tr><tr><td>Main failure mode</td><td>the policy exploits model error; posterior collapse</td><td>representation collapse; representation distance decoupled from task utility</td><td>long-horizon drift, memory loss, realistic but physically wrong</td></tr><tr><td>Overlap example</td><td>Dreamer 4 is transformer generative dynamics + imagination RL</td><td>DINO-WM learns dynamics on frozen representations, which is a lineage-one move</td><td>Cosmos 3 is a generative model with reasoning ability, spanning language/image/video/audio/action</td></tr></tbody></table></div>
+<hr />
+<h2 id="9-code-patterns">§9 Code Patterns</h2>
+<p>Three core patterns; the full experiments are in <a href="code/world_models_toy.py"><code>code/world_models_toy.py</code></a>. All three share <code>import torch, torch.nn as nn, torch.nn.functional as F</code>.</p>
+<h3 id="91-one-rssm-step--balanced-kl">9.1　One RSSM step + balanced KL</h3>
+<pre><code class="language-python">def cat_kl(probs_q, probs_p, eps=1e-8):
+    &quot;&quot;&quot;KL(q||p) for grouped categorical distributions, probs: [..., G, C].
+    Sum over classes first, then over groups = the joint KL -- free bits truncates this quantity.&quot;&quot;&quot;
+    return (probs_q * ((probs_q + eps).log() - (probs_p + eps).log())).sum(-1).sum(-1)
+
+class RSSM(nn.Module):
+    def __init__(self, deter=512, groups=32, classes=32, a_dim=6, emb_dim=1024, hid=256):
+        super().__init__()
+        self.groups, self.classes = groups, classes
+        z_dim = groups * classes
+        self.cell = nn.GRUCell(z_dim + a_dim, deter)          # h_t = f(h_{t-1}, z_{t-1}, a_{t-1})
+        self.prior_head = nn.Sequential(nn.Linear(deter, hid), nn.SiLU(), nn.Linear(hid, z_dim))
+        self.post_head = nn.Sequential(nn.Linear(deter + emb_dim, hid), nn.SiLU(), nn.Linear(hid, z_dim))
+
+    def _probs(self, logits, uniform_mix=0.01):
+        logits = logits.unflatten(-1, (self.groups, self.classes))
+        return (1 - uniform_mix) * F.softmax(logits, -1) + uniform_mix / self.classes   # 1% uniform mixing
+
+    @staticmethod
+    def _sample(probs):
+        idx = torch.multinomial(probs.reshape(-1, probs.shape[-1]), 1).view(probs.shape[:-1])
+        z = F.one_hot(idx, probs.shape[-1]).float()
+        return z + probs - probs.detach()                     # straight-through: biased but differentiable
+
+    def step(self, h_prev, z_prev, a_prev, emb_t=None):
+        &quot;&quot;&quot;emb_t=None is imagination: no observation, so only the prior is available.&quot;&quot;&quot;
+        h = self.cell(torch.cat([z_prev.flatten(-2), a_prev], -1), h_prev)
+        prior = self._probs(self.prior_head(h))
+        if emb_t is None:
+            return h, self._sample(prior), prior, None
+        post = self._probs(self.post_head(torch.cat([h, emb_t], -1)))
+        return h, self._sample(post), prior, post
+
+def balanced_kl(post, prior, beta_dyn=0.5, beta_rep=0.1, free_nats=1.0):
+    &quot;&quot;&quot;betas from DreamerV3 paper v1 Eq. 4 / Table W.1; the 32x32 categorical latent and free_nats=1 also follow the paper (Table W.1, Eq. 5).&quot;&quot;&quot;
+    kl_dyn = cat_kl(post.detach(), prior)                     # sg(q)||p: only the prior chases the posterior
+    kl_rep = cat_kl(post, prior.detach())                     # q||sg(p): only the posterior concedes
+    return beta_dyn * kl_dyn.clamp(min=free_nats) + beta_rep * kl_rep.clamp(min=free_nats)</code></pre>
+<p><code>post.detach()</code> stops the gradient <strong>on that path</strong>; $h_t$ is shared by the two heads, and its gradient still comes back along the other one.</p>
+<p>In this code $\beta_{dyn},\beta_{rep}$ (v1 Eq. 4 / Table W.1), the 32-group × 32-class categorical latent (Table W.1) and <code>free_nats=1.0</code> (the 1 nat of Eq. 5) all follow the DreamerV3 paper; <strong>using <code>GRUCell</code> as the recurrent cell and the network widths are choices made here for readability</strong>, not the only implementation the paper prescribes.</p>
+<h3 id="92-jepa-asymmetric-predictor--ema-target">9.2　JEPA: asymmetric predictor + EMA target</h3>
+<pre><code class="language-python">@torch.no_grad()
+def ema_update(target, online, m=0.999):
+    for p_t, p_o in zip(target.parameters(), online.parameters()):
+        p_t.mul_(m).add_(p_o.detach(), alpha=1 - m)           # the target branch moves only by EMA
+
+def jepa_loss(enc, enc_ema, pred, x_ctx, y_tgt, mask_tok, p=1):
+    &quot;&quot;&quot;p=2 -&gt; I-JEPA&#x27;s squared L2 on patch representations; p=1 -&gt; V-JEPA / V-JEPA 2&#x27;s L1.&quot;&quot;&quot;
+    ctx = enc(x_ctx)                                          # online branch, has gradients
+    with torch.no_grad():
+        tgt = enc_ema(y_tgt)                                  # stop-gradient: the target is not pulled toward the prediction
+    out = pred(ctx, mask_tok)                                 # asymmetric: the predictor is on this side only
+    return (out - tgt).abs().mean() if p == 1 else (out - tgt).pow(2).mean()
+
+def latent_mpc_cost(pred_ac, s0, action_seq, z_goal):
+    &quot;&quot;&quot;V-JEPA 2-AC&#x27;s planning interface: the encoder is frozen, only the action-conditioned predictor rolls.&quot;&quot;&quot;
+    s = s0
+    for a in action_seq.unbind(1):                            # action_seq: [B, H, a_dim]
+        s = pred_ac(s, a)
+    return (s - z_goal).abs().flatten(1).mean(1)              # CEM ranks by this, replan after the first action</code></pre>
+<h3 id="93-the-vq-bottleneck-of-a-latent-action-model">9.3　The VQ bottleneck of a latent action model</h3>
+<pre><code class="language-python">class LatentActionModel(nn.Module):
+    def __init__(self, obs_dim, d=32, K=8):                   # Genie 1 uses 8 codes
+        super().__init__()
+        self.enc = nn.Sequential(nn.Linear(2 * obs_dim, 128), nn.SiLU(), nn.Linear(128, d))
+        self.codebook = nn.Embedding(K, d)
+        self.dec = nn.Sequential(nn.Linear(obs_dim + d, 128), nn.SiLU(), nn.Linear(128, obs_dim))
+
+    def forward(self, o_t, o_next, beta_commit=0.25):
+        e = self.enc(torch.cat([o_t, o_next], -1))            # E(o_t, o_{t+1}): the encoder can see the future
+        d2 = (e.pow(2).sum(-1, keepdim=True) - 2 * e @ self.codebook.weight.t()
+              + self.codebook.weight.pow(2).sum(-1))          # ||E(.) - e_j||^2
+        k = d2.argmin(-1)
+        e_k = self.codebook(k)
+        e_st = e + (e_k - e).detach()                         # straight-through: the standard VQ formulation
+        pred = self.dec(torch.cat([o_t, e_st], -1))           # the decoder gets only current information + the code
+        loss = (F.mse_loss(pred, o_next)                      # prediction term
+                + F.mse_loss(e_k, e.detach())                 # codebook term
+                + beta_commit * F.mse_loss(e, e_k.detach()))  # commitment term
+        return pred, k, loss</code></pre>
+<p>The bottleneck's entire job is to <strong>limit the amount of information</strong>: at $K=8$ one code is at most 3 bits. The decoder only gets $o_t$ and $e_k$, so $e_k$ has to carry "the bit of the inter-frame change most worth keeping" — but whether that is an <strong>action</strong>, the code does not guarantee (§5.1). The <code>beta_commit=0.25</code> here is the common empirical value from VQ-VAE, <strong>copied here as a demonstration</strong>; Genie prescribes no such number.</p>
+<hr />
+<h2 id="10-25-high-frequency-interview-questions">§10 25 high-frequency interview questions</h2>
+<h3 id="l1-essentials-10">L1 essentials (10)</h3>
+<details>
+
+<summary>Q1. What is a world model?</summary>
+<p>An agent's internally learned model of the environment's structure and dynamics: given the observations and actions so far, predict "what happens after I do this". <strong>Which output is necessary depends on the use</strong> — to do RL inside the model you must be able to compute returns in imagination and truncate episodes (Dreamer-style implementations learn a reward head and a continuation head for this; when the reward function or the termination rule is known, using the known one is fine); for visual goal-directed navigation you only need to compare distances between goal representations; to be a playable simulator you must generate observations a human can look at. Put the three mechanism questions on the table when you answer: what information is kept, which quantity is predicted, how that quantity enters a decision.</p>
+<p>Saying only "a model that can predict the future", or equating it directly with a video generator, scores nothing.</p>
+</details>
+<details>
+
+<summary>Q2. What are RSSM's prior and posterior? Which is used in imagination?</summary>
+<p>The recursion is $h_t=f_\theta(h_{t-1},z_{t-1},a_{t-1})$. The prior $p_\theta(z_t\mid h_t)$ cannot see the current observation; the posterior $q_\phi(z_t\mid h_t,o_t)$ absorbs it. Both are present in training: reconstruction goes through the posterior, and the KL pulls the prior toward the posterior. <strong>In imagination there is no future observation, so only the prior can be used</strong> — calling the posterior smuggles in an observation that has not happened, and the imagined return becomes untrustworthy.</p>
+</details>
+<details>
+
+<summary>Q3. How do PlaNet and Dreamer select actions?</summary>
+<p>PlaNet trains no policy network: at every step it plans online in latent space with <strong>CEM</strong> — sample a batch of action sequences from a Gaussian, roll forward with the prior, score with the reward head, refit the distribution to the elite sequences, iterate a few rounds, then execute the first action of the <strong>final round's distribution mean</strong> and start over at the next step, never decoding an image. Saying "sample once and execute the highest-scoring sample" drops CEM's iterative refitting. Dreamer trains an actor-critic inside imagination: take a real starting point with the posterior, unroll $H$ steps with the prior only, update policy and value on the imagined states, and at deployment the policy emits an action in one forward pass.</p>
+<p>The difference in one line: <strong>PlaNet spends compute at decision time, Dreamer spends it at training time.</strong></p>
+</details>
+<details>
+
+<summary>Q4. Video looks photorealistic — does that prove the model understands physics?</summary>
+<p>Physics-IQ (arXiv 2501.09038) gives an experimental answer: 66 physical scenes and 396 videos filmed for real; the model is given a conditioning frame or a conditioning video (depending on whether it is image-to-video or video continuation) and asked to generate five seconds of continuation, with spatial IoU, spatio-temporal IoU, weighted spatial IoU and MSE as metrics. It also measures visual realism by "can an MLLM tell real from generated", and the across-model correlation is $r=-0.46$, $p=0.249$ — <strong>no significant correlation was detected with this set of models and this sample size</strong>.</p>
+<p>Saying "research proves visual quality and physical understanding are unrelated" is wrong: no significant correlation detected is not proof of independence. The correct phrasing is "in this set of measurements from Physics-IQ, realism did not buy an advantage on the physics metrics".</p>
+</details>
+<details>
+
+<summary>Q5. What are $h_t$ and $z_t$ each responsible for?</summary>
+<p>$h_t$ is deterministic and provides <strong>a recurrent memory channel that does not pass through random resampling</strong>; $z_t$ is stochastic and expresses environment stochasticity and the new information at that step. Don't call deterministic "lossless" — a fixed-width GRU state also compresses and forgets, it is merely not scoured by per-step sampling noise. Don't over-generalise in either direction: <strong>a recurrent vector is not the only way to model memory</strong> (a transformer looks back at history directly through attention), and <strong>it is not the case that no deterministic world model can work</strong> (in a deterministic environment it can work very well).</p>
+</details>
+<details>
+
+<summary>Q6. Which prediction heads does a Dreamer-style model have? Does a pure video model need them?</summary>
+<p>Three: observation, reward, continuation. The latter two exist so that "RL inside the model" works: <strong>in this Dreamer implementation</strong>, returns in imagination come from the learned reward head and episode truncation from the learned continuation head, and the computation does not close without either. <strong>A pure video generation model does not necessarily need them</strong> — its purpose is to generate a watchable, interactive future.</p>
+<p>But that necessity ends with this implementation. When the reward function or the termination rule is known (as in a great many simulators and games), using the known one does RL in imagination just as well; and observation reconstruction is even less necessary — MuZero and TD-MPC2 both plan without reconstructing observations. Treating "has a reward head or not" as the defining line of a world model collapses at the first follow-up.</p>
+</details>
+<details>
+
+<summary>Q7. How big is Genie 3? How does it relate to Genie 1's 11B?</summary>
+<p>Genie 3 has <strong>no paper and no published parameter count</strong>; 720p, 24 FPS, "few-minutes" consistency and roughly one minute of visual memory all come from the official blog post of 2025-08-05. <strong>11B belongs to Genie 1</strong> (arXiv 2402.15391), and its three components (video tokenizer, an 8-code latent action model, dynamics model) likewise cannot be used to infer Genie 3's internal structure. Project Genie's 60 seconds (2026-01-29 blog) is <strong>a consumer prototype's limit</strong>, not a research ceiling for Genie 3.</p>
+<p>Quoting 11B for Genie 3 is a hard error.</p>
+</details>
+<details>
+
+<summary>Q8. Is the "latent" in the three lineages the same thing?</summary>
+<p>No. RSSM's latent is a state variable with a prior and a posterior, in service of rolling out inside it; JEPA's latent is the representation output by the encoder, with no generative prior; a video diffusion model's latent is the generation space after VAE compression. The only thing they share is that <strong>the computation does not happen on pixels</strong>. Separating the lineages by "who works in a latent" misfiles video models under JEPA.</p>
+</details>
+<details>
+
+<summary>Q9. Can a model pre-trained on action-free video be used directly to select actions?</summary>
+<p>Not directly. Action-free video supplies a prior on "how the world usually evolves", which is valuable. To use it for <strong>action selection</strong> you must add an action interface and provide decision evidence under that interface — text conditioning, camera motion, actuator actions and LAM codes mean completely different things and cannot substitute for one another. V-JEPA 2 does exactly this in two stages: action-free pre-training, then a second stage that trains an action-conditioned predictor on data with actions.</p>
+</details>
+<details>
+
+<summary>Q10. What does DreamerV3's "one set of hyperparameters" mean? Where did its diamond come from?</summary>
+<p>It means <strong>one set of hyperparameters</strong> covering more than 150 tasks, i.e. no need to tune per environment; it does <strong>not</strong> mean one set of weights handles every environment — each task is still trained separately. Collecting a diamond from scratch in Minecraft was done <strong>through interaction with the environment</strong>. Dreamer 4's (arXiv 2509.24527) "diamond offline" is another paper and another setting; the two must not be conflated.</p>
+</details>
+<h3 id="l2-advanced-10">L2 advanced (10)</h3>
+<details>
+
+<summary>Q11. Is KL balancing just turning the KL coefficient down?</summary>
+<p>No. $\mathcal L_{KL}=\beta_{dyn}D_{KL}(\mathrm{sg}\,q\Vert p)+\beta_{rep}D_{KL}(q\Vert\mathrm{sg}\,p)$: <strong>both terms are in the $q\Vert p$ direction</strong>, and what is split is whose gradient is stopped. $\beta_{dyn}\gg\beta_{rep}$ means "let the prior chase the posterior first (learn the dynamics), then let the posterior concede for the sake of predictability (regularise the representation)". Shrinking a single coefficient merely loosens the consistency term as a whole and produces a different imbalance: either the posterior degenerates and reconstruction rides on $h_t$, or the prior never catches the posterior and imagination drifts as soon as it unrolls. Report coefficients per version: DreamerV3 v1 Eq. 4 / Table W.1 gives $\beta_{dyn}=0.5,\beta_{rep}=0.1$, while the v2 body gives $1$ and $0.1$.</p>
+<p>Writing $D_{KL}(p\Vert q)$, or saying balancing changes the KL direction, scores nothing.</p>
+</details>
+<details>
+
+<summary>Q12. How does JEPA avoid collapse?</summary>
+<p>Through a combination of mechanisms: the asymmetric structure (a predictor on one side only), the slow EMA target branch, the stop-gradient on the target branch, and the difficulty of the masking task itself. The key is the next sentence — <strong>this is not a no-collapse theorem</strong>: a constant encoder with a constant predictor is still a degenerate solution with very low loss, the effect depends on initialisation, the EMA coefficient, mask difficulty and optimiser settings, and in practice you monitor representation variance or rank.</p>
+<p>The toy matching §9.2 (experiment 2 in §A.3) reproduces this: with shared weights and no stop-gradient, the variance of the context representation decays geometrically; switching to a stop-gradient + EMA teacher makes the gradient vanish at the symmetric point, so collapse is no longer an attractor — but starting from the collapsed point it stays there all the same.</p>
+</details>
+<details>
+
+<summary>Q13. What exactly does V-JEPA 2-AC's zero-shot refer to?</summary>
+<p>It refers to <strong>no data collection in the new deployment environment</strong>: on a Franka arm, doing reaching / grasp / pick-and-place from a visual goal, without re-collecting data in the deployment lab. Structurally, pre-training is still action-free masked prediction ($L_1$, EMA, stop-gradient); 2-AC freezes the encoder and trains only an action-conditioned predictor whose input includes robot actions and end-effector state. The paper's "&lt;62 h unlabeled robot video" means <strong>no task-semantic labels</strong>, not no action records. Planning is MPC in representation space: predict the representation reached after executing an action sequence, minimise the $L_1$ distance to the goal image's representation, search with CEM, and replan after executing the first action — <strong>the goal representation is not a reward label</strong>.</p>
+<p>It does not prove that any robot, any task or any long-horizon decomposition is free of data collection.</p>
+</details>
+<details>
+
+<summary>Q14. If you make the VQ codebook very small, will it automatically discover the true actions?</summary>
+<p>No guarantee. The argument for a small codebook is <strong>capacity</strong>: one code carries at most $\log_2 K$ bits ($K=8$ means 3 bits), forcing the model to discard most of the inter-frame difference. But small capacity only guarantees "little information survives"; it <strong>does not guarantee that what survives is the actuator action</strong>, nor that the same code means the same thing across scenes. arXiv 2506.15691 gives the mechanism: action-induced change and exogenous change (lighting, camera shake, background motion) <strong>compete for the same bottleneck capacity</strong>, and high-variance irrelevant change may be encoded first; in the linear case this connects directly to PCA keeping the maximum-variance directions.</p>
+</details>
+<details>
+
+<summary>Q15. Write the λ-return used in imagination and state the start-point and length conventions.</summary>
+<p>Under this tutorial's time convention:</p>
+<p>$$G_t^\lambda=\hat r_{t+1}+\gamma\hat c_{t+1}\big[(1-\lambda)v(s_{t+1})+\lambda G_{t+1}^\lambda\big],\qquad G_H^\lambda=v(s_H)$$</p>
+<p>The critic's regression target takes a stop-gradient. DreamerV3 v1's Table W.1 takes $H=15$ and the body's prediction sequence length is $T=16$: <strong>count action transitions by $H$, and the state sequence including the start point therefore has $H+1$ states</strong>. When pressed on "is it 15 or 16", answer "15 counting transitions, 16 counting states".</p>
+</details>
+<details>
+
+<summary>Q16. Are free bits and the 1% uniform mixing of categorical latents the same thing?</summary>
+<p>No, two independent mechanisms. <strong>free bits</strong> is $\max(\tau, D_{KL})$, a floor applied to the <strong>joint KL</strong> (summed over all latent groups first), preventing the KL from being pressed so hard that representation capacity is exhausted. <strong>1% uniform mixing</strong> is a <strong>DreamerV3</strong> change (v1 body and Appendix C) that mixes a uniform distribution into the categorical probabilities, preventing some class probability from being squeezed to 0 and blowing up the $\log$ with pathological gradients; it is not a DreamerV2 change — what DreamerV2 brought was the categorical latent itself. One governs the shape of the objective, the other the numerical health of the distribution.</p>
+<p>Also, the categorical latent + straight-through is itself a <strong>biased</strong> gradient approximation — it passes gradients through non-differentiable sampling as if it were the identity, which is a third thing.</p>
+</details>
+<details>
+
+<summary>Q17. What is the division of labour between symlog and twohot?</summary>
+<p><strong>symlog</strong> is scale compression: $\mathrm{symlog}(x)=\mathrm{sign}(x)\log(1+\lvert x\rvert)$, inverted by symexp, symmetric and approximately the identity near 0, used to squeeze signals spanning orders of magnitude into a trainable range. <strong>twohot</strong> is an encoding: split a continuous scalar between the two neighbouring bins by distance, so regression becomes classification and the expected value is recovered exactly.</p>
+<p>In DreamerV3 v1 (the body after Eq. 10 and Appendix C), <strong>both reward and critic use symlog twohot</strong> — <strong>do not generalise this to every prediction head</strong>; the observation and continuation heads are another matter.</p>
+</details>
+<details>
+
+<summary>Q18. How does DreamerV3's return normalization differ from ordinary advantage normalisation?</summary>
+<p>It takes the <strong>difference between the 95th and the 5th percentile</strong> $S$ of a batch of returns, smooths it with an EMA, and divides by $\max(1,S)$. Three differences: it only rescales and does not subtract the mean; it <strong>has a floor of 1</strong>; and it is smoothed across batches. The floor is the crux — in sparse-reward tasks almost all returns are 0 and $S$ is tiny, so the ordinary "subtract the mean, divide by the standard deviation" would amplify the noise of near-zero returns into enormous gradients, and $\max(1,S)$ blocks that path.</p>
+</details>
+<details>
+
+<summary>Q19. Do PETS and MBPO solve the same problem?</summary>
+<p>No. <strong>PETS</strong> (arXiv 1805.12114) solves <strong>uncertainty representation</strong>: an ensemble of probabilistic models expresses both environment noise and the uncertainty caused by insufficient data, propagated during planning by trajectory sampling. <strong>MBPO</strong> (arXiv 1906.08253) solves <strong>error accumulation</strong>: branch very short model rollouts from states in the real data and do off-policy updates, keeping the compounding of model bias under control.</p>
+<p>In one line: PETS says "I'm not sure", MBPO says "I only dare look a few steps ahead".</p>
+</details>
+<details>
+
+<summary>Q20. Why can't DreamerV3's description be applied to Dreamer 4? What qualifies its offline conclusion?</summary>
+<p>The backbone is different: Dreamer 4 is <strong>tokenizer + transformer dynamics + shortcut forcing</strong>, with no RSSM, KL balancing or categorical latents, so forcing the old description onto it means getting the architecture wrong. Its diamond was obtained under the paper's <strong>offline Minecraft setting</strong>, with a training pipeline that includes behaviour cloning, reward modelling and RL inside the model; the "real time on a single GPU" the paper reports refers to <strong>interactive inference</strong>, not training. DreamerV3's diamond came from interaction with the environment — the two conclusions cannot substitute for each other.</p>
+</details>
+<h3 id="l3-top-lab-5">L3 top-lab (5)</h3>
+<details>
+
+<summary>Q21. When should you predict pixels, and when representations?</summary>
+<p>The criterion is <strong>which information the decision depends on</strong>, not which route is more advanced.</p>
+<p>Reasons to predict pixels: detail may directly determine contact, collision and reward (DIAMOND's experiments support exactly this — the small objects and fine edges that get compressed away are often the triggers); you need a human to watch it, you need an interactive simulator, or you need an observation interface that is general across tasks. <strong>Diffusion generation is not "predicting one average future with an MSE"</strong> — it models the conditional distribution and samples one concrete, sharp future.</p>
+<p>Reasons to predict representations: ignoring unpredictable detail saves compute and concentrates prediction on quantities useful downstream; and the downstream task is a distance or MPC in representation space to begin with (DINO-WM learns dynamics on frozen DINOv2 features, V-JEPA 2-AC uses the $L_1$ to a goal representation).</p>
+<p>Each has a hard boundary: the pixel route's <strong>looking right is not moving right</strong>; the representation route's <strong>a small representation loss does not mean the consequences of actions are correct</strong> — distance in representation space is defined by the model itself, and there is no free equivalence between it and "will this action knock the cup over".</p>
+</details>
+<details>
+
+<summary>Q22. MuZero reconstructs no observation — why can it still plan?</summary>
+<p>Because planning only uses the few quantities inside the search tree: reward, value and policy prior. The latent state need not be able to recover the environment's true state $x_t$; it only needs to be <strong>predictively sufficient</strong> for those quantities. There are two costs: with no decoder there is no channel for visualising "what the model is thinking", so debugging relies on indirect signals such as reward prediction error and planning returns; and "predictive sufficiency" is a design principle plus an empirical result, <strong>not a strict value-equivalence theorem</strong>.</p>
+<p>TD-MPC2 is the same idea in continuous control: learn latent dynamics, reward and value decoder-free for MPC to use; in its scaling experiments a single 317M agent covers 80 tasks.</p>
+</details>
+<details>
+
+<summary>Q23. Why can't a world model learned offline solve exploration through "unlimited imagination"?</summary>
+<p>Because the model is only trustworthy on the state–action distribution the data covers. Imagining more times will not conjure information the data does not contain; worse, policy optimisation will <strong>actively find and exploit trajectories where the model overestimates the return</strong> — the return is enormous inside the model and does not hold up back in the real environment. That is exactly what MBPO's short branched rollouts and PETS's uncertainty propagation are there to suppress.</p>
+<p>Two things must be kept apart: <strong>broadening coverage can only come from adding data or new environment interaction</strong>; <strong>pessimism / uncertainty penalties do not broaden coverage</strong> — what they do is constrain the decision back into the region where the model has evidence, so the policy does not gamble on high-return hallucinations in uncovered areas. Calling the penalty term "a second way to broaden coverage" gets the direction backwards.</p>
+<p>Dreamer 4's offline result is not a counterexample: it has offline data, behaviour cloning and reward modelling prepared for that setting, and the scope of its conclusion is that setting.</p>
+</details>
+<details>
+
+<summary>Q24. How do you judge whether a world model is genuinely useful for robots?</summary>
+<p>Ask four things. <strong>One, what is the action interface</strong> — actuator actions, camera pose, LAM codes or text conditioning? Only the first corresponds directly to executable control. <strong>Two, what is the decision evidence</strong> — closed-loop success rate, on which platform, on how many tasks, and was the planning setting changed? V-JEPA 2.1's Table 6 is the ready-made example: under the same planning setting, grasp going from 60% to 70% (+10 percentage points) is a representation comparison, while the 80% (+20 percentage points) after changing the planning setting and lengthening the horizon is no longer a pure representation comparison. <strong>Three, where does the error accumulate</strong> — long-horizon consistency, memory retention, contact dynamics. <strong>Four, the cost scope</strong> — speed on what hardware, in what deployment (Matrix-Game 3.0's peak 40 FPS @ 720p is an asynchronous deployment with 8 GPUs running the DiT + 1 doing VAE decoding, not a single GPU).</p>
+<p>Video quality scores and representation probe accuracy cannot substitute for the first three questions — V-JEPA 2's frequently cited 77.3 is the attentive-probe top-1 on SSv2, not a robot success rate.</p>
+</details>
+<details>
+
+<summary>Q25. Given a freshly released world-model report, how do you place it quickly?</summary>
+<p>Read it by the three questions first: <strong>which quantity it predicts</strong> (pixels / representations / planning quantities), <strong>what the action interface is</strong>, and <strong>how the prediction enters a decision</strong>. Those three fix the lineage, and they are more reliable than what it calls itself — Dreamer 4 is both generative dynamics and imagination RL, and Cosmos 3 spans understanding, generation and action.</p>
+<p>Then check the evidence tier: is there a paper or only a blog post; how far are code, weights and data each open (<strong>planned release does not count as open</strong>); does every number come with the task, metric, model version, setting and hardware.</p>
+<p>Finally put it on the evaluation map: WorldModelBench measures instruction following and physics/common-sense violations, WorldScore measures controllability, quality and dynamics, WorldRoamBench measures action following, visual consistency, physical plausibility and memory retention during interaction, and WorldArena 2.0 brings in visuo-tactile signals, policy optimisation inside the model and a real robot platform. They do not ask the same thing, and doing well on one does not vouch for another; and the "no model meets the requirements across the board" conclusions in these benchmarks are confined to the models and protocols they tested.</p>
+<p>Be careful with the gradings: L0–L7 (arXiv 2606.15032) is a proposal over <strong>several crossing axes</strong>; Predictor / Simulator / Evolver comes from <strong>Agentic World Modeling (arXiv 2604.22748)</strong>, so don't file it under Definition &amp; Roadmap — the latter (arXiv 2607.06401) is yet another proposal with a different set of roles (Renderer / Simulator / Planner, etc.). <strong>None of these is a consensus of the field</strong>; the GLP critique (arXiv 2507.05169) represents yet another position. The L1/L2/L3 in §10 of this tutorial denote only interview question difficulty.</p>
+</details>
+<hr />
+<h2 id="a-appendix">§A Appendix</h2>
+<h3 id="a1-papers-and-provenance">A.1　Papers and provenance</h3>
+<p>Evidence tier: <strong>✅ paper</strong> (public on arXiv; the details cited here are taken from the paper) / <strong>⚠️ blog-only</strong> (official blog post or press release only, no paper). A third case is written out separately: <strong>a paper exists but this tutorial mentions it directionally only</strong> (its numbers were not individually verified), and it is not merged into "blog-only".</p>
+<p><strong>Lineage one: latent dynamics / MBRL</strong></p>
+<div class="table-wrap"><table><thead><tr><th>Work</th><th>Provenance</th><th>In one line</th></tr></thead><tbody><tr><td>World Models</td><td>✅ 1803.10122</td><td>VAE + MDN-RNN + linear controller; in the <strong>VizDoom experiment</strong> the policy is trained entirely in the dream, while CarRacing's controller is trained in the real environment</td></tr><tr><td>PlaNet</td><td>✅ 1811.04551</td><td>RSSM; latent overshooting; online planning in latent space</td></tr><tr><td>Dreamer</td><td>✅ 1912.01603</td><td>actor-critic trained in imagination (pathwise gradients)</td></tr><tr><td>DreamerV2</td><td>✅ 2010.02193</td><td>categorical latents; KL balancing; human-level Atari from imagination</td></tr><tr><td>DreamerV3</td><td>✅ 2301.04104</td><td>symlog / twohot / return normalization; one set of hyperparameters over 150+ tasks; the Minecraft diamond came from environment interaction</td></tr><tr><td>Dreamer 4</td><td>✅ 2509.24527</td><td>tokenizer + transformer dynamics + shortcut forcing; diamond under the offline Minecraft setting; single-GPU real-time <strong>inference</strong></td></tr><tr><td>MuZero</td><td>✅ 1911.08265</td><td>learns only reward/value/policy quantities, no reconstruction; MCTS</td></tr><tr><td>TD-MPC2</td><td>✅ 2310.16828</td><td>decoder-free latent dynamics + reward + value for MPC; 317M single agent / 80 tasks</td></tr><tr><td>DayDreamer</td><td>✅ 2206.14176</td><td>in that experiment a quadruped learned to walk with about 1 hour of real interaction</td></tr><tr><td>PETS</td><td>✅ 1805.12114</td><td>probabilistic ensemble + trajectory sampling = uncertainty representation</td></tr><tr><td>MBPO</td><td>✅ 1906.08253</td><td>short rollouts branched from real data = controlling model bias</td></tr><tr><td>IRIS</td><td>✅ 2209.00588</td><td>discrete tokenizer + transformer imagination</td></tr><tr><td>DIAMOND</td><td>✅ 2405.12399</td><td>diffusion world model; visual detail affects control returns</td></tr></tbody></table></div>
+<p><strong>Lineage two: predict-in-representation-space</strong></p>
+<div class="table-wrap"><table><thead><tr><th>Work</th><th>Provenance</th><th>In one line</th></tr></thead><tbody><tr><td>LeCun position paper</td><td>OpenReview v0.9.2 (2022-06-27)</td><td>prediction in an abstract representation space; <strong>no arXiv number</strong></td></tr><tr><td>I-JEPA</td><td>✅ 2301.08243</td><td>asymmetric predictor + EMA target; squared $L_2$ on patch representations; multi-block masking</td></tr><tr><td>V-JEPA</td><td>✅ 2404.08471</td><td>video masked feature prediction; $L_1$; no negatives, no pixel reconstruction</td></tr><tr><td>V-JEPA 2 / 2-AC</td><td>✅ 2506.09985</td><td>action-free pre-training; 2-AC freezes the encoder and trains an action-conditioned predictor + representation-space MPC</td></tr><tr><td>V-JEPA 2.1</td><td>✅ 2603.14482</td><td>both masked and visible-context tokens supervised; multi-layer deep self-supervision; scaling</td></tr><tr><td>DINO-WM</td><td>✅ 2411.04983</td><td>learns dynamics on frozen DINOv2 features, plans with goal features</td></tr><tr><td>JEPA generalisation theory</td><td>✅ 2606.27014</td><td>low-rank factorisation of a conditional spectral graph / action-conditioned co-occurrence matrix → pre-training error and planning regret</td></tr><tr><td>VL-JEPA</td><td>✅ 2512.10942</td><td>brings language into the same framework; <strong>paper 2512.10942; mentioned directionally only here</strong>, none of its numbers cited</td></tr></tbody></table></div>
+<p><strong>Lineage three, embodiment and evaluation</strong></p>
+<div class="table-wrap"><table><thead><tr><th>Work</th><th>Provenance</th><th>In one line</th></tr></thead><tbody><tr><td>Genie</td><td>✅ 2402.15391</td><td>11B; video tokenizer + 8-code LAM + dynamics model; MaskGIT-style sampling</td></tr><tr><td>Genie 3</td><td>⚠️ blog 2025-08-05</td><td>720p / 24 FPS / few-minutes consistency / about one minute of visual memory; no paper, no published parameter count</td></tr><tr><td>Project Genie</td><td>⚠️ blog 2026-01-29</td><td>consumer prototype; the 60 seconds is a product limit</td></tr><tr><td>GameNGen</td><td>✅ 2408.14837</td><td>v1 abstract "&gt;20 FPS", v2 body 20 FPS (single TPU-v5, 4-step DDIM); 29.4 dB is the <strong>next-frame prediction</strong> PSNR (a DOOM-simulation number)</td></tr><tr><td>UniSim</td><td>✅ 2310.06114</td><td>the unified action-conditioned interactive simulator route</td></tr><tr><td>Navigation World Models</td><td>✅ 2412.03572</td><td>conditional diffusion transformer on first-person video + actions</td></tr><tr><td>Cosmos WFM</td><td>✅ 2501.03575</td><td>autoregressive and diffusion paths; Predict / Transfer / Reason are different tasks</td></tr><tr><td>Cosmos-Reason1</td><td>✅ 2503.15558</td><td>a VLM for physical common sense and embodied reasoning, <strong>not</strong> evidence of a dynamics model</td></tr><tr><td>Cosmos-Predict2.5</td><td>✅ 2511.00062</td><td>2B / 14B configurations; <strong>not inherited</strong> by Cosmos 3</td></tr><tr><td>Cosmos 3</td><td>✅ 2606.02800</td><td>omnimodal; per-layer AR reasoner + diffusion generator parameter sets; Edge 4B / Nano 16B / Super 64B</td></tr><tr><td>GAIA-2</td><td>✅ 2503.20523</td><td>driving: action, road layout and driving conditions as conditions</td></tr><tr><td>GAIA-3</td><td>⚠️ press release only</td><td>mentioned at the level of its release only</td></tr><tr><td>Matrix-Game 3.0</td><td>✅ 2604.08995</td><td>5B; asynchronous deployment (8 GPUs DiT + 1 GPU VAE) at up to 40 FPS @ 720p; memory retrieval, streaming generation</td></tr><tr><td>Atlas</td><td>⚠️ World Labs blog 2026-09-01</td><td>AR diffusion on text/image/camera pose/depth/spatial context; demos up to one minute at 1440p</td></tr><tr><td>LAM bottleneck analysis</td><td>✅ 2506.15691</td><td>action change and exogenous change compete for bottleneck capacity; linear case related to PCA</td></tr><tr><td>UniPi</td><td>✅ 2302.00111</td><td>video as the plan, actions inferred by inverse dynamics</td></tr><tr><td>DreamGen</td><td>✅ 2505.12705</td><td>generated video → LAM/IDM recovers pseudo-actions → policy data</td></tr><tr><td>Genie Envisioner</td><td>✅ 2508.05635</td><td>connects the world model to policy learning and simulated evaluation</td></tr><tr><td>SIMA 2</td><td>✅ 2512.04797</td><td>an agent acting inside Genie-generated worlds; not the same as real-world transfer</td></tr><tr><td>Physics-IQ</td><td>✅ 2501.09038</td><td>66 scenes / 396 videos; five-second continuation; IoU and MSE metrics</td></tr><tr><td>WorldModelBench</td><td>✅ 2502.20694</td><td>instruction following + physics/common-sense violations</td></tr><tr><td>WorldScore</td><td>✅ 2504.00983</td><td>controllability / quality / dynamics</td></tr><tr><td>WorldArena 2.0</td><td>✅ 2605.17912</td><td>visuo-tactile signals, policy optimisation inside the model, real robot platform</td></tr><tr><td>WorldRoamBench</td><td>✅ 2606.31672</td><td>action following, visual consistency, physical plausibility and memory stability during interaction</td></tr><tr><td>GLP critique</td><td>✅ 2507.05169</td><td>argues against treating generative video models directly as general-purpose world models</td></tr><tr><td>Definition &amp; Roadmap</td><td>✅ 2607.06401</td><td>a definition and roadmap proposal; its taxonomy is a different set of roles (Renderer / Simulator / Planner, etc.), <strong>not</strong> Predictor / Simulator / Evolver</td></tr><tr><td>L0–L7 position</td><td>✅ 2606.15032</td><td>a grading proposal over several crossing axes</td></tr><tr><td>Agentic World Modeling</td><td>✅ 2604.22748</td><td>puts the world model back in the agent's decision loop; <strong>Predictor / Simulator / Evolver comes from this paper</strong></td></tr></tbody></table></div>
+<p><strong>Openness</strong>: Cosmos 3's Edge, Nano and Super are all released (Edge released 2026-07-20, see its HF model card) under the OpenMDW-1.1 licence; Genie 3, Project Genie, Atlas and GAIA-3 have information only at the official blog level (Cosmos-Predict2.5 <strong>has a paper</strong>, arXiv 2511.00062). For the remaining entries this tutorial asserts only that "the paper is public"; whether code, weights and data are open <strong>is governed by each project's own official page</strong> — this tutorial makes no per-entry assertion, because those four things are frequently out of sync.</p>
+<h3 id="a2-exclusion-list-and-reasons">A.2　Exclusion list and reasons</h3>
+<div class="table-wrap"><table><thead><tr><th>Excluded</th><th>Reason</th></tr></thead><tbody><tr><td>Sora / Sora 2</td><td>high-level public reporting only; does not match this tutorial's focus on the consequences of actions and decisions — kept in §5.4 as a contrast</td></tr><tr><td>Oasis</td><td>the mechanism is already represented by GameNGen; researchability and length</td></tr><tr><td>Hunyuan-GameCraft</td><td>the same technical problem is already covered by a representative work</td></tr><tr><td>Runway GWM / Odyssey</td><td>at the level of a release announcement</td></tr><tr><td>HunyuanWorld</td><td><strong>has a paper</strong> (HunyuanWorld 1.0, arXiv 2507.21809); excluded because its topic leans toward 3D scene generation and roamable world construction, which is not the same question as this tutorial's "how the consequences of actions enter a decision", plus limited length</td></tr><tr><td>STORM / TransDreamer</td><td>mechanisms overlap with Dreamer / IRIS</td></tr><tr><td>Meta CWM</td><td>terminology collision: it refers to "world model" in the code-execution sense</td></tr><tr><td>Othello-GPT-style world models inside LLMs</td><td>asks "is it in the representation", not "can it predict the consequence of an action"</td></tr><tr><td>Tesla</td><td>no paper</td></tr></tbody></table></div>
+<h3 id="a3-runnable-toy">A.3　Runnable toy</h3>
+<p>Script: <a href="code/world_models_toy.py"><code>code/world_models_toy.py</code></a>, pure PyTorch, seconds on CPU. All three experiments have analytic answers you can check item by item — <strong>the conclusions cover only their own explicit settings and are not paper reproductions</strong>.</p>
+<p><strong>Experiment 1 | RSSM linear-Gaussian: posterior collapse and balanced KL.</strong> The environment is $x_{t+1}=0.5x_t+a_t+\epsilon$ with $\epsilon$ equally likely to be $\pm1$. The deterministic part $h=0.5x_t+a_t$ is computable exactly, and the residual $\epsilon=o_{t+1}-h$ is the only new information. With the scalar parameterisation $q(z\mid h,o)=\mathcal N(w\epsilon,1)$, $p(z\mid h)=\mathcal N(v,1)$, $\hat o=h+dz$, we get $\mathcal L_{rec}=\tfrac12[(1-dw)^2+d^2]$ and $\mathbb E D_{KL}=\tfrac12(w^2+v^2)$. Comparing a single KL coefficient of 9 with balanced $\beta_{dyn}=9,\beta_{rep}=0.1$ (<strong>toy values, not the paper's</strong>): starting from $w=d=0.5$, $v=1$ and running SGD at lr 0.05 for 1,000 steps, the single-coefficient version converges to $\lvert w\rvert,\lvert d\rvert&lt;10^{-6}$ — posterior collapse, with reconstruction MSE ≈ 1, i.e. the observation is not used at all; the balanced version converges to $v\to0$, $w^2=1/\sqrt{0.1}-1$, $d=w/(1+w^2)$, with MSE $=\sqrt{0.1}$.</p>
+<p><strong>Experiment 2 | JEPA's shortcut and stop-gradient.</strong> With $x=s$, $y=s+\epsilon$, an encoder $E_w(u)=wu$ and an identity predictor: sharing $w$ and <strong>not</strong> stopping the gradient gives $\mathcal L=\tfrac12w^2$, and gradient descent at lr 0.1 gives $w_n=0.9^n$ — starting from $w_0=1$ and running 100 steps, the context representation's variance falls to $0.9^{200}$; collapse is an attractor. Switching to stop-gradient + an EMA teacher $b\leftarrow0.9b+0.1w$: starting from $w=b=1$ the gradient is zero, $w$ stays at 1, and the loss of 0.5 comes entirely from unpredictable noise; but starting from $w=b=0$ it stays put just the same. <strong>This is the executable version of "a mechanism is not a theorem".</strong></p>
+<p><strong>Experiment 3 | A coordinate LAM on a grid world.</strong> The encoder takes $\Delta=s'-s$, the VQ has 4 codes, and the decoder is additive. After farthest-first initialisation plus one round of nearest-neighbour assignment and centroid update, the four transition vectors are recovered exactly: validation reconstruction error 0, purity 1, $I(K;A)=2$ bits (up to a permutation of the codes). This shows that in <strong>this coordinatised setting with no exogenous change</strong> the bottleneck does capture the action — once high-variance change unrelated to the action is added, the competition described in §5.1 begins.</p>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/tutorials/world_models_tutorial_en.md</code> ·
+  SHA256 <code>d8cb6669bce2</code> ·
+  generated at 2026-09-11 08:33 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+
+<!-- P0 polish: paper popover host (populated by IIFE below) -->
+<div id="cite-pop" hidden role="dialog" aria-labelledby="cite-pop-title">
+  <button class="cp-close" type="button" aria-label="Close">×</button>
+  <div class="cp-content"></div>
+</div>
+
+<!-- P0 polish: figure lightbox (native <dialog>, graceful fallback) -->
+<dialog class="lightbox" id="figure-lightbox" aria-label="Figure detail">
+  <div class="lb-inner">
+    <button class="lb-close" type="button" aria-label="Close">×</button>
+    <img alt="" />
+    <figcaption></figcaption>
+  </div>
+</dialog>
+
+<!-- P0 polish: paper registry sidecar, embedded by render_html.py (--papers) -->
+<script>window.PAPER_REGISTRY = {};</script>
+
+<!-- P0 polish: interactive enhancements (TOC scrollspy, code-card auto-collapse,
+     paper popovers, figure lightbox, print-restore for <details>, blog-mode H2). -->
+<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+    });
+  }
+
+  // --- Feature 5: Print degradation fix ---------------------------------
+  // Force every <details> open during print, restore the pre-print state after.
+  var _stashOpen = [];
+  var _printing = false;
+  window.addEventListener("beforeprint", function () {
+    if (_printing) return;  // guard against multi-fire (Chrome print preview)
+    _printing = true;
+    _stashOpen = [];
+    document.querySelectorAll("details:not([open])").forEach(function (d) {
+      _stashOpen.push(d);
+      d.open = true;
+    });
+  });
+  window.addEventListener("afterprint", function () {
+    _stashOpen.forEach(function (d) { if (d.isConnected) d.open = false; });
+    _stashOpen = [];
+    _printing = false;
+  });
+
+  // --- Feature 3: TOC scrollspy -----------------------------------------
+  var tocLinks = [].slice.call(document.querySelectorAll("nav.toc a"));
+  var headings = tocLinks.map(function (a) {
+    var id = a.getAttribute("href").replace(/^#/, "");
+    return document.getElementById(id);
+  }).filter(Boolean);
+  if (headings.length && typeof IntersectionObserver !== "undefined") {
+    var linkById = new Map();
+    headings.forEach(function (h, i) { linkById.set(h.id, tocLinks[i]); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        tocLinks.forEach(function (l) { l.classList.remove("active"); });
+        var lk = linkById.get(en.target.id);
+        if (lk) lk.classList.add("active");
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    headings.forEach(function (h) { io.observe(h); });
+  }
+
+  // --- Feature 1: Long-code auto-collapse -------------------------------
+  var COLLAPSE_THRESHOLD = 30;
+
+  function wrapCodeCard(pre, openByDefault) {
+    if (!pre || pre.closest("details.code-card")) return;
+    var code = pre.querySelector("code");
+    if (!code) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    var det = document.createElement("details");
+    det.className = "code-card";
+    det.open = openByDefault;
+    var sum = document.createElement("summary");
+    function updateSummary() {
+      sum.textContent = (det.open ? "▾ 收起代码 · " : "▸ 展开代码 · ") + lines + " 行";
+    }
+    updateSummary();
+    det.addEventListener("toggle", updateSummary);
+    pre.parentNode.insertBefore(det, pre);
+    det.appendChild(sum);
+    det.appendChild(pre);
+  }
+
+  // Honor explicit per-block flags first.
+  document.querySelectorAll("pre[data-collapse]").forEach(function (pre) {
+    var flag = pre.getAttribute("data-collapse");
+    if (flag === "collapsed") wrapCodeCard(pre, false);
+    // "open" → leave fully expanded, do not wrap.
+  });
+  // Then auto-wrap long unflagged blocks.
+  document.querySelectorAll("pre > code").forEach(function (code) {
+    var pre = code.closest("pre");
+    if (!pre || pre.closest("details") || pre.hasAttribute("data-collapse")) return;
+    var lines = code.textContent.replace(/\n+$/, "").split("\n").length;
+    if (lines >= COLLAPSE_THRESHOLD) wrapCodeCard(pre, false);
+  });
+
+  // --- Feature 10: Figure lightbox --------------------------------------
+  var lightbox = document.getElementById("figure-lightbox");
+  if (lightbox) {
+    var lbImg = lightbox.querySelector("img");
+    var lbCap = lightbox.querySelector("figcaption");
+    var lbClose = lightbox.querySelector(".lb-close");
+    function openLightbox(srcImg) {
+      lbImg.src = srcImg.src;
+      lbImg.alt = srcImg.alt || "";
+      var cap = srcImg.closest("figure") ? srcImg.closest("figure").querySelector("figcaption") : null;
+      lbCap.textContent = cap ? cap.textContent : "";
+      lbCap.hidden = !cap;
+      if (typeof lightbox.showModal === "function") lightbox.showModal();
+      else lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (typeof lightbox.close === "function") lightbox.close();
+      else lightbox.hidden = true;
+    }
+    document.querySelectorAll("main figure img, main > p > img").forEach(function (img) {
+      if (img.closest("dialog")) return;
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", function () { openLightbox(img); });
+    });
+    if (lbClose) lbClose.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      // Backdrop click closes; clicks inside .lb-inner do not bubble here.
+      if (e.target === lightbox) closeLightbox();
+    });
+  }
+
+  // --- Feature 2: Paper popover -----------------------------------------
+  var PAPERS = window.PAPER_REGISTRY || {};
+  var pop = document.getElementById("cite-pop");
+  var popContent = pop ? pop.querySelector(".cp-content") : null;
+  var popClose = pop ? pop.querySelector(".cp-close") : null;
+  var popTrigger = null;
+
+  function showPopover(el) {
+    var key = el.dataset.ref;
+    var info = PAPERS[key];
+    if (!info || !pop || !popContent) return;
+    popContent.innerHTML =
+      '<div class="cp-title" id="cite-pop-title">' + escapeHtml(info.title || key) + '</div>' +
+      (info.authors
+        ? '<div class="cp-meta">' + escapeHtml(info.authors) +
+            (info.date ? ' · ' + escapeHtml(info.date) : '') +
+            (info.inst ? ' · ' + escapeHtml(info.inst) : '') + '</div>'
+        : '') +
+      (info.key ? '<div class="cp-key">' + escapeHtml(info.key) + '</div>' : '') +
+      (info.arxiv
+        ? '<a class="cp-link" href="https://arxiv.org/abs/' + encodeURIComponent(info.arxiv) +
+          '" target="_blank" rel="noopener">arXiv ' + escapeHtml(info.arxiv) + ' ↗</a>'
+        : '');
+    var r = el.getBoundingClientRect();
+    pop.hidden = false;  // unhide first so offsetHeight is measurable
+    var margin = 16;
+    var popWidth = Math.min(360, Math.max(0, window.innerWidth - margin * 2));
+    var popHeight = Math.min(pop.offsetHeight || 200, Math.max(0, window.innerHeight - margin * 2));
+    pop.style.left = Math.max(margin, Math.min(r.left, window.innerWidth - popWidth - margin)) + "px";
+    pop.style.top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - popHeight - margin)) + "px";
+    popTrigger = el;
+    if (popClose) popClose.focus();
+  }
+  function hidePopover() {
+    if (pop) pop.hidden = true;
+    if (popTrigger) popTrigger.focus();
+    popTrigger = null;
+  }
+  document.querySelectorAll("[data-ref]").forEach(function (el) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.addEventListener("click", function (e) { e.stopPropagation(); showPopover(el); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(el); }
+    });
+  });
+  if (popClose) popClose.addEventListener("click", hidePopover);
+  document.addEventListener("click", function (e) {
+    if (pop && !pop.hidden && !pop.contains(e.target) && !e.target.matches("[data-ref]")) hidePopover();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && pop && !pop.hidden) hidePopover();
+  });
+
+  // --- Feature 7: Blog-mode active-H2 highlight (opt-in) ----------------
+  if (document.body.classList.contains("aris-blog")) {
+    var h2s = [].slice.call(document.querySelectorAll("main h2"));
+    if (h2s.length && typeof IntersectionObserver !== "undefined") {
+      var io2 = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            h2s.forEach(function (h) { h.classList.remove("aris-active-h2"); });
+            en.target.classList.add("aris-active-h2");
+          }
+        });
+      }, { rootMargin: "-15% 0px -75% 0px" });
+      h2s.forEach(function (h) { io2.observe(h); });
+    }
+
+    // --- Feature 8: Focus-dim reading mode (B1) + floating toggle (B2) +
+    //     ↑/↓ section nav (B4). Built only inside this .aris-blog guard, so
+    //     non-blog tutorials never construct it. Default OFF. While ON:
+    //     dims non-current sections (h3-granular), keeps the intro bright,
+    //     pauses F7's io2, and binds a scroll listener (removed on OFF — no
+    //     new *persistent* global hook). Restores everything on OFF / print.
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var focusBtn = document.createElement("button");
+      focusBtn.className = "aris-focus-toggle";
+      focusBtn.type = "button";
+      focusBtn.setAttribute("aria-pressed", "false");
+      focusBtn.textContent = "🎯 Focus";
+      document.body.appendChild(focusBtn);
+
+      var focusHint = document.createElement("div");
+      focusHint.className = "aris-focus-hint";
+      document.body.appendChild(focusHint);
+      var hintTimer = null;
+      var showFocusHint = function (msg) {
+        focusHint.textContent = msg;
+        focusHint.classList.add("show");
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { focusHint.classList.remove("show"); }, 1600);
+      };
+
+      var focusKids = function () { return [].slice.call(mainEl.children); };
+      var headerIdxList = function (kids) {
+        var idxs = [];
+        kids.forEach(function (el, i) {
+          if (el.tagName === "H2" || el.tagName === "H3") idxs.push(i);
+        });
+        return idxs;
+      };
+      // Deterministic current-section pick (no IntersectionObserver): the
+      // header whose top is closest to but above the viewport's 40% line;
+      // fallback = first header still below the line; then first header.
+      var activeHeaderIdx = function (kids, headerIdxs) {
+        var best = -1, bestTop = -Infinity, lineY = window.innerHeight * 0.4;
+        headerIdxs.forEach(function (idx) {
+          var top = kids[idx].getBoundingClientRect().top;
+          if (top < lineY && top > bestTop) { bestTop = top; best = idx; }
+        });
+        if (best < 0) {
+          for (var i = 0; i < headerIdxs.length; i++) {
+            if (kids[headerIdxs[i]].getBoundingClientRect().top >= 0) { best = headerIdxs[i]; break; }
+          }
+          if (best < 0) best = headerIdxs[0];
+        }
+        return best;
+      };
+      var updateFocus = function () {
+        var kids = focusKids();
+        var headerIdxs = headerIdxList(kids);
+        if (!headerIdxs.length) {                 // no h2/h3 → keep all bright (never dim a headerless page)
+          kids.forEach(function (el) { el.classList.add("aris-in-focus"); });
+          return;
+        }
+        var best = activeHeaderIdx(kids, headerIdxs);
+        var next = kids.length;
+        for (var j = 0; j < headerIdxs.length; j++) {
+          if (headerIdxs[j] > best) { next = headerIdxs[j]; break; }
+        }
+        var introEnd = headerIdxs[0];  // header.hero + anything before first heading stays bright
+        kids.forEach(function (el, i) {
+          el.classList.toggle("aris-in-focus", (i < introEnd) || (i >= best && i < next));
+        });
+      };
+      var onFocusScroll = function () {
+        if (document.body.classList.contains("aris-focus-dim")) updateFocus();
+      };
+      var onFocusKeydown = function (e) {
+        var tg = e.target;
+        if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)) return;
+        if (e.key === "Escape") {
+          var popEl = document.getElementById("cite-pop");
+          if (popEl && !popEl.hidden) return;     // an open popover handles Esc first
+          setFocus(false);
+          return;
+        }
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        var heads = [].slice.call(document.querySelectorAll("main h2, main h3"));
+        if (!heads.length) return;
+        var cur = 0, bestDist = Infinity;
+        heads.forEach(function (h, i) {
+          var d = Math.abs(h.getBoundingClientRect().top - 80);
+          if (d < bestDist) { bestDist = d; cur = i; }
+        });
+        var ni = e.key === "ArrowDown" ? Math.min(cur + 1, heads.length - 1) : Math.max(cur - 1, 0);
+        heads[ni].scrollIntoView({ behavior: "smooth", block: "start" });
+        showFocusHint((ni + 1) + " / " + heads.length + "　" + heads[ni].textContent.trim().slice(0, 24));
+      };
+      var setFocus = function (on) {
+        document.body.classList.toggle("aris-focus-dim", on);
+        focusBtn.classList.toggle("on", on);
+        focusBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        focusBtn.textContent = on ? "🎯 Focus ON" : "🎯 Focus";
+        if (on) {
+          window.addEventListener("scroll", onFocusScroll, { passive: true });
+          document.addEventListener("keydown", onFocusKeydown, true);    // capture phase: see an open popover before its bubble Esc handler (also: bound only while ON, guardrail 2)
+          if (typeof io2 !== "undefined" && io2) io2.disconnect();        // pause F7
+          updateFocus();
+          showFocusHint("Focus 模式：↑ / ↓ 切换小节，Esc 退出");
+        } else {
+          window.removeEventListener("scroll", onFocusScroll);
+          document.removeEventListener("keydown", onFocusKeydown, true);
+          focusKids().forEach(function (el) { el.classList.remove("aris-in-focus"); });
+          if (typeof io2 !== "undefined" && io2) h2s.forEach(function (h) { io2.observe(h); });  // resume F7
+        }
+      };
+      focusBtn.addEventListener("click", function () {
+        setFocus(!document.body.classList.contains("aris-focus-dim"));
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

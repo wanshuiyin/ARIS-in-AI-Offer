@@ -1,6 +1,6 @@
 ## §0 TL;DR Cheat Sheet
 
-> 💡 **9 句话搞定 3D Generation** — Embodied AI / AR / VR 面试核心要点（详见后文 §1–§11 推导）。
+> 💡 **11 句话搞定 3D Generation** — Embodied AI / AR / VR 面试核心要点（详见后文 §1–§12 推导）。
 
 1. **三大表示**：**NeRF**（隐式神经场 + 体渲染）、**3DGS**（显式 Gaussian 点云 + 光栅化）、**Mesh / SDF**（显式表面 / 隐式距离场）。重建质量与速度的 sweet spot：3DGS（Kerbl 2023 SIGGRAPH Best Paper）。
 
@@ -16,9 +16,13 @@
 
 7. **Single-image / Few-view 3D**：Zero-1-to-3 (Liu 2023 ICCV) 用 viewpoint conditioned diffusion；SyncDreamer / MVDream 学多视图联合一致性；TripoSR / InstantMesh / Stable Fast 3D 把 image-to-mesh 推到秒级（TripoSR ~0.5 秒、InstantMesh ~10 秒）。
 
-8. **3D Foundation Models (2024-25 开源)**：**Trellis** (Microsoft 2024) 用 structured latent + flow matching；**Hunyuan3D-2** (Tencent 2025) shape→texture 两阶段；**CLAY** (Zhang 2024 SIGGRAPH, arXiv:2406.13897) 大尺度 latent diffusion = 多分辨率 VAE + latent DiT。
+8. **Feed-forward 重建**：**DUSt3R** (arXiv:2312.14132) 把 SfM 换成一次前向——直接回归 pointmap，两张图的 3D 点都落在第一张图的相机系里，**位姿成了输出而不是输入**；损失除以有效点到原点的平均距离，所以默认 up-to-scale。**VGGT** (2503.11651, CVPR 2025 Best Paper) 一个 backbone 引出四个 head（相机 / depth / point map / track）。COLMAP 由此从"必经"降级为"精度基准"（§7、§12.1）。
 
-9. **Embodied AI 关键应用**：Sim2Real 资产生成、NeRF/3DGS 作为可微 simulator、language-conditioned 3D affordance。**面试常见交叉**：NeRF SLAM、Gaussian-Splat scene editing、3D 物理一致性。
+9. **3D Foundation Models (2024-26 开源)**：**TRELLIS** 的 **SLAT** = 稀疏体素坐标 + per-voxel latent（$N=64$，$L\approx 20\text{K}$ active voxel），两阶段 rectified flow，一份 latent 解码成 3DGS / 场 / mesh；**Hunyuan3D** 沿 2.0 → 2.1 → 2.5 → Omni / Studio / Buffalo 迭代（**没有 3.0**），shape→texture 两阶段；**CLAY** (arXiv:2406.13897) 多分辨率 VAE + latent DiT。
+
+10. **原生 mesh 与 latent 表示这条轴**：无论是从场里提等值面（marching cubes、FlexiCubes）还是像 TRELLIS.2 那样从 O-Voxel 直接转 mesh，**这些输出都不保证具有适合编辑、绑骨和形变的边流**——这才是美术不收货的原因。**MeshGPT → MeshAnything V2 (AMT) → BPT → TreeMeshGPT** 这条线在压 token（基线是朴素序列的 9 token / 面），**Meshtron 则换成用架构扛长序列**（hourglass + 滑动窗口）。latent 表示（SLAT / 稀疏体素 / VecSet / triplane）都能按坐标查询解码，它决定的不是"能出几种格式"，而是**计算与显存摆在哪里**。
+
+11. **Embodied AI 关键应用**：Sim2Real 资产生成、NeRF/3DGS 作为可微 simulator、language-conditioned 3D affordance。**面试常见交叉**：NeRF SLAM、Gaussian-Splat scene editing、3D 物理一致性。
 
 ## §1 三大表示的直觉对比
 
@@ -593,11 +597,155 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 | **DreamGaussian** (Tang 2024 ICLR) | 3DGS + SDS, ~2 分钟 / 物体 | GPU 速度优势；mesh export + UV-Net texturing |
 | **GaussianDreamer** (Yi 2024 CVPR) | Point-E / Shap-E init → 3DGS + SDS | 缓解 from-scratch 几何混乱 |
 
-## §7 Single-Image / Few-View 3D 生成
+## §7 Feed-forward 重建：从 COLMAP 到 pointmap regression
+
+2024 年之前，"多视图 → 3D" 的第一步几乎必然是 SfM：COLMAP 做 SIFT → matching → incremental SfM → bundle adjustment，几十分钟到几小时，而且 texture-less、低重叠、动态物体这几种情况经常失败。**DUSt3R** (Wang 2024 CVPR, arXiv:2312.14132, Naver) 把这整条管线换成一次网络前向：不做显式匹配、不三角化、不做 bundle adjustment，**直接回归 pointmap**。到 2025 年 VGGT 拿下 CVPR Best Paper，这条线已经是 3D 视觉岗位的默认提问方向。
+
+### 7.1　DUSt3R：pointmap 与置信度加权损失（**必考推导**）
+
+**Pointmap** $X \in \mathbb{R}^{H\times W\times 3}$ 是"每个像素一个 3D 点"的稠密图，而且这些点的坐标**写在某一个指定的相机系里**。它同时约束了几何、内参和相机位姿，但取出来各有各的做法：
+
+- **内参**：把 $X^{1,1}$ 的 3D 点与它们自己的像素坐标配对，拟合投影模型。
+- **位姿**：把 $X^{2,1}$ 的 3D 点与 $I^2$ 的像素坐标配对，解 **PnP**——靠的是像素与 3D 点的对应关系。
+- **深度**：$X^{2,1}$ 的 $z$ 分量**不是** $I^2$ 的深度，因为这些点写在 $I^1$ 系下；要拿 $I^2$ 的深度，得先把点变换回 $I^2$ 的相机系再取 $z$。
+
+给两张图 $I^1, I^2$，DUSt3R 用共享权重的 ViT encoder 编码，两个 decoder 之间用 cross-attention 互看，输出两张 pointmap $X^{1,1}$ 和 $X^{2,1}$。**上标是关键：两张 pointmap 都表达在 $I^1$ 的相机系下。** 两张图的像素被放进了同一个坐标系，于是 **位姿不再是输入，而是可以从输出解出来的量**。这一句是整个 feed-forward 重建家族的原点。
+
+> ⚠️ **不要说"把两张 pointmap 刚体对齐得到位姿"** — 它们本来就在同一个系里，配准无从谈起。位姿来自 $X^{2,1}$ 与 $I^2$ 像素之间的 2D-3D 对应（PnP），这是两回事。
+
+**回归损失**。对视图 $v \in \{1, 2\}$ 的有效像素 $i \in \mathcal{D}^v$（GT 有定义的像素），逐点欧氏误差：
+
+$$\ell_{\text{regr}}(v,i)=\Big\lVert \tfrac{1}{z}X^{v,1}_i-\tfrac{1}{\bar z}\bar X^{v,1}_i\Big\rVert$$
+
+$\bar X$ 是 GT。两边各除以一个 scale factor，$z$ 用预测、$\bar z$ 用 GT，二者定义相同：
+
+$$z=\text{norm}(X^1,X^2)=\frac{1}{\lvert\mathcal{D}^1\rvert+\lvert\mathcal{D}^2\rvert}\sum_{v}\sum_{i\in\mathcal{D}^v}\lVert X^v_i\rVert$$
+
+即**所有有效点到原点的平均距离**。除以它以后，损失对整体缩放不变——网络只被要求把形状学对，尺度自由。**这正是"DUSt3R 式训练默认 up-to-scale"的技术来源。**
+
+想要绝对尺度，实际做法不止一种，**MapAnything** 是其中一种：保留这种尺度不变的几何监督，**另外单独预测一个全局尺度并给它自己的损失**。归一化本身也有不同做法——**VGGT** 只归一化 GT、不做 DUSt3R 这种预测侧的归一化，但它学的仍是归一化后的尺度，不是 metric 路线。下面代码里的 `use_metric`（令 $z=\bar z$）是最直接的教学变体，把绝对尺度直接压进回归项——它便于理解，但不是上面两篇的做法。
+
+**置信度加权**。真实数据里有天空、反光、半透明、动态物体这些"GT 本身不可信"的像素。DUSt3R 让网络额外吐一张置信度图 $C^{v,1}$，损失变成：
+
+$$\boxed{\;\mathcal{L}_{\text{conf}}=\sum_{v}\sum_{i\in\mathcal{D}^v}\Big[\,C^{v,1}_i\,\ell_{\text{regr}}(v,i)\;-\;\alpha\log C^{v,1}_i\,\Big]\;},\qquad C=1+\exp(\check C)\gt 1$$
+
+其中 $\check C$ 是 confidence head 的原始输出，$1+\exp(\cdot)$ 的参数化保证 $C\gt 1$（每个像素至少被计入一次）。论文把 $-\alpha\log C$ 称为**正则项**。
+
+**为什么必须有 $-\alpha\log C$**（面试就问这个）。把单个像素的损失看成 $C$ 的函数，定义域 $C\gt 1$：$f(C)=C\ell-\alpha\log C$。
+
+- **去掉 $\log$ 项**：$f(C)=C\ell$ 对 $C$ 单调不减（$\ell\ge 0$），最优把 $C$ 推到定义域下界 $C\to 1$，逐像素损失退回普通回归损失 $\ell$。**几何照样在学**——退化的只是置信度 head：它变成常数，不再携带任何信息。正则项存在的意义就是挡住这个退化。
+- **加上 $\log$ 项**：$f'(C)=\ell-\alpha/C$。$\ell\lt \alpha$ 时驻点 $C^\star=\alpha/\ell\gt 1$ 落在定义域内；$\ell\ge\alpha$ 时 $f'(C)\gt 0$ 恒成立，下确界仍在 $C\to 1^+$。
+- **把 $C$ 消掉**（对 $C$ 取下确界的**优化消元**，不是概率意义上的边缘化）：
+
+$$\inf_{C\gt 1} f(C)=\begin{cases}\alpha+\alpha\log(\ell/\alpha), & 0\lt \ell\lt \alpha\\[2pt] \ell, & \ell\ge\alpha\end{cases}$$
+
+- **所以它到底做了什么**：$\ell\lt \alpha$ 的那一段被换成对数形状，$\ell\ge\alpha$ 的那一段**仍然是线性的 $\ell$**。它**不是**把大残差压成对数的 outlier 抑制器——大残差照常线性计入。$\alpha$ 是这条分界线的位置：只有当一个像素的残差小于 $\alpha$ 时，网络抬高 $C$ 才有收益（换来 $\alpha\log(\ell/\alpha)\lt 0$ 的负贡献）。于是 $C$ 学到的是"这个像素我算得准不准"，而天空、反光、动态物体这些算不准的地方，$C$ 就停在 1 附近拿不到奖励。
+
+> 💡 **$\alpha$ 是唯一的旋钮** — 它同时是"多小的残差才值得表态"的阈值和置信度奖励的强度。$\alpha$ 调大，更多像素进入对数段、置信度图更"敢说"；固定残差时，降低 $\alpha$ 会让更多像素落进 $C\to 1$ 的那一支，机制退回普通回归。答这题时能说出分界点在 $\ell=\alpha$，比背公式高一档。
+
+```python
+import torch
+
+def dust3r_conf_loss(pred_pts, gt_pts, conf_raw, valid, alpha=0.2, use_metric=False):
+    """ DUSt3R 置信度加权 pointmap 损失（教学版）。
+        pred_pts: [B, V, H, W, 3]  两个 head 的 pointmap，都在 I^1 相机系下
+        gt_pts:   [B, V, H, W, 3]  同一坐标系的 GT（V = 2），无效像素可以是 NaN
+        conf_raw: [B, V, H, W]     confidence head 原始输出 Ĉ（未激活）
+        valid:    [B, V, H, W]     bool，GT 有定义的像素集合 D^v
+        use_metric: 令 z = z̄ 的教学变体，把绝对尺度压进回归项（不是论文做法）
+        注意：论文的 L_conf 是在有效像素上求和；这里返回的是"逐样本有效像素均值
+        再对 batch 取均值"，便于不同 batch 之间比较。
+    """
+    eps = 1e-8
+    vm = valid.unsqueeze(-1)                                       # [B, V, H, W, 1]
+    zero = torch.zeros((), dtype=pred_pts.dtype, device=pred_pts.device)
+    # 先选后算：GT 的无效深度常用 NaN 编码，NaN * 0 仍是 NaN，会污染整个样本
+    pred_v = torch.where(vm, pred_pts, zero)
+    gt_v = torch.where(vm, gt_pts, zero)
+
+    n = valid.flatten(1).sum(1).to(pred_pts.dtype).clamp(min=1.0)  # [B]  |D^1| + |D^2|
+    # norm(·) = 有效点到原点的平均距离；pred / gt 各算一个
+    z_bar = gt_v.norm(dim=-1).flatten(1).sum(1) / n                # [B]  z̄
+    z = z_bar if use_metric else pred_v.norm(dim=-1).flatten(1).sum(1) / n
+
+    bshape = (-1,) + (1,) * (pred_pts.dim() - 1)                   # [B, 1, 1, 1, 1]
+    l_regr = (pred_v / z.view(bshape).clamp(min=eps)
+              - gt_v / z_bar.view(bshape).clamp(min=eps)).norm(dim=-1)   # [B, V, H, W]
+
+    C = 1.0 + conf_raw.exp()                                       # C > 1，保证每像素都计入
+    per_pix = C * l_regr - alpha * C.log()                         # 去掉 log 项 → C 全塌到 1
+    per_pix = torch.where(valid, per_pix, torch.zeros((), dtype=per_pix.dtype,
+                                                      device=per_pix.device))
+    return per_pix.flatten(1).sum(1).div(n).mean()
+```
+
+> ⚠️ **两处容易写错** — 一是 scale 归一化必须在**两张图一起**算（$\lvert\mathcal{D}^1\rvert+\lvert\mathcal{D}^2\rvert$ 是分母），分开归一化会把两张图之间的相对尺度关系抹掉；二是 $C$ 不能 detach，梯度必须流回 confidence head，否则"残差小于 $\alpha$ 才抬 $C$"这条机制根本形成不了。
+
+**MASt3R** (2406.09756) 在 DUSt3R 上加了一个稠密局部特征 head，把"回归 pointmap"和"做像素级匹配"合成一个模型，匹配精度大幅提升，后续 MASt3R-SfM 用它替换 COLMAP 的 matching 前端。
+
+### 7.2　共通配方与 VGGT 的四个 head
+
+这一族的配方大体一致，但**每一条都有例外，答题时要把例外说出来**：
+
+1. **视图之间靠 attention 交换信息**，而不是先做手工特征匹配再解几何。但"一次前向吃掉所有视图"不是全族通性：DUSt3R 本身是**成对**模型，多视图仍要接一个全局对齐阶段（而且不必跑满所有图像对）；Fast3R 才是真的一次前向出全部 pointmap，不过它的**相机参数是事后从 pointmap 恢复的**。
+2. **输出落在同一个公共坐标系**，通常是某一张参考图的相机系。**π³ 是例外**：它的原始输出是每个视图**各自相机系下的局部 pointmap** 加上相应位姿，公共坐标系要由这些位姿拼出来。
+3. **位姿通常是输出而不是必需输入**——不需要先跑 SfM 初始化。
+4. **尺度看训练方式**：DUSt3R 式的预测 + GT 双边归一化 → up-to-scale；VGGT 只归一化 GT。metric 输出不止一条路——MapAnything 通过单独预测全局尺度获得 metric 输出，也可以直接采用 metric 几何监督（CUT3R 即如此，MASt3R 同样在 metric 数据上训）。
+
+**VGGT** (Wang 2025 CVPR **Best Paper**, arXiv:2503.11651, Oxford + Meta) 是这条线目前的参考实现。它用交替的 frame-wise / global attention 处理 N 张图，从**同一个 backbone** 引出四个 head：
+
+| Head | 输出 | 下游用途 |
+| --- | --- | --- |
+| **Camera** | 每张图的外参 + 内参（四元数 + 平移 + FOV） | 替代 SfM 的位姿估计 |
+| **Depth** | 每张图的稠密深度（DPT 式） | 深度补全 / 融合 |
+| **Point map** | 公共坐标系下的稠密 3D 点 | 直接出点云 |
+| **Track** | 给定查询像素，预测**同一物理点在每张图上的 2D 位置** | 对应关系 / 跟踪与匹配 |
+
+> 💡 **VGGT 最反直觉的一条观察** — 论文报告：**推理时把 depth head 和 camera head 的结果组合出点云，比直接用 point map head 的输出更准**。注意这是一条实验观察，不等于证明了"多任务训练的收益不在 head 上"；但它至少说明，**训练时用哪些监督目标**和**推理时走哪条路径**是两个可以分开的决策。
+
+**为什么面试里 VGGT 取代了 "先 COLMAP" 的标准答案**：秒级而非小时级；不依赖已标定内参，对重叠的要求也宽松得多；四种量一次输出，下游（3DGS 初始化、SLAM、机器人建图）拿来即用。但这不是"COLMAP 已死"——精度与基准 GT 的讨论见 §12.1。
+
+### 7.3　分支结构：这一族在往哪几个方向长
+
+- **Fast3R** (2501.13928, Meta, CVPR 2025)：DUSt3R 是成对模型，多视图要"跑若干图像对 + 全局对齐"两个阶段。Fast3R 把 **N 张图一次前向**全部送进 transformer 直接出 pointmap，论文示范到 1000+ 张，省掉全局对齐；相机参数则由 pointmap 在后处理里恢复。
+- **CUT3R** (2501.12387, Berkeley)：改成**循环式**——维护一个持久状态，每读入一帧就更新状态并输出该帧的 pointmap。这让它变成 **online / 流式**方法，可以边采边建，也能读单张图；输出的 pointmap 与位姿是 **metric** 的。
+- **π³** (2507.13347)：前面的方法都要指定一张**参考视图**当坐标原点，于是结果依赖"选了哪张"，参考图退化时整体跟着受累。π³ 做成**置换等变**（permutation-equivariant）：输出随输入顺序等变，**不存在被特权化的那一张**。
+- **MapAnything** (2509.13414, Meta + CMU, 3DV 2026)：用**因子化的 metric 表示**（ray 方向 + 深度 + 位姿 + 尺度）统一一堆任务，并且**输入是可选的**——有内参就用内参，有位姿就用位姿，什么都没有也能跑。尺度由单独预测的全局因子给出。
+- **Depth Anything 3** (2511.10647, ByteDance)：反向做减法——不要特制架构、不要四个 head，**一个 plain transformer + 单一的 depth-ray 预测目标**就够了。论文在作者自建的基准上报告相对 VGGT 的**平均相对提升**：相机位姿 44.3%、几何 25.1%。**开源权重。**
+- **VGGT-Ω** (2605.15195, CVPR 2026 Oral)：把 VGGT 的**训练显存**降到 30%，并把训练用的**有监督数据**扩到 15×（这是两件事，不是"同一预算下的等价交换"），能力扩到**动态场景**（VGGT 系原本假设静态）。它预测 depth 与相机。**权重未确认。**
+
+| 模型 | 输入视图 | 主要输出 | 需要位姿输入？ | metric？ | 权重 |
+| --- | --- | --- | --- | --- | --- |
+| **DUSt3R** (2312.14132) | 2（多视图靠全局对齐拼） | pointmap + 置信度 | 否 | 否（up-to-scale） | 开源权重 |
+| **MASt3R** (2406.09756) | 2 | pointmap + 稠密局部特征 | 否 | 是（metric 数据训练） | 开源权重 |
+| **VGGT** (2503.11651) | N，一次前向 | 相机 / depth / pointmap / track | 否 | 否 | 开源权重（非商用许可） |
+| **Fast3R** (2501.13928) | N，示范 1000+ | pointmap（相机后处理恢复） | 否 | 否 | 开源权重 |
+| **CUT3R** (2501.12387) | 流式逐帧（含单图） | pointmap + 位姿 + 持久状态 | 否 | 是 | 开源权重 |
+| **π³** (2507.13347) | N，置换等变 | pointmap + 相机 | 否 | 否 | 开源权重 |
+| **MapAnything** (2509.13414) | N，其余输入可选 | 因子化 metric 表示 | 可选（有就用） | 是 | 开源权重 |
+| **Depth Anything 3** (2511.10647) | N | depth-ray → 位姿 / 几何 | 否 | — | 开源权重 |
+| **VGGT-Ω** (2605.15195) | N，含动态场景 | depth + 相机 | 否 | 否 | 权重未确认 |
+
+**MV-DUSt3R+** (2412.06974) 是 DUSt3R → 多视图的另一条过渡路线（multi-view decoder block + 跨参考视图融合）；这一族的系统梳理见综述 arXiv:2507.08448。
+
+### 7.4　Feed-forward 3DGS
+
+上面这条线在回归几何，另一条线在回归**可渲染的 3DGS**——把 §4 里那 10-30 分钟的逐场景优化也换成一次前向。**注意这条线对输入位姿的要求并不统一**：
+
+- **LGM** (2402.05054, Tang 2024 ECCV)：非对称 U-Net 吃 4 张多视图图像，**每个像素直接吐一个 3D Gaussian**，几秒出资产。这 4 张图来自**预设的固定环绕相机位姿**，由上游多视图生成模型按这套位姿出图。
+- **GS-LRM** (2404.19702)：把 LRM 的 transformer 换成输出 Gaussian 参数——**per-pixel Gaussians**，输入 patch token 进、Gaussian 出，**2-4 张已标定位姿的视图**，A100 上 **0.23 秒**。这是"LRM 出 triplane"到"LRM 出 3DGS"的转折点（LRM 见 §8.3）。
+- **Long-LRM** (2410.12781)：把输入推到 **32 张 960×540 的已标定视图**，在 A100 上约 **1 秒**内重建整个房间级场景——相对逐场景优化约 **800×** 加速，质量与优化方法相当甚至更好。后续 Long-LRM++ (2512.10267)。
+- **DepthSplat** (2410.13862, CVPR 2025)：把预训练单目深度特征接进多视图 Gaussian 预测，让 depth 和 splatting 互相促进——深度先验补上了稀疏视图下最缺的那部分约束。输入同样是**已标定**的多视图。
+- **NoPoSplat** (2410.24207)：**Gaussian 网络本身不需要位姿输入**——它把**第一张输入图的相机系直接定义为 canonical space**，所有 Gaussian 都吐在那里，内参以 token 注入。注意"pose-free"限定在这个网络上：要渲染目标视角、要评测，仍然有一个单独的位姿估计流程。
+- **AnySplat** (2505.23716)：未标定图集进去，**Gaussians + 内参 + 外参**一起出来——几何回归那条线和 3DGS 回归这条线在这里合流。
+
+> ⚠️ **别把 feed-forward 3DGS 当成 3DGS 的替代品** — 它换掉的是"逐场景优化"这一步，不是 3DGS 表示本身；输出仍然是 Gaussian，仍然按 §4.3 光栅化，**也仍然可以接着优化**。谁的质量更高要看设定：Long-LRM 在它的房间级设定下报告与逐场景优化相当或更好，视图很密时优化通常仍占优。取舍见 Q15。
+
+## §8 Single-Image / Few-View 3D 生成
 
 更实用的设定：**给一张图，生成 3D**。
 
-### 7.1　Zero-1-to-3 范式（novel view via diffusion）
+### 8.1　Zero-1-to-3 范式（novel view via diffusion）
 
 **Zero-1-to-3** (Liu 2023 ICCV)：用 Objaverse 上 finetune Stable Diffusion，让它接收 (input view, target camera) → output novel view。
 
@@ -612,7 +760,7 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 - **SyncDreamer** (Liu 2024 ICLR)：在 latent 上**联合**预测多视图（cross-attention 让 views 看到彼此），保证 3D 一致
 - **MVDream** (Shi 2024 ICLR)：text-to-multi-view，4 视图同时生成；后接 SDS 精化
 
-### 7.2　One-2-3-45 / InstantMesh / TripoSR / Stable Fast 3D
+### 8.2　One-2-3-45 / InstantMesh / TripoSR / Stable Fast 3D
 
 | 方法 | 输入 | 输出 | 速度 | 关键 |
 | --- | --- | --- | --- | --- |
@@ -624,64 +772,124 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 
 **LRM (Hong et al. 2023 arXiv → ICLR 2024) 设定**：把图当 token + Plucker ray embedding，transformer 输出 NeRF triplane。这是 TripoSR / InstantMesh 的母模型。
 
-### 7.3　LRM Triplane 表示（**面试高频**）
+### 8.3　LRM Triplane 表示（**面试高频**）
 
 - **Triplane** (Chan 2022 EG3D)：3 个轴对齐 2D 平面（XY, YZ, XZ），共 $3 \times C \times N \times N$ 维
 - 查询 3D 点 $(x, y, z)$：在每个平面双线性插值 → **三个平面特征逐元素相加**（EG3D 是 sum，不是 concat）→ 小 MLP → $(\sigma, \mathbf{c})$
 - 优点：比 voxel grid 显存少（$O(N^2)$ vs $O(N^3)$），比 hash grid 更 dense 适合 transformer 输出
 - LRM / TripoSR / InstantMesh 都让 transformer 直接 regress triplane tokens
 
-## §8 3D Foundation Models（2024 开源浪潮）
+## §9 3D Foundation Models（2024–26 开源浪潮）
 
-### 8.1　Trellis (Microsoft 2024, 开源)
+### 9.1　TRELLIS：SLAT 与两阶段 rectified flow
 
-**Trellis** (Xiang 2024 arXiv) 是首个尝试做"3D 的 Stable Diffusion"开源工作。
+**TRELLIS** (Xiang 2024, arXiv:2412.01506, Microsoft) 是"3D 的 Stable Diffusion"这条路线上最完整的开源尝试，也是面试里最该讲清楚的那一个——因为它的 latent 设计直接决定了它的工程形态。
 
-- **Structured Latent (SLAT)**：把 3D 资产编码到 voxel 上的稀疏 latent grid——既保留空间结构（适合 sparse conv / sparse attention），又紧凑（仅 active voxel 存 latent）
-- **3D VAE**：把 mesh + texture (signed distance field 派生) → SLAT
-- **Flow matching prior**：在 SLAT 上跑 rectified flow，conditioned on text/image
-- **多 decoder**：从 SLAT decode 出 NeRF / 3DGS / mesh 三种表示（同一 latent，可选输出格式）
-- **训练数据**：Objaverse-XL 子集 + 内部高质量集
-- **效果**：text-to-3D / image-to-3D，几秒到几十秒，质量超过 SDS 系列
+**SLAT (Structured LATents)** 的定义：
 
-### 8.2　Hunyuan3D-1 / -2 (Tencent 2024-25, 开源)
+$$\boldsymbol z=\{(\boldsymbol z_i,\boldsymbol p_i)\}_{i=1}^{L},\qquad \boldsymbol p_i\in\{0,1,\dots,N-1\}^3,\quad N=64$$
 
-**Hunyuan3D** 走 **shape-then-texture** 两阶段路线。
+即"**latent 向量 + 它所在的体素坐标**"的集合。$N=64$ 是体素分辨率（$64^3\approx 2.6\times10^5$ 个格子），而 $L\approx 20\text{K}$ 是**被占用的 active voxel 数**，约 8% 的占用率。
 
-- **Hunyuan3D-1** (Yang 2024 arXiv)：
-  - Stage 1: text/image → multi-view image (Zero-1-to-3 系)
-  - Stage 2: multi-view → 3D mesh (LRM-like reconstructor)
-  - 几秒到几十秒输出 textured mesh
-- **Hunyuan3D-2** (Tencent 2025, arXiv 2501.12202)：
-  - **Hunyuan3D-DiT**：geometry-only DiT 在 SDF latent 上生成 mesh
-  - **Hunyuan3D-Paint**：multi-view PBR texture diffusion，UV space refinement
-  - 高质量 PBR texture（实战可用于游戏 / VR 资产）
-- **开源**：HuggingFace 上完整权重 + 推理代码
+**分工要说准**：$\boldsymbol p_i$ 只确定**稀疏支撑**——资产的物质分布在哪些格子里，粒度就是 $64^3$；真正的**细几何和外观都编码在 $\boldsymbol z_i$ 里**，否则 64 分辨率的体素根本表达不出锐边和曲面。$\boldsymbol z_i$ 的来源是：把每个 active voxel 投影到多视图渲染图上，在 **DINOv2 特征图**里采样并聚合，再由一个 sparse VAE 压缩。所以 SLAT 从一开始就是**几何与外观联合编码**的。
 
-### 8.3　CLAY (Zhang 2024 SIGGRAPH, arXiv:2406.13897)
+**两阶段 rectified flow**（顺序不能反）：
 
-- **多分辨率 VAE + latent DiT**：3D shape VAE 把 mesh 编码到 neural field latent，再在 latent 上跑 DiT diffusion（区别于 3DShape2VecSet，Zhang et al. 2023, arXiv:2301.11445，那是一个单独的 vector-set 表示工作）
-- 大规模训练（Objaverse-XL + 内部清洗集）
-- 输出 SDF → marching cubes → mesh
-- 加 PBR texture stage（类似 Hunyuan3D-2）
+1. **Structure 阶段**：先生成"哪些体素是 active"，即稀疏结构 $\{\boldsymbol p_i\}$ 本身。
+2. **Latent 阶段**：在已确定的 active voxel 上生成 $\{\boldsymbol z_i\}$。
+
+拆成两段的直接收益是第二阶段只在约 20K 个 token 上跑 flow，而不是 $64^3\approx262\text{K}$ 个格子上——**先定骨架再填内容，省掉的是被跳过的那 92% 空格子的注意力与前向计算**。
+
+**多 decoder**：同一份 SLAT 训了三个 decoder，分别出 **3DGS / Radiance Field / Mesh**（mesh 走的是 FlexiCubes，不是朴素 marching cubes，见 §5.2）。
+
+模型规模 **342M / 1.1B / 2B**，训练数据是从四个公开数据集（Objaverse(-XL)、ABO、3D-FUTURE、HSSD）筛出的**约 50 万件**资产。**开源权重。**
+
+**TRELLIS.2** (2512.14692) 是它的后继。它的 Sparse Compression VAE 以 **O-Voxel** 为**原生表示**——稀疏体素同时携带几何与 PBR 材质；VAE 把 O-Voxel 压成更紧凑的 latent，**三个 flow model** 在压缩 latent 上分工生成，mesh 走自己的 dual-grid 转换。**权重未确认。**
+
+### 9.2　Hunyuan3D 家族：2.0 → 2.1 → 2.5 → Omni / Studio / Buffalo
+
+Hunyuan3D 走 **shape-then-texture** 两阶段路线，是国内开源生态里迭代最快的一条线。
+
+- **Hunyuan3D-1** (Yang 2024)：stage 1 文/图 → 多视图（Zero-1-to-3 系），stage 2 多视图 → mesh（LRM-like）。
+- **Hunyuan3D 2.0** (2501.12202)：**Hunyuan3D-DiT**——ShapeVAE 把点云编成 **vecset 形状 latent**，在这个 latent 上做 **flow matching**，解码出 SDF；**Hunyuan3D-Paint** 做多视图贴图 diffusion + UV 空间 refine，输出的是 RGB 贴图。**开源权重。**
+- **Hunyuan3D 2.1** (2506.15442)：**PBR 材质生成是这一版才进主线的**，同时公开**训练代码**——后一条对想复现的人比版本号重要得多。
+- **Hunyuan3D 2.5** (2506.16504)：几何模型换成 **LATTICE，10B 参数**，细节和锐边明显改善。**权重未确认。**
+- **Hunyuan3D-Omni** (2509.21245)：可控生成——除了图像/文本，还接受 **位姿 / bounding box / 体素** 作为控制信号。**权重未确认。**
+- **Hunyuan3D Studio** (2509.12815)：面向生产管线的资产化工具链（重拓扑、UV、贴图整合）。**权重未确认。**
+- **Hunyuan3D Buffalo 1.0** (2608.02711)：把**生成、理解、编辑**统一进一个模型。**权重未确认。**
+
+> ⚠️ **没有 "Hunyuan3D 3.0"** — 这条线是 2.0 → 2.1 → 2.5 之后直接分叉成 Omni / Studio / Buffalo 的命名体系。面试里被问"最新版本"时说成 3.0，会当场暴露是从二手摘要里背的。
+
+### 9.3　latent 表示这条轴：CLAY / Direct3D / Dora / Step1X-3D
+
+把这几个工作按发布时间排没有意义，按 **latent 表示与解码目标**排才是面试要的结构。
+
+- **CLAY** (Zhang 2024 SIGGRAPH, 2406.13897)：**多分辨率 VAE + latent DiT**。它的 shape VAE 在 **3DShape2VecSet** (Zhang et al. 2023, arXiv:2301.11445) 的 vector-set 表示上扩展而来（属于 VecSet 谱系），DiT 在这个 latent 上做 diffusion，**解码出 occupancy field**，再 marching cubes 取表面，后面接 PBR 贴图阶段。
+- **Direct3D** (2405.14832)：D3D-VAE 把 mesh 编到**显式 triplane latent**，D3D-DiT 在 triplane 上做 diffusion。triplane 的好处是 2D 卷积/注意力的整套工程直接复用，坏处是三个平面的投影歧义（细长结构在某个平面上会重叠）。
+- **Direct3D-S2** (2505.17412)：换成**稀疏体素 latent** + **spatial sparse attention (SSA)**，把 **1024³** 分辨率的训练压到 **8 张 GPU** 上跑得动。论文报告的 3.9× 前向 / 9.6× 反向是 **SSA 算子相对 FlashAttention-2 的加速**，不是整个模型的端到端倍数。
+- **Dora** (2412.17808, CVPR 2025)：走 **VecSet** 路线，改的是采样与注意力——**Sharp Edge Sampling** 把采样预算倾斜到几何锐边上，再配 **dual cross-attention**。结果是 Dora-VAE 只用 **1,280 个 latent code**，就在 Dora-bench 上达到与稠密的 XCube-VAE 相当的重建质量（后者需要 >10,000）。**latent 数量下降一个数量级，直接决定了后面 DiT 的序列长度。开源权重。**
+- **Step1X-3D** (2505.07747)：几何走 **VecSet latent，解码为 TSDF** 的 hybrid VAE-DiT，配 **200 万**件清洗后的资产（从 500 万+筛出）；几何与贴图两阶段的代码、权重与训练流程全部开源（Apache-2.0）。**开源权重。**
+- **Meta AssetGen 2** (2605.26137)：闭源产品线，在其 H100 部署上把单资产生成压到约 **30 秒**，主打生产可用性而非论文指标。
 
 **Rodin** (Microsoft 2023, 商业)：早期 text-to-3D-avatar 产品级系统，diffusion on triplane，主打 character / avatar。
 
-### 8.4　对比表
+### 9.4　对比表：latent 表示才是那条轴
 
-| 方法 | 表示 | Prior | 训练规模 | 开源 |
+| 方法 | **latent 表示** | 解码目标 | Prior | 权重 |
 | --- | --- | --- | --- | --- |
-| **Trellis** | Structured Latent (SLAT) + 多 decoder | Rectified Flow | Objaverse-XL 子集 | ✅ |
-| **Hunyuan3D-2** | SDF latent (Shape DiT) + UV texture diff | Diffusion | 内部大规模集 | ✅ |
-| **CLAY** | 多分辨率 VAE latent (latent DiT) | Diffusion | Objaverse-XL + 内部 | 部分 |
-| **Rodin** | Triplane | Diffusion | 商业内部 | ❌ |
-| **TripoSR / SF3D** | NeRF/mesh feedforward | 无 prior，纯 regression | Objaverse 类 | ✅ |
+| **TRELLIS** | **SLAT**（稀疏体素支撑 + per-voxel latent） | 3DGS / 场 / mesh（FlexiCubes） | Rectified Flow ×2 | 开源权重 |
+| **TRELLIS.2** | SC-VAE 压缩 latent（原生表示为 **O-Voxel**，几何 + PBR） | mesh（dual-grid）+ PBR | Flow ×3 | 权重未确认 |
+| **Hunyuan3D 2.0 / 2.1** | **VecSet**（ShapeVAE 形状 latent） | SDF → mesh；贴图另起一阶段 | Flow matching | 开源权重 |
+| **Hunyuan3D 2.5** | VecSet（LATTICE 10B） | SDF → mesh | Diffusion | 权重未确认 |
+| **CLAY** | **VecSet 谱系**（多分辨率，扩展自 3DShape2VecSet） | occupancy → mesh | Diffusion (DiT) | 部分 |
+| **Direct3D** | **Triplane** | 隐式场 → mesh | Diffusion (DiT) | — |
+| **Direct3D-S2** | **稀疏体素** + SSA | 高分辨率隐式场 → mesh | Diffusion | — |
+| **Dora** | **VecSet**（1,280 codes，Sharp Edge Sampling） | 隐式场 → mesh | VAE + DiT | 开源权重 |
+| **Step1X-3D** | **VecSet** | **TSDF** → mesh | Diffusion | 开源权重 |
+| **TripoSR / SF3D / LRM** | **Triplane**（前馈 regress，无 prior） | NeRF / mesh | 无 | 开源权重 |
+| **Rodin** | Triplane | avatar | Diffusion | ❌ |
 
-> 💡 **架构选择直觉** — 大 scene / general object 用 **Trellis 风格 SLAT**（保留空间结构）；高质量 single mesh 用 **CLAY 风格 latent DiT**（多分辨率 VAE latent，global attention）；快速推理用 **LRM/TripoSR feedforward**（不做 diffusion，直接 regress）。
+「权重」列只在已核实处写"开源权重"，"权重未确认"表示没找到官方发布，"—"表示本文未核实。
 
-## §9 复杂度 / 资源对比
+> 💡 **这条轴真正决定什么** — 三种 latent **都能按坐标查询解码**：triplane 用投影 + 双线性插值 + 逐元素相加（§8.3），VecSet 用查询坐标对 latent 集合做 cross-attention，SLAT 按体素位置取。所以"能出几种格式"是**各家训了哪些 decoder** 的结果，不是表示本身的禁令——TRELLIS 一口气训了三个，别家只训了 mesh 那条路。表示真正决定的是**计算和显存摆在哪里**：SLAT / 稀疏体素把 latent 挂在显式稀疏支撑上，局部计算和按位置匹配的解码最顺手；VecSet 没有空间索引，但集合本身很小（Dora 压到 1,280），全连接注意力也不贵，代价是丢掉了局部性；triplane 复用 2D 工程最省事，代价是分辨率一上去平面显存就涨。**稠密 token 一样可以上窗口化 / 稀疏注意力**——Direct3D-S2 的收益来自稀疏支撑让被跳过的那部分计算真的不存在，而不是"只有稀疏表示配得上稀疏注意力"。
 
-| 方法 | 训练 | 推理 (一帧) | 显存 (训练) | 显存 (模型) |
+### 9.5　原生 mesh 生成：为什么美术不要等值面提取的输出
+
+上述方法的 mesh 输出主要来自**两条不同的路**：从场里提等值面——朴素的 marching cubes（§5.1）或 FlexiCubes 这类可微变体（§5.2，TRELLIS 用的就是它）；或者像 TRELLIS.2 那样从 **O-Voxel 直接做 dual-grid 转换，根本不经过场**。**两条路的问题都不在提取质量而在拓扑**：三角形的排布跟着提取网格或体素网格走，不跟着形状的结构走。UV 能展、能简化、能做 LOD——这些都不是做不到，FlexiCubes 这类方法也能相当程度地保住锐边。难受的是**输出不保证具有适合编辑、绑骨和形变的边流**：没有沿轮廓和折痕组织的 edge loop，手工改形和蒙皮都别扭，减面也得跟原有三角化对抗而不是顺着它走。美术手工建的 mesh（**artist-created mesh**）通常只有几百到几千面，每条边都贴着几何特征。
+
+于是有了**原生 mesh 生成**：不提等值面、不做体素转换，**直接自回归地吐出面片序列**。这条线的主线是 **token 压缩**——序列长度 = 面数 × 每面 token 数，而 transformer 是平方复杂度。基线是**朴素序列的 9 个坐标 token / 面**（3 顶点 × 3 坐标），下面几篇都在跟这个 9 比；到 Meshtron 则换了思路，用架构去扛长序列而不是继续压 token。
+
+- **MeshGPT** (2311.15475)：开山之作。用图卷积编码 + **残差量化**把每个面压成 **6 个码本 token**，再用 decoder-only transformer 自回归生成。
+- **MeshAnything** (2406.10163)：加**形状条件**——先用任意方法（重建、生成）得到一个粗形状，再让 AR 模型按这个形状"重新建模"成 artist-style mesh。面数相对等值面提取的输出少**几百倍**。
+- **MeshAnything V2** (2408.02555)：提出 **Adjacent Mesh Tokenization (AMT)**——利用相邻面共享顶点，一个面在多数情况下只需编码**一个新顶点**而非三个，token 数**约为朴素序列的一半**，可生成面数上限翻倍。
+- **BPT** (2411.07025)：Blocked and Patchified Tokenization，**块索引**（坐标拆成块号 + 块内偏移）加上**patch 内的顶点共享**，相对**朴素序列**缩短 **约 75%**，把可生成面数推过 **8K**。
+- **TreeMeshGPT** (2503.11629, CVPR 2025)：把面片序列换成沿**邻接树**的自回归——解码时从一个"待扩展边"的栈里取边并向外长面。压缩后的序列长度**约为原始的 22%**（≈ 2 token / 面，而不是"少 22%"）。它还在序列构造里约束面的定向，**明显减少法线翻转**（不等于完全省掉后处理）。
+- **Meshtron** (2412.09548)：不压 token，硬扛长序列——**hourglass 架构 + 滑动窗口注意力**，做到 **64K 面 @ 1024 坐标分辨率**。**权重未确认。**
+- **DeepMesh** (2503.15265)：在 AR mesh 生成上接 **DPO**，用偏好数据把"人类觉得好的拓扑"直接写进目标——mesh 生成里第一批 post-training 工作。
+
+> ⚠️ **2026 年的反向潮流：Nexus** — Nexus (2607.13563) 的批评针对自回归本身：**逐 token 生成会让前面的错误顺着序列往后传**，而这个任务天生要长序列，压缩只是把序列变短，没有消除这条传播路径。它改成**由粗到细的顶点八叉树 diffusion**先定出顶点集合，再用 **topology embedding** 恢复边与面，因此不存在逐 token 的误差传播。代价也要说：**论文自己指出推理偏慢**——所以被问"AR 做 mesh 的问题"时答"慢"并不算错，只是没答到误差传播这一层。
+
+### 9.6　部件级与 sim-ready：从"缺部件的整体"到能用的资产
+
+生成出来的资产通常**缺少显式的部件和关节结构**。机器人要抓的抽屉、要转的轮子、要按的按钮，在输出里不是可以单独寻址的东西——仿真器没法给它们分配质量、摩擦、关节。这是 3D 生成离 Embodied AI 落地最近、也最卡的一环。
+
+**第一步：拆成部件。** 这一簇的四个工作路线不同但目标一致：
+
+- **PartGen** (2412.18608)：多视图 diffusion → 部件级分割 + **补全被遮挡的部分**（分割出来的部件本身是不完整的，必须生成式补全）。
+- **HoloPart** (2504.07943)：把它形式化成 **3D part amodal segmentation**——把整体 mesh 分解成语义完整的部件，每个部件补成独立闭合体。
+- **PartCrafter** (2506.05573)：不做"先整体再拆"，而是在生成时就**联合去噪多个部件**——部件之间的空间关系在联合训练里学到，而不是靠后处理对齐。
+- **PartPacker** (2506.09980, NVIDIA)：**dual volume packing**，把多个部件打包进两个体积场里一次生成，避开了"部件数不定"给网络输出维度带来的麻烦。
+
+**第二步：几何 → 部件 → 关节 → 材质 → URDF。** 拆完部件只解决了几何，离 sim-ready 还差三步：部件之间是什么**关节**（revolute / prismatic / fixed）、轴在哪、限位多少；每个部件的**物理材质**（质量、摩擦、恢复系数）；最后打包成仿真器读得懂的 **URDF / MJCF**。
+
+- **EmbodiedGen** (2506.10600)：目前把这条链路走得最完整的开源工作之一，直接产出带物理属性的 **URDF 资产**，接 IsaacSim / MuJoCo。
+- **Artiverse** (2605.24403)：**5.4K 件铰接物体 / 88 类**。对照系是 PartNet-Mobility 的 **2,346** 件——铰接资产的规模仍在千级，Artiverse 把它推高了一倍多，但离几何那一层的百万级差着三个数量级。
+
+> 💡 **面试怎么答这一节** — 别背论文名。这一节的结构是"**一个问题被切成五段，每段的数据供给差得很远**"：几何有 Objaverse-XL 级的规模所以做得最好，部件级刚有 PartGen / HoloPart 这批方法，关节级的资产从 PartNet-Mobility 的 2,346 件到 Artiverse 的 5.4K 件都还是千级，物理材质基本还靠手工指定。**说得出哪一段是瓶颈，比列出十篇论文有用。**
+
+## §10 复杂度 / 资源对比
+
+| 方法 | 训练 | 推理耗时 | 运行显存（注明阶段） | 模型 / 表示规模 |
 | --- | --- | --- | --- | --- |
 | NeRF vanilla | 1-2 天 | 数秒 | 8 GB | <10 MB MLP |
 | Instant-NGP | 5 秒 - 5 分钟 | 30 fps+ | 4-12 GB | 100-500 MB hash |
@@ -691,27 +899,29 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 | DreamGaussian (3DGS+SDS) | 2 分钟 / 物体 | — | 8-16 GB | — |
 | ProlificDreamer (VSD) | 3-6 hr / 物体 | — | 24 GB | — |
 | TripoSR feedforward | 训练 50 GPU 天 | 0.5 秒 (A100) | inference 6 GB | 1.5 GB |
-| Trellis | 训练 100+ GPU 天 | 数秒 | inference 16 GB | 数 GB |
-| Hunyuan3D-2 | 训练大集群 | 数十秒 | inference 24+ GB | 多模型组合 |
+| GS-LRM / Long-LRM（前馈 3DGS） | 大规模多视图训练 | 0.23 秒 / 约 1 秒（32 视图 960×540） | — | — |
+| VGGT（前馈重建） | 大规模多视图训练 | 秒级 / N 张图一次前向 | — | ~1B 参数 |
+| TRELLIS | 训练 100+ GPU 天 | 数秒 | inference 16 GB | 数 GB |
+| Hunyuan3D 2.0 / 2.1 | 训练大集群 | 数十秒 | inference 24+ GB | 多模型组合 |
 
-## §10 与相关方法对比 & Embodied AI 应用
+## §11 与相关方法对比 & Embodied AI 应用
 
-### 10.1　3D-vs-2D 生成关键区别
+### 11.1　3D-vs-2D 生成关键区别
 
 | 维度 | 2D 生成 (Stable Diffusion) | 3D 生成 |
 | --- | --- | --- |
-| **数据量** | LAION-5B 50亿图 | Objaverse-XL 1000万件（小 500×） |
+| **数据量** | LAION-5B 50亿图 | Objaverse-XL (2307.05663) 1000万件（小 500×） |
 | **数据格式** | 图像（统一 RGB） | mesh / SDF / point cloud / NeRF / 3DGS（**碎片化**） |
-| **训练 prior** | 直接 train diffusion | 用 2D diffusion 蒸馏 (SDS / Zero-1-to-3) **或** 用 3D-native diffusion (Trellis / CLAY) |
+| **训练 prior** | 直接 train diffusion | 用 2D diffusion 蒸馏 (SDS / Zero-1-to-3) **或** 用 3D-native diffusion (TRELLIS / CLAY) **或** 纯前馈 regression (LRM / VGGT) |
 | **评测** | FID, CLIP score | Chamfer / IoU / PSNR (recon) + perceptual + user study |
 | **下游** | 直接出图 | 出资产 → 渲染 / 仿真 / 编辑 |
 
-### 10.2　Embodied AI / AR / VR 实战路线
+### 11.2　Embodied AI / AR / VR 实战路线
 
 | 任务 | 推荐表示 | 关键工具链 / 约束 |
 | --- | --- | --- |
-| **Sim2Real 资产** | mesh (PBR) | Trellis / Hunyuan3D-2 → IsaacSim / MuJoCo |
-| **室内大场景** | 3DGS | COLMAP → 3DGS（chunk-wise 用 VastGS / CityGS） |
+| **Sim2Real 资产** | mesh (PBR) | TRELLIS / Hunyuan3D 2.1 → IsaacSim / MuJoCo；要能动的资产还差部件 / 关节 / 物理材质（§9.6） |
+| **室内大场景** | 3DGS | COLMAP → 3DGS（chunk-wise 用 VastGS / CityGS）；位姿也可由 VGGT 系给（§12.1） |
 | **NeRF/3DGS as simulator** | NeRF / 3DGS + physics | DreamGaussian-Sim / Splatting Physics |
 | **3D affordance / manipulation** | point cloud / 3DGS feature | OpenScene / LERF / RVT / 3D Diffuser Actor |
 | **AR 物体扫描** | 3DGS（光照真实 + 实时）| mobile 算力（PostShot / Luma），剪枝 / 量化 |
@@ -721,13 +931,22 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 
 > ⚠️ **Embodied AI 面试追问示例** — "做 NeRF 物理仿真器最大挑战？" 要点：NeRF 是 radiance，没 mass / friction → 需手动叠物理 prior；mesh 提取有 floater → 碰撞检测难；可微但 backward 慢；**业界更多用 3DGS / mesh 而非 vanilla NeRF**。
 
-## §11 工程实战 & 易踩坑
+## §12 工程实战 & 易踩坑
 
-### 11.1　COLMAP / SfM 前处理（重建必经）
+### 12.1　COLMAP 还是 feed-forward？
 
-输入多视图 → 输出内参 $K$ + 外参 $\{R_i, t_i\}$ + 稀疏点云；标准流程 SIFT → matching → incremental SfM → bundle adjustment。**常见坑**：texture-less / 镜面物体 SfM 失败；动态物体污染外参。
+COLMAP：输入多视图 → 输出内参 $K$ + 外参 $\{R_i, t_i\}$ + 稀疏点云；标准流程 SIFT → matching → incremental SfM → bundle adjustment。**常见坑**：texture-less / 镜面物体 SfM 失败；动态物体污染外参。
 
-### 11.2　数值稳定（NeRF/3DGS 通用）
+§7 之后这一步不再是"重建必经"，但也远没到可以删掉。要点是几条**条件性**的判断，不是谁替代谁：
+
+- **精度看条件，不看牌子。** COLMAP 在纹理和重叠都够的静态场景上很强；但**单目 SfM 本身是 up-to-scale 的**——绝对尺度要靠标定物、已知基线或其他传感器，COLMAP 不自带。
+- **基准的真值口径不统一。** 有些重建基准的位姿确实由 COLMAP 生成，另一些用传感器真值或合成数据。想跟哪条基线比，就对齐它用的那套口径，别一概说成"基准就是 COLMAP"。
+- **Feed-forward 模型给的是秒级而不是小时级**，而且在 COLMAP 吃力的地方仍然出结果：低重叠、视图很少、texture-less。注意**内参未知不是 COLMAP 的失败条件**——它可以自标定，只是更容易漂。
+- **两者对接是有工程量的。** **VGGT-X** (2509.25191) 这篇存在本身就是证据：把 VGGT 的输出直接喂给大规模 3DGS 训练，需要额外处理显存、点云噪声与位姿精度才跑得动，不是"换个位姿来源"这么轻。
+
+> 💡 **实际怎么选** — 按拍摄条件、时间预算和**实测精度**选：静态、纹理够、离线、要对齐某个已有基准的口径 → COLMAP；在线、视图少或重叠差 → feed-forward；两个都想要 → feed-forward 出初值，再用 BA / COLMAP 精修。尺度要单独想：DUSt3R 式训练与 VGGT 都不保证是米，单目 COLMAP 同样不保证；要真实尺度就得引入标定物、已知基线或 metric 模型（§7.3），而**学出来的 metric 尺度不等于测量级精度**。
+
+### 12.2　数值稳定（NeRF/3DGS 通用）
 
 | 问题 | 症状 | 修复 |
 | --- | --- | --- |
@@ -738,9 +957,9 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 | SDS Janus | 多视角脸 / 头 | 加 view-conditioning（"front view" / "back view"）；MVDream |
 | SDS over-sat | 颜色饱和 | CFG 降低；改用 VSD；或 negative prompt |
 
-### 11.3　多机分布式 & 评测指标
+### 12.3　多机分布式 & 评测指标
 
-**分布式**：NeRF / Instant-NGP / 3DGS 单 GPU 标准；大场景 3DGS 用 chunk-wise (VastGaussian, CityGaussian)；SDS/VSD 每 iter 跑 2 次 SD forward，8×A100 可显著提速；Trellis / Hunyuan3D 训练是大规模 multi-node DDP。
+**分布式**：NeRF / Instant-NGP / 3DGS 单 GPU 标准；大场景 3DGS 用 chunk-wise (VastGaussian, CityGaussian)；SDS/VSD 每 iter 跑 2 次 SD forward，8×A100 可显著提速；TRELLIS / Hunyuan3D 训练是大规模 multi-node DDP。
 
 | 评测指标 | 用途 | 算法 |
 | --- | --- | --- |
@@ -748,9 +967,12 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 | **Chamfer Distance** | mesh 几何 | 两点云最近邻距离平均 |
 | **F-Score (3D)** | mesh / point | precision + recall under threshold |
 | **CLIP Score / CLIP-R-Prec** | text-to-3D 对齐 | render → CLIP 相似度 / 区分干扰 prompt |
+| **ULIP / ULIP-2 对齐分数** | 3D ↔ 图像 ↔ 文本 语义对齐 | 在三模态共享空间里算相似度（ULIP 2212.05171 / ULIP-2 2305.08275；ULIP-2 用大模型自动生成语言描述，免掉人工标注） |
 | **User study** | 最终质量 | MTurk / lab-internal |
 
-## §12 25 高频面试题
+**常用评测集**：**GSO** (Google Scanned Objects, 2204.11918) 1000+ 件真实扫描物体，是 single-image-to-3D 最常用的评测集；**Toys4K** (2101.07296) 约 4K 件 / 105 类，类别多样性好，常用于 few-shot 与部件级实验；**Objaverse-XL** (2307.05663) 1000 万+ 件，绝大多数工作把它当训练来源。**数据集本身不自带"训练集/测试集"身份**——同一批资产在这篇是训练数据、在那篇是评测数据都很常见，所以看到一个分数先问它的 split 是怎么切的，泛化结论只在那个 split 上成立。
+
+## §13 25 高频面试题
 
 按难度分 3 档（L1 必会 / L2 进阶 / L3 顶级 lab）。每题点开看答案要点 + 易踩坑。
 
@@ -978,19 +1200,21 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 
 <details>
 
-<summary>Q15.VSD 如何缓解 SDS 的 over-saturation？</summary>
+<summary>Q15.Feed-forward 3DGS vs 逐场景 3DGS 优化：800× 什么时候不值得？</summary>
 
-- SDS：拉向 prior $p_\phi$ 的 mode；需 CFG=100 强化 → over-saturation
+- **两条线各赢在哪**：feed-forward（GS-LRM 2-4 张已标定视图 0.23 秒 / Long-LRM 32 视图 960×540 约 1 秒）赢在延迟和稀疏视图下的鲁棒性；逐场景优化（§4，10-30 分钟）赢在能把这一个场景的每一张观测都榨干。**谁质量更高是条件性的**——Long-LRM 在它的房间级设定下报告与逐场景优化相当甚至更好，视图很密时优化通常仍占优
 
-- **VSD**：把 3D 参数 $\theta$ 视为 random variable $\mu(\theta)$，最小化 KL(rendered dist || prior)
+- **不值得的情况之一：视图密且离线**——几十到上百张图、不赶时间，优化能持续收敛，而 feed-forward 的先验在观测不足处是"编"出来的
 
-- 引入**辅助 score** $\epsilon_\psi$（LoRA 微调 SD）跟踪当前 $\mu$ 的 score
+- **不值得的情况之二：落在训练分布之外**——这些模型多在物体级 / 房间级数据上训，遇到训练里没覆盖的拍摄条件（尺度、材质、光照）就要靠猜，优化则只信眼前这批图。注意"室外"本身不等于分布外，要看具体模型训过什么
 
-- gradient = $(\epsilon_\phi - \epsilon_\psi)\cdot \partial x/\partial \theta$ —— **relative score**，不需大 CFG
+- **值得的情况**：交互 / 在线；视图极少（2-8 张）时优化本身欠约束，先验是净收益；批量跑上万个场景时总吞吐比单场景画质重要
 
-- $\epsilon_\psi$ 是 KL 目标对 $\theta$ 求导后 $q$ 分布自身 score 对应的必要项（丢了会退化回 SDS），不是只减方差的 RL actor-critic value baseline
+- **工业界的实际做法**：feed-forward 出初值 + 优化精修——前馈输出的 Gaussian 就是一组普通 Gaussian，**可以接着训**，等于拿掉了优化最慢的冷启动那一段
 
-说 VSD 用 "variational" 但讲不清 $\epsilon_\psi$ 替代 raw noise 的角色。
+- **换掉的是优化不是表示**：输出仍然是 Gaussian，仍按 §4.3 光栅化
+
+把 800× 当成通用倍数——那是 Long-LRM 在它自己的设定（32 视图 960×540、A100）下相对逐场景优化的加速，换个视图数、分辨率或硬件就不是这个数。
 
 </details>
 
@@ -1044,17 +1268,21 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 
 <details>
 
-<summary>Q19.LRM 系列（TripoSR / InstantMesh）核心？</summary>
+<summary>Q19.新采集一批数据，用 COLMAP 还是 VGGT？</summary>
 
-- **Triplane** 表示：3 个轴对齐 2D 平面，$O(N^2)$ 显存
+- **先问四件事**：拍摄条件（纹理、重叠、有没有动态物体）、要多快出结果、下游要不要绝对尺度、要不要和某个已有基准的位姿口径对齐
 
-- Transformer 把图像 token + Plucker ray embedding → regress triplane tokens
+- **COLMAP**：成熟、可控，在纹理和重叠都够的静态场景上精度高，失败模式集中在 texture-less / 强镜面 / 动态 / 低重叠。**注意两点**：内参未知不等于它就跑不动（它可以自标定，只是更容易漂）；而且它**不是总能明显地失败**——图全都注册上了、重投影误差也不大，位姿照样可能是错的，该做的一致性检查一样得做
 
-- 推理 feedforward（无 SDS / 无 iterative 优化），**秒级出 3D**（TripoSR ~0.5 秒、InstantMesh ~10 秒）
+- **VGGT 系**（§7）：秒级、不依赖已标定内参、对重叠宽容得多。失败模式是**一直有输出但精度不保证**，同样需要自己验
 
-- TripoSR (Stability+Tripo 2024) / InstantMesh (Xu 2024) / SF3D (2024) 都属此族
+- **尺度**：DUSt3R 式训练（预测与 GT 双边归一化）默认 up-to-scale，VGGT 只归一化 GT——两者输出都不保证是米。**单目 SfM 同样是 up-to-scale**，COLMAP 本身也不自带绝对尺度。要真实尺度：外部标定物、已知基线的双目/多传感器，或 MapAnything (2509.13414) 这类单独预测全局尺度的模型——但**学出来的 metric 尺度和测量级精度不是一回事**
 
-把它们当成 SDS 系列——错，LRM 完全 feedforward；不算 distillation。
+- **基准口径**：有些重建基准的位姿确实来自 COLMAP，另一些用传感器真值或合成数据。想和哪条基线比，就对齐它用的那套口径
+
+- **组合解**：feed-forward 出初值 → BA / COLMAP 精修；或先跑 VGGT 看能不能出结构，再决定值不值得等 COLMAP
+
+答"VGGT 已经全面取代 COLMAP"，或反过来"COLMAP 精度总是更高"。该按拍摄条件、速度预算和**实测精度**来选。VGGT-X (2509.25191) 是个具体提醒：把 VGGT 输出接到大规模 3DGS 需要额外工程，衔接不是免费的。
 
 </details>
 
@@ -1078,114 +1306,111 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 
 <details>
 
-<summary>Q21.手推 NeRF 离散 $\alpha$-compositing。</summary>
+<summary>Q21.推导 DUSt3R 的置信度加权损失，并解释 $-\alpha\log C$ 这一项。</summary>
 
-- ODE $dT/dt = -\sigma(t) T(t)$，初值 $T(t_n) = 1$ → $T(t) = \exp(-\int_{t_n}^t \sigma\,ds)$
+- **输出约定**：两个 head 都输出 pointmap $X^{1,1}, X^{2,1}$，**都在 $I^1$ 的相机系下**。位姿由 $X^{2,1}$ 与 $I^2$ 像素之间的 2D-3D 对应解 PnP 得到，**不是"把两张 pointmap 配准"**——它们本来就在同一个系里
 
-- 段内 $[t_i, t_{i+1}]$ 上 $\sigma$ 常数 $= \sigma_i$，所以 $T(t_{i+1}) = T(t_i)e^{-\sigma_i\delta_i}$
+- **回归项**：对有效像素 $i\in\mathcal{D}^v$，$\ell_{\text{regr}}(v,i)=\lVert \tfrac{1}{z}X^{v,1}_i-\tfrac{1}{\bar z}\bar X^{v,1}_i\rVert$——是欧氏范数，**不是平方误差**
 
-- 段间累积 $T_i = T(t_i) = \prod_{j<i} e^{-\sigma_j\delta_j} = \prod_{j<i}(1 - \alpha_j)$，其中 $\alpha_j = 1 - e^{-\sigma_j\delta_j}$
+- **尺度归一化**：$z=\text{norm}(X^1,X^2)=\frac{1}{\lvert\mathcal{D}^1\rvert+\lvert\mathcal{D}^2\rvert}\sum_v\sum_{i}\lVert X^v_i\rVert$，所有有效点到原点的平均距离，两张图**一起**算。除以它 → 损失对整体缩放不变 → DUSt3R 式训练默认 up-to-scale。要绝对尺度有别的做法，MapAnything 是一种：保留这种尺度不变的几何监督、**另外单独预测一个全局尺度**。归一化方式另论——VGGT 只归一化 GT，学的仍是归一化后的尺度
 
-- 段内颜色贡献 $\int_{t_i}^{t_{i+1}} T(t)\sigma_i\mathbf{c}_i\,dt = \mathbf{c}_i T_i \int_0^{\delta_i}\sigma_i e^{-\sigma_i s}ds = T_i\mathbf{c}_i(1 - e^{-\sigma_i\delta_i}) = T_i\alpha_i\mathbf{c}_i$
+- **置信度形式**：$\mathcal{L}_{\text{conf}}=\sum_v\sum_i\big[\,C^{v,1}_i\,\ell_{\text{regr}}(v,i)-\alpha\log C^{v,1}_i\,\big]$，$C=1+\exp(\check C)\gt 1$。论文把 $-\alpha\log C$ 称为**正则项**
 
-- 合成 $C \approx \sum_i T_i\alpha_i \mathbf{c}_i$
+- **去掉 $\log$ 项**：$f(C)=C\ell$ 对 $C$ 单调不减，最优把 $C$ 推到定义域下界 $C\to 1$，**逐像素损失退回普通回归损失 $\ell$**。几何照样在学，退化的只是置信度 head——它变成常数、不携带信息
 
-- **关键**：$\alpha_i = 1 - e^{-\sigma_i\delta_i}$ 严格 vs $\alpha_i \approx \sigma_i\delta_i$ 一阶近似（在 $\sigma\delta \ll 1$ 时一致）
+- **保留 $\log$ 项、对 $C$ 取下确界**（优化消元，不是概率意义的边缘化）：$f'(C)=\ell-\alpha/C$，$\ell\lt \alpha$ 时驻点 $C^\star=\alpha/\ell\gt 1$ 落在定义域内，$\ell\ge\alpha$ 时 $f'\gt 0$、下确界仍在 $C\to1^+$：
 
-省略 ODE 推导直接套结论；或在 $\sigma\delta$ 大时用 $\sigma_i\delta_i$ 替 $\alpha_i$ 出错。
+  $$\inf_{C\gt 1}f(C)=\begin{cases}\alpha+\alpha\log(\ell/\alpha), & 0\lt \ell\lt \alpha\\[2pt] \ell, & \ell\ge\alpha\end{cases}$$
 
-</details>
+- **结论要说准**：只有 $\ell\lt \alpha$ 那一段被换成对数形状，**$\ell\ge\alpha$ 的大残差仍然线性计入**——它不是把 outlier 压下去的鲁棒损失。$\alpha$ 就是这条分界线：残差小于 $\alpha$ 时抬高 $C$ 才划算（换来负的 $\alpha\log(\ell/\alpha)$），所以 $C$ 学到的是"这个像素我算得准不准"；天空、反光、动态物体这些算不准的地方，$C$ 停在 1 附近拿不到奖励
 
-<details>
-
-<summary>Q22.Instant-NGP hash collision 如何被 MLP 自动消歧？</summary>
-
-- **冲突发生场景**：fine level 的格点数 $N_\ell^d > T$（hash 表大小），多个格点映到同一 entry
-
-- **稀疏激活**：场景大部分 voxel 是 background，**仅 surface 附近 voxel 有非零监督梯度**——冲突的"两个 background entry"得不到信号，互不污染
-
-- **多分辨率冗余**：粗 level $N_\ell^d \le T$ 保证 unique；细 level 提供 detail。即使细 level 冲突，粗 level 的非冲突特征已唯一识别该点
-
-- **MLP 后处理**：tiny MLP 在 $L\times F$ 拼接特征上学非线性融合，遇到冲突 entry 时可以用**其他 level 的非冲突特征 disambiguate**
-
-- **梯度自动调节**：训练时高梯度自然集中在 surface entry；冲突 entry 若同时在表面（罕见）会被 loss 推到妥协位置（取多次采样平均）
-
-- **物理直觉**：与其代价昂贵地搞 perfect hash，不如允许冲突 + 用数据驱动 implicit 消歧（"lazy collision resolution"）
-
-说"哈希冲突由 MLP 解决"但讲不清是哪些 mechanism（稀疏性 + 多尺度 + MLP 非线性）共同作用。
+答成"边缘化掉置信度就得到对数鲁棒损失"：一是这是取下确界的优化消元不是积分边缘化，二是只有 $\ell\lt \alpha$ 半段是对数，大残差那半段是线性的。另一个失分点是说"去掉 log 项几何就学不动了"——去掉之后 $C\to 1$，损失正好退回普通回归损失。
 
 </details>
 
 <details>
 
-<summary>Q23.推导 3DGS 3D→2D 协方差投影 Jacobian。</summary>
+<summary>Q22.VGGT 用一个 backbone 预测四种量——联合训练为什么赢过专才？DA3 的"一个 depth-ray 目标就够"又说明了什么？</summary>
 
-- World → Camera：刚体变换 $\mathbf{x}_\text{cam} = W\mathbf{x} + t$；协方差只受旋转影响，$\Sigma_\text{cam} = W\Sigma W^\top$
+- **四个 head 要说准**：camera（外参 + 内参）、depth（每张图的稠密深度）、point map（公共系下的 3D 点）、track（**给定查询像素，预测同一物理点在每张图上的 2D 位置**——是 2D 对应，不是"跨视图 3D 轨迹"）
 
-- Camera → Screen：透视投影 $\pi(x, y, z) = (f_x x/z, f_y y/z)$ 非线性
+- **联合训练的理由**：四个目标共享同一套几何——depth 加 camera 就能得到点云，点的跨图 2D 投影就是 track。它们互相约束，backbone 被逼着学一个自洽的 3D 表示；单任务模型没有别的 head 来暴露它的不自洽
 
-- 在均值 $\mu_\text{cam}$ 处一阶 Taylor：$\pi(\mathbf{x}) \approx \pi(\mu_\text{cam}) + J(\mathbf{x} - \mu_\text{cam})$，$J = \partial\pi/\partial\mathbf{x}|_{\mu_\text{cam}}$
+- **VGGT 自己的观察**：论文报告**推理时用 depth head + camera head 组合出的点云，比 point map head 直接输出更准**。这是一条实验观察，**不能直接推出"多任务的收益一定落在共享表示而不在那个 head"**；它稳妥的含义是：训练时用哪些监督目标、推理时走哪条路径，是两个可以分开做的决定
 
-- $J = \begin{pmatrix} f_x/z & 0 & -f_x x/z^2 \\ 0 & f_y/z & -f_y y/z^2 \end{pmatrix} \in \mathbb{R}^{2\times 3}$
+- **DA3 (2511.10647) 的减法**：不要四个 head、不要特制架构，**plain transformer + 单一 depth-ray 预测目标**，在作者自建的基准上报告相对 VGGT 的平均相对提升——位姿 44.3%、几何 25.1%
 
-- $\text{Cov}[\pi(\mathbf{x})] = J\Sigma_\text{cam} J^\top = JW\Sigma W^\top J^\top \in \mathbb{R}^{2\times 2}$
+- **怎么读这个对比**：两篇的数据、训练规模、评测集都不同，**跨论文的分数差不能证明是哪一种监督机制带来的收益**。能站得住的读法是：至少存在一种配置，单一预测目标就足以覆盖位姿与几何，说明 head 数量本身不是必要条件；要证因果得看同一篇里的消融
 
-- 这是 EWA splatting (Zwicker 2001) 的经典推论；3DGS 直接沿用
+- **能补一句加分**：depth + ray 在信息上已经张成了位姿与点云，所以多 head 更像是把同一份信息拆开监督，代价是多出架构与损失权重的调参面
 
-- 实际实现还加 $0.3 I$ low-pass filter（anti-aliasing）
-
-不会做一阶 Taylor 把非线性投影线性化；或漏了 World→Cam 那步。
+只说"多任务 = 更多监督 = 更好"；或反过来拿 DA3 的分数当"多任务无用"的证明——那是跨论文比较，撑不起因果结论。
 
 </details>
 
 <details>
 
-<summary>Q24.SDS gradient 丢掉哪项 Jacobian？为什么"反而 work"？</summary>
+<summary>Q23.AR mesh 生成的 token 预算：AMT / BPT / 树序列化各压掉了什么？为什么压到极限也还不够？</summary>
 
-- **Naive diffusion training gradient**：
+- **基线**：朴素序列 = 每个三角形 3 顶点 × 3 坐标 = **9 个坐标 token / 面**。序列长度 = 面数 × 每面 token 数，transformer 平方复杂度，所以 token 数直接换算成"最多能生成多少面"
 
-  $\nabla_\theta \mathcal{L}_\text{diff} = \mathbb{E}[w(t)\cdot 2(\epsilon_\phi - \epsilon)\cdot \underbrace{\partial \epsilon_\phi/\partial x_t}_{\text{U-Net Jacobian}}\cdot \alpha_t \cdot \partial x/\partial\theta]$
+- **MeshGPT** (2311.15475)：图卷积编码 + **残差量化**，每个面压成 **6 个码本 token**（不是 9——9 是它要打败的朴素基线）
 
-- **SDS** 扔掉 U-Net Jacobian $\partial \epsilon_\phi/\partial x_t$：
+- **AMT**（MeshAnything V2, 2408.02555）压的是**顶点重复**：相邻面共享顶点，多数面只需编码**一个新顶点**而非三个 → 序列长度约为朴素的**一半**
 
-  $\nabla_\theta \mathcal{L}_\text{SDS} = \mathbb{E}[w(t)(\epsilon_\phi - \epsilon)\cdot \partial x/\partial\theta]$
+- **BPT** (2411.07025) 压的是**坐标表示**：**块索引**（坐标拆成块号 + 块内偏移）加上 **patch 内的顶点共享**，相对**朴素序列**缩短 **约 75%**，面数推过 **8K**
 
-- **为什么扔掉 reasonable**：
-  - U-Net Jacobian 计算昂贵（H×W×3 输入 → H×W×3 输出的 second-order）
-  - U-Net 没训练 second-order 稳定，Jacobian 数值差
-  - $(\epsilon_\phi - \epsilon)$ 本身就是 score 的代理（$\epsilon_\phi/\sigma_t \approx -\nabla_{x_t}\log p_\phi$），扔掉 Jacobian 相当于用 first-order score 信号
+- **TreeMeshGPT** (2503.11629) 压的是**面片排列顺序**：沿邻接树自回归，从"待扩展边"的栈里取边向外长面。压缩后长度**约为原始的 22%**（≈ 2 token / 面）——注意是"剩 22%"不是"少 22%"。它还在序列构造里约束定向，**明显减少法线翻转**，但不等于完全免掉后处理
 
-- **代价**：SDS 数学上等价 mode-seeking KL（往 prior 的 mode 跑），加大 CFG (100) 才能逃出 mean-blur
+- **算一下 64K 面的 token 预算（L3 常追到这里）**：朴素 9/面 → 约 **576K** token；AMT 约一半 → 约 **288K**；树序列化 ≈2/面 → 约 **128K**。**压到最好仍是十万量级**，超出常规上下文，平方注意力也扛不住
 
-- **症状**：over-saturation（颜色饱和）+ Janus（多视角同一面孔）+ over-smoothing（细节糊）
+- **所以 Meshtron (2412.09548) 走的是另一条路**：不指望压缩把序列变短到"塞得下"，而是让十万级序列本身可训——**hourglass 架构**在中段降采样 token，**滑动窗口注意力**把平方复杂度截断，做到 **64K 面 @ 1024 坐标分辨率**
 
-只说"为简化扔了 Jacobian"，不解释 mode-seeking 后果 + 为什么需要大 CFG。
+- **Nexus (2607.13563) 的批评是针对自回归本身**：逐 token 生成会让前面的错误顺着序列往后传，压缩只是缩短序列，没有消除这条路径。它改成**由粗到细的顶点八叉树 diffusion** 先定顶点集合，再用 **topology embedding** 恢复边与面，因此不存在逐 token 的误差传播；代价是**论文自己说推理偏慢**
+
+把 "22%" 读成"少了 22%"（实际是剩下 22%），或把 MeshGPT 说成 9 token/面（那是它的基线）。另一个失分点：把"压缩"当成解决方案的终点——分别采用这些方案时，最好的也还在十万级 token（各家的压缩率不相乘），Meshtron 靠的是架构而不是更狠的 tokenizer。
 
 </details>
 
 <details>
 
-<summary>Q25.VSD 为什么能在小 CFG 下避免 over-saturation？</summary>
+<summary>Q24.SLAT / VecSet / triplane 三种 3D latent，各自的架构取舍是什么？</summary>
 
-- **SDS 视角**：把 $\theta$ 当点估计；gradient 拉向 $p_\phi(\cdot|y)$ mode；大 CFG 让 mode 更尖 → over-saturation
+- **先破一个常见误答**：三种 latent **都能按坐标查询解码**——triplane 是投影到三个平面双线性插值再逐元素相加（§8.3），VecSet 是拿查询坐标对 latent 集合做 cross-attention，SLAT 是按体素位置取。所以"能出几种格式"是**各家训了哪些 decoder** 的结果，不是表示本身的禁令
 
-- **VSD 视角**：把 $\theta$ 当 random variable $\mu(\theta)$；**最小化的是渲染加噪图像分布**之间的 KL：$\mathbb{E}_t[D_\text{KL}(q_\mu^t(x_t|y) \,\|\, p_\phi^t(x_t|y))]$（不是直接在 $\theta$ 域上对一个 3D prior 求 KL）
+- **SLAT**（TRELLIS, 2412.01506）：$\boldsymbol z=\{(\boldsymbol z_i,\boldsymbol p_i)\}$，$N=64$ 体素分辨率、$L\approx 20\text{K}$ active voxel（约 8% 占用率）。$\boldsymbol p_i$ 只给**稀疏支撑**，细几何与外观都在 $\boldsymbol z_i$ 里。显式支撑让局部计算和按位置匹配的解码最顺手，TRELLIS 因此训了 3DGS / 场 / mesh 三个 decoder；代价是要多一个"生成结构"的阶段
 
-- 引入**辅助 score** $\epsilon_\psi$（用 LoRA 微调 Stable Diffusion）跟踪当前 rendered 分布的 score
+- **VecSet**（3DShape2VecSet / Hunyuan3D ShapeVAE / Dora / Step1X-3D）：**无序 latent 集合，没有空间索引**。好处是集合可以很小——Dora (2412.17808) 用 Sharp Edge Sampling + dual cross-attention 压到 **1,280 codes**，在 Dora-bench 上与稠密的 XCube-VAE 相当（后者 >10,000）；序列短意味着后面的 DiT 便宜。代价是丢掉了局部性：同一份 latent 里没有"这块在哪"的结构可用
 
-- **VSD gradient**：
+- **Triplane**（EG3D / Direct3D 2405.14832 / LRM）：三个**稠密** 2D 平面，最大优势是 2D 卷积与注意力的整套工程直接复用；代价是分辨率一上去平面本身的显存就涨，而且轴对齐投影有歧义（细长结构在某个平面上重叠）
 
-  $\nabla_\theta \mathcal{L}_\text{VSD} = \mathbb{E}[w(t)(\epsilon_\phi - \epsilon_\psi)\cdot \partial x/\partial \theta]$
+- **解码目标也是一条轴**：CLAY 出 occupancy field，Hunyuan3D-DiT 与 Dora 出隐式场，Step1X-3D 出 **TSDF**，TRELLIS 走 FlexiCubes 出 mesh。同是 VecSet，解码目标可以完全不同
 
-  即 **relative score**（target prior score $-$ current rendered score）
+- **关于稀疏注意力的正确说法**：**稠密 token 一样可以上窗口化 / 稀疏注意力**。Direct3D-S2 (2505.17412) 的收益来自稀疏支撑让被跳过的那部分计算**真的不存在**；它报告的 3.9× / 9.6× 是 **SSA 算子相对 FlashAttention-2** 的加速，不是整模型的端到端倍数
 
-- **几何直觉**：从"我现在在哪"指向"prior 在哪"——是局部"梯度方向"而非全局 mode；不需大 CFG 锐化
+说"VecSet 只能出 mesh""triplane 谈不上稀疏注意力"——这两句都不成立，前者是 decoder 选择问题，后者稠密 token 也能做。另一个失分点是把 SLAT 说成"就是体素网格"：体素只是 $\boldsymbol p_i$，$\boldsymbol z_i$ 是把 active voxel 投进多视图 DINOv2 特征图采样再压缩来的。
 
-- **不是 RL baseline**：$\epsilon_\psi$ 是 KL 目标对 $\theta$ 求导后 $q$ 分布自身 score 对应的必要成分，丢掉它会把梯度目标退化回 SDS 的 mode-seeking（改变期望梯度方向），不是 RL actor-critic 中只减方差、不改变期望梯度的 value baseline
+</details>
 
-- **效果（ProlificDreamer）**：CFG 可降至 7.5，颜色自然；几何更细；可维护多 mode（多样性）
+<details>
 
-只说"VSD 引入变分推断"不讲 $\epsilon_\psi$ 角色 + relative gradient 视角。
+<summary>Q25.π³ 的置换等变修掉了参考视图锚定的什么毛病？NoPoSplat 的 canonical frame 又为什么不同？</summary>
+
+- **参考视图锚定是什么**：DUSt3R 把所有 pointmap 放进 $I^1$ 的相机系，VGGT 一族同样要指定一张图当公共坐标原点
+
+- **它坏在哪**：(1) 结果依赖"选了哪张"——同一批图换个顺序，输出就变，这是不该有的方差；(2) 参考图退化时，它仍然被当作全局基准。**注意不要编造"误差沿到参考图的距离累积"**：VGGT 这类是所有视图联合预测，不存在逐跳串联的链条
+
+- **π³ (2507.13347) 的置换等变到底是什么**：$f(PX)=P f(X)$——它是对**排列行为**的约束。它确定性地消除的是**参考选择依赖和输入顺序依赖**，**不等于**"对坏视图不敏感"。π³ 报告的鲁棒性提升来自它的实验结果，不是从等变性直接推出来的
+
+- **比较不同参考系下的两个重建时**：先把坐标变换对齐再比几何，否则量到的是"换了个系"而不是"几何变差了"
+
+- **NoPoSplat (2410.24207) 反过来，故意保留锚定**：把**第一张输入图的相机系直接定义成 canonical space**，所有 Gaussian 都吐在那里，内参以 token 注入。它的"pose-free"限定在 Gaussian 网络本身
+
+- **为什么不矛盾——两者治的病不同**：π³ 要的是**不依赖任何特定视图**（几何重建，视图之间本无主次）；NoPoSplat 要的是**不依赖位姿估计这一步**（稀疏视图下先估位姿再重建会传播误差，干脆用一个固定约定替掉）
+
+- **L3 追问：canonical frame 和尺度是两件事，三个区分要说清**：(1) **选参考系只固定原点与坐标轴**，本身不决定尺度；(2) **已知内参也消不掉全局尺度自由度**——基线未知时，把场景与基线同比例缩放得到完全相同的图像，尺度不可观测；(3) NoPoSplat 的新视角评测**不是"先做尺度对齐"**，而是**固定 Gaussian、优化目标相机位姿**。顺带一提，AnySplat (2505.23716) 联合出内外参解决的是标定与配准，**同样不给绝对尺度**
+
+把 "pose-free" 和 "reference-free" 当同义词：NoPoSplat 是 pose-free 但**不是** reference-free，它的 canonical frame 恰恰就是一个被特权化的参考视图。
 
 </details>
 
@@ -1193,7 +1418,7 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 
 ### A.1　完整 from-scratch 代码包含
 
-`volume_render()` (NeRF α-compositing 含数值稳定) · `positional_encoding()` (γ(p) Fourier features) · `gaussian_splat_forward()` (3DGS 教学版前向 + 投影 Jacobian) · `densify_and_prune()` (3DGS densification 启发式) · `sds_loss()` (SDS gradient surrogate) · `marching_cubes_sketch()` (mesh 提取接口，用 scikit-image)。
+`volume_render()` (NeRF α-compositing 含数值稳定) · `positional_encoding()` (γ(p) Fourier features) · `gaussian_splat_forward()` (3DGS 教学版前向 + 投影 Jacobian) · `densify_and_prune()` (3DGS densification 启发式) · `sds_loss()` (SDS gradient surrogate) · `dust3r_conf_loss()` (DUSt3R 置信度加权 pointmap 损失，含尺度归一化与 metric 开关) · `marching_cubes_sketch()` (mesh 提取接口，用 scikit-image)。
 
 ### A.2　关键论文 reading list
 
@@ -1202,12 +1427,17 @@ $$\boxed{\;\nabla_\theta \mathcal{L}_\text{VSD} \;=\; \mathbb{E}_{t,\epsilon}\Bi
 - **Mesh / SDF**：Shen **DMTet** NeurIPS 2021 / **FlexiCubes** SIGGRAPH 2023.
 - **SDS 系**：Poole **DreamFusion** arXiv 2022.09 → ICLR 2023 Outstanding; Wang **ProlificDreamer (VSD)** NeurIPS 2023 Spotlight; Lin **Magic3D** CVPR 2023; Chen **Fantasia3D** ICCV 2023; Tang **DreamGaussian** ICLR 2024; Yi **GaussianDreamer** CVPR 2024.
 - **Single-image 3D**：Liu **Zero-1-to-3** ICCV 2023 / **One-2-3-45** NeurIPS 2023 / **SyncDreamer** ICLR 2024; Shi **Zero-1-to-3++** arXiv 2023 / **MVDream** ICLR 2024; Hong **LRM** arXiv 2023.11 → ICLR 2024; Tochilkin **TripoSR** arXiv 2024; Xu **InstantMesh** arXiv 2024; Boss **Stable Fast 3D** arXiv 2024.
-- **3D Foundation Models**：Xiang **Trellis** arXiv 2024 (Microsoft); Tencent **Hunyuan3D-2** arXiv 2501.12202 (2025); Zhang **CLAY** SIGGRAPH 2024.
+- **3D Foundation Models**：Xiang **TRELLIS** 2412.01506 (Microsoft) / **TRELLIS.2** 2512.14692; Tencent **Hunyuan3D 2.0** 2501.12202 / **2.1** 2506.15442 / **2.5** 2506.16504 / **Omni** 2509.21245 / **Studio** 2509.12815 / **Buffalo 1.0** 2608.02711; Zhang **CLAY** SIGGRAPH 2024 (2406.13897); **Direct3D** 2405.14832 / **Direct3D-S2** 2505.17412; **Dora** 2412.17808 (CVPR 2025); **Step1X-3D** 2505.07747; Meta **AssetGen 2** 2605.26137.
+- **Feed-forward 重建**：**DUSt3R** 2312.14132 (CVPR 2024) / **MASt3R** 2406.09756; **VGGT** 2503.11651 (CVPR 2025 Best Paper); **Fast3R** 2501.13928 (CVPR 2025); **CUT3R** 2501.12387; **π³** 2507.13347; **MapAnything** 2509.13414 (3DV 2026); **Depth Anything 3** 2511.10647; **VGGT-Ω** 2605.15195 (CVPR 2026 Oral); **MV-DUSt3R+** 2412.06974; **VGGT-X** 2509.25191; 综述 2507.08448.
+- **Feed-forward 3DGS**：**LGM** 2402.05054; **GS-LRM** 2404.19702; **Long-LRM** 2410.12781 / **Long-LRM++** 2512.10267; **DepthSplat** 2410.13862 (CVPR 2025); **NoPoSplat** 2410.24207; **AnySplat** 2505.23716.
+- **原生 mesh 生成**：**MeshGPT** 2311.15475; **MeshAnything** 2406.10163 / **V2** 2408.02555; **BPT** 2411.07025; **TreeMeshGPT** 2503.11629 (CVPR 2025); **Meshtron** 2412.09548; **DeepMesh** 2503.15265; **Nexus** 2607.13563.
+- **部件级 / sim-ready**：**PartGen** 2412.18608; **HoloPart** 2504.07943; **PartCrafter** 2506.05573; **PartPacker** 2506.09980 (NVIDIA); **EmbodiedGen** 2506.10600; **Artiverse** 2605.24403.
+- **数据集 / 评测**：**Objaverse-XL** 2307.05663（1000 万+）; **GSO** 2204.11918（真实扫描物体）; **Toys4K** 2101.07296（约 4K 件 / 105 类）; **ULIP** 2212.05171 / **ULIP-2** 2305.08275（3D-图像-文本对齐）.
 
 ### A.3　Embodied AI / AR / VR 常见追问
 
-3DGS 接物理引擎 → 先 2DGS / SuGaR 提 mesh → IsaacSim / MuJoCo；NeRF 动态化 → 4DGS / D-NeRF / K-Planes；AR 实时 3DGS → mobile-friendly (PostShot, Luma) + 剪枝 / 量化；3D 数据不足 → Objaverse-XL (Trellis) 或 2D 蒸馏 (DreamFusion 系) 或 multi-view 启发式 (MVDream)。
+3DGS 接物理引擎 → 先 2DGS / SuGaR 提 mesh → IsaacSim / MuJoCo；NeRF 动态化 → 4DGS / D-NeRF / K-Planes；AR 实时 3DGS → mobile-friendly (PostShot, Luma) + 剪枝 / 量化；3D 数据不足 → Objaverse-XL (TRELLIS) 或 2D 蒸馏 (DreamFusion 系) 或 multi-view 启发式 (MVDream)；扫一批图重建 → 先 VGGT 出结构再决定要不要等 COLMAP（§12.1）；生成资产要进仿真器 → 光有 mesh 不够，还缺部件、关节、物理材质（§9.6）。
 
 ---
 
-**3D Generation Quick Reference** · 主要参考：Mildenhall 2020 (NeRF), Müller 2022 (Instant-NGP), Kerbl 2023 (3DGS), Poole 2022/ICLR 2023 (DreamFusion), Wang 2023 (VSD), Xiang 2024 (Trellis), Tencent 2025 (Hunyuan3D-2). 涵盖：NeRF 体渲染推导、Instant-NGP hash 网格、3DGS 投影 Jacobian、SDS / VSD 梯度推导、single-image 3D、3D foundation models。Embodied AI / AR / VR 必备。
+**3D Generation Quick Reference** · 主要参考：Mildenhall 2020 (NeRF), Müller 2022 (Instant-NGP), Kerbl 2023 (3DGS), Poole 2022/ICLR 2023 (DreamFusion), Wang 2023 (VSD), Wang 2024 (DUSt3R), Wang 2025 (VGGT), Xiang 2024 (TRELLIS), Tencent 2025-26 (Hunyuan3D 2.x / Omni / Buffalo). 涵盖：NeRF 体渲染推导、Instant-NGP hash 网格、3DGS 投影 Jacobian、SDS / VSD 梯度推导、DUSt3R 置信度加权损失、feed-forward 重建与 feed-forward 3DGS、single-image 3D、3D foundation models 的 latent 表示轴、原生 mesh 生成、部件级与 sim-ready 资产。Embodied AI / AR / VR 必备。
