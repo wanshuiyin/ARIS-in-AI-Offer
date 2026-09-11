@@ -1,91 +1,45 @@
-## §0 心智模型 + TL;DR Cheat Sheet
+## §0 Block 的基本组成
 
-**Transformer block 不是一个公式，而是一套分层装配的规则。** 面试里大量混淆（"Pre-LN 是 Post-LN 的下一代""MQA→GQA→MLA 是一条升级链""decoder-only 只是 decoder 去掉一部分"）都来自把这套分层规则压缩成了一个线性时间轴。先立好心智模型：残差流 $x_l$ 依次穿过两三个**子层**（attention、FFN，原始 encoder-decoder 还多一个 cross-attn），默认是**串行**依赖——FFN 读到的是 attention 更新之后的残差流（parallel 是例外，见下）：
+Transformer block 用残差连接组织 attention 和 FFN。串行结构中，FFN 读取 attention 更新后的残差流；并行结构中，两者没有先后依赖。原始 encoder-decoder 的 decoder 层还包含 cross-attention。归一化、KV 共享和模型结构各有不同选择。
 
-```text
-残差流 x_l
-  │
-  ├─▶ [归一化槽位: Pre／Post／branch pre+post] → Attention 槽位（自注意力/交叉注意力，
-  │     MHA/GQA/MQA/MLA，±RoPE，±QK-Norm，全局/局部窗口）→ [归一化槽位] ──▶ ADD 回残差流
-  │     得到中间态 u = x_l + Attn(N(x_l))
-  │
-  u ─▶ [归一化槽位] → FFN 槽位（Dense GELU / Gated SwiGLU / MoE）→ [归一化槽位] ──▶ ADD 回残差流
-  │     （串行默认：FFN 读 u，不是 x_l；parallel 变体：FFN 和 attention 都读同一份 N(x_l)，不读 u）
-  │
-残差流 x_{l+1}
-```
+- **一个 block 的定义只包含它自己的子层**：final norm、local/global 交替、dense/MoE 层排布由堆栈装配代码决定，不属于任何一层 block。
+- **GPT-2 已经是 Pre-LN**：从 GPT-2-style 到 Llama-style，真正改的是归一化类型、位置编码的归属、FFN 结构和 KV head 配置。
+- **MHA、MQA、GQA、MLA 是并存的设计点**：历史顺序是 MHA→MQA→GQA，压缩强度顺序是 MHA→GQA→MQA，MLA 是独立的低秩 latent 分支。
+- **KV cache 主要跟着 $n_\text{kv}$ 走，不跟 $n_q$ 走**：MQA/GQA 不减少 Q projection 的计算量。
+- **Dense FFN 和 MoE 是容量轴上的两个选择**：不是"下一代必然替换"的先后关系。
+- **Cross-attn 和 self-attn 唯一的结构差异是 Q/K/V 来源**：其余的 scaled dot-product、多头拆分、softmax 完全一样。
 
-**槽位不是严格正交的独立轴，而是分布在不同层级：先按层级定位设计，层内基本可独立分析；需要单独检查的耦合包括 MLA↔RoPE 拆分、norm 拓扑↔norm 类型的绑定、QK-Norm/attention scale/soft-cap 的整体尺度（尺度约束的正文版见 §7.2），以及 GQA↔投影参数量。**这条总规则全文只说这一次，后文各章节直接写具体耦合事实。用一张分层地图代替“正交轴”：
-
-| 层级 | 典型决策 | 谁来管 |
-| --- | --- | --- |
-| 算子内部 | QKV 投影、RoPE、QK-Norm、head sharing（MHA/GQA/MQA/MLA）、gated FFN | attention/FFN 模块自己 |
-| 单个 block | serial/parallel 依赖图、norm 放置（Pre/Post/branch pre+post）、residual add、branch scaling/gating | block 的 `forward` |
-| stack 调度 | final norm、local/global 交替、哪些层 dense/哪些层 MoE | 堆栈装配代码，不是某一层 block |
-| 模型外壳 | token embedding、外部 absolute PE、weight tying、LM head（含 soft-cap） | 整个模型的输入/输出层 |
-| 执行/适配 overlay | KV cache、FlashAttention、packed projection、量化、LoRA | 部署/微调阶段的执行策略，不改变上面四层的架构语义 |
-
-后文所有"这个选择属于 block 内、stack 级还是模型外壳"的判断，都按这张表定位，不再笼统地说"某个槽位"。
-
-> 💡 **四个残差拓扑公式，一屏记住，全部统一到"完整 block"粒度**（后文 §1–§7 全是这四个公式的具体化；$A$、$M$ 分别是 attention、FFN 子层，$N_1,N_2,N_A,N_M,N_1^{\text{pre}},N_1^{\text{post}},N_2^{\text{pre}},N_2^{\text{post}}$ 都是归一化算子）
->
-> $$\text{Post-LN（Vaswani et al. 2017 原始 Transformer）}:\quad u = N_1\big(x + A(x)\big),\quad y = N_2\big(u + M(u)\big)$$
-> $$\text{Pre-LN 串行（至少 GPT-2 已明确采用，后成为现代 LLM 常见形式）}:\quad u = x + A\big(N_1(x)\big),\quad y = u + M\big(N_2(u)\big)$$
-> $$\text{Pre-LN 并行（GPT-J / PaLM）}:\quad y = x + A\big(N_A(x)\big) + M\big(N_M(x)\big)$$
-> $$\text{branch pre+post（Gemma-2/3）}:\quad u = x + N_1^{\text{post}}\big(A(N_1^{\text{pre}}(x))\big),\quad y = u + N_2^{\text{post}}\big(M(N_2^{\text{pre}}(u))\big)$$
->
-> Post-LN 把归一化套在残差相加之后，主干被反复挤压。Pre-LN 串行给主干留一条纯恒等加法通道，FFN 读的是更新后的流 $u$。Pre-LN 并行去掉先后依赖，attention 和 FFN 读同一份 $x$（parallel 的精确定义见 §7.1.2）。branch pre+post 的第二次归一化只套在分支输出上，主干仍是纯加法，与 Post-LN 不同。注：norm 放置（Post/Pre/branch pre+post）和 serial/parallel 依赖是两个维度，不要合并成一条轴；四种拓扑在 §1 [D02]/[D08] 有可执行的正反面证明。
-
-**12 句话搞定 Transformer Block**：
-
-1. **Block = 残差流 + 分层装配的子层**：attention、FFN 各自的内部变体属于同一层级内的独立选择；encoder-decoder 比 decoder-only 多一个 cross-attn 子层。
-2. **decoder-only：单层是“去掉 cross-attn”，整模型还少了 encoder/memory 路径**：3 子层（masked self-attn、cross-attn、FFN）变 2 子层（causal self-attn、FFN）；完整回答还要补一句——双序列条件生成变成单序列因果建模（§3）。
-3. **GPT-2 已经是 Pre-LN**：从 GPT-2-style 到 Llama-style，真正改的是 LayerNorm→RMSNorm、learned absolute PE→RoPE（挪进 attention 内部）、GELU dense FFN→SwiGLU gated FFN、酌情 MHA→GQA，外加去掉大量 bias/dropout（§3.2、§4）。
-4. **Pre-LN 栈末尾通常配 final norm**：独立增量假设下残差流**方差**约按 $O(l)$ 线性增长（标准差/RMS 才是 $\sqrt l$），不收口直接接输出头训练质量通常明显下降；这是标准 recipe 的常见配置，不是数学上不可或缺（§9 Q11，推导见 normalization_init_tutorial.md §5.3）。
-5. **MHA→MQA→GQA→MLA 不是一条演进链**：历史顺序是 MHA→MQA→GQA，压缩强度顺序是 MHA→GQA→MQA；MLA 是 DeepSeek 系独立的低秩 latent 分支，不接在 KV-head 数轴末端（§5）。
-6. **Dense FFN → MoE 是另一条独立的"容量轴"**：不是"下一代必然替换"——Llama 1–3、原始 Mistral、Gemma 1–3 等代表性模型至今仍多用 dense FFN，但 Mixtral、Llama 4 等已采用 MoE（§6）。
-7. **QK-Norm、logit soft-cap、branch pre+post norm、parallel residual、local/sliding attention 大多可以按需组合**：要单独核对的是 QK-Norm 与 soft-cap 同时使用的整体尺度（§7.2）。
-8. **FFN 参数匹配是算出来的，不是定律**：dense FFN（$8d^2$）与 gated FFN（$3dh$）参数持平时 $h=8d/3$；真实模型按硬件友好倍数舍入后可明显偏离（§4、§1 [D06]）。
-9. **KV cache 主要跟着 $n_\text{kv}$ 走，不跟 $n_q$ 走**：MQA/GQA 减少 K/V 投影的参数、计算和 cache 显存/带宽，但不减少 Q projection 的计算量（§5，完整显存核算见 attention_tutorial.md §6 与 kv_cache_speculative_decoding_tutorial.md §2）。
-10. **现代 recipe 没有完全收敛**：Pre-RMSNorm + RoPE + gated FFN + 推理友好 GQA 只是“较常见”组合；Post-LN 变体、LayerNorm、MHA、MQA、parallel residual、dense FFN、MoE 全部仍在生产环境里使用（§8）。
-11. **Cross-attention 和 self-attention 唯一的结构差异是 Q/K/V 来源**：self-attn 里 Q、K、V 都来自同一条流；cross-attn 里 Q 来自当前流、K/V 来自另一条序列，长度可以不同——除此之外 scaled dot-product、多头拆分、softmax 完全一样，不需要单独一套数学（§2）。
-12. **"packed projection"只是 kernel 层面的等价重排**：把 Q/K/V（或 SwiGLU 的 gate/up）三个 Linear 拼成一个大 Linear 纯粹是实现优化，权重按行拼接后结果在对应精度下应一致，不改变任何架构语义（§1 [D07]）。
-
-> 🎯 **本文范围：只讲"装配"，不重新推导零件内部的数学**
-> softmax attention 的公式推导、FlashAttention 的 IO 复杂度、Xiong/DeepNorm 的梯度论证、MoE 路由/capacity 的完整数学、RoPE 旋转矩阵与 YaRN/NTK/MLA latent algebra、线性注意力推导、量化误差推导、LoRA 低秩公式——这些零件各自的数学在 attention_tutorial.md、normalization_init_tutorial.md、moe_tutorial.md、long_context_rope_yarn_mla_tutorial.md、linear_sparse_attention_tutorial.md、quantization_tutorial.md、lora_peft_tutorial.md 里都有专门篇幅；prefill/decode 的系统性能瓶颈、KV cache 分页/调度见 llm_inference_serving_tutorial.md。本文只关心这些零件**怎么拼成一个 block、怎么从 2017 版一路装配到现代版**，遇到深度数学或系统问题一律给出 1-2 句结论 + 链接，不重复推导。
-
-## §1 Capstone：组装、端到端 forward、参数核算与可执行验证
+## §1 一个现代 block：前向、参数与代码
 
 ### 1.1　组装一个 Llama-3-like block，再换成 MoE
 
-这是全文除 §0 心智模型外的第一个正文章节，直接给答案：一个具体、完整、可跑的现代 decoder-only block 长什么样。下面把各个槽位按“较常见现代组合”实际拼一遍；每个具体选择（RMSNorm、RoPE、GQA、SwiGLU 等）的历史脉络与替代方案见 §2–§7，不先读那些也能看懂这个例子。（严格说这是 “Llama-3-like core block”：要精确复现某个 checkpoint 还需对齐 head 数、KV-head 数、intermediate size、RoPE base、bias 设置、dtype 行为。）
+一个具体、完整、可跑的现代 decoder-only block 长这样：
 
-1. **归一化槽位（block 内）**：Pre-RMSNorm，两次（attention 前一次、FFN 前一次）。
-2. **Attention 槽位**：causal self-attn，Q/K 内部施加 RoPE，$n_q$ 个 query head 分组共享 $n_\text{kv}$ 个 KV head（GQA；$n_\text{kv}=n_q$ 时退化为 MHA，见 §1.4 [D05]），K 旋转后进 cache，V 不旋转，no bias。
-3. **FFN 槽位**：SwiGLU gated FFN，$h \approx 8d/3$ 按硬件倍数取整，no bias。
+1. **归一化**：Pre-RMSNorm，两次，attention 前一次、FFN 前一次。
+2. **Attention**：causal self-attn，Q/K 内部施加 RoPE，$n_q$ 个 query head 分组共享 $n_\text{kv}$ 个 KV head，也就是 GQA，$n_\text{kv}=n_q$ 时退化为 MHA；K 旋转后进 cache，V 不旋转，no bias。
+3. **FFN**：SwiGLU gated FFN，$h \approx 8d/3$ 按硬件倍数取整，no bias。
 4. **单个 block 组装**：$x=x+\text{Attn}_\text{RoPE,GQA}(\text{RMSNorm}(x))$，$x=x+\text{SwiGLU}(\text{RMSNorm}(x))$——这就是**一个 block** 的完整定义，重复 $N$ 次得到整个 decoder stack。
-5. **stack 级收尾（不属于任何一个 block）**：$N$ 个 block 全部堆完之后，再做一次 **final RMSNorm**，才送进 LM head：$x_\text{out} = \text{RMSNorm}\big(\text{Block}_N(\cdots\text{Block}_1(x_0))\big)$。final norm 是 stack 调度层的操作，不是第 1–4 步里任何一个 block 的组成部分（参见 §0 分层地图、§4 的 block-vs-外围边界讨论）。
+5. **stack 级收尾**：$N$ 个 block 全部堆完之后，再做一次 **final RMSNorm**，才送进 LM head：$x_\text{out} = \text{RMSNorm}\big(\text{Block}_N(\cdots\text{Block}_1(x_0))\big)$。final norm 属于堆栈装配，不是第 1–4 步里任何一个 block 的组成部分。
 
-用 §1.4 代码里的教学尺寸把这个 block 的参数量具体算一遍（$d=96$、$n_q=8$、$n_\text{kv}=2$、gated hidden $=256$）：GQA attention 部分 $2d^2(1+n_\text{kv}/n_q)=23{,}040$ 个矩阵参数，SwiGLU FFN 部分 $3dh=73{,}728$ 个矩阵参数，两个 RMSNorm 各只有 $d=96$ 个逐通道缩放参数——单个 block 的矩阵参数合计约 $23{,}040+73{,}728=96{,}768$，FFN 占了绝大部分，这也是为什么"FFN hidden size 怎么选"（§4、§1.3）比"用几个 KV head"对参数总量的影响更大。
+严格说这是 "Llama-3-like core block"：要精确复现某个 checkpoint 还需对齐 head 数、KV-head 数、intermediate size、RoPE base、bias 设置、dtype 行为。用教学尺寸 $d=96$、$n_q=8$、$n_\text{kv}=2$、gated hidden $=256$ 把参数量算一遍：GQA attention 部分 $2d^2(1+n_\text{kv}/n_q)=23{,}040$ 个矩阵参数，SwiGLU FFN 部分 $3dh=73{,}728$ 个矩阵参数，两个 RMSNorm 各只有 $d=96$ 个逐通道缩放参数。单个 block 的矩阵参数合计约 $23{,}040+73{,}728=96{,}768$，FFN 占绝大部分。这也是 FFN hidden size 比 KV head 数更影响参数总量的原因。
 
-**接下来把 FFN 槽位换成 MoE，其余什么都不用动**：
+**把 FFN 换成 MoE，其余什么都不用动**：
 
 $$x=x+\text{Attn}_\text{RoPE,GQA}(\text{RMSNorm}(x)), \qquad x=x+\text{MoEFFN}(\text{RMSNorm}(x))$$
 
-`MoEFFN` 对外的**主激活张量**接口仍是 `[B,T,d] -> [B,T,d]`，`ModernDecoderBlock` 的代码一行不用改（§1.4 [D09] 直接验证）。变的是另外两层契约：训练时通常多返回 router/负载均衡相关的量，分布式部署时通常引入 expert parallelism。三层 contract 的完整拆分见 §6、§9 Q28。
+`MoEFFN` 对外的**主激活张量**接口仍是 `[B,T,d] -> [B,T,d]`，`ModernDecoderBlock` 的代码一行不用改，§1.4 [D09] 直接验证这一点。变的是另外两处：训练时通常多返回 router/负载均衡相关的量，分布式部署时通常引入 expert parallelism。
 
-> ✅ **capstone 小结：一个 block 的 recipe 由哪些字段描述**
-> 归一化拓扑（Post/Pre-serial/Pre-parallel/branch pre+post）+ 归一化类型（LayerNorm/RMSNorm）+ 位置编码方案与归属层级（learned absolute 在堆栈外/RoPE 在 attention 内）+ attention 变体（MHA/MQA/GQA/MLA，是否局部窗口，是否 QK-Norm，attention scale/temperature）+ FFN 变体（dense/gated/MoE，intermediate size）+ bias/dropout/norm epsilon/residual scaling（如 LayerScale，见 §7.1.3）。这覆盖常见面试所需的粗粒度字段，更细粒度的取值（head dim、RoPE base、激活精确实现等）不在此清单。**final norm、local/global 交替、dense/MoE 层排布是 stack 调度层的决定（第 5 步），不要混进单个 block 的定义里。**
+> ✅ **一个 block 的 recipe 由哪些字段描述** — 归一化拓扑，即 Post/Pre-serial/Pre-parallel/branch pre+post；归一化类型 LayerNorm 或 RMSNorm；位置编码方案与归属，learned absolute 在堆栈外、RoPE 在 attention 内；attention 变体 MHA/MQA/GQA/MLA，是否局部窗口，是否 QK-Norm，attention scale/temperature；FFN 变体 dense/gated/MoE 与 intermediate size；bias、dropout、norm epsilon、residual scaling 如 LayerScale。这覆盖常见面试所需的粗粒度字段，更细粒度的取值如 head dim、RoPE base、激活的精确实现不在此清单。
 
-### 1.2　端到端 forward walkthrough：现代 decoder-only block 的完整数据流
+### 1.2　端到端 forward：现代 decoder-only block 的完整数据流
 
-这里是现代 decoder-only block 完整数据流的 walkthrough——历史上 2017 encoder-decoder 版本同等粒度的 walkthrough 见 §2（那是"我们从哪来"的历史脉络，读不读都不影响你现在理解这个 block），用 §1.1 的教学尺寸（$d=96$，$n_q=8$，$n_\text{kv}=2$，gated hidden $=256$）走一遍完整 tensor 流：
+取教学尺寸 $d=96$、$n_q=8$、$n_\text{kv}=2$、gated hidden $=256$。现代 decoder-only block 的完整前向数据流如下：
 
 $$x \in [B,T,d] \;\xrightarrow{\text{RMSNorm}}\; h_1 \;\xrightarrow{\text{Q/K/V 投影 + reshape}}\; Q\in[B,n_q,T,d_h],\;K,V\in[B,n_\text{kv},T,d_h] \;\xrightarrow{\text{RoPE}}\; Q',K' \;\xrightarrow{\text{GQA attention}}\; O\in[B,T,d] \;\xrightarrow{\text{residual add}}\; u = x + O$$
 
 $$u \;\xrightarrow{\text{RMSNorm}}\; h_2 \;\xrightarrow{\text{gate/up 投影}}\; \text{SiLU}(\text{gate}(h_2))\odot\text{up}(h_2) \;\xrightarrow{\text{down 投影}}\; F\in[B,T,d] \;\xrightarrow{\text{residual add}}\; y = u + F$$
 
-这就是单个 block 的完整前向；把这个 block 重复 $N$ 次，最后再套一次 stack 级 final RMSNorm（§1.1 第 5 步），才是完整的 decoder-only 主干：$y_\text{final} = \text{RMSNorm}\big(\text{Block}_N(\cdots(\text{Block}_1(x_0)))\big)$。
+把这个 block 重复 $N$ 次，最后再套一次 stack 级 final RMSNorm，才是完整的 decoder-only 主干：$y_\text{final} = \text{RMSNorm}\big(\text{Block}_N(\cdots(\text{Block}_1(x_0)))\big)$。
 
 这条数据流在三种执行模式下的具体形态不同：
 
@@ -95,15 +49,17 @@ $$u \;\xrightarrow{\text{RMSNorm}}\; h_2 \;\xrightarrow{\text{gate/up 投影}}\;
 | Prefill（推理第一步） | Q、K、V 都是整段 prompt 长度 $S$ | causal mask $[S,S]$ | 写入 cache（K、V 各 $n_\text{kv}$ 份，长度 $S$） | 拿到用户 prompt 后的第一次前向，为后续 decode 建 cache |
 | One-token decode（推理逐步） | Q 长度 $1$（新 token）；K、V 从 cache 里的历史长度 $t$ 增长到 $t{+}1$ | 动态 cache、无 padding/packing 时新 token 对 $0..t$ 全部可见（整行 True）；静态 cache/left padding/packed sequence 仍需额外 mask（见 §9 Q25） | 读旧 cache + 追加新 K/V | 自回归生成的每一步 |
 
-三种模式共享同一套 RMSNorm→RoPE→attention→残差 的代码路径，区别只在于 Q/K/V 的实际长度、mask 的形状、以及是否读写 cache——这也是 §1.4 [D04] 用同一份实现同时验证 full-forward 和 cached decoding 数值一致的原因（如果两条路径用了不同代码，这条测试就失去了交叉验证的意义）。prefill/decode 各自的系统性能瓶颈（算术强度、批处理调度）不在本文范围，见 llm_inference_serving_tutorial.md。
+三种模式共享同一套 RMSNorm→RoPE→attention→残差 的代码路径，区别只在于 Q/K/V 的实际长度、mask 的形状、以及是否读写 cache。§1.4 [D04] 因此能用同一份实现同时验证 full-forward 和 cached decoding 数值一致；如果两条路径用了不同代码，这条测试就失去了交叉验证的意义。
 
 ### 1.3　参数量与 KV Cache 公式核算
 
-**FFN 参数量**（忽略 bias）：dense（ReLU/GELU，两矩阵）$8d^2$；gated（SwiGLU/GeGLU，三矩阵）$3dh$。令二者相等解出 $h=8d/3$——这是**参数量匹配算出来的常见默认**，不是架构铁律；真实 Llama 系实现通常从 $4d$ 出发乘 $2/3$，再按硬件友好倍数（以及可选 multiplier）舍入，intermediate size 可能明显偏离 $8d/3$。§1.4 [D06] 用 $d=96$、dense hidden $=384$（$4d$）、gated hidden $=256$（$8d/3$）两边都验证出恰好 73,728 个矩阵参数。
+**FFN 参数量**，忽略 bias：dense（ReLU/GELU）是两矩阵的 $8d^2$，gated（SwiGLU/GeGLU）是三矩阵的 $3dh$。令二者相等解出 $h=8d/3$——这是**参数量匹配算出来的常见默认**，不是架构铁律。真实 Llama 系实现通常从 $4d$ 出发乘 $2/3$，再按硬件友好倍数以及可选 multiplier 舍入，intermediate size 可能明显偏离 $8d/3$。
 
-**Attention 参数量**（忽略 bias）：MHA 的 Q/K/V/O 四个投影共 $4d^2$；GQA 为 $2d^2(1+n_\text{kv}/n_q)$（$n_\text{kv}=n_q$ 时退化回 $4d^2$，$n_\text{kv}=1$ 时为 MQA 的极小值）。§1.4 [D06] 用真实 `.numel()` 核对了这两个公式。这两个公式成立都需要假设 $d=n_qd_h$、Q/K/V 使用相同 head dim、输出投影是 $d\times d$、忽略 bias——不满足这些假设时公式需要相应调整。
+**Attention 参数量**，忽略 bias：MHA 的 Q/K/V/O 四个投影共 $4d^2$；GQA 为 $2d^2(1+n_\text{kv}/n_q)$，$n_\text{kv}=n_q$ 时退化回 $4d^2$，$n_\text{kv}=1$ 时取到 MQA 的极小值。这两个公式成立都需要假设 $d=n_qd_h$、Q/K/V 使用相同 head dim、输出投影是 $d\times d$、忽略 bias——不满足这些假设时公式需要相应调整。
 
-**KV cache**（下表给的是每 token、每层的**元素数**，不是字节数；完整显存占用还要乘上 batch size $B$、序列长度 $L$、层数 $N_\text{layer}$，以及每元素字节数——fp16/bf16 通常 2 字节，fp8 通常 1 字节；完整跨模型 GB 数见 kv_cache_speculative_decoding_tutorial.md §2.2）：
+**Packed projection**：把 Q/K/V 三个 Linear 或 SwiGLU 的 gate/up 两个 Linear 拼成一个大 Linear，是 kernel 层面的等价重排，权重按行拼接后结果在对应精度下应一致，不改变任何架构语义。
+
+**KV cache**：下表给的是每 token、每层的**元素数**，不是字节数。完整显存占用还要乘上 batch size $B$、序列长度 $L$、层数 $N_\text{layer}$，以及每元素字节数，fp16/bf16 通常 2 字节、fp8 通常 1 字节。
 
 | 变体 | Cache 大小（元素数/token/layer） |
 | --- | --- |
@@ -114,9 +70,9 @@ $$u \;\xrightarrow{\text{RMSNorm}}\; h_2 \;\xrightarrow{\text{gate/up 投影}}\;
 
 ### 1.4　从零实现与可执行验证：`code/transformer_block.py`
 
-完整可跑脚本见 [`code/transformer_block.py`](code/transformer_block.py)（纯 PyTorch、CPU 秒级跑完 9 个 demo [D01]–[D09]）。四个入口类对应本文四个"block 时代"：`VanillaEncoderLayer2017`、`VanillaSeq2SeqDecoderLayer2017`（§2）、`GPT2StyleDecoderLayer`（§3）、`ModernDecoderBlock`（§4/§1.1，`ffn=` 可换成 `DenseFFN`/`GatedFFN`/`MoEFFN`）。正文只展示三段最核心的代码；其余 demo 作为脚本里的独立函数，不再贴出。
+完整可跑脚本见 [`code/transformer_block.py`](code/transformer_block.py)（纯 PyTorch、CPU 秒级跑完 9 个 demo [D01]–[D09]）。四个入口类对应本文四个"block 时代"：`VanillaEncoderLayer2017`、`VanillaSeq2SeqDecoderLayer2017`（§2）、`GPT2StyleDecoderLayer`（§3）、`ModernDecoderBlock`（§4/§1.1，`ffn=` 可换成 `DenseFFN`/`GatedFFN`/`MoEFFN`）。正文展示三段最核心的代码，其余 demo 是脚本里的独立函数。
 
-**[D02] 残差拓扑测试**（§0 四个公式的可执行版：把子层输出置零，Pre-LN 应严格输出 $x$，Post-LN 应输出 $N(x) \ne x$）：
+**[D02] 残差拓扑测试**（把子层输出置零，Pre-LN 应严格输出 $x$，Post-LN 应输出 $N(x) \ne x$）：
 
 ```python
 def zero_sublayer(_x):
@@ -170,12 +126,12 @@ assert torch.allclose(captured["x"], par_blk.norm(x), atol=1e-6)       # 并行�
 3. **[D03] Causal 不泄露**：只扰动位置 $t{+}1$ 之后的 token，位置 $0..t$ 的输出必须原封不动；应确认这条不变量确实由 attention 分支贡献。
 4. **[D04] Full forward vs cached decoding**：eval() + 无 dropout 下，整段前向与逐 token 增量解码在所有位置上数值一致，且 cache 头维度全程保持 $n_\text{kv}$——这是排查 causal mask / RoPE offset / cache 顺序 bug 最直接的手段，但不是唯一需要覆盖 attention 分支非零贡献的测试。
 5. **[D05] MHA/MQA/GQA 退化**：$n_\text{kv}=n_q$ 时的通用实现与独立手写的 plain MHA reference 严格一致；$n_\text{kv}=1$（MQA）和中间取值（如 $n_\text{kv}=2$）都应有独立的 `repeat_interleave` reference 比较，不能只测退化到 $n_\text{kv}=n_q$ 这一个特例。
-6. **[D06] 参数公式**：$d=96$ 时 dense FFN（hidden $=4d$）与 gated FFN（hidden $=8d/3$）矩阵参数都恰好 73,728；GQA/MHA attention 矩阵参数与 $2d^2(1+n_\text{kv}/n_q)$、$4d^2$ 公式精确相等；$d_\text{model}$ 不整除头数的非法配置应在构造时就报错。
+6. **[D06] 参数公式**：$d=96$ 时 dense FFN（hidden $=4d$）与 gated FFN（hidden $=8d/3$）矩阵参数都恰好 73,728；GQA/MHA attention 矩阵参数与 $2d^2(1+n_\text{kv}/n_q)$、$4d^2$ 公式精确相等；$d_\text{model}$ 不能被头数整除的非法配置应在构造时就报错。
 7. **[D07] Packed projection 数值等价**：packed QKV（及 packed gate+up）与三个（或两个）独立 Linear 用相同权重时输出在数值上一致（不是"逐位"意义上的 bit-identical）。
 8. **[D08] Parallel vs sequential**：forward hook 同时抓到 attention 和 FFN 的真实输入，串行 block 精确等于 $N_2(x+\text{Attn}(N_1(x)))$，并行 block 两个分支都精确等于 $N(x)$。
 9. **[D09] Backward smoke test**：dense block 全部参数梯度有限；MoE-swapped block 应遍历所有非"本 batch 未使用"expert 的参数并检查非零梯度，router/attention/norm 等其余参数也应正常拿到梯度。
 
-运行 `python3 code/transformer_block.py` 的**真实输出**（代码修复完成后重新运行并回填,D10-D15 是代码审核阶段新增的针对性回归测试,分别对应构造器参数校验、KV cache 一致性、cross-attention 组合限制、mask 安全性与广播、默认 causal 行为、RoPE cache 的 device/dtype 处理）：
+运行 `python3 code/transformer_block.py` 的**真实输出**（D10-D15 是针对性回归测试，分别对应构造器参数校验、KV cache 一致性、cross-attention 组合限制、mask 安全性与广播、默认 causal 行为、RoPE cache 的 device/dtype 处理）：
 
 ```text
 [D01] shapes (enc/dec2017/gpt2/modern) = [torch.Size([2, 7, 96]), torch.Size([2, 7, 96]), torch.Size([2, 7, 96]), torch.Size([2, 7, 96])] (expect 4x (2,7,96)); cross-attn ran with Tq=7 != S=5; changing memory changes cross-attn output (memory is actually read, not ignored) = True  PASS
@@ -197,14 +153,11 @@ assert torch.allclose(captured["x"], par_blk.norm(x), atol=1e-6)       # 并行�
 all transformer block sanity checks passed ✓
 ```
 
-> 🧭 **看完这个例子，接下来去哪**
-> 上面就是一个具体、可跑的现代 decoder-only block；如果想知道 RMSNorm、RoPE、GQA、SwiGLU、norm 拓扑……这些设计选择各自的历史演进、替代方案和取舍依据，请继续往下看 §2–§7——不需要先读那些章节，也完全能看懂上面这个 block。
+## §2 原始 encoder-decoder
 
-## §2 2017 seq2seq Transformer
+原始 Transformer（Vaswani et al., *Attention Is All You Need*, arXiv 1706.03762, 2017, NeurIPS 2017）是一个 **encoder-decoder** 架构：encoder 把源序列编码成一组表示，decoder 在这组表示的条件下自回归生成目标序列。位置编码用固定 sinusoidal PE，在进入 encoder/decoder 堆栈**之前**直接加到 token embedding 上，它不属于任何一个 block，是 block 外围的输入处理。论文原始配置 $d_\text{model}=512$、$d_\text{ff}=2048$（4× expansion）、8 head、6 层 encoder + 6 层 decoder；本教程演示用更小的尺寸如 $d=96$，这是**教学配置**而非论文配置，两者不要混为一谈。
 
-原始 Transformer（Vaswani et al., *Attention Is All You Need*, arXiv 1706.03762, 2017, NeurIPS 2017）是一个**encoder-decoder**架构：encoder 把源序列编码成一组表示，decoder 在这组表示的条件下自回归生成目标序列。位置编码用固定 sinusoidal PE，在进入 encoder/decoder 堆栈**之前**直接加到 token embedding 上——它不属于任何一个 block，是 block 外围的输入处理（完整推导见 long_context_rope_yarn_mla_tutorial.md §2/§3）。论文原始配置 $d_\text{model}=512$、$d_\text{ff}=2048$（4× expansion）、8 head、6 层 encoder + 6 层 decoder；本教程演示用更小的尺寸（如 $d=96$），这是**教学配置**而非论文配置，两者不要混为一谈。
-
-**encoder layer 和 decoder layer 是两个不同的类，不是同一个"两子层"模板的两种用法**——它们的子层数量、子层种类都不同：
+encoder layer 和 decoder layer 的子层数量、子层种类都不同：
 
 | | Encoder layer | Decoder layer |
 | --- | --- | --- |
@@ -213,18 +166,15 @@ all transformer block sanity checks passed ✓
 | 子层 3 | — | FFN |
 | 归一化拓扑 | 每子层 Post-LN：$y=N(x+F(x))$ | 每子层 Post-LN，三次 |
 
-Decoder 的三个子层顺序固定为 masked self-attn → cross-attn → FFN，每个子层各自套一层 Post-LN。Cross-attn 的 Q、K、V 来源不对称：Q 来自 decoder 自身正在生成的流（长度 $T$），K、V 来自 encoder 输出（长度 $S$），$T$ 与 $S$ 可以不同——这正是 §1 代码 [D01] 里显式验证的 shape 分离（self-attn 与 cross-attn 的公式细节、mask 处理见 attention_tutorial.md §4.1，此处不重复推导）。
+Decoder 的三个子层顺序固定为 masked self-attn → cross-attn → FFN，每个子层各自套一层 Post-LN。Cross-attn 的 Q、K、V 来源不对称：Q 来自 decoder 自身正在生成的流，长度 $T$；K、V 来自 encoder 输出，长度 $S$，$T$ 与 $S$ 可以不同。
 
-**一个具体 shape 走一遍**（对应 §1 代码 [D01] 用的教学尺寸：batch $B=2$、源序列长度 $S=5$、目标序列长度 $T=7$、$d=96$）：encoder 输入 `[B, S, d]`，经过若干层 encoder layer 后仍是 `[B, S, d]`，作为 memory 传给每一层 decoder；decoder 输入 `[B, T, d]`，masked self-attn 阶段 Q/K/V 都是 `[B, T, d]` 内部算出（causal mask 大小 $T\times T$）；cross-attn 阶段 Q 仍是 `[B, T, d]`，但 K、V 来自 encoder memory，形状 `[B, S, d]`——attention score 矩阵是 $T\times S$（而不是方阵），softmax 沿 $S$ 这一维做；输出投影后还原回 `[B, T, d]`，与 self-attn 子层的输出 shape 一致，才能继续送进 FFN 子层。**$T \ne S$ 完全不影响这条数据路径**，这正是 cross-attn "Q 长度和 K/V 长度解耦"这句话的具体样子。
+**一个具体 shape 走一遍**，教学尺寸取 batch $B=2$、源序列长度 $S=5$、目标序列长度 $T=7$、$d=96$：encoder 输入 `[B, S, d]`，经过若干层 encoder layer 后仍是 `[B, S, d]`，作为 memory 传给每一层 decoder；decoder 输入 `[B, T, d]`，masked self-attn 阶段 Q/K/V 都是 `[B, T, d]` 内部算出，causal mask 大小 $T\times T$；cross-attn 阶段 Q 仍是 `[B, T, d]`，但 K、V 来自 encoder memory，形状 `[B, S, d]`，attention score 矩阵是 $T\times S$ 而不是方阵，softmax 沿 $S$ 这一维做；输出投影后还原回 `[B, T, d]`，与 self-attn 子层的输出 shape 一致，才能继续送进 FFN 子层。**$T \ne S$ 完全不影响这条数据路径**，这正是 cross-attn "Q 长度和 K/V 长度解耦"这句话的具体样子。
 
-> ⚠️ **两个类，不是一个类的两种调用方式**
-> `VanillaEncoderLayer2017`（2 子层）和 `VanillaSeq2SeqDecoderLayer2017`（3 子层）在 §1 的代码里是两个独立的类。把它们写成同一个"通用 block 类 + 参数开关"虽然工程上可行，但会掩盖"decoder 比 encoder 多一整个 cross-attn 子层"这个结构事实——面试现场手写时，先把两个类的子层列表写清楚，比直接码代码更容易拿分。
+`VanillaEncoderLayer2017`（2 子层）和 `VanillaSeq2SeqDecoderLayer2017`（3 子层）在 §1 的代码里是两个独立的类。写成同一个"通用 block 类 + 参数开关"工程上可行，但会掩盖"decoder 比 encoder 多一整个 cross-attn 子层"这个结构事实。
 
-## §3 三大家族地图 + decoder-only 分叉 + GPT-2-style 桥接
+## §3 三类架构与 GPT-2→Llama
 
-### 3.0　三大家族地图：encoder-only / decoder-only / encoder-decoder
-
-原始 Transformer 是 encoder-decoder；本文从这里往后全部聚焦 **decoder-only**（GPT/Llama/Qwen 系 LLM 的主流选择），但面试里常被要求横向比较三大家族，这里先给一张压缩地图，不深入 encoder-only 的内部预训练机制：
+### 3.0　encoder-only / decoder-only / encoder-decoder
 
 | 家族 | 代表 | 子层组成 | attention 方向 | 典型训练目标 | 典型用途 |
 | --- | --- | --- | --- | --- | --- |
@@ -232,31 +182,23 @@ Decoder 的三个子层顺序固定为 masked self-attn → cross-attn → FFN�
 | Encoder-decoder | 原始 Transformer、T5 | encoder 层：self-attn + FFN；decoder 层：masked self-attn + cross-attn + FFN | encoder 双向，decoder 单向且条件于 encoder | 条件生成（翻译、摘要） | 双序列条件生成任务 |
 | Decoder-only | GPT、Llama、Qwen | 每层：causal self-attn + FFN（无 cross-attn） | 单向（causal） | 自回归语言建模 | 通用生成式 LLM |
 
-三者的核心区别不是"参数多少"，而是 attention 的可见方向、子层组成、训练目标这三件事绑在一起变化。本文只展开 decoder-only 这一支的完整装配细节——覆盖 §1 的 capstone 与 §3–§9（§2 是 2017 encoder-decoder 的历史背景，讨论的是 encoder-decoder 架构本身，不计入 decoder-only 范围）；encoder-only 的双向掩码建模机制、encoder-decoder 的完整训练目标不在本文范围内，需要时可参考对应模型各自的原始论文。
+三者的核心区别不是"参数多少"，而是 attention 的可见方向、子层组成、训练目标这三件事绑在一起变化。
 
-### 3.1　为什么只说"去掉 cross-attn"还不够
+### 3.1　decoder-only 与原始 decoder layer 的差别
 
-现代 LLM（GPT、Llama、Qwen……）用的 decoder-only block，字面上看是"原始 decoder layer 去掉 cross-attn"。**分两层看这句话**：
+**单层结构层面**，decoder-only block 确实是原始 decoder layer 去掉 cross-attn：masked self-attn → cross-attn → FFN 这**三个**子层，变成 causal self-attn → FFN 这**两个**子层。
 
-- **单层结构层面，这个说法是对的**：原始 decoder 是 masked self-attn → cross-attn → FFN（**三个**子层）；decoder-only block 是 causal self-attn → FFN（**两个**子层）。少的正是 cross-attn 这一个子层，逐层对比没有问题。
-- **完整模型层面，这句话不完整**：只说"去掉 cross-attn"容易让人以为只是删掉了一个组件、其余不变。实际上 encoder/memory 路径也整体消失了——source/prompt 与 target 从"双流条件生成"（source 编码后条件生成 target）变成"单流因果建模"（prompt 和生成内容拼进同一条因果序列）。变的是信息流拓扑和序列因子化方式，不是任务被替换成了别的问题。
+**完整模型层面**还少了一整条 encoder/memory 路径：source/prompt 与 target 从"双流条件生成"变成"单流因果建模"，prompt 和生成内容拼进同一条因果序列。变的是信息流拓扑和序列因子化方式，不是任务被替换成了别的问题。
 
-因此更完整的答案是："单层上确实是去掉 cross-attn，但完整模型层面还需要说清楚 encoder/memory 路径也一并消失、双流条件生成变成单流因果建模"——这比只说"去掉了一部分"、或者反过来把它讲成"完全是另一种架构"都更准确。
+部分多模态/检索增强模型会在 decoder-only backbone 上重新引入 cross-attention，本文所有"decoder-only 没有 cross-attn"的表述均限定为**纯 decoder-only block**，即 causal self-attn + FFN 两子层。
 
-边界：部分多模态/检索增强模型会在 decoder-only backbone 上重新引入 cross-attention，本文所有“decoder-only 没有 cross-attn”的表述均限定为**纯 decoder-only block**（causal self-attn + FFN 两子层）。
+### 3.2　GPT-2-style 到 Llama-style
 
-> 🎯 **面试怎么答这道根本区别题**
-> 先分层回答：单层结构上是"去掉 cross-attn"（3 子层变 2 子层）；完整模型上还要加上"source/target 两条序列变成一条因果序列"这一信息流拓扑变化；再补一句"纯 decoder-only block 才没有 cross-attn，部分多模态/检索增强模型会重新引入它"——比只说"去掉了一部分"多两层准确度。
-
-### 3.2　GPT-2-style 桥接：GPT-2 到 Llama 到底改了什么
-
-**常见误解**：现代 LLM 才把 Post-LN 换成 Pre-LN。**事实**：GPT-2（Radford et al., *Language Models are Unsupervised Multitask Learners*, OpenAI 技术报告, 2019，无 arXiv id）已经是 Pre-LN，且在堆栈末尾配了一个 final LayerNorm（记作 `ln_f`）——为什么 Pre-LN 栈通常要收口、以及不设 final norm 的变体，统一见 §9 Q11 与 normalization_init_tutorial.md §5.3。GPT-2 block 的完整 recipe：
+GPT-2（Radford et al., *Language Models are Unsupervised Multitask Learners*, OpenAI 技术报告, 2019，无 arXiv id）已经是 Pre-LN，且在堆栈末尾配了一个 final LayerNorm，记作 `ln_f`。GPT-2 block 的完整 recipe：
 
 $$x = x + \text{Attn}\big(\text{LN}(x)\big), \qquad x = x + \text{FFN}\big(\text{LN}(x)\big), \qquad \text{（GELU dense FFN，MHA，bias=True，无 cross-attn）}$$
 
-学习到的绝对位置嵌入（learned absolute positional embedding）依旧加在 embedding 上、位于堆栈**之外**——这一点和原始 sinusoidal PE 的"所属层级"是一致的，二者都不属于 block 内部；LLaMA 系采用的 RoPE（最初由 Su et al., *RoFormer: Enhanced Transformer with Rotary Position Embedding*, arXiv 2104.09864, 2021 提出，LLaMA 是重要采用者而非提出者）则相反，**位于 attention 内部**，只作用于 Q、K 的点积计算——把它们看成同一 block 成员之间的"无缝替换"是不准确的，位置信息在 GPT-2-style 里由外部嵌入携带，在 Llama-style 里由 attention 内部的旋转携带，两者"归属的层级"不同（完整推导见 long_context_rope_yarn_mla_tutorial.md §2）。
-
-GPT-2-style → Llama-style 桥接表（这才是真正被改动的部分）：
+学习到的绝对位置嵌入加在 embedding 上、位于堆栈**之外**，这一点和原始 sinusoidal PE 一致，二者都不属于 block 内部。LLaMA 系采用的 RoPE 则相反，**位于 attention 内部**，只作用于 Q、K 的点积计算。RoPE 最初由 Su et al., *RoFormer: Enhanced Transformer with Rotary Position Embedding*, arXiv 2104.09864, 2021 提出，LLaMA 是重要采用者而非提出者。位置信息在 GPT-2-style 里由外部嵌入携带，在 Llama-style 里由 attention 内部的旋转携带，两者归属的层不同，不是同一 block 成员之间的"无缝替换"。真正被改动的部分如下：
 
 | 维度 | GPT-2-style | Llama-style |
 | --- | --- | --- |
@@ -269,26 +211,30 @@ GPT-2-style → Llama-style 桥接表（这才是真正被改动的部分）：
 | dropout | 训练中使用 | 大规模预训练通常去掉或降到极小 |
 | final norm | 有（`ln_f`，LayerNorm） | 有（RMSNorm） |
 
-> ✅ **"GPT-2→Llama 改了什么"标准答案骨架**
-> 先声明"两者都已经是 Pre-LN"（堵住"Pre-LN 是现代发明"这个常见误答），再按 归一化类型 → 位置编码归属层级 → FFN 结构 → attention 头配置 → bias/dropout 五项逐条对比，最后提一句 final norm 两边都有、只是类型不同。
+## §4 RMSNorm、RoPE、SwiGLU 与模型组成
 
-## §4 Llama-style 核心 recipe
-
-在 GPT-2-style 桥接的基础上，Llama-style（Touvron et al., *Llama 2: Open Foundation and Fine-Tuned Chat Models*, arXiv 2307.09288, 2023；Grattafiori et al. (Meta), *The Llama 3 Herd of Models*, arXiv 2407.21783, 2024）把每个槽位换成如下具体实现，本节先固定用 MHA 保持数据路径清晰，GQA 留到 §5 单独展开：
+Llama-style，也就是 Llama 2 与 Llama 3 的 recipe，把每个组件换成如下具体实现，attention 先按 MHA 写：
 
 $$x = x + \text{Attn}_{\text{RoPE}}\big(\text{RMSNorm}(x)\big), \qquad x = x + \text{SwiGLU}\big(\text{RMSNorm}(x)\big)$$
 
-- **RMSNorm**：只做 re-scale，不做 mean-centering，无 bias：$y = \dfrac{x}{\sqrt{\text{mean}(x^2)+\epsilon}}\odot w$。（Zhang & Sennrich 的论证见 normalization_init_tutorial.md §4：往往能达到与 LayerNorm 相当的效果，非“绝不掉点”的普适结论。）
-- **RoPE**：作用于 attention 内部的 Q、K，V 不旋转；标准实现通常缓存**已旋转**的 K，增量解码时新 token 按真实 position 施加旋转。缓存未旋转 K 的变体见 §9 Q12，MLA 的不同 cache 契约见 §5.2；完整推导（复数视角、频率选择、YaRN/NTK）见 long_context_rope_yarn_mla_tutorial.md §2/§5/§6。
-- **SwiGLU**：$\text{down}\big(\text{SiLU}(\text{gate}(x)) \odot \text{up}(x)\big)$，三矩阵 gated FFN；GeGLU 同结构换 GELU 门（Shazeer, *GLU Variants Improve Transformer*, arXiv 2002.05202, 2020）。相近预算下 gated FFN 往往质量更好——经验规律而非定律。参数匹配算术见 §1.3 [D06]。
+- **RMSNorm**：只做 re-scale，不做 mean-centering，无 bias：$y = \dfrac{x}{\sqrt{\text{mean}(x^2)+\epsilon}}\odot w$。往往能达到与 LayerNorm 相当的效果。
+- **RoPE**：作用于 attention 内部的 Q、K，V 不旋转；标准实现通常缓存**已旋转**的 K，增量解码时新 token 按真实 position 施加旋转。缓存未旋转 K 的变体见 §9 Q12。
+- **SwiGLU**：$\text{down}\big(\text{SiLU}(\text{gate}(x)) \odot \text{up}(x)\big)$，三矩阵 gated FFN；GeGLU 同结构换 GELU 门（Shazeer, *GLU Variants Improve Transformer*, arXiv 2002.05202, 2020）。相近预算下 gated FFN 往往质量更好，这是经验规律而非定律。
 - **bias、dropout**：Q/K/V/O 和 FFN 三矩阵通常全部去掉 bias；大规模预训练常去掉或大幅降低 dropout。
-- **final norm**：栈末尾一次 RMSNorm，收口膨胀的残差流。
-- **数值精度边界**：RMS/方差归约、softmax、final logits 这类对数值范围敏感的计算，常见实现会在更高精度（如 fp32）下算、再 cast 回激活 dtype（bf16/fp16）——这是装配正确性的一部分，不属于量化数学，完整的低精度误差分析见 quantization_tutorial.md。
+- **final norm**：栈末尾一次 RMSNorm，收口膨胀的残差流。独立增量近似下，残差流**方差**约按 $O(l)$ 增长，标准差/RMS 才是 $\sqrt l$；不收口直接接输出头，训练质量通常明显下降。这是标准 recipe 的常见配置，不是数学上不可或缺。
+- **数值精度边界**：RMS/方差归约、softmax、final logits 这类对数值范围敏感的计算，常见实现会在更高精度如 fp32 下算、再 cast 回 bf16/fp16 激活 dtype。这是装配正确性的一部分，不属于量化数学。
 
-> ⚠️ **block 内部 vs "block 外围 recipe"，别混写**
-> Weight tying（输入 embedding 与 LM head 共享参数）、embedding scaling、LM head 的 soft-cap、dropout 的整体开关，这些属于"完整 LM recipe"的一部分，但**严格来说位于 block 之外**——token embedding 和 LM head 不属于任何一个 Transformer block。面试被问"block 长什么样"时把这些混进 block 定义里，会让考官怀疑你没分清"一层 block"和"整个模型"的边界。
+一个设计决策具体住在哪里，决定了它由谁装配：
 
-"block 外围 recipe"具体包含哪些字段，逐条列清楚：
+| 层级 | 典型决策 | 谁来管 |
+| --- | --- | --- |
+| 算子内部 | QKV 投影、RoPE、QK-Norm、head sharing（MHA/GQA/MQA/MLA）、gated FFN | attention/FFN 模块自己 |
+| 单个 block | serial/parallel 依赖图、norm 放置（Pre/Post/branch pre+post）、residual add、branch scaling/gating | block 的 `forward` |
+| stack 调度 | final norm、local/global 交替、哪些层 dense/哪些层 MoE | 堆栈装配代码，不是某一层 block |
+| 模型外壳 | token embedding、外部 absolute PE、weight tying、LM head（含 soft-cap） | 整个模型的输入/输出层 |
+| 执行/适配 overlay | KV cache、FlashAttention、packed projection、量化、LoRA | 部署/微调阶段的执行策略，不改变上面四层的架构语义 |
+
+Weight tying、embedding scaling、LM head 的 soft-cap、dropout 的整体开关属于"完整 LM recipe"，但位于 block 之外——token embedding 和 LM head 不属于任何一个 Transformer block：
 
 | 外围字段 | 一句话说明 |
 | --- | --- |
@@ -297,18 +243,15 @@ $$x = x + \text{Attn}_{\text{RoPE}}\big(\text{RMSNorm}(x)\big), \qquad x = x + \
 | LM head soft-cap | 部分模型（如 Gemma 系）在最终 vocabulary logits 上也做一次 §7.2 那种有界变换，机制上和 attention-logit soft-cap 是同一类工具、作用在不同张量上 |
 | Dropout 全局开关 | 是否启用 dropout、dropout rate 这些超参数通常是整个模型统一的训练配置；但 dropout **运算本身**通常执行在 attention 权重、FFN 输出、residual branch 内部——"谁来配置"和"算子实际在哪里跑"是两件不同的事，不要笼统合并成"block 外的属性" |
 
-这四项都**不出现**在 §1/§8 描述的任何一个 block 类里——`ModernDecoderBlock` 的 `forward` 只接收残差流 `x`，从不知道外面是否做了 embedding scaling、输出头是否 tied。按 §0 分层地图区分：这四项属于“模型外壳”层，final norm、local/global 交替、dense/MoE 排布属于“stack 调度”层——不要笼统合并成“block 之外的东西”。
+这四项不出现在这些示例的 block 类里：`ModernDecoderBlock` 的 `forward` 只接收残差流 `x`，从不知道外面是否做了 embedding scaling、输出头是否 tied。
 
-## §5 推理内存轴：MHA → MQA/GQA，MLA 是独立分支
+## §5 KV 共享与 MLA
 
-**§5 的主问题是 KV cache 显存**：自回归生成时每一步都要把新 token 的 K、V 追加进 cache、再对整段 cache 做 attention，cache 的大小直接决定了同一张卡上能同时服务多少条请求、能撑多长的上下文。GQA/MQA 在减少 KV head 数的同时也改变 K/V 投影本身的参数量和计算量（下文 $2d^2(1+n_\text{kv}/n_q)$ 公式就是证据）：KV cache 主要影响推理时的显存/带宽，K/V 投影参数则是训练时也存在的固定开销。
+自回归生成时每一步都要把新 token 的 K、V 追加进 cache、再对整段 cache 做 attention，cache 的大小直接决定了同一张卡上能同时服务多少条请求、能撑多长的上下文。GQA/MQA 在减少 KV head 数的同时也改变 K/V 投影本身的参数量和计算量：KV cache 主要影响推理时的显存/带宽，K/V 投影参数则是训练时也存在的固定开销。
 
 ### 5.1　MHA / MQA / GQA：同一条轴上的不同压缩比
 
-历史顺序必须澄清：
-
-> ⚠️ **不是 MHA→GQA→MQA→MLA 的一条线**
-> MHA 是基线，**MQA（Shazeer, *Fast Transformer Decoding: One Write-Head is All You Need*, arXiv 1911.02150, 2019）早于 GQA（Ainslie et al., *GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints*, EMNLP 2023）出现**，GQA 是 MHA 与 MQA 之间的质量-显存折中。**MLA 是 DeepSeek 系另一条低秩 latent-compression 分支**，不是“把 $n_\text{kv}$ 再减一次”。四者是“KV 显存”这一设计轴上并存的设计点，不是所有模型依次爬过的历史阶梯。
+MHA 是基线。**MQA（Shazeer, *Fast Transformer Decoding: One Write-Head is All You Need*, arXiv 1911.02150, 2019）早于 GQA（Ainslie et al., *GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints*, EMNLP 2023）出现**，GQA 是 MHA 与 MQA 之间的质量-显存折中。**MLA 是 DeepSeek 系另一条低秩 latent-compression 分支**，不是"把 $n_\text{kv}$ 再减一次"。四者是"KV 显存"这一设计轴上并存的设计点，不是所有模型依次爬过的历史阶梯。
 
 | 变体 | Q heads | KV heads | 关系 |
 | --- | --- | --- | --- |
@@ -316,91 +259,89 @@ $$x = x + \text{Attn}_{\text{RoPE}}\big(\text{RMSNorm}(x)\big), \qquad x = x + \
 | MQA | $n_q$ | $1$ | 所有 Q head 共享同一组 K/V |
 | GQA | $n_q$ | $n_\text{kv}$（$1 \lt n_\text{kv} \lt n_q$，且 $n_q \bmod n_\text{kv}=0$） | 每组 $n_q/n_\text{kv}$ 个 Q head 共享一组 K/V |
 
-装配契约（完整显存核算、per-token-per-layer 公式、具体模型 GB 数见 attention_tutorial.md §6 与 kv_cache_speculative_decoding_tutorial.md §2，此处不重复推导）：
-
 - KV cache 大小只随 $n_\text{kv}$ 缩放，**与 $n_q$ 无关**——MQA/GQA 减少 K/V 投影本身的参数和计算量，也减少 KV cache 显存/带宽；但 Q projection 的计算量不随 $n_\text{kv}$ 变化，不能笼统说成"只省显存/带宽"。
-- **标准实现通常在施加 RoPE 之后缓存 K，V 从不旋转**；增量解码时新 token 的 Q、K 用真实 position offset 施加 RoPE，历史 cache 里已旋转的 K 不再重算（缓存未旋转 K 的变体见 §9 Q12）。
-- GQA/MQA 的 cache **只存 $n_\text{kv}$ 个 head**；把 K/V 广播到 $n_q$ 个 Q head 只能发生在 attention 计算内部（用 view/reshape/分组 einsum），**不能把广播后的张量写回 cache**——这是最容易在手写实现里踩的坑，§1 [D05] 直接把这条做成可执行断言。
+- **标准实现通常在施加 RoPE 之后缓存 K，V 从不旋转**；增量解码时新 token 的 Q、K 用真实 position offset 施加 RoPE，历史 cache 里已旋转的 K 不再重算。
+- GQA/MQA 的 cache **只存 $n_\text{kv}$ 个 head**：把 K/V 广播到 $n_q$ 个 Q head 只能发生在 attention 计算内部，用 view/reshape/分组 einsum 实现，广播后的张量不能写回 cache。§1.4 [D05] 把这条做成了可执行断言。
 
-举例感受这条轴的实际收益：LLaMA-2-70B 若用 vanilla MHA，4096 上下文下单样本 KV cache 约 10 GB；换成 GQA（$n_\text{kv}=8$）后降到约 1.25 GB——这是许多大模型采用 GQA 而非 MHA 的重要原因之一。
+LLaMA-2-70B 若用 vanilla MHA，4096 上下文下单样本 KV cache 约 10 GiB；换成 GQA（$n_\text{kv}=8$）后降到约 1.25 GiB——这是许多大模型采用 GQA 而非 MHA 的重要原因之一。
 
-### 5.2　MLA：独立的低秩 latent 分支
+### 5.2　MLA：低秩 latent 分支
 
-**MLA（DeepSeek-V2, May 2024, arXiv 2405.04434）是独立分支，不是"GQA 更狠的版本"**：GQA 在 head 维度上做压缩（多个 Q head 共享 K/V head），MLA 在 hidden 维度上做**低秩投影**压缩（把每 token 的 K/V 压进一个 $d_c \ll n_q d_h$ 的 latent 向量），并且必须把 RoPE 单独解耦成一份共享的小维度分量才能保住"absorb 上投影矩阵进 query 侧"的推理加速技巧——完整推导（absorbing trick、为什么 RoPE 不能直接吸收、解耦方案、cache 总量公式）见 long_context_rope_yarn_mla_tutorial.md §9，此处只记结论：MLA 的 cache 契约是"存 latent $c_t^{KV}$ + 一份共享 RoPE key"，而不是"存更少的 K/V head"。
+MLA（DeepSeek-V2, May 2024, arXiv 2405.04434）在 hidden 维度上做**低秩投影**压缩：把每 token 的 K/V 压进一个 $d_c \ll n_q d_h$ 的 latent 向量。它必须把 RoPE 单独解耦成一份共享的小维度分量，才能保住"absorb 上投影矩阵进 query 侧"的推理加速技巧。MLA 的缓存格式是"存 latent $c_t^{KV}$ + 一份共享 RoPE key"，而不是"存更少的 K/V head"。
 
-> 💡 **一句话区分三者"压什么"**
-> GQA 压的是 **head 数量**（多个 Q head 挤一组 K/V）；MQA 是 GQA 的极端情形（$n_\text{kv}=1$）；MLA 压的是**每个 token 的表示维度**（K/V 整体投影进一个低秩 latent），且天然要解决 RoPE 的位置依赖问题。三者不是同一个刻度上的三个点，是两种不同的压缩思路。
+GQA 压的是 **head 数量**，MQA 是 GQA 的极端情形（$n_\text{kv}=1$），MLA 压的是**每个 token 的表示维度**。三者不是同一个刻度上的三个点，是两种不同的压缩思路。
 
-## §6 容量轴：Dense FFN → MoE
+## §6 MoE FFN
 
-**§6 的主问题是模型容量**：MoE 把 FFN 换成 $N$ 个 expert + 一个 router，每个 token 只走 $k \ll N$ 个 expert——总参数上升、每 token 激活参数不变。完整的路由公式（token-choice top-k、expert-choice、DeepSeek 的 aux-loss-free bias 更新）、capacity factor、load-balancing loss、token dropping 见 moe_tutorial.md §2–§4，此处只讲“装配契约”：
+MoE 把 FFN 换成 $N$ 个 expert 加一个 router，每个 token 只走 $k \ll N$ 个 expert：总参数上升，每 token 激活参数不变。
 
-- **block 对外的主激活张量接口不变**：无论 FFN 是 dense 还是 MoE，都是 `[B, T, d] -> [B, T, d]`，residual add 的位置不变——这也是 §1 [D09] 里“把 `ffn` 换成 `MoEFFN` 而 `ModernDecoderBlock` 代码一行不用改”的直接原因。但训练契约通常多返回 router/负载均衡辅助 loss 或统计量，系统契约通常引入 expert parallelism 和 all-to-all 通信——“张量 shape 契约不变”不等于“训练/系统契约不变”（三层拆分见 §9 Q28）。
-- **变的是 FFN 内部**：增加了 router、expert 选择（可能还有 shared expert）、以及训练时的辅助均衡损失/偏置更新；**总参数量和每 token 激活参数量必须分开报告**，这是面试里最容易被追问的一句。
+- **block 对外的主激活张量接口不变**：无论 FFN 是 dense 还是 MoE，都是 `[B, T, d] -> [B, T, d]`，residual add 的位置不变——这也是把 `ffn` 换成 `MoEFFN` 而 `ModernDecoderBlock` 代码一行不用改的直接原因。但训练时通常多返回 router/负载均衡辅助 loss 或统计量，分布式部署时通常引入 expert parallelism 和 all-to-all 通信：张量形状不变，不等于训练返回值和系统部署方式不变。
+- **变的是 FFN 内部**：增加了 router、expert 选择、可能还有 shared expert，以及训练时的辅助均衡损失/偏置更新。**总参数量和每 token 激活参数量必须分开报告。**
+- **Dense 和 MoE 是容量轴上的两个选择**：Llama 1–3、原始 Mistral 7B、Gemma 1–3 等代表性模型用 dense FFN；Mixtral、Llama 4、DeepSeek-V2/V3 用 MoE，后者是用通信/路由/负载均衡的工程复杂度换更大的稀疏参数容量。
 
-这条轴的收益直觉：Mixtral（Jiang et al., *Mixtral of Experts*, arXiv 2401.04088, 2024）每 token 激活约 12.9B 参数，在论文报告的多数评测项目上匹配或超过 Llama 2 70B。总参数远大于 13B，单 token 计算规模接近十余 B 的 dense 模型，但并非严格 FLOPs 等价。完整“为什么稀疏激活是好主意”的论证见 moe_tutorial.md §1。
+Mixtral（Jiang et al., *Mixtral of Experts*, arXiv 2401.04088, 2024）每 token 激活约 12.9B 参数，在论文报告的多数评测项目上匹配或超过 Llama 2 70B。总参数远大于 13B，单 token 计算规模接近十余 B 的 dense 模型，但并非严格 FLOPs 等价。DeepSeek-V3 的具体负载均衡机制来自 Wang, Gao, Zhao, Sun & Dai（arXiv 2408.15664, 2024）。
 
-> ⚠️ **Dense → MoE 不是所有现代 block 的“下一步”**
-> Llama 1–3、原始 Mistral 7B、Gemma 1–3 等代表性模型用 dense FFN；Mixtral、Llama 4、DeepSeek-V2/V3 用 MoE——后者是用通信/路由/负载均衡的工程复杂度换更大的稀疏参数容量。V3 的具体负载均衡机制来自 Wang, Gao, Zhao, Sun & Dai（arXiv 2408.15664, 2024），不应把这篇机制论文当成“V2/V3 为什么选择 MoE”的主引用。把 Dense→MoE 和 §5 的 KV-cache 轴混成同一条“演进链”，是这部分最常见的失分点。
+完整的路由公式、capacity factor、load-balancing loss 与 token dropping 见 moe_tutorial.md §2–§4。
 
-## §7 数值稳定化 / 连接结构 / 执行 overlay
+## §7 残差结构、attention 与执行方式
 
-这一节把之前零散的"稳定化技巧"按 §0 的分层地图重新归类成四类：①残差依赖与 norm/scaling 装配（"单个 block"层）；②attention 数值稳定控制（"算子内部"层，控制的是数值尺度）；③attention 连接结构（同样是"算子内部"层，控制的是可见范围而不是数值）；④执行/适配 overlay（“执行/适配 overlay”层，只做指路）。
+残差连接、归一化和分支缩放决定 block 的计算结构。Attention 内部的数值控制调节尺度，局部或全局注意力决定可见范围。FlashAttention、量化和 LoRA 用于执行优化或微调。这些机制大多可以组合，具体配置受训练稳定性、kernel 支持和既有 checkpoint 兼容性影响。
 
-### 7.1　残差依赖、norm 放置与 branch scaling/gating
+### 7.1　残差拓扑、norm 放置与 branch scaling
 
-#### 7.1.1　branch pre+post norm（常被口误叫"sandwich norm"）
+$A$、$M$ 分别是 attention、FFN 子层，$N_1,N_2,N_A,N_M,N_1^{\text{pre}},N_1^{\text{post}},N_2^{\text{pre}},N_2^{\text{post}}$ 都是归一化算子。四种拓扑统一写在"完整 block"这一粒度上：
 
-更准确的写法是每个子层分支的**前后各放一次归一化**，且第二次 norm 只作用在分支输出上，不作用在残差和上：
+$$\text{Post-LN}:\quad u = N_1\big(x + A(x)\big),\quad y = N_2\big(u + M(u)\big)$$
 
-$$y = x + N_\text{post}\big(F(N_\text{pre}(x))\big)$$
+Vaswani et al. 2017 的原始 Transformer 用这一种：归一化套在残差相加之后，主干被反复挤压。
 
-这和原始 Post-LN 的 $N(x+F(x))$ 不是同一回事——Post-LN 的归一化套在"残差相加之后"，branch pre+post 的第二次归一化只套在"分支输出"上，残差主干 $x+(\cdots)$ 仍是纯加法。Gemma-2 用这种拓扑并配合 attention-logit/final-logit soft-capping；Gemma-3 沿用这一归一化拓扑，但把 soft-capping 换成了 QK-Norm（完整变体谱系见 normalization_init_tutorial.md §6.2）。
+$$\text{Pre-LN 串行}:\quad u = x + A\big(N_1(x)\big),\quad y = u + M\big(N_2(u)\big)$$
 
-#### 7.1.2　Parallel residual（GPT-J、PaLM）
+至少 GPT-2 已明确采用，后成为现代 LLM 常见形式：主干留一条纯恒等加法通道，FFN 读的是更新后的流 $u$。
 
-核心公式已在 §0 给出，$y = x + \text{Attn}(N_A(x)) + \text{MLP}(N_M(x))$。**“parallel”的定义是“没有本层内先后依赖”，不要求 attn 和 FFN 共享同一组 norm 参数**——两个独立归一化模块、只要都读原始 $x$，同样满足定义（§1 [D08] 按这个更宽的定义写正反面证明）。GPT-J（Wang & Komatsuzaki, *GPT-J-6B*, EleutherAI 开源发布, 2021，无正式论文/arXiv id）用单一共享 LayerNorm 实现；PaLM（Chowdhery et al. (Google), *PaLM: Scaling Language Modeling with Pathways*, arXiv 2204.02311, 2022）延续同样思路。
+$$\text{Pre-LN 并行}:\quad y = x + A\big(N_A(x)\big) + M\big(N_M(x)\big)$$
 
-#### 7.1.3　residual / branch scaling 与 gating：另一个独立的装配位置
+GPT-J 与 PaLM 用这一种：去掉先后依赖，attention 和 FFN 读同一份 $x$。
 
-某些 recipe 不仅决定"在哪里加 norm"，还会在残差分支上乘一个固定或可学习的缩放系数——例如 **LayerScale**（对每个分支输出乘一个逐通道、可学习、小初值的系数）、**DeepNorm**（对残差分支乘一个与层数相关的固定放大系数，配合特定初始化让深层网络更容易训练稳定）。这是另一个独立的可选装配位置：加不加缩放、缩放是固定常数还是可学习参数、作用在哪个分支——完整的初始化与梯度论证见 normalization_init_tutorial.md §7（DeepNorm）及相关章节，本文只记装配契约：**residual/branch scaling 和 norm placement 是两个可以分别选择、也可以同时使用的维度**，不要把它们合并成同一件事。
+$$\text{branch pre+post}:\quad u = x + N_1^{\text{post}}\big(A(N_1^{\text{pre}}(x))\big),\quad y = u + N_2^{\text{post}}\big(M(N_2^{\text{pre}}(u))\big)$$
 
-### 7.2　Attention 数值稳定控制：attention scale、QK-Norm、logit soft-cap
+Gemma-2/3 用这一种：第二次归一化只套在分支输出上，主干仍是纯加法，与 Post-LN 不同。
 
-三个机制作用在同一条计算链的不同位置，都属于"算子内部"层：
+norm 放置与 serial/parallel 依赖是两个维度，不要合并成一条轴；四种拓扑在 §1.4 [D02]/[D08] 有可执行的正反面证明。**branch pre+post** 指每个子层分支的前后各放一次归一化，单子层形式为 $y = x + N_\text{post}\big(F(N_\text{pre}(x))\big)$。Gemma-2 用这种拓扑并配合 attention-logit/final-logit soft-capping；Gemma-3 沿用这一归一化拓扑，但把 soft-capping 换成了 QK-Norm。
 
-- **attention scale**：标准的 $1/\sqrt{d_h}$（或可学习温度）缩放点积，控制 softmax 输入的整体幅度量级，是最基础、几乎所有实现都有的数值控制（推导见 §9 Q4）。
-- **QK-Norm**（Henry et al., *Query-Key Normalization for Transformers*, arXiv 2010.04245, 2020, EMNLP 2020 Findings）：点积**之前**对每个 head 的 Q、K 分别做 L2 归一化，并用可学习缩放/温度**取代**标准固定的 $1/\sqrt{d_h}$——后续模型的具体实现细节可能不同。
-- **logit soft-capping** 在点积**之后**对 attention score 或最终 vocabulary logits 施加类似 $c\tanh(z/c)$ 的有界变换，管住的是已经算出来的分数/logits 幅度。
+**Parallel** 的定义是"没有本层内先后依赖"，不要求 attn 和 FFN 共享同一组 norm 参数：两个独立归一化模块、只要都读原始 $x$，同样满足定义。GPT-J（Wang & Komatsuzaki, EleutherAI 开源发布, 2021，无正式论文/arXiv id）用单一共享 LayerNorm 实现；PaLM（Chowdhery et al. (Google), *PaLM: Scaling Language Modeling with Pathways*, arXiv 2204.02311, 2022）延续同样思路。
 
-三者常被面试者混成"都是稳住数值"，但作用的位置和管住的量完全不同，**也不能无脑同时叠加**——同时启用需要重新核对整体尺度，而不是简单相加；完整的"为什么 attention logits 会爆炸"论证见 normalization_init_tutorial.md §6.3。
+**Residual/branch scaling** 是另一个独立的可选装配位置：在残差分支上乘一个固定或可学习的缩放系数。**LayerScale** 对每个分支输出乘一个逐通道、可学习、小初值的系数；**DeepNorm** 对残差分支乘一个与层数相关的固定放大系数，配合特定初始化让深层网络更容易训练稳定。加不加缩放、缩放是固定常数还是可学习参数、作用在哪个分支，都与 norm placement 分别选择，也可以同时使用。
 
-### 7.3　Attention 连接结构：local / sliding / global
+### 7.2　attention scale、QK-Norm、logit soft-cap
 
-这是 attention **连接结构/可见范围（connectivity pattern）**的设计轴，不是"attention backend"，也和位置编码方案是两回事——FlashAttention 才是典型的执行 backend：它改变 exact attention 的计算顺序与 IO 调度，不定义新的连接图或 block 拓扑（完整 IO 复杂度推导见 attention_tutorial.md）。Mistral（Jiang et al., *Mistral 7B*, arXiv 2310.06825, 2023）用固定窗口的 sliding-window attention；Gemma-2 在层间 1:1 交替 local 窗口和 global 全局 attention；Gemma-3 更接近"多个 local 层后插入一个 global 层"的周期性 pattern（约 5:1，不是严格一层 local 一层 global）。这些都不改变 block 外层的 residual 接口，只改变 attention 内部"能看到多远"；但"哪几层用 local、哪几层用 global"这个排布本身是**stack 调度层**的决定（参见 §0 分层地图），不是单个 block 的私有属性——完整的滑窗/StreamingLLM 机制见 long_context_rope_yarn_mla_tutorial.md §10。
+三个机制作用在同一条计算链的不同位置：
 
-### 7.4　执行 / 适配 overlay：FlashAttention、量化、LoRA（只指路）
+- **attention scale**：标准的 $1/\sqrt{d_h}$ 或可学习温度，控制 softmax 输入的整体幅度量级，是最基础、几乎所有实现都有的数值控制。
+- **QK-Norm**（Henry et al., *Query-Key Normalization for Transformers*, arXiv 2010.04245, 2020, EMNLP 2020 Findings）：点积**之前**对每个 head 的 Q、K 分别做 L2 归一化，并用可学习缩放/温度**取代**标准固定的 $1/\sqrt{d_h}$；后续模型的具体实现细节可能不同。
+- **logit soft-capping**：在点积**之后**对 attention score 或最终 vocabulary logits 施加类似 $c\tanh(z/c)$ 的有界变换，管住的是已经算出来的分数/logits 幅度。
 
-这三个机制都属于 §0 分层地图里的"执行/适配 overlay"层，不是和 GQA/MoE 同级、需要互斥选择的架构槽位，而是叠加在已经选定的架构之上、用来加速或适配部署环境的策略：
+三者作用的位置和管住的量完全不同，**也不能无脑同时叠加**——同时启用需要重新核对整体尺度，而不是简单相加。
 
-- **FlashAttention**：只改变 exact attention 的计算顺序、IO 调度和内存访问模式，不改变 attention 的数学结果，也不定义新的连接图——可以叠加在 MHA/GQA/MQA/MLA、任意 local/global pattern 之上。完整 IO-aware 复杂度推导见 attention_tutorial.md。
-- **量化**：把权重/激活值表示成更低精度的数值格式，是数值表示层面的 overlay，可以和上面任何架构选择叠加，代价是量化误差；完整误差分析见 quantization_tutorial.md。
-- **LoRA**：在已训练权重旁加一对低秩矩阵做参数高效微调，是训练/适配阶段的 overlay，不改变 block 的前向架构；完整低秩公式见 lora_peft_tutorial.md。
+### 7.3　local / sliding / global attention
 
-三者都不应该被当成"和 GQA、MoE 平级、必须三选一"的架构槽位——它们是可以叠加在几乎任意架构组合之上的独立维度。
+这是 attention **连接结构/可见范围（connectivity pattern）** 的设计轴，不是"attention backend"，也和位置编码方案是两回事。Mistral（Jiang et al., *Mistral 7B*, arXiv 2310.06825, 2023）用固定窗口的 sliding-window attention；Gemma-2 在层间 1:1 交替 local 窗口和 global 全局 attention；Gemma-3 更接近"多个 local 层后插入一个 global 层"的周期性 pattern，约 5:1，不是严格一层 local 一层 global。
 
-### 7.5　小结：这几类机制怎么组合
+这些都不改变 block 外层的 residual 接口，只改变 attention 内部"能看到多远"。而"哪几层用 local、哪几层用 global"这个排布本身是堆栈装配的决定，不是单个 block 的私有属性。完整的滑窗/StreamingLLM 机制见 long_context_rope_yarn_mla_tutorial.md §10。
 
-上面几类机制实践中经常同时出现在同一个模型里（例如 Gemma-3 同时用 branch pre+post norm + QK-Norm + local/global 交替 attention）。常见的检查顺序：先确定 attention 的可见范围（global / local / sliding，§7.3），再确定 Q/K 或 logits 的数值稳定化方式（QK-Norm 或 soft-cap，§7.2），最后确定归一化拓扑与 residual scaling（Pre-LN / branch pre+post / parallel，§7.1）。具体取值还受训练稳定性、kernel 支持、既有 checkpoint 兼容性等工程因素约束。
+### 7.4　FlashAttention、量化与 LoRA
 
-> 🎯 **这一节的面试答题原则**
-> 遇到任何一个“新稳定化技巧”，先问自己两件事：它作用在哪个张量上（Q/K？attention score？残差流？）、它是否改变 block 的输入输出 shape 契约（通常不改变）。把新名词往这两个问题上一挂，回答会比单纯罗列“这是什么”扎实得多。
+这三个机制叠加在已经选定的架构之上，用来加速或适配部署环境，不是和 GQA/MoE 同级、需要互斥选择的架构组件：
 
-## §8 Model Recipe Atlas
+- **FlashAttention**：只改变 exact attention 的计算顺序、IO 调度和内存访问模式，不改变 attention 的数学结果，也不定义新的连接图，可以叠加在 MHA/GQA/MQA/MLA、任意 local/global pattern 之上。
+- **量化**：把权重/激活值表示成更低精度的数值格式，可以和上面任何架构选择叠加，代价是量化误差。
+- **LoRA**：在已训练权重旁加一对低秩矩阵做参数高效微调，不改变 block 的前向架构。
+
+## §8 模型对照与常见误答
 
 ### 8.1　主流模型 Block Recipe 对照表
 
-口径说明：“QK-Norm”专指点积前对每个 head 的 Q/K 显式归一化（MLA 内部的 latent 投影归一化不算）；“branch pre+post”指 $y=x+N_\text{post}(F(N_\text{pre}(x)))$，不等同于原始 Post-LN；Attention 列只写 KV-head 共享方式，local/sliding/global pattern 在备注列；final norm、local/global 排布属于 stack 调度层（§0），本表按模型整体 recipe 呈现；这些代表性模型的 canonical recipe 中**没有一个以 ALiBi 为主要位置方案**。
+口径说明："QK-Norm"专指点积前对每个 head 的 Q/K 显式归一化（MLA 内部的 latent 投影归一化不算）；"branch pre+post"指 $y=x+N_\text{post}(F(N_\text{pre}(x)))$，不等同于原始 Post-LN；Attention 列只写 KV-head 共享方式，local/sliding/global pattern 在备注列；final norm、local/global 排布属于堆栈装配，本表按模型整体 recipe 呈现；这些代表性模型的 canonical recipe 中**没有一个以 ALiBi 为主要位置方案**。
 
 | 模型 | Norm 拓扑 | Norm 类型 | 位置方案 | Attention | FFN/experts | Parallel attn+FFN | QK-Norm | 备注 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -418,17 +359,19 @@ $$y = x + N_\text{post}\big(F(N_\text{pre}(x))\big)$$
 | GPT-2 | Pre-LN | LayerNorm | learned absolute positional embedding | MHA | GELU，dense | 否 | 否 | 每层串行 attn→MLP，stack 末尾有 final LayerNorm |
 | GPT-3 | Pre-LN | LayerNorm | learned absolute positional embedding | MHA | GELU，dense | 否 | 否 | 延续 GPT-2-style block，层间有 dense 与局部带状稀疏 attention pattern 的变化 |
 
-**从这张表能读出的三个规律**：(1) “Norm 拓扑”和“Norm 类型”几乎总是绑定出现——Pre-LN 配 RMSNorm、Parallel Pre-LN 配 LayerNorm、branch pre+post 也配 RMSNorm；(2) MHA/MQA/GQA/MLA 四种取值在同一批代表性模型里都有例子，佐证 §5 “并存的设计点，不是历史阶梯”；(3) “Parallel attn+FFN”只有 GPT-J、PaLM 两行是“是”——小众但确实在用，不是被淘汰的死路。
+**从这张表能读出的三个规律**：(1) "Norm 拓扑"和"Norm 类型"几乎总是绑定出现——Pre-LN 配 RMSNorm、Parallel Pre-LN 配 LayerNorm、branch pre+post 也配 RMSNorm；(2) MHA/MQA/GQA/MLA 四种取值在同一批代表性模型里都有例子，佐证 §5 "并存的设计点，不是历史阶梯"；(3) "Parallel attn+FFN"只有 GPT-J、PaLM 两行是"是"——小众但确实在用，不是被淘汰的死路。
+
+现代 recipe 并没有完全收敛：Pre-RMSNorm + RoPE + gated FFN + 推理友好 GQA 只是较常见的组合，Post-LN 变体、LayerNorm、MHA、MQA、parallel residual、dense FFN、MoE 全部仍在生产环境里使用。
 
 ### 8.2　十二条最容易翻车的说法
 
-把全文出现过的高频误答收进一张表，考前最后扫一遍：
+高频误答与更准确的说法：
 
 | 常见说法 | 更准确的说法 |
 | --- | --- |
 | 现代 LLM 才把 Post-LN 换成 Pre-LN | GPT-2 已经是 Pre-LN，这一步发生得更早（§3.2） |
 | decoder-only 就是"decoder 去掉 cross-attn" | 单层结构上这么说没错；完整模型层面还需要加上——encoder/memory 路径也一并消失，双流条件生成变成单流因果建模（§3.1） |
-| 残差流方差随深度 $\propto\sqrt l$ 膨胀 | 方差 $\propto l$（线性），标准差/RMS 才 $\propto\sqrt l$——独立增量假设下（§0、§9 Q11） |
+| 残差流方差随深度 $\propto\sqrt l$ 膨胀 | 方差 $\propto l$（线性），标准差/RMS 才 $\propto\sqrt l$——独立增量假设下（§4、§9 Q11） |
 | Pre-LN 栈末尾必须有 final norm，否则模型不可能训好 | 标准 recipe 的常见配置而非数学必需；且是 stack 级操作，不是 block 字段（§1.1、§9 Q11） |
 | MHA→MQA→GQA→MLA 是一条演进链 | 时间线 MHA→MQA→GQA，压缩强度 MHA→GQA→MQA；MLA 是独立 latent 分支——排序维度不止一条（§5、§9 Q27） |
 | MLA 只是 GQA 更狠的压缩 | MLA 压缩的是 hidden 维度并需要解耦 RoPE；GQA 压缩的是 head 数量/共享关系，两者约束条件都不同（§5.2、§9） |
@@ -441,7 +384,7 @@ $$y = x + N_\text{post}\big(F(N_\text{pre}(x))\big)$$
 
 ## §9 30 高频面试题
 
-按难度分三档，点开看答案要点（提供判别动作的 10 题末尾附易踩坑）。L2/L3 是顶级 lab 深水区（拓扑分叉、装配轴独立性、系统正确性、跨模型 recipe 比较）。答题时**不重复 sibling tutorial 里的深度数学推导**，按"结构判断 → 关键公式 → 常见错误"组织即可。
+按难度分三档，点开看答案要点（提供判别动作的 10 题末尾附易踩坑）。L2/L3 是顶级 lab 深水区（拓扑分叉、装配轴独立性、系统正确性、跨模型 recipe 比较）。
 
 ### L1必会题
 
@@ -668,7 +611,7 @@ $$y = x + N_\text{post}\big(F(N_\text{pre}(x))\big)$$
 <summary>Q20. prefill 和 decode 的性能瓶颈为什么不同？KV cache 如何改变复杂度？</summary>
 
 - prefill 处理整段 prompt，权重复用高，通常更偏计算受限；decode 每步只处理一个 token，却要读取权重和增长中的 KV，小 batch 下更偏带宽受限
-- KV cache 把每步历史 K/V 重算从 $O(t^2)$ 降到 $O(t)$（$t$ 为当前位置；完整瓶颈分析见 llm_inference_serving_tutorial.md）
+- KV cache 省掉的是历史 K/V 投影的重算：模型宽度固定时，重算前 $t$ 个位置的 K/V 投影随长度线性增长，有 cache 后每步只投影新 token；$O(t^2)$ 说的是整段序列重算 attention 的代价，不是 K/V 投影的代价（$t$ 为当前位置；完整瓶颈分析见 llm_inference_serving_tutorial.md）
 
 </details>
 
@@ -804,3 +747,4 @@ $$y = x + N_\text{post}\big(F(N_\text{pre}(x))\big)$$
 - **QK-Norm** — Henry et al., *Query-Key Normalization for Transformers*, arXiv 2010.04245 (2020), EMNLP 2020 Findings.
 - **GELU** — Hendrycks & Gimpel, *Gaussian Error Linear Units (GELUs)*, arXiv 1606.08415 (2016).
 - **GLU Variants / SwiGLU** — Shazeer, *GLU Variants Improve Transformer*, arXiv 2002.05202 (2020)。提出并系统评估了这些 Transformer FFN 变体；原始 GLU 与 SiLU/Swish 的基础思想各有更早来源。
+- **同系列教程** — [attention_tutorial.md](attention_tutorial.md)、[normalization_init_tutorial.md](normalization_init_tutorial.md)、[moe_tutorial.md](moe_tutorial.md)、[long_context_rope_yarn_mla_tutorial.md](long_context_rope_yarn_mla_tutorial.md)、[linear_sparse_attention_tutorial.md](linear_sparse_attention_tutorial.md)、[quantization_tutorial.md](quantization_tutorial.md)、[lora_peft_tutorial.md](lora_peft_tutorial.md)、[llm_inference_serving_tutorial.md](llm_inference_serving_tutorial.md)

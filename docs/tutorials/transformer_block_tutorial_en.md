@@ -1,91 +1,45 @@
-## §0 Mental Model + TL;DR Cheat Sheet
+## §0 The Basic Parts of a Block
 
-**A Transformer block is not one formula but a set of layered assembly rules.** Most interview confusions ("Pre-LN is the next generation of Post-LN", "MQA→GQA→MLA is one upgrade chain", "decoder-only is just the decoder with a part removed") come from compressing these layered rules into a single linear timeline. Start with the mental model: the residual stream $x_l$ passes through two or three **sublayers** in turn (attention, FFN, plus a cross-attn in the original encoder-decoder), with **serial** dependency by default — the FFN reads the residual stream after the attention update (parallel is the exception, see below):
+A Transformer block organizes attention and FFN with residual connections. In the serial structure the FFN reads the residual stream after the attention update; in the parallel structure the two have no ordering dependency. The decoder layer of the original encoder-decoder also contains a cross-attention. Normalization, KV sharing, and model structure each have their own choices.
 
-```text
-residual stream x_l
-  │
-  ├─▶ [norm slot: Pre / Post / branch pre+post] → Attention slot (self-/cross-attention,
-  │     MHA/GQA/MQA/MLA, ±RoPE, ±QK-Norm, global/local window) → [norm slot] ──▶ ADD back to residual stream
-  │     yielding the intermediate state u = x_l + Attn(N(x_l))
-  │
-  u ─▶ [norm slot] → FFN slot (Dense GELU / Gated SwiGLU / MoE) → [norm slot] ──▶ ADD back to residual stream
-  │     (serial default: FFN reads u, not x_l; parallel variant: FFN and attention both read the same N(x_l), not u)
-  │
-residual stream x_{l+1}
-```
+- **A block's definition contains only its own sublayers**: final norm, local/global interleaving, and dense/MoE layer placement are decided by the stack-assembly code and belong to no block.
+- **GPT-2 is already Pre-LN**: from GPT-2-style to Llama-style, what actually changed is the normalization type, the positional encoding's owning level, the FFN structure, and the KV-head configuration.
+- **MHA, MQA, GQA, and MLA are coexisting design points**: the historical order is MHA→MQA→GQA, the compression-strength order is MHA→GQA→MQA, and MLA is an independent low-rank latent branch.
+- **The KV cache mainly tracks $n_\text{kv}$, not $n_q$**: MQA/GQA do not reduce the Q projection's compute.
+- **Dense FFN and MoE are two choices on the capacity axis**: not a "next generation inevitably replaces the previous" ordering.
+- **The only structural difference between cross-attn and self-attn is where Q/K/V come from**: everything else — scaled dot-product, multi-head split, softmax — is identical.
 
-**The slots are not strictly orthogonal independent axes; they live at different levels: first locate a design decision by level, then analyze within a level mostly independently. The couplings that need separate checks are the MLA↔RoPE split, the norm-topology↔norm-type binding, the joint scale of QK-Norm/attention scale/soft-cap (the full scale constraint is in §7.2), and GQA↔projection parameter count.** This master rule is stated only once here; later sections state the concrete coupling facts directly. Replace "orthogonal axes" with a layered map:
-
-| Level | Typical decisions | Owned by |
-| --- | --- | --- |
-| Inside the operator | QKV projections, RoPE, QK-Norm, head sharing (MHA/GQA/MQA/MLA), gated FFN | the attention/FFN module itself |
-| Single block | serial/parallel dependency graph, norm placement (Pre/Post/branch pre+post), residual add, branch scaling/gating | the block's `forward` |
-| Stack scheduling | final norm, local/global interleaving, which layers are dense vs. MoE | the stack-assembly code, not any single block |
-| Model shell | token embedding, external absolute PE, weight tying, LM head (incl. soft-cap) | the whole model's input/output layers |
-| Execution/adaptation overlay | KV cache, FlashAttention, packed projection, quantization, LoRA | deployment/fine-tuning execution strategy; leaves the four levels above architecturally unchanged |
-
-Every later judgment of "does this choice belong inside the block, at stack level, or in the model shell" is located by this table, never by a vague "some slot".
-
-> 💡 **Four residual-topology formulas, one screen to memorize, all stated at "whole block" granularity** (§1–§7 below are all concretizations of these four; $A$, $M$ are the attention and FFN sublayers, and $N_1,N_2,N_A,N_M,N_1^{\text{pre}},N_1^{\text{post}},N_2^{\text{pre}},N_2^{\text{post}}$ are all normalization operators)
->
-> $$\text{Post-LN (Vaswani et al. 2017 original Transformer)}:\quad u = N_1\big(x + A(x)\big),\quad y = N_2\big(u + M(u)\big)$$
-> $$\text{Pre-LN serial (explicitly adopted at least by GPT-2, later the common form in modern LLMs)}:\quad u = x + A\big(N_1(x)\big),\quad y = u + M\big(N_2(u)\big)$$
-> $$\text{Pre-LN parallel (GPT-J / PaLM)}:\quad y = x + A\big(N_A(x)\big) + M\big(N_M(x)\big)$$
-> $$\text{branch pre+post (Gemma-2/3)}:\quad u = x + N_1^{\text{post}}\big(A(N_1^{\text{pre}}(x))\big),\quad y = u + N_2^{\text{post}}\big(M(N_2^{\text{pre}}(u))\big)$$
->
-> Post-LN wraps the normalization around the residual sum, repeatedly squeezing the trunk. Pre-LN serial leaves the trunk a pure identity-add path; the FFN reads the updated stream $u$. Pre-LN parallel removes the ordering dependency; attention and FFN read the same $x$ (the precise definition of parallel is in §7.1.2). In branch pre+post, the second normalization wraps only the branch output; the trunk stays pure addition — unlike Post-LN. Note: norm placement (Post/Pre/branch pre+post) and serial/parallel dependency are two dimensions, not one axis; §1 [D02]/[D08] gives executable positive and negative proofs of all four topologies.
-
-**The Transformer Block in 12 sentences**:
-
-1. **Block = residual stream + sublayers assembled by level**: the internal variants of attention and FFN are independent choices within the same level; encoder-decoder has one more cross-attn sublayer than decoder-only.
-2. **Decoder-only: per layer it is "remove cross-attn", but the whole model also loses the encoder/memory path**: 3 sublayers (masked self-attn, cross-attn, FFN) become 2 (causal self-attn, FFN); a complete answer adds one more sentence — two-sequence conditional generation becomes single-sequence causal modeling (§3).
-3. **GPT-2 is already Pre-LN**: from GPT-2-style to Llama-style, what actually changed is LayerNorm→RMSNorm, learned absolute PE→RoPE (moved inside attention), GELU dense FFN→SwiGLU gated FFN, MHA→GQA where applicable, plus removing most bias/dropout (§3.2, §4).
-4. **A Pre-LN stack usually ends with a final norm**: under the independent-increment assumption the residual stream's **variance** grows roughly linearly as $O(l)$ (it is the standard deviation/RMS that goes as $\sqrt l$); feeding the output head without this closure usually degrades training quality noticeably. It is a common configuration of the standard recipe, not mathematically indispensable (§9 Q11; derivation in normalization_init_tutorial.md §5.3).
-5. **MHA→MQA→GQA→MLA is not one evolution chain**: the historical order is MHA→MQA→GQA, the compression-strength order is MHA→GQA→MQA; MLA is DeepSeek's independent low-rank latent branch and does not sit at the end of the KV-head-count axis (§5).
-6. **Dense FFN → MoE is another independent "capacity axis"**: not an inevitable "next-generation replacement" — representative models such as Llama 1–3, the original Mistral, and Gemma 1–3 still mostly use dense FFN, while Mixtral, Llama 4, and others have adopted MoE (§6).
-7. **QK-Norm, logit soft-cap, branch pre+post norm, parallel residual, and local/sliding attention can mostly be combined as needed**: what needs a separate check is the joint scale when QK-Norm and soft-cap are used together (§7.2).
-8. **FFN parameter matching is computed, not a law**: dense FFN ($8d^2$) and gated FFN ($3dh$) have equal parameters at $h=8d/3$; real models round to hardware-friendly multiples and can deviate noticeably (§4, §1 [D06]).
-9. **KV cache tracks $n_\text{kv}$, not $n_q$**: MQA/GQA reduce K/V projection parameters, compute, and cache memory/bandwidth, but do not reduce the Q projection's compute (§5; full memory accounting in attention_tutorial.md §6 and kv_cache_speculative_decoding_tutorial.md §2).
-10. **The modern recipe has not fully converged**: Pre-RMSNorm + RoPE + gated FFN + inference-friendly GQA is only the "more common" combination; Post-LN variants, LayerNorm, MHA, MQA, parallel residual, dense FFN, and MoE are all still used in production (§8).
-11. **The only structural difference between cross-attention and self-attention is where Q/K/V come from**: in self-attn, Q, K, V all come from the same stream; in cross-attn, Q comes from the current stream while K/V come from another sequence whose length can differ — everything else (scaled dot-product, multi-head split, softmax) is identical, needing no separate math (§2).
-12. **"Packed projection" is only a kernel-level equivalent rearrangement**: fusing the three Q/K/V Linears (or SwiGLU's gate/up) into one big Linear is purely an implementation optimization; with row-wise concatenated weights the results should agree at the corresponding precision, changing no architectural semantics (§1 [D07]).
-
-> 🎯 **Scope of this tutorial: assembly only — no re-derivation of the math inside each part**
-> The softmax-attention derivation, FlashAttention's IO complexity, the Xiong/DeepNorm gradient arguments, the full MoE routing/capacity math, RoPE rotation matrices and YaRN/NTK/MLA latent algebra, linear-attention derivations, quantization error analysis, LoRA's low-rank formulas — each part's own math has dedicated coverage in attention_tutorial.md, normalization_init_tutorial.md, moe_tutorial.md, long_context_rope_yarn_mla_tutorial.md, linear_sparse_attention_tutorial.md, quantization_tutorial.md, and lora_peft_tutorial.md; prefill/decode system bottlenecks and KV-cache paging/scheduling are in llm_inference_serving_tutorial.md. This tutorial only cares **how these parts assemble into a block, and how the assembly evolved from the 2017 version to the modern one**; for any deep math or systems question it gives a 1-2 sentence conclusion plus a link, never a repeated derivation.
-
-## §1 Capstone: Assembly, End-to-End Forward, Parameter Accounting, and Executable Verification
+## §1 A Modern Block: Forward, Parameters, and Code
 
 ### 1.1　Assemble a Llama-3-like block, then swap in MoE
 
-This is the first body section after the §0 mental model, and it gives the answer directly: what a concrete, complete, runnable modern decoder-only block looks like. Below we actually assemble every slot with the "more common modern combination"; the history and alternatives for each concrete choice (RMSNorm, RoPE, GQA, SwiGLU, etc.) are in §2–§7, and you can follow this example without reading those first. (Strictly this is a "Llama-3-like core block": exactly reproducing a given checkpoint also requires matching head count, KV-head count, intermediate size, RoPE base, bias settings, and dtype behavior.)
+A concrete, complete, runnable modern decoder-only block looks like this:
 
-1. **Normalization slot (inside the block)**: Pre-RMSNorm, twice (once before attention, once before FFN).
-2. **Attention slot**: causal self-attn, RoPE applied internally to Q/K, $n_q$ query heads grouped to share $n_\text{kv}$ KV heads (GQA; degenerates to MHA when $n_\text{kv}=n_q$, see §1.4 [D05]), K cached after rotation, V never rotated, no bias.
-3. **FFN slot**: SwiGLU gated FFN, $h \approx 8d/3$ rounded to a hardware-friendly multiple, no bias.
+1. **Normalization**: Pre-RMSNorm, twice — once before attention, once before the FFN.
+2. **Attention**: causal self-attn, RoPE applied internally to Q/K, $n_q$ query heads grouped to share $n_\text{kv}$ KV heads — that is GQA, degenerating to MHA when $n_\text{kv}=n_q$; K is cached after rotation, V is never rotated, no bias.
+3. **FFN**: SwiGLU gated FFN, $h \approx 8d/3$ rounded to a hardware-friendly multiple, no bias.
 4. **Single-block assembly**: $x=x+\text{Attn}_\text{RoPE,GQA}(\text{RMSNorm}(x))$, $x=x+\text{SwiGLU}(\text{RMSNorm}(x))$ — this is the complete definition of **one block**; repeat it $N$ times to get the whole decoder stack.
-5. **Stack-level closure (belongs to no single block)**: after all $N$ blocks, apply one **final RMSNorm** before the LM head: $x_\text{out} = \text{RMSNorm}\big(\text{Block}_N(\cdots\text{Block}_1(x_0))\big)$. The final norm is a stack-scheduling operation, not a component of any block in steps 1–4 (see the §0 layered map and §4's block-vs-periphery boundary discussion).
+5. **Stack-level closure**: after all $N$ blocks, apply one **final RMSNorm** before the LM head: $x_\text{out} = \text{RMSNorm}\big(\text{Block}_N(\cdots\text{Block}_1(x_0))\big)$. The final norm belongs to stack assembly, not to any block in steps 1–4.
 
-Now compute this block's parameter count concretely with the teaching sizes from the §1.4 code ($d=96$, $n_q=8$, $n_\text{kv}=2$, gated hidden $=256$): the GQA attention part has $2d^2(1+n_\text{kv}/n_q)=23{,}040$ matrix parameters, the SwiGLU FFN part has $3dh=73{,}728$, and each of the two RMSNorms has only $d=96$ per-channel scale parameters — a single block totals about $23{,}040+73{,}728=96{,}768$ matrix parameters, with the FFN taking the vast majority. This is why "how to choose the FFN hidden size" (§4, §1.3) affects total parameters more than "how many KV heads to use".
+Strictly this is a "Llama-3-like core block": exactly reproducing a given checkpoint also requires matching head count, KV-head count, intermediate size, RoPE base, bias settings, and dtype behavior. Compute the parameter count once with the teaching sizes $d=96$, $n_q=8$, $n_\text{kv}=2$, gated hidden $=256$: the GQA attention part has $2d^2(1+n_\text{kv}/n_q)=23{,}040$ matrix parameters, the SwiGLU FFN part has $3dh=73{,}728$ matrix parameters, and each of the two RMSNorms has only $d=96$ per-channel scale parameters. A single block totals about $23{,}040+73{,}728=96{,}768$ matrix parameters, with the FFN taking the vast majority. This is also why the FFN hidden size affects total parameters more than the KV-head count.
 
-**Next, swap the FFN slot for MoE and touch nothing else**:
+**Swap the FFN for MoE and touch nothing else**:
 
 $$x=x+\text{Attn}_\text{RoPE,GQA}(\text{RMSNorm}(x)), \qquad x=x+\text{MoEFFN}(\text{RMSNorm}(x))$$
 
-`MoEFFN`'s external **main-activation tensor** interface is still `[B,T,d] -> [B,T,d]`, and not a single line of `ModernDecoderBlock` changes (verified directly in §1.4 [D09]). What changes are the other two contract layers: training usually returns extra router/load-balancing quantities, and distributed deployment usually introduces expert parallelism. The full three-layer contract breakdown is in §6 and §9 Q28.
+`MoEFFN`'s external **main-activation tensor** interface is still `[B,T,d] -> [B,T,d]`, and not a single line of `ModernDecoderBlock` changes; §1.4 [D09] verifies this directly. What changes are two other things: training usually returns extra router/load-balancing quantities, and distributed deployment usually introduces expert parallelism.
 
-> ✅ **Capstone summary: which fields describe a block's recipe**
-> Normalization topology (Post/Pre-serial/Pre-parallel/branch pre+post) + normalization type (LayerNorm/RMSNorm) + positional-encoding scheme and its level (learned absolute outside the stack / RoPE inside attention) + attention variant (MHA/MQA/GQA/MLA, local window or not, QK-Norm or not, attention scale/temperature) + FFN variant (dense/gated/MoE, intermediate size) + bias/dropout/norm epsilon/residual scaling (e.g. LayerScale, see §7.1.3). This covers the coarse-grained fields common interviews need; finer-grained values (head dim, RoPE base, exact activation implementation, etc.) are not on this list. **Final norm, local/global interleaving, and dense/MoE layer placement are stack-scheduling decisions (step 5) — do not mix them into the definition of a single block.**
+> ✅ **Which fields describe a block's recipe** — normalization topology, i.e. Post/Pre-serial/Pre-parallel/branch pre+post; normalization type, LayerNorm or RMSNorm; positional-encoding scheme and its owning level, learned absolute outside the stack and RoPE inside attention; attention variant MHA/MQA/GQA/MLA, local window or not, QK-Norm or not, attention scale/temperature; FFN variant dense/gated/MoE and intermediate size; bias, dropout, norm epsilon, residual scaling such as LayerScale. This covers the coarse-grained fields common interviews need; finer-grained values such as head dim, RoPE base, and the exact activation implementation are not on this list.
 
-### 1.2　End-to-end forward walkthrough: the complete data flow of a modern decoder-only block
+### 1.2　End-to-end forward: the complete data flow of a modern decoder-only block
 
-Here is the walkthrough of the complete data flow of a modern decoder-only block — an equally detailed walkthrough of the historical 2017 encoder-decoder version is in §2 (that is "where we came from" history; reading it or not does not affect understanding this block now). Using the teaching sizes from §1.1 ($d=96$, $n_q=8$, $n_\text{kv}=2$, gated hidden $=256$), the full tensor flow is:
+Take the teaching sizes $d=96$, $n_q=8$, $n_\text{kv}=2$, gated hidden $=256$. The complete forward data flow of a modern decoder-only block is:
 
 $$x \in [B,T,d] \;\xrightarrow{\text{RMSNorm}}\; h_1 \;\xrightarrow{\text{Q/K/V projection + reshape}}\; Q\in[B,n_q,T,d_h],\;K,V\in[B,n_\text{kv},T,d_h] \;\xrightarrow{\text{RoPE}}\; Q',K' \;\xrightarrow{\text{GQA attention}}\; O\in[B,T,d] \;\xrightarrow{\text{residual add}}\; u = x + O$$
 
 $$u \;\xrightarrow{\text{RMSNorm}}\; h_2 \;\xrightarrow{\text{gate/up projection}}\; \text{SiLU}(\text{gate}(h_2))\odot\text{up}(h_2) \;\xrightarrow{\text{down projection}}\; F\in[B,T,d] \;\xrightarrow{\text{residual add}}\; y = u + F$$
 
-This is the complete forward pass of a single block; repeat this block $N$ times and then apply one stack-level final RMSNorm (§1.1 step 5) to get the full decoder-only backbone: $y_\text{final} = \text{RMSNorm}\big(\text{Block}_N(\cdots(\text{Block}_1(x_0)))\big)$.
+Repeat this block $N$ times and then apply one stack-level final RMSNorm to get the full decoder-only backbone: $y_\text{final} = \text{RMSNorm}\big(\text{Block}_N(\cdots(\text{Block}_1(x_0)))\big)$.
 
 This data flow takes different concrete forms under three execution modes:
 
@@ -95,15 +49,17 @@ This data flow takes different concrete forms under three execution modes:
 | Prefill (first inference step) | Q, K, V all span the full prompt length $S$ | causal mask $[S,S]$ | written to cache (K and V, $n_\text{kv}$ heads each, length $S$) | first forward after receiving the user prompt, building the cache for subsequent decode |
 | One-token decode (step-by-step inference) | Q has length $1$ (new token); K, V grow from cached history length $t$ to $t{+}1$ | with a dynamic cache and no padding/packing, the new token sees all of $0..t$ (whole row True); static cache/left padding/packed sequences still need extra masking (see §9 Q25) | read old cache + append new K/V | every step of autoregressive generation |
 
-The three modes share the same RMSNorm→RoPE→attention→residual code path, differing only in the actual Q/K/V lengths, the mask shape, and whether the cache is read/written — which is exactly why §1.4 [D04] uses one implementation to verify that full-forward and cached decoding agree numerically (if the two paths used different code, that test would lose its cross-validation meaning). The system-level performance bottlenecks of prefill/decode (arithmetic intensity, batching/scheduling) are out of scope here; see llm_inference_serving_tutorial.md.
+The three modes share the same RMSNorm→RoPE→attention→residual code path, differing only in the actual Q/K/V lengths, the mask shape, and whether the cache is read/written. That is why §1.4 [D04] can use one implementation to verify that full-forward and cached decoding agree numerically; if the two paths used different code, that test would lose its cross-validation meaning.
 
 ### 1.3　Parameter-count and KV-cache formula accounting
 
-**FFN parameters** (ignoring bias): dense (ReLU/GELU, two matrices) $8d^2$; gated (SwiGLU/GeGLU, three matrices) $3dh$. Setting them equal gives $h=8d/3$ — a **common default computed from parameter matching**, not an architectural law; real Llama-family implementations usually start from $4d$, multiply by $2/3$, then round to hardware-friendly multiples (with an optional multiplier), so the intermediate size can deviate noticeably from $8d/3$. §1.4 [D06] verifies exactly 73,728 matrix parameters on both sides with $d=96$, dense hidden $=384$ ($4d$), gated hidden $=256$ ($8d/3$).
+**FFN parameters**, ignoring bias: dense (ReLU/GELU) is $8d^2$ over two matrices; gated (SwiGLU/GeGLU) is $3dh$ over three matrices. Setting them equal gives $h=8d/3$ — a **common default computed from parameter matching**, not an architectural law. Real Llama-family implementations usually start from $4d$, multiply by $2/3$, then round to hardware-friendly multiples (with an optional multiplier), so the intermediate size can deviate noticeably from $8d/3$.
 
-**Attention parameters** (ignoring bias): MHA's four Q/K/V/O projections total $4d^2$; GQA gives $2d^2(1+n_\text{kv}/n_q)$ (degenerating back to $4d^2$ at $n_\text{kv}=n_q$, and reaching MQA's minimum at $n_\text{kv}=1$). §1.4 [D06] checks both formulas against real `.numel()`. Both formulas assume $d=n_qd_h$, identical head dim for Q/K/V, a $d\times d$ output projection, and no bias — adjust accordingly when these assumptions fail.
+**Attention parameters**, ignoring bias: MHA's four Q/K/V/O projections total $4d^2$; GQA gives $2d^2(1+n_\text{kv}/n_q)$, degenerating back to $4d^2$ at $n_\text{kv}=n_q$ and reaching MQA's minimum at $n_\text{kv}=1$. Both formulas assume $d=n_qd_h$, identical head dim for Q/K/V, a $d\times d$ output projection, and no bias — adjust them accordingly when these assumptions fail.
 
-**KV cache** (the table gives **element counts** per token per layer, not bytes; full memory usage further multiplies by batch size $B$, sequence length $L$, layer count $N_\text{layer}$, and bytes per element — usually 2 bytes for fp16/bf16, 1 byte for fp8; full cross-model GB numbers in kv_cache_speculative_decoding_tutorial.md §2.2):
+**Packed projection**: fusing the three Q/K/V Linears, or SwiGLU's gate/up Linears, into one big Linear is a kernel-level equivalent rearrangement — with row-wise concatenated weights the results should agree at the corresponding precision, changing no architectural semantics.
+
+**KV cache**: the table below gives **element counts** per token per layer, not bytes. Full memory usage further multiplies by batch size $B$, sequence length $L$, layer count $N_\text{layer}$, and bytes per element — usually 2 bytes for fp16/bf16, 1 byte for fp8.
 
 | Variant | Cache size (elements/token/layer) |
 | --- | --- |
@@ -114,9 +70,9 @@ The three modes share the same RMSNorm→RoPE→attention→residual code path, 
 
 ### 1.4　From-scratch implementation and executable verification: `code/transformer_block.py`
 
-The full runnable script is [`code/transformer_block.py`](code/transformer_block.py) (pure PyTorch; all 9 demos [D01]–[D09] finish in seconds on CPU). Four entry classes correspond to this tutorial's four "block eras": `VanillaEncoderLayer2017`, `VanillaSeq2SeqDecoderLayer2017` (§2), `GPT2StyleDecoderLayer` (§3), `ModernDecoderBlock` (§4/§1.1, with `ffn=` swappable among `DenseFFN`/`GatedFFN`/`MoEFFN`). The body shows only the three most central snippets; the remaining demos are standalone functions in the script and are not reproduced here.
+The full runnable script is [`code/transformer_block.py`](code/transformer_block.py) (pure PyTorch; all 9 demos [D01]–[D09] finish in seconds on CPU). Four entry classes correspond to this tutorial's four "block eras": `VanillaEncoderLayer2017`, `VanillaSeq2SeqDecoderLayer2017` (§2), `GPT2StyleDecoderLayer` (§3), `ModernDecoderBlock` (§4/§1.1, with `ffn=` swappable among `DenseFFN`/`GatedFFN`/`MoEFFN`). The body shows the three most central snippets; the remaining demos are standalone functions in the script.
 
-**[D02] Residual-topology test** (the executable version of §0's four formulas: zero out the sublayer output — Pre-LN must return exactly $x$, Post-LN must return $N(x) \ne x$):
+**[D02] Residual-topology test** (zero out the sublayer output: Pre-LN must return exactly $x$, Post-LN must return $N(x) \ne x$):
 
 ```python
 def zero_sublayer(_x):
@@ -175,7 +131,7 @@ assert torch.allclose(captured["x"], par_blk.norm(x), atol=1e-6)       # paralle
 8. **[D08] Parallel vs sequential**: forward hooks capture both attention's and the FFN's actual inputs; the sequential block matches $N_2(x+\text{Attn}(N_1(x)))$ exactly, and both branches of the parallel block match $N(x)$ exactly.
 9. **[D09] Backward smoke test**: all dense-block parameter gradients are finite; the MoE-swapped block must iterate over all experts not unused in this batch and check nonzero gradients, while router/attention/norm and all other parameters also receive gradients normally.
 
-The **actual output** of running `python3 code/transformer_block.py` (re-run and backfilled after the code fixes; D10-D15 are targeted regression tests added during code review, covering constructor argument validation, KV-cache consistency, cross-attention combination restrictions, mask safety and broadcasting, default causal behavior, and RoPE-cache device/dtype handling):
+The **actual output** of running `python3 code/transformer_block.py` (D10-D15 are targeted regression tests, covering constructor argument validation, KV-cache consistency, cross-attention combination restrictions, mask safety and broadcasting, default causal behavior, and RoPE-cache device/dtype handling):
 
 ```text
 [D01] shapes (enc/dec2017/gpt2/modern) = [torch.Size([2, 7, 96]), torch.Size([2, 7, 96]), torch.Size([2, 7, 96]), torch.Size([2, 7, 96])] (expect 4x (2,7,96)); cross-attn ran with Tq=7 != S=5; changing memory changes cross-attn output (memory is actually read, not ignored) = True  PASS
@@ -197,14 +153,11 @@ The **actual output** of running `python3 code/transformer_block.py` (re-run and
 all transformer block sanity checks passed ✓
 ```
 
-> 🧭 **Where to go after this example**
-> Above is a concrete, runnable modern decoder-only block; if you want the history, alternatives, and trade-off rationale behind each design choice — RMSNorm, RoPE, GQA, SwiGLU, norm topology, … — continue to §2–§7. You do not need to read those sections first to fully understand the block above.
+## §2 The Original Encoder-Decoder
 
-## §2 The 2017 seq2seq Transformer
+The original Transformer (Vaswani et al., *Attention Is All You Need*, arXiv 1706.03762, 2017, NeurIPS 2017) is an **encoder-decoder** architecture: the encoder encodes the source sequence into a set of representations, and the decoder autoregressively generates the target sequence conditioned on them. Positional encoding uses fixed sinusoidal PE, added directly to the token embeddings **before** entering the encoder/decoder stacks; it belongs to no block and is input processing outside the blocks. The paper's original configuration is $d_\text{model}=512$, $d_\text{ff}=2048$ (4× expansion), 8 heads, 6 encoder + 6 decoder layers; this tutorial demonstrates with smaller sizes such as $d=96$, which is a **teaching configuration**, not the paper's — do not conflate the two.
 
-The original Transformer (Vaswani et al., *Attention Is All You Need*, arXiv 1706.03762, 2017, NeurIPS 2017) is an **encoder-decoder** architecture: the encoder encodes the source sequence into a set of representations, and the decoder autoregressively generates the target sequence conditioned on them. Positional encoding uses fixed sinusoidal PE, added directly to the token embeddings **before** entering the encoder/decoder stacks — it belongs to no block; it is input processing outside the blocks (full derivation in long_context_rope_yarn_mla_tutorial.md §2/§3). The paper's original configuration is $d_\text{model}=512$, $d_\text{ff}=2048$ (4× expansion), 8 heads, 6 encoder + 6 decoder layers; this tutorial demonstrates with smaller sizes (e.g. $d=96$), which is a **teaching configuration**, not the paper's — do not conflate the two.
-
-**The encoder layer and decoder layer are two different classes, not two usages of one "two-sublayer" template** — they differ in both the number and the kinds of sublayers:
+The encoder layer and the decoder layer differ in both the number and the kinds of sublayers:
 
 | | Encoder layer | Decoder layer |
 | --- | --- | --- |
@@ -213,18 +166,15 @@ The original Transformer (Vaswani et al., *Attention Is All You Need*, arXiv 170
 | Sublayer 3 | — | FFN |
 | Norm topology | Post-LN per sublayer: $y=N(x+F(x))$ | Post-LN per sublayer, three times |
 
-The decoder's three sublayers run in the fixed order masked self-attn → cross-attn → FFN, each wrapped in its own Post-LN. Cross-attn's Q, K, V sources are asymmetric: Q comes from the decoder's own in-progress stream (length $T$), K and V come from the encoder output (length $S$), and $T$ and $S$ can differ — exactly the shape separation explicitly verified in §1's code [D01] (formula details and mask handling for self-attn vs cross-attn are in attention_tutorial.md §4.1, not re-derived here).
+The decoder's three sublayers run in the fixed order masked self-attn → cross-attn → FFN, each wrapped in its own Post-LN. Cross-attn's Q, K, V sources are asymmetric: Q comes from the decoder's own in-progress stream, length $T$; K and V come from the encoder output, length $S$, and $T$ and $S$ can differ.
 
-**Walking one concrete shape through** (the teaching sizes used by §1's code [D01]: batch $B=2$, source length $S=5$, target length $T=7$, $d=96$): the encoder input is `[B, S, d]` and remains `[B, S, d]` after several encoder layers, passed as memory to every decoder layer; the decoder input is `[B, T, d]`, and in the masked self-attn stage Q/K/V are all computed internally from `[B, T, d]` (causal mask of size $T\times T$); in the cross-attn stage Q is still `[B, T, d]` but K, V come from the encoder memory with shape `[B, S, d]` — the attention score matrix is $T\times S$ (not square), with softmax along the $S$ dimension; after the output projection it returns to `[B, T, d]`, matching the self-attn sublayer's output shape, so it can proceed into the FFN sublayer. **$T \ne S$ does not affect this data path at all** — this is what "cross-attn decouples Q length from K/V length" concretely looks like.
+**Walking one concrete shape through**, with teaching sizes batch $B=2$, source length $S=5$, target length $T=7$, $d=96$: the encoder input is `[B, S, d]` and remains `[B, S, d]` after several encoder layers, passed as memory to every decoder layer; the decoder input is `[B, T, d]`, and in the masked self-attn stage Q/K/V are all computed internally from `[B, T, d]`, with a causal mask of size $T\times T$; in the cross-attn stage Q is still `[B, T, d]` but K, V come from the encoder memory with shape `[B, S, d]`, so the attention score matrix is $T\times S$ rather than square, with softmax along the $S$ dimension; after the output projection it returns to `[B, T, d]`, matching the self-attn sublayer's output shape, so it can proceed into the FFN sublayer. **$T \ne S$ does not affect this data path at all** — this is what "cross-attn decouples Q length from K/V length" concretely looks like.
 
-> ⚠️ **Two classes, not two call modes of one class**
-> `VanillaEncoderLayer2017` (2 sublayers) and `VanillaSeq2SeqDecoderLayer2017` (3 sublayers) are two independent classes in §1's code. Writing them as one "generic block class + parameter switches" is workable engineering but hides the structural fact that the decoder has a whole extra cross-attn sublayer — when hand-writing in an interview, listing each class's sublayers clearly first scores better than coding straight away.
+`VanillaEncoderLayer2017` (2 sublayers) and `VanillaSeq2SeqDecoderLayer2017` (3 sublayers) are two independent classes in §1's code. Writing them as one "generic block class + parameter switches" is workable engineering but hides the structural fact that the decoder has a whole extra cross-attn sublayer compared with the encoder.
 
-## §3 The Three-Family Map + the Decoder-Only Fork + the GPT-2-Style Bridge
+## §3 The Three Architecture Families and GPT-2→Llama
 
-### 3.0　The three-family map: encoder-only / decoder-only / encoder-decoder
-
-The original Transformer is encoder-decoder; from here on this tutorial focuses entirely on **decoder-only** (the mainstream choice of GPT/Llama/Qwen-family LLMs). Interviews often ask for a side-by-side comparison of the three families, so here is a compressed map first, without going into encoder-only's internal pretraining mechanics:
+### 3.0　encoder-only / decoder-only / encoder-decoder
 
 | Family | Representatives | Sublayer composition | Attention direction | Typical training objective | Typical use |
 | --- | --- | --- | --- | --- | --- |
@@ -232,31 +182,23 @@ The original Transformer is encoder-decoder; from here on this tutorial focuses 
 | Encoder-decoder | original Transformer, T5 | encoder layer: self-attn + FFN; decoder layer: masked self-attn + cross-attn + FFN | encoder bidirectional; decoder unidirectional and conditioned on the encoder | conditional generation (translation, summarization) | two-sequence conditional generation tasks |
 | Decoder-only | GPT, Llama, Qwen | per layer: causal self-attn + FFN (no cross-attn) | unidirectional (causal) | autoregressive language modeling | general-purpose generative LLMs |
 
-The core difference among the three is not "how many parameters" but that attention visibility, sublayer composition, and training objective change together as a bundle. This tutorial expands the full assembly detail of only the decoder-only branch — covering §1's capstone and §3–§9 (§2 is the 2017 encoder-decoder historical background, discussing the encoder-decoder architecture itself, and does not count toward the decoder-only scope); encoder-only's bidirectional masked modeling and encoder-decoder's full training objectives are out of scope — consult each model's original paper when needed.
+The core difference among the three is not "how many parameters" but that attention visibility, sublayer composition, and training objective change together as a bundle.
 
-### 3.1　Why "just remove cross-attn" is not enough
+### 3.1　How decoder-only differs from the original decoder layer
 
-The decoder-only block used by modern LLMs (GPT, Llama, Qwen, …) is, on its face, "the original decoder layer with cross-attn removed". **Read this claim at two levels**:
+**At the single-layer structural level**, a decoder-only block really is the original decoder layer with cross-attn removed: masked self-attn → cross-attn → FFN, **three** sublayers, becomes causal self-attn → FFN, **two** sublayers.
 
-- **At the single-layer structural level, it is correct**: the original decoder is masked self-attn → cross-attn → FFN (**three** sublayers); the decoder-only block is causal self-attn → FFN (**two** sublayers). What is missing is exactly the cross-attn sublayer; the layer-by-layer comparison holds.
-- **At the whole-model level, it is incomplete**: saying only "cross-attn removed" suggests one component was deleted and everything else stayed. In fact the entire encoder/memory path also disappeared — source/prompt and target go from "two-stream conditional generation" (encode source, then generate target conditioned on it) to "single-stream causal modeling" (prompt and generated content concatenated into one causal sequence). What changes is the information-flow topology and the sequence factorization, not that the task was replaced by a different problem.
+**At the whole-model level** an entire encoder/memory path is missing as well: source/prompt and target go from "two-stream conditional generation" to "single-stream causal modeling", with prompt and generated content concatenated into one causal sequence. What changes is the information-flow topology and the sequence factorization, not that the task was replaced by a different problem.
 
-So the more complete answer is: "per layer, yes, cross-attn is removed; but at the whole-model level you must also say the encoder/memory path disappears with it, and two-stream conditional generation becomes single-stream causal modeling" — more accurate than either "a part was removed" or, at the other extreme, "it is a totally different architecture".
+Some multimodal/retrieval-augmented models reintroduce cross-attention on a decoder-only backbone; every "decoder-only has no cross-attn" statement in this tutorial is restricted to the **pure decoder-only block**, i.e. the two sublayers causal self-attn + FFN.
 
-Boundary: some multimodal/retrieval-augmented models reintroduce cross-attention on a decoder-only backbone; every "decoder-only has no cross-attn" statement in this tutorial is restricted to the **pure decoder-only block** (two sublayers: causal self-attn + FFN).
+### 3.2　GPT-2-style to Llama-style
 
-> 🎯 **How to answer this fundamental-difference question in an interview**
-> Answer by level: at the single-layer level it is "remove cross-attn" (3 sublayers become 2); at the whole-model level add the information-flow topology change — "two sequences (source/target) become one causal sequence"; then add "only the pure decoder-only block lacks cross-attn; some multimodal/retrieval-augmented models reintroduce it" — two levels of accuracy beyond "a part was removed".
-
-### 3.2　The GPT-2-style bridge: what actually changed from GPT-2 to Llama
-
-**Common misconception**: modern LLMs are what replaced Post-LN with Pre-LN. **Fact**: GPT-2 (Radford et al., *Language Models are Unsupervised Multitask Learners*, OpenAI technical report, 2019, no arXiv id) is already Pre-LN, and puts a final LayerNorm (denoted `ln_f`) at the end of the stack — why a Pre-LN stack usually needs this closure, and variants without a final norm, are covered together in §9 Q11 and normalization_init_tutorial.md §5.3. The complete GPT-2 block recipe:
+GPT-2 (Radford et al., *Language Models are Unsupervised Multitask Learners*, OpenAI technical report, 2019, no arXiv id) is already Pre-LN, and puts a final LayerNorm, denoted `ln_f`, at the end of the stack. The complete GPT-2 block recipe:
 
 $$x = x + \text{Attn}\big(\text{LN}(x)\big), \qquad x = x + \text{FFN}\big(\text{LN}(x)\big), \qquad \text{(GELU dense FFN, MHA, bias=True, no cross-attn)}$$
 
-The learned absolute positional embedding is still added to the embedding, **outside** the stack — the same "owning level" as the original sinusoidal PE; neither lives inside a block. RoPE, adopted by the LLaMA family (first proposed by Su et al., *RoFormer: Enhanced Transformer with Rotary Position Embedding*, arXiv 2104.09864, 2021; LLaMA is a prominent adopter, not the proposer), is the opposite: it lives **inside attention**, acting only on the Q/K dot product — viewing them as a "seamless swap" between members of the same block is inaccurate. Positional information is carried by an external embedding in GPT-2-style and by rotation inside attention in Llama-style; the two belong to different levels (full derivation in long_context_rope_yarn_mla_tutorial.md §2).
-
-The GPT-2-style → Llama-style bridge table (this is what actually changed):
+The learned absolute positional embedding is added to the embedding and sits **outside** the stack, the same as the original sinusoidal PE; neither lives inside a block. RoPE, adopted by the LLaMA family, is the opposite: it lives **inside attention**, acting only on the Q/K dot product. RoPE was first proposed by Su et al., *RoFormer: Enhanced Transformer with Rotary Position Embedding*, arXiv 2104.09864, 2021; LLaMA is a prominent adopter, not the proposer. Positional information is carried by an external embedding in GPT-2-style and by rotation inside attention in Llama-style; the two belong to different levels, so this is not a "seamless swap" between members of the same block. What actually changed is this:
 
 | Dimension | GPT-2-style | Llama-style |
 | --- | --- | --- |
@@ -269,26 +211,30 @@ The GPT-2-style → Llama-style bridge table (this is what actually changed):
 | dropout | used in training | usually removed or made tiny in large-scale pretraining |
 | final norm | yes (`ln_f`, LayerNorm) | yes (RMSNorm) |
 
-> ✅ **Skeleton of the standard "what changed from GPT-2 to Llama" answer**
-> First state "both are already Pre-LN" (blocking the common wrong answer that Pre-LN is a modern invention), then compare item by item: norm type → positional-encoding level → FFN structure → attention head configuration → bias/dropout, and close with "both have a final norm, only the type differs".
+## §4 RMSNorm, RoPE, SwiGLU, and Model Composition
 
-## §4 The Llama-Style Core Recipe
-
-On top of the GPT-2-style bridge, Llama-style (Touvron et al., *Llama 2: Open Foundation and Fine-Tuned Chat Models*, arXiv 2307.09288, 2023; Grattafiori et al. (Meta), *The Llama 3 Herd of Models*, arXiv 2407.21783, 2024) fills each slot with the concrete implementations below. This section fixes MHA to keep the data path clear; GQA is expanded separately in §5:
+Llama-style — the recipe of Llama 2 and Llama 3 — fills each component with the concrete implementations below; attention is written as MHA first:
 
 $$x = x + \text{Attn}_{\text{RoPE}}\big(\text{RMSNorm}(x)\big), \qquad x = x + \text{SwiGLU}\big(\text{RMSNorm}(x)\big)$$
 
-- **RMSNorm**: re-scale only, no mean-centering, no bias: $y = \dfrac{x}{\sqrt{\text{mean}(x^2)+\epsilon}}\odot w$. (Zhang & Sennrich's argument is in normalization_init_tutorial.md §4: it often matches LayerNorm's quality — not a universal "never loses" result.)
-- **RoPE**: acts on Q and K inside attention; V is never rotated. Standard implementations usually cache the **already-rotated** K, and incremental decoding rotates new tokens at their true positions. The unrotated-K-cache variant is in §9 Q12, MLA's different cache contract in §5.2; full derivations (complex-number view, frequency choice, YaRN/NTK) in long_context_rope_yarn_mla_tutorial.md §2/§5/§6.
-- **SwiGLU**: $\text{down}\big(\text{SiLU}(\text{gate}(x)) \odot \text{up}(x)\big)$, a three-matrix gated FFN; GeGLU is the same structure with a GELU gate (Shazeer, *GLU Variants Improve Transformer*, arXiv 2002.05202, 2020). At similar budgets, gated FFNs often deliver better quality — an empirical regularity, not a law. The parameter-matching arithmetic is in §1.3 [D06].
+- **RMSNorm**: re-scale only, no mean-centering, no bias: $y = \dfrac{x}{\sqrt{\text{mean}(x^2)+\epsilon}}\odot w$. It often reaches quality comparable to LayerNorm.
+- **RoPE**: acts on Q and K inside attention; V is never rotated. Standard implementations usually cache the **already-rotated** K, and incremental decoding rotates new tokens at their true positions. The unrotated-K-cache variant is in §9 Q12.
+- **SwiGLU**: $\text{down}\big(\text{SiLU}(\text{gate}(x)) \odot \text{up}(x)\big)$, a three-matrix gated FFN; GeGLU is the same structure with a GELU gate (Shazeer, *GLU Variants Improve Transformer*, arXiv 2002.05202, 2020). At similar budgets gated FFNs often deliver better quality — an empirical regularity, not a law.
 - **bias, dropout**: Q/K/V/O and the three FFN matrices usually drop all bias; large-scale pretraining commonly removes dropout or reduces it drastically.
-- **final norm**: one RMSNorm at the end of the stack, closing off the inflated residual stream.
-- **Numerical-precision boundary**: computations sensitive to numeric range — RMS/variance reductions, softmax, final logits — are commonly done at higher precision (e.g. fp32) and cast back to the activation dtype (bf16/fp16). This is part of assembly correctness, not quantization math; the full low-precision error analysis is in quantization_tutorial.md.
+- **final norm**: one RMSNorm at the end of the stack, closing off the inflated residual stream. Under the independent-increment approximation the residual stream's **variance** grows roughly as $O(l)$; it is the standard deviation/RMS that goes as $\sqrt l$. Feeding the output head without this closure usually degrades training quality noticeably. It is a common configuration of the standard recipe, not mathematically indispensable.
+- **Numerical-precision boundary**: computations sensitive to numeric range — RMS/variance reductions, softmax, final logits — are commonly done at higher precision such as fp32 and cast back to the bf16/fp16 activation dtype. This is part of assembly correctness, not quantization math.
 
-> ⚠️ **Inside the block vs. the "block-periphery recipe" — do not mix them**
-> Weight tying (input embedding sharing parameters with the LM head), embedding scaling, the LM head's soft-cap, and the global dropout switch are part of the "complete LM recipe" but **strictly live outside the block** — the token embedding and LM head belong to no Transformer block. Mixing them into the block definition when asked "what does a block look like" makes the interviewer doubt you can separate "one block" from "the whole model".
+Where a design decision lives determines who assembles it:
 
-The exact fields of the "block-periphery recipe", item by item:
+| Level | Typical decisions | Owned by |
+| --- | --- | --- |
+| Inside the operator | QKV projections, RoPE, QK-Norm, head sharing (MHA/GQA/MQA/MLA), gated FFN | the attention/FFN module itself |
+| Single block | serial/parallel dependency graph, norm placement (Pre/Post/branch pre+post), residual add, branch scaling/gating | the block's `forward` |
+| Stack scheduling | final norm, local/global interleaving, which layers are dense vs. MoE | the stack-assembly code, not any single block |
+| Model shell | token embedding, external absolute PE, weight tying, LM head (incl. soft-cap) | the whole model's input/output layers |
+| Execution/adaptation overlay | KV cache, FlashAttention, packed projection, quantization, LoRA | deployment/fine-tuning execution strategy; leaves the four levels above architecturally unchanged |
+
+Weight tying, embedding scaling, the LM head's soft-cap, and the global dropout switch are part of the "complete LM recipe" but live outside the block — the token embedding and LM head belong to no Transformer block:
 
 | Periphery field | One-sentence description |
 | --- | --- |
@@ -297,18 +243,15 @@ The exact fields of the "block-periphery recipe", item by item:
 | LM head soft-cap | some models (e.g. the Gemma family) also apply a §7.2-style bounded transform to the final vocabulary logits — mechanically the same tool as the attention-logit soft-cap, applied to a different tensor |
 | Global dropout switch | whether dropout is on, and the dropout rate, are usually model-wide training configuration; but the dropout **operation itself** typically executes inside attention weights, FFN outputs, and residual branches — "who configures it" and "where the operator actually runs" are two different things; do not lump them into "a property outside the block" |
 
-None of these four appears in any block class described in §1/§8 — `ModernDecoderBlock`'s `forward` receives only the residual stream `x` and never knows whether embedding scaling happened outside or whether the output head is tied. Locate them by the §0 layered map: these four belong to the "model shell" level, while final norm, local/global interleaving, and dense/MoE placement belong to "stack scheduling" — do not lump them together as "stuff outside the block".
+None of these four appears in the block classes of these examples: `ModernDecoderBlock`'s `forward` receives only the residual stream `x` and never knows whether embedding scaling happened outside or whether the output head is tied.
 
-## §5 The Inference-Memory Axis: MHA → MQA/GQA, with MLA as an Independent Branch
+## §5 KV Sharing and MLA
 
-**§5's main problem is KV-cache memory**: every step of autoregressive generation appends the new token's K, V to the cache and attends over the whole cache; the cache size directly determines how many requests one GPU can serve concurrently and how long a context it can hold. GQA/MQA reduce the KV-head count and simultaneously change the K/V projections' own parameter count and compute (the $2d^2(1+n_\text{kv}/n_q)$ formula below is the evidence): the KV cache mainly affects inference memory/bandwidth, while K/V projection parameters are a fixed cost that also exists in training.
+Every step of autoregressive generation appends the new token's K, V to the cache and attends over the whole cache; the cache size directly determines how many requests one GPU can serve concurrently and how long a context it can hold. GQA/MQA reduce the KV-head count and simultaneously change the K/V projections' own parameter count and compute: the KV cache mainly affects inference memory/bandwidth, while K/V projection parameters are a fixed cost that also exists in training.
 
 ### 5.1　MHA / MQA / GQA: different compression ratios on the same axis
 
-The historical order must be set straight:
-
-> ⚠️ **Not one line MHA→GQA→MQA→MLA**
-> MHA is the baseline; **MQA (Shazeer, *Fast Transformer Decoding: One Write-Head is All You Need*, arXiv 1911.02150, 2019) predates GQA (Ainslie et al., *GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints*, EMNLP 2023)**, and GQA is the quality-memory compromise between MHA and MQA. **MLA is DeepSeek's separate low-rank latent-compression branch**, not "reduce $n_\text{kv}$ once more". The four are coexisting design points on the "KV memory" design axis, not a historical ladder every model climbed in order.
+MHA is the baseline. **MQA (Shazeer, *Fast Transformer Decoding: One Write-Head is All You Need*, arXiv 1911.02150, 2019) predates GQA (Ainslie et al., *GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints*, EMNLP 2023)**, and GQA is the quality-memory compromise between MHA and MQA. **MLA is DeepSeek's separate low-rank latent-compression branch**, not "reduce $n_\text{kv}$ once more". The four are coexisting design points on the "KV memory" design axis, not a historical ladder every model climbed in order.
 
 | Variant | Q heads | KV heads | Relation |
 | --- | --- | --- | --- |
@@ -316,91 +259,89 @@ The historical order must be set straight:
 | MQA | $n_q$ | $1$ | all Q heads share one set of K/V |
 | GQA | $n_q$ | $n_\text{kv}$ ($1 \lt n_\text{kv} \lt n_q$, with $n_q \bmod n_\text{kv}=0$) | each group of $n_q/n_\text{kv}$ Q heads shares one set of K/V |
 
-Assembly contract (full memory accounting, per-token-per-layer formulas, and concrete per-model GB numbers are in attention_tutorial.md §6 and kv_cache_speculative_decoding_tutorial.md §2, not re-derived here):
-
 - KV-cache size scales only with $n_\text{kv}$, **independent of $n_q$** — MQA/GQA reduce the K/V projections' own parameters and compute, and also reduce KV-cache memory/bandwidth; but the Q projection's compute does not change with $n_\text{kv}$, so do not flatten this into "only saves memory/bandwidth".
-- **Standard implementations usually cache K after RoPE is applied; V is never rotated**; in incremental decoding, the new token's Q and K get RoPE at the true position offset, and the already-rotated K in the historical cache is never recomputed (the unrotated-K-cache variant is in §9 Q12).
-- GQA/MQA caches **store only $n_\text{kv}$ heads**; broadcasting K/V to the $n_q$ Q heads may happen only inside the attention computation (via view/reshape/grouped einsum) — **never write the broadcast tensor back to the cache**. This is the easiest pit to fall into in hand-written implementations, and §1 [D05] turns it directly into an executable assertion.
+- **Standard implementations usually cache K after RoPE is applied; V is never rotated**; in incremental decoding, the new token's Q and K get RoPE at the true position offset, and the already-rotated K in the historical cache is never recomputed.
+- GQA/MQA caches **store only $n_\text{kv}$ heads**: broadcasting K/V to the $n_q$ Q heads may happen only inside the attention computation, via view/reshape/grouped einsum, and the broadcast tensor must never be written back to the cache. §1.4 [D05] turns this into an executable assertion.
 
-To feel this axis's real payoff: LLaMA-2-70B with vanilla MHA would need about 10 GB of KV cache per sample at a 4096 context; switching to GQA ($n_\text{kv}=8$) drops it to about 1.25 GB — one of the important reasons many large models adopt GQA over MHA.
+With vanilla MHA, LLaMA-2-70B would need about 10 GiB of KV cache per sample at a 4096 context; switching to GQA ($n_\text{kv}=8$) drops it to about 1.25 GiB — one of the important reasons many large models adopt GQA over MHA.
 
-### 5.2　MLA: the independent low-rank latent branch
+### 5.2　MLA: the low-rank latent branch
 
-**MLA (DeepSeek-V2, May 2024, arXiv 2405.04434) is an independent branch, not "a more aggressive GQA"**: GQA compresses along the head dimension (multiple Q heads share KV heads), while MLA compresses along the hidden dimension via **low-rank projection** (squeezing each token's K/V into a latent vector with $d_c \ll n_q d_h$), and it must decouple RoPE into a separately shared small-dimension component to preserve the "absorb the up-projection into the query side" inference speedup — full derivations (the absorbing trick, why RoPE cannot be absorbed directly, the decoupling scheme, the cache-total formula) are in long_context_rope_yarn_mla_tutorial.md §9. Record only the conclusion here: MLA's cache contract is "store the latent $c_t^{KV}$ + one shared RoPE key", not "store fewer K/V heads".
+MLA (DeepSeek-V2, May 2024, arXiv 2405.04434) compresses along the hidden dimension via **low-rank projection**: each token's K/V is squeezed into a latent vector with $d_c \ll n_q d_h$. It must decouple RoPE into a separately shared small-dimension component to preserve the "absorb the up-projection matrix into the query side" inference speedup. MLA's cache format is "store the latent $c_t^{KV}$ + one shared RoPE key", not "store fewer K/V heads".
 
-> 💡 **One sentence on what each compresses**
-> GQA compresses the **head count** (multiple Q heads crowd onto one K/V group); MQA is GQA's extreme case ($n_\text{kv}=1$); MLA compresses **each token's representation dimension** (K/V jointly projected into one low-rank latent) and inherently must solve RoPE's position dependence. The three are not three points on one scale but two different compression ideas.
+GQA compresses the **head count**, MQA is GQA's extreme case ($n_\text{kv}=1$), and MLA compresses **each token's representation dimension**. The three are not three points on one scale but two different compression ideas.
 
-## §6 The Capacity Axis: Dense FFN → MoE
+## §6 MoE FFN
 
-**§6's main problem is model capacity**: MoE replaces the FFN with $N$ experts + one router, and each token passes through only $k \ll N$ experts — total parameters go up, per-token activated parameters stay flat. The full routing formulas (token-choice top-k, expert-choice, DeepSeek's aux-loss-free bias update), capacity factor, load-balancing loss, and token dropping are in moe_tutorial.md §2–§4; here we cover only the "assembly contract":
+MoE replaces the FFN with $N$ experts plus one router, and each token passes through only $k \ll N$ experts: total parameters go up, per-token activated parameters stay flat.
 
-- **The block's external main-activation tensor interface is unchanged**: dense or MoE, the FFN is `[B, T, d] -> [B, T, d]` and the residual add stays in place — the direct reason why, in §1 [D09], "swap `ffn` for `MoEFFN` and not a line of `ModernDecoderBlock` changes". But the training contract usually returns extra router/load-balancing auxiliary losses or statistics, and the system contract usually introduces expert parallelism and all-to-all communication — "tensor-shape contract unchanged" does not mean "training/system contracts unchanged" (the three-layer breakdown is in §9 Q28).
-- **What changes is inside the FFN**: a router, expert selection (possibly plus a shared expert), and training-time auxiliary balancing losses/bias updates are added; **total parameters and per-token activated parameters must be reported separately** — the single most-probed follow-up in interviews.
+- **The block's external main-activation tensor interface is unchanged**: dense or MoE, it is `[B, T, d] -> [B, T, d]` and the residual add stays in place — the direct reason why swapping `ffn` for `MoEFFN` changes not a line of `ModernDecoderBlock`. But training usually returns extra router/load-balancing auxiliary losses or statistics, and distributed deployment usually introduces expert parallelism and all-to-all communication: an unchanged tensor shape does not mean unchanged training return values or system deployment.
+- **What changes is inside the FFN**: a router, expert selection, possibly a shared expert, and training-time auxiliary balancing losses/bias updates are added. **Total parameters and per-token activated parameters must be reported separately.**
+- **Dense and MoE are two choices on the capacity axis**: representative models such as Llama 1–3, the original Mistral 7B, and Gemma 1–3 use dense FFN; Mixtral, Llama 4, and DeepSeek-V2/V3 use MoE, trading the engineering complexity of communication/routing/load-balancing for larger sparse parameter capacity.
 
-The payoff intuition on this axis: Mixtral (Jiang et al., *Mixtral of Experts*, arXiv 2401.04088, 2024) activates about 12.9B parameters per token and matches or beats Llama 2 70B on most benchmarks reported in the paper. Total parameters are far above 13B; per-token compute is close to a dense model in the low tens of billions, but not strictly FLOPs-equivalent. The full "why sparse activation is a good idea" argument is in moe_tutorial.md §1.
+Mixtral (Jiang et al., *Mixtral of Experts*, arXiv 2401.04088, 2024) activates about 12.9B parameters per token and matches or beats Llama 2 70B on most benchmarks reported in the paper. Total parameters are far above 13B, and per-token compute is close to a dense model in the low tens of billions, but not strictly FLOPs-equivalent. DeepSeek-V3's specific load-balancing mechanism comes from Wang, Gao, Zhao, Sun & Dai (arXiv 2408.15664, 2024).
 
-> ⚠️ **Dense → MoE is not every modern block's "next step"**
-> Representative models such as Llama 1–3, the original Mistral 7B, and Gemma 1–3 use dense FFN; Mixtral, Llama 4, and DeepSeek-V2/V3 use MoE — the latter trade the engineering complexity of communication/routing/load-balancing for larger sparse parameter capacity. V3's specific load-balancing mechanism comes from Wang, Gao, Zhao, Sun & Dai (arXiv 2408.15664, 2024); do not treat that mechanism paper as the main citation for "why V2/V3 chose MoE". Fusing Dense→MoE with §5's KV-cache axis into one "evolution chain" is the most common way to lose points here.
+The full routing formulas, capacity factor, load-balancing loss, and token dropping are in moe_tutorial.md §2–§4.
 
-## §7 Numerical Stabilization / Connectivity Structure / Execution Overlay
+## §7 Residual Structure, Attention, and Execution
 
-This section reclassifies the previously scattered "stabilization tricks" into four categories using §0's layered map: ① residual dependency and norm/scaling assembly (the "single block" level); ② attention numerical-stability control (the "inside the operator" level, controlling numeric scale); ③ attention connectivity structure (also "inside the operator", controlling the visible range rather than numerics); ④ execution/adaptation overlay (the "execution/adaptation overlay" level, pointers only).
+Residual connections, normalization, and branch scaling determine a block's computation structure. Numerical control inside attention adjusts scale, and local or global attention determines the visible range. FlashAttention, quantization, and LoRA serve execution optimization or fine-tuning. Most of these mechanisms can be combined; the concrete configuration is influenced by training stability, kernel support, and compatibility with existing checkpoints.
 
-### 7.1　Residual dependency, norm placement, and branch scaling/gating
+### 7.1　Residual topology, norm placement, and branch scaling
 
-#### 7.1.1　Branch pre+post norm (often misnamed "sandwich norm")
+$A$ and $M$ are the attention and FFN sublayers, and $N_1,N_2,N_A,N_M,N_1^{\text{pre}},N_1^{\text{post}},N_2^{\text{pre}},N_2^{\text{post}}$ are all normalization operators. The four topologies are all written at "whole block" granularity:
 
-The more accurate description is one normalization **before and after each sublayer branch**, with the second norm acting only on the branch output, not on the residual sum:
+$$\text{Post-LN}:\quad u = N_1\big(x + A(x)\big),\quad y = N_2\big(u + M(u)\big)$$
 
-$$y = x + N_\text{post}\big(F(N_\text{pre}(x))\big)$$
+Vaswani et al. 2017's original Transformer uses this one: the normalization wraps the residual sum, repeatedly squeezing the trunk.
 
-This is not the same as original Post-LN's $N(x+F(x))$ — Post-LN wraps the normalization "after the residual add", while branch pre+post's second normalization wraps only "the branch output", leaving the residual trunk $x+(\cdots)$ pure addition. Gemma-2 uses this topology together with attention-logit/final-logit soft-capping; Gemma-3 keeps the norm topology but replaces soft-capping with QK-Norm (full variant genealogy in normalization_init_tutorial.md §6.2).
+$$\text{Pre-LN serial}:\quad u = x + A\big(N_1(x)\big),\quad y = u + M\big(N_2(u)\big)$$
 
-#### 7.1.2　Parallel residual (GPT-J, PaLM)
+Explicitly adopted at least by GPT-2 and later the common form in modern LLMs: the trunk keeps a pure identity-add path, and the FFN reads the updated stream $u$.
 
-The core formula was given in §0: $y = x + \text{Attn}(N_A(x)) + \text{MLP}(N_M(x))$. **"Parallel" is defined as "no intra-layer ordering dependency"; it does not require attn and FFN to share one set of norm parameters** — two independent normalization modules also satisfy the definition as long as both read the original $x$ (§1 [D08] writes positive and negative proofs under this wider definition). GPT-J (Wang & Komatsuzaki, *GPT-J-6B*, EleutherAI open-source release, 2021, no formal paper/arXiv id) implements it with a single shared LayerNorm; PaLM (Chowdhery et al. (Google), *PaLM: Scaling Language Modeling with Pathways*, arXiv 2204.02311, 2022) continues the same idea.
+$$\text{Pre-LN parallel}:\quad y = x + A\big(N_A(x)\big) + M\big(N_M(x)\big)$$
 
-#### 7.1.3　Residual / branch scaling and gating: another independent assembly position
+GPT-J and PaLM use this one: the ordering dependency is removed, and attention and FFN read the same $x$.
 
-Some recipes decide not only "where to put the norm" but also multiply the residual branch by a fixed or learnable scale — e.g. **LayerScale** (multiply each branch output by a per-channel, learnable, small-initialized coefficient) or **DeepNorm** (multiply the residual branch by a depth-dependent fixed amplification factor, paired with a specific initialization so deep networks train more stably). This is another independent, optional assembly position: whether to scale, whether the scale is a fixed constant or a learnable parameter, and which branch it acts on — the full initialization and gradient arguments are in normalization_init_tutorial.md §7 (DeepNorm) and related sections. Here we record only the assembly contract: **residual/branch scaling and norm placement are two dimensions that can be chosen separately or used together** — do not merge them into one thing.
+$$\text{branch pre+post}:\quad u = x + N_1^{\text{post}}\big(A(N_1^{\text{pre}}(x))\big),\quad y = u + N_2^{\text{post}}\big(M(N_2^{\text{pre}}(u))\big)$$
 
-### 7.2　Attention numerical-stability control: attention scale, QK-Norm, logit soft-cap
+Gemma-2/3 use this one: the second normalization wraps only the branch output, and the trunk stays pure addition — unlike Post-LN.
 
-Three mechanisms act at different positions on the same computation chain, all at the "inside the operator" level:
+Norm placement and serial/parallel dependency are two dimensions, not one axis; §1.4 [D02]/[D08] gives executable positive and negative proofs of all four topologies. **branch pre+post** means one normalization before and after each sublayer branch, in single-sublayer form $y = x + N_\text{post}\big(F(N_\text{pre}(x))\big)$. Gemma-2 uses this topology together with attention-logit/final-logit soft-capping; Gemma-3 keeps this norm topology but replaces soft-capping with QK-Norm.
 
-- **attention scale**: the standard $1/\sqrt{d_h}$ (or learnable temperature) scaling of the dot product controls the overall magnitude of the softmax input — the most basic numerical control, present in almost every implementation (derivation in §9 Q4).
-- **QK-Norm** (Henry et al., *Query-Key Normalization for Transformers*, arXiv 2010.04245, 2020, EMNLP 2020 Findings): **before** the dot product, L2-normalize each head's Q and K separately, and **replace** the standard fixed $1/\sqrt{d_h}$ with a learnable scale/temperature — later models' implementation details may differ.
-- **logit soft-capping** applies a bounded transform like $c\tanh(z/c)$ to attention scores or final vocabulary logits **after** the dot product, reining in the magnitude of scores/logits already computed.
+**Parallel** is defined as "no intra-layer ordering dependency"; it does not require attn and FFN to share one set of norm parameters: two independent normalization modules also satisfy the definition as long as both read the original $x$. GPT-J (Wang & Komatsuzaki, EleutherAI open-source release, 2021, no formal paper/arXiv id) implements it with a single shared LayerNorm; PaLM (Chowdhery et al. (Google), *PaLM: Scaling Language Modeling with Pathways*, arXiv 2204.02311, 2022) continues the same idea.
 
-Interviewees often blur the three into "all stabilize numerics", but they act at different positions and control different quantities, **and cannot be stacked blindly** — enabling them together requires re-checking the overall scale, not simple addition; the full "why attention logits blow up" argument is in normalization_init_tutorial.md §6.3.
+**Residual/branch scaling** is another independent, optional assembly position: multiply the residual branch by a fixed or learnable scale coefficient. **LayerScale** multiplies each branch output by a per-channel, learnable, small-initialized coefficient; **DeepNorm** multiplies the residual branch by a depth-dependent fixed amplification factor, paired with a specific initialization so deep networks train more stably. Whether to scale, whether the scale is a fixed constant or a learnable parameter, and which branch it acts on are chosen separately from norm placement, and can also be used together with it.
 
-### 7.3　Attention connectivity structure: local / sliding / global
+### 7.2　attention scale, QK-Norm, logit soft-cap
 
-This is the design axis of attention's **connectivity structure / visible range (connectivity pattern)** — not an "attention backend", and separate from positional-encoding schemes. FlashAttention is the typical execution backend: it changes exact attention's computation order and IO scheduling but defines no new connectivity graph or block topology (full IO-complexity derivation in attention_tutorial.md). Mistral (Jiang et al., *Mistral 7B*, arXiv 2310.06825, 2023) uses fixed-window sliding-window attention; Gemma-2 alternates local-window and global attention 1:1 across layers; Gemma-3 is closer to a periodic pattern of "several local layers then one global layer" (about 5:1, not strictly alternating). None of these change the block's outer residual interface; they only change "how far attention can see" inside — but the placement of "which layers are local, which are global" is itself a **stack-scheduling** decision (see the §0 layered map), not a single block's private attribute. Full sliding-window/StreamingLLM mechanics are in long_context_rope_yarn_mla_tutorial.md §10.
+Three mechanisms act at different positions on the same computation chain:
 
-### 7.4　Execution / adaptation overlay: FlashAttention, quantization, LoRA (pointers only)
+- **attention scale**: the standard $1/\sqrt{d_h}$ or a learnable temperature, controlling the overall magnitude of the softmax input — the most basic numerical control, present in almost every implementation.
+- **QK-Norm** (Henry et al., *Query-Key Normalization for Transformers*, arXiv 2010.04245, 2020, EMNLP 2020 Findings): **before** the dot product, L2-normalize each head's Q and K separately, and **replace** the standard fixed $1/\sqrt{d_h}$ with a learnable scale/temperature; later models' implementation details may differ.
+- **logit soft-capping**: **after** the dot product, apply a bounded transform like $c\tanh(z/c)$ to attention scores or final vocabulary logits, reining in the magnitude of scores/logits already computed.
 
-All three belong to the "execution/adaptation overlay" level of §0's layered map — not architectural slots on the same level as GQA/MoE requiring a mutually exclusive choice, but strategies stacked on top of an already-chosen architecture to accelerate it or adapt it to a deployment environment:
+The three act at different positions and control different quantities, **and cannot be stacked blindly** — enabling them together requires re-checking the overall scale, not simple addition.
 
-- **FlashAttention**: changes only exact attention's computation order, IO scheduling, and memory-access pattern; it does not change attention's mathematical result and defines no new connectivity graph — stackable on MHA/GQA/MQA/MLA and any local/global pattern. Full IO-aware complexity derivation in attention_tutorial.md.
-- **Quantization**: represents weights/activations in lower-precision numeric formats — an overlay at the numeric-representation level, stackable with any architectural choice above, at the cost of quantization error; full error analysis in quantization_tutorial.md.
-- **LoRA**: adds a pair of low-rank matrices beside trained weights for parameter-efficient fine-tuning — a training/adaptation-stage overlay that does not change the block's forward architecture; full low-rank formulas in lora_peft_tutorial.md.
+### 7.3　local / sliding / global attention
 
-None of the three should be treated as an architectural slot "on the same level as GQA and MoE, pick one of three" — they are independent dimensions stackable on almost any architectural combination.
+This is the design axis of attention's **connectivity structure / visible range (connectivity pattern)** — not an "attention backend", and separate from positional-encoding schemes. Mistral (Jiang et al., *Mistral 7B*, arXiv 2310.06825, 2023) uses fixed-window sliding-window attention; Gemma-2 alternates local-window and global attention 1:1 across layers; Gemma-3 is closer to a periodic pattern of "several local layers then one global layer", about 5:1, not strictly one local layer then one global layer.
 
-### 7.5　Summary: how these mechanisms combine
+None of these change the block's outer residual interface; they only change "how far attention can see" inside. And the placement of "which layers are local, which are global" is itself a stack-assembly decision, not a single block's private attribute. Full sliding-window/StreamingLLM mechanics are in long_context_rope_yarn_mla_tutorial.md §10.
 
-The mechanism categories above often co-occur in one model in practice (e.g. Gemma-3 uses branch pre+post norm + QK-Norm + local/global interleaved attention simultaneously). A common checking order: first fix attention's visible range (global / local / sliding, §7.3), then the numerical stabilization of Q/K or logits (QK-Norm or soft-cap, §7.2), and last the norm topology and residual scaling (Pre-LN / branch pre+post / parallel, §7.1). Concrete values are further constrained by engineering factors — training stability, kernel support, compatibility with existing checkpoints.
+### 7.4　FlashAttention, quantization, and LoRA
 
-> 🎯 **This section's interview answering principle**
-> For any "new stabilization trick", first ask yourself two things: which tensor does it act on (Q/K? attention score? residual stream?), and does it change the block's input/output shape contract (usually not). Hanging the new term on these two questions makes the answer far more solid than merely listing "what it is".
+These three mechanisms stack on top of an already-chosen architecture to accelerate it or adapt it to a deployment environment; they are not architectural components on the same level as GQA/MoE requiring a mutually exclusive choice:
 
-## §8 Model Recipe Atlas
+- **FlashAttention**: changes only exact attention's computation order, IO scheduling, and memory-access pattern; it does not change attention's mathematical result and defines no new connectivity graph, so it stacks on MHA/GQA/MQA/MLA and any local/global pattern.
+- **Quantization**: represents weights/activations in lower-precision numeric formats, stackable with any architectural choice above, at the cost of quantization error.
+- **LoRA**: adds a pair of low-rank matrices beside trained weights for parameter-efficient fine-tuning, without changing the block's forward architecture.
+
+## §8 Model Comparison and Common Wrong Answers
 
 ### 8.1　Block-recipe comparison table for mainstream models
 
-Conventions: "QK-Norm" refers strictly to explicit per-head Q/K normalization before the dot product (MLA's internal latent-projection normalization does not count); "branch pre+post" means $y=x+N_\text{post}(F(N_\text{pre}(x)))$, not the same as original Post-LN; the Attention column lists only the KV-head sharing scheme, with local/sliding/global patterns in the Notes column; final norm and local/global placement belong to the stack-scheduling level (§0), and this table presents each model's overall recipe; **none** of these representative models' canonical recipes uses ALiBi as the primary positional scheme.
+Conventions: "QK-Norm" refers strictly to explicit per-head Q/K normalization before the dot product (MLA's internal latent-projection normalization does not count); "branch pre+post" means $y=x+N_\text{post}(F(N_\text{pre}(x)))$, not the same as original Post-LN; the Attention column lists only the KV-head sharing scheme, with local/sliding/global patterns in the Notes column; final norm and local/global placement belong to stack assembly, and this table presents each model's overall recipe; **none** of these representative models' canonical recipes uses ALiBi as the primary positional scheme.
 
 | Model | Norm topology | Norm type | Positional scheme | Attention | FFN/experts | Parallel attn+FFN | QK-Norm | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -420,15 +361,17 @@ Conventions: "QK-Norm" refers strictly to explicit per-head Q/K normalization be
 
 **Three regularities readable from this table**: (1) "Norm topology" and "norm type" almost always come bound together — Pre-LN with RMSNorm, Parallel Pre-LN with LayerNorm, branch pre+post also with RMSNorm; (2) all four of MHA/MQA/GQA/MLA appear among this same batch of representative models, supporting §5's "coexisting design points, not a historical ladder"; (3) "Parallel attn+FFN" is "yes" only in the GPT-J and PaLM rows — niche but genuinely in use, not an abandoned dead end.
 
+The modern recipe has not fully converged: Pre-RMSNorm + RoPE + gated FFN + inference-friendly GQA is only the more common combination; Post-LN variants, LayerNorm, MHA, MQA, parallel residual, dense FFN, and MoE are all still used in production.
+
 ### 8.2　The twelve claims most likely to backfire
 
-The high-frequency wrong answers from the whole tutorial, collected into one table for a final pre-interview sweep:
+High-frequency wrong answers and the more accurate claims:
 
 | Common claim | More accurate claim |
 | --- | --- |
 | Modern LLMs are what replaced Post-LN with Pre-LN | GPT-2 is already Pre-LN; this step happened earlier (§3.2) |
 | Decoder-only is just "the decoder with cross-attn removed" | Correct at the single-layer structural level; at the whole-model level also add — the encoder/memory path disappears too, and two-stream conditional generation becomes single-stream causal modeling (§3.1) |
-| The residual stream's variance inflates $\propto\sqrt l$ with depth | Variance $\propto l$ (linear); it is the standard deviation/RMS that goes $\propto\sqrt l$ — under the independent-increment assumption (§0, §9 Q11) |
+| The residual stream's variance inflates $\propto\sqrt l$ with depth | Variance $\propto l$ (linear); it is the standard deviation/RMS that goes $\propto\sqrt l$ — under the independent-increment assumption (§4, §9 Q11) |
 | A Pre-LN stack must have a final norm or the model cannot train well | A common configuration of the standard recipe, not a mathematical necessity; and it is a stack-level operation, not a block field (§1.1, §9 Q11) |
 | MHA→MQA→GQA→MLA is one evolution chain | Timeline MHA→MQA→GQA, compression strength MHA→GQA→MQA; MLA is an independent latent branch — there is more than one ordering dimension (§5, §9 Q27) |
 | MLA is just GQA with harsher compression | MLA compresses the hidden dimension and needs decoupled RoPE; GQA compresses the head count/sharing relation — the two have different constraints (§5.2, §9) |
@@ -441,7 +384,7 @@ The high-frequency wrong answers from the whole tutorial, collected into one tab
 
 ## §9 30 High-Frequency Interview Questions
 
-Three difficulty tiers; expand each for the answer key (the 10 questions that provide a discrimination action end with a pitfall note). L2/L3 are top-lab deep water (topology forks, assembly-axis independence, system correctness, cross-model recipe comparison). When answering, **do not repeat the deep math derivations from the sibling tutorials**; organize as "structural judgment → key formula → common mistake".
+Three difficulty tiers; expand each for the answer key (the 10 questions that provide a discrimination action end with a pitfall note). L2/L3 are top-lab deep water (topology forks, assembly-axis independence, system correctness, cross-model recipe comparison).
 
 ### L1 Must-Know
 
@@ -668,7 +611,7 @@ Do not omit that original QK-Norm replaces the fixed scale.
 <summary>Q20. Why do prefill and decode have different bottlenecks? How does the KV cache change the complexity?</summary>
 
 - Prefill processes the whole prompt with high weight reuse, so it is usually more compute-bound; decode processes one token per step but must read the weights and the growing KV, so at small batch it is more bandwidth-bound
-- The KV cache reduces per-step recomputation of historical K/V from $O(t^2)$ to $O(t)$ ($t$ is the current position; full bottleneck analysis in llm_inference_serving_tutorial.md)
+- What the KV cache saves is recomputing the historical K/V projections: at fixed model width, recomputing the K/V projections for the first $t$ positions grows linearly with length, while with a cache each step projects only the new token; $O(t^2)$ describes the cost of recomputing attention over the whole sequence, not the cost of the K/V projections ($t$ is the current position; full bottleneck analysis in llm_inference_serving_tutorial.md)
 
 </details>
 
@@ -804,3 +747,4 @@ Do not omit that original QK-Norm replaces the fixed scale.
 - **QK-Norm** — Henry et al., *Query-Key Normalization for Transformers*, arXiv 2010.04245 (2020), EMNLP 2020 Findings.
 - **GELU** — Hendrycks & Gimpel, *Gaussian Error Linear Units (GELUs)*, arXiv 1606.08415 (2016).
 - **GLU Variants / SwiGLU** — Shazeer, *GLU Variants Improve Transformer*, arXiv 2002.05202 (2020). Proposed and systematically evaluated these Transformer FFN variants; the original GLU and the SiLU/Swish base ideas each have earlier sources.
+- **Sibling tutorials in this series** — [attention_tutorial.md](attention_tutorial.md), [normalization_init_tutorial.md](normalization_init_tutorial.md), [moe_tutorial.md](moe_tutorial.md), [long_context_rope_yarn_mla_tutorial.md](long_context_rope_yarn_mla_tutorial.md), [linear_sparse_attention_tutorial.md](linear_sparse_attention_tutorial.md), [quantization_tutorial.md](quantization_tutorial.md), [lora_peft_tutorial.md](lora_peft_tutorial.md), [llm_inference_serving_tutorial.md](llm_inference_serving_tutorial.md)

@@ -1,19 +1,34 @@
 {
- "skill": "interview-cheatsheet (EN translation-fidelity)",
- "source": "docs/tutorials/transformer_block_tutorial_en.md",
- "source_sha256": "2eda9fa08fee7a6f9e1b13cd3709e44cf2e4b1fd16fdc425c8450f3db230ffc6",
- "output": "docs/tutorials/transformer_block_tutorial_en.html",
- "zh_source": "docs/tutorials/transformer_block_tutorial.md",
- "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
- "verdict": "PASS",
- "thread_id": "019fb617-f4e1-70b0-b4fa-7013ae9e49df",
- "translated_by": "subagent, incremental section-by-section Edits (48 edits), terminology conventions from prior fidelity round pre-baked into the prompt",
- "translation_fidelity_review": {
+  "skill": "interview-cheatsheet (EN translation-fidelity)",
+  "source": "docs/tutorials/transformer_block_tutorial_en.md",
+  "source_sha256": "c509d423f8c6a1d0671b81b38231f94494a158e7ac7bc790dce42469d0fc9a59",
+  "output": "docs/tutorials/transformer_block_tutorial_en.html",
+  "zh_source": "docs/tutorials/transformer_block_tutorial.md",
+  "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
   "verdict": "PASS",
-  "date": "2026-07-31",
   "thread_id": "019fb617-f4e1-70b0-b4fa-7013ae9e49df",
-  "notes": "重排+去冗余后全量重翻(cp ZH骨架+48次逐节Edit,预置上一轮术语约定:KV份数用heads、asymptotically lower-order、numerically equivalent within tolerance)。保真审PASS,0 P0/P1:高危区(§0全部/§1.2数据流/§5/§9八题)逐段核对+低危区抽样8处,程度词/否定/术语/数字全部无漂移。"
- },
- "structural_parity": "## 11/11 · ### 19/19 · fences 10/10 · $$ 6/6 · table dividers 10/10 · <details> 30/30 · 807/807 lines; 0 residual CJK characters",
- "rendered_at": "2026-07-31"
+  "translated_by": "subagent, incremental section-by-section Edits (48 edits), terminology conventions from prior fidelity round pre-baked into the prompt",
+  "translation_fidelity_review": {
+    "verdict": "PASS",
+    "date": "2026-07-31",
+    "thread_id": "019fb617-f4e1-70b0-b4fa-7013ae9e49df",
+    "notes": "重排+去冗余后全量重翻(cp ZH骨架+48次逐节Edit,预置上一轮术语约定:KV份数用heads、asymptotically lower-order、numerically equivalent within tolerance)。保真审PASS,0 P0/P1:高危区(§0全部/§1.2数据流/§5/§9八题)逐段核对+低危区抽样8处,程度词/否定/术语/数字全部无漂移。"
+  },
+  "structural_parity": "## 11/11 · ### 19/19 · fences 10/10 · $$ 6/6 · table dividers 10/10 · <details> 30/30 · 807/807 lines; 0 residual CJK characters",
+  "rendered_at": "2026-07-31",
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-11-prose",
+      "verdict": "WARN (no FAIL items after round 2)",
+      "reviewer": "codex gpt-6-astra xhigh, 3 fresh threads",
+      "thread_ids": [
+        "01a08fc6-194d-7013-a8a6-60cbc911a6cc",
+        "01a08fda-7129-7d33-9048-8e4cd0abc90b",
+        "01a08feb-30c3-7a20-a013-5d45fef87fa4"
+      ],
+      "scope": "Prose-only rewrite for readability after the maintainer judged the page '质量明显低和杂乱'. Diagnosis (thread 1): reviewer-facing self-narration, invented vocabulary (槽位/层级/overlay/contract), a 58-line §0 with an ASCII diagram + meta-table + four formulas in a callout + a 12-item list + a scope callout, misconception corrections sprinkled everywhere. Plan executed by an Opus 5 drafter: §0 → 11 lines; four residual-topology formulas moved to §7.1 (one per line, names outside); 层级 table moved to §4; scope callout deleted (its eight links appended to references); §7.1.1–7.1.3 flattened, §7.5 and all 🎯/🧭 boxes removed; misconception corrections consolidated in §8.2; ≤1–2 cross-references per section; one judgement per sentence. 806 → 750 lines. Verbatim: 30 questions, 10 tables, 3 code blocks + output, [D01]–[D15]. Two authorised factual corrections: Q20's K/V-recompute complexity (projections linear in length; the quadratic term is full-sequence attention) and §5.1 units (GiB, matching attention_tutorial.md). One inherited wording defect fixed in round 2: '不整除头数' → '不能被头数整除'. English edition rebuilt from the new Chinese (prose re-translated; verbatim zones reused), fidelity PASS.",
+      "notes": "Round 1 caught three facts dropped in compression (ReLU in the dense-FFN classification; a scope qualifier '这些示例的 block 类'; the §7.5 'mechanisms mostly compose, constrained by stability/kernels/checkpoint compatibility' judgement) — restored. Facts moved are listed in the drafter's report; the fidelity reviewer walked the old prose fact by fact.",
+      "edition": "en (rebuilt from the new CN; fidelity checked in thread 3)"
+    }
+  ]
 }
