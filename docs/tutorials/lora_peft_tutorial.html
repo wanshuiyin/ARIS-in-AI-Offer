@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/lora_peft_tutorial.md">
 <meta name="aris:source-sha256" content="9009e663f283467f8f591956b64c09fb3e24a9b94472a034d626b00830be64ad">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:30 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -581,6 +592,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   <div class="eyebrow">Interview Prep · LoRA / PEFT 参数高效微调</div>
   <h1>LoRA / PEFT 面试 Cheat Sheet</h1>
   <p class="subtitle">LoRA / QLoRA / DoRA / rsLoRA / PiSSA / AdaLoRA / (IA)³ + 公式推导 + From-Scratch PyTorch + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
@@ -588,7 +603,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/lora_peft_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>9009e663f283</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:30 UTC</span>
     
   </div>
 </header>
@@ -969,10 +984,11 @@ all LoRA / DoRA sanity checks passed ✓</code></pre>
 <ul><li><strong>LoRA</strong> — Hu et al., <em>LoRA: Low-Rank Adaptation of Large Language Models</em>, arXiv 2106.09685 (2021), ICLR 2022.</li><li><strong>Intrinsic Dimension</strong> — Aghajanyan et al., <em>Intrinsic Dimensionality Explains the Effectiveness of Language Model Fine-Tuning</em>, arXiv 2012.13255 (2020).</li><li><strong>QLoRA</strong> — Dettmers et al., <em>QLoRA: Efficient Finetuning of Quantized LLMs</em>, arXiv 2305.14314 (2023), NeurIPS 2023.</li><li><strong>DoRA</strong> — Liu et al., <em>DoRA: Weight-Decomposed Low-Rank Adaptation</em>, arXiv 2402.09353 (2024), ICML 2024.</li><li><strong>rsLoRA</strong> — Kalajdzievski, <em>A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA</em>, arXiv 2312.03732 (2023).</li><li><strong>PiSSA</strong> — Meng et al., <em>PiSSA: Principal Singular Values and Singular Vectors Adaptation of Large Language Models</em>, arXiv 2404.02948 (2024), NeurIPS 2024.</li><li><strong>LoRA-GA</strong> — Wang et al., <em>LoRA-GA: Low-Rank Adaptation with Gradient Approximation</em>, arXiv 2407.05000 (2024).</li><li><strong>AdaLoRA</strong> — Zhang et al., <em>Adaptive Budget Allocation for Parameter-Efficient Fine-Tuning</em>, arXiv 2303.10512 (2023), ICLR 2023.</li><li><strong>LoRA+</strong> — Hayou et al., <em>LoRA+: Efficient Low Rank Adaptation of Large Models</em>, arXiv 2402.12354 (2024).</li><li><strong>(IA)³ / T-Few</strong> — Liu et al., <em>Few-Shot Parameter-Efficient Fine-Tuning Is Better and Cheaper than In-Context Learning</em>, arXiv 2205.05638 (2022).</li><li><strong>Adapter</strong> — Houlsby et al., <em>Parameter-Efficient Transfer Learning for NLP</em>, arXiv 1902.00751 (2019), ICML 2019.</li><li><strong>Prefix-Tuning</strong> — Li &amp; Liang, <em>Prefix-Tuning: Optimizing Continuous Prompts for Generation</em>, arXiv 2101.00190 (2021), ACL 2021.</li><li><strong>Prompt Tuning</strong> — Lester et al., <em>The Power of Scale for Parameter-Efficient Prompt Tuning</em>, arXiv 2104.08691 (2021), EMNLP 2021.</li><li><strong>P-Tuning v2</strong> — Liu et al., <em>P-Tuning v2: Prompt Tuning Can Be Comparable to Fine-tuning Universally Across Scales and Tasks</em>, arXiv 2110.07602 (2021).</li><li><strong>BitFit</strong> — Ben-Zaken et al., <em>BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models</em>, arXiv 2106.10199 (2021), ACL 2022.</li><li><strong>S-LoRA</strong> — Sheng et al., <em>S-LoRA: Serving Thousands of Concurrent LoRA Adapters</em>, arXiv 2311.03285 (2023).</li><li><strong>LoRA Learns Less and Forgets Less</strong> — Biderman et al., arXiv 2405.09673 (2024), TMLR 2024.</li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/lora_peft_tutorial.md</code> ·
   SHA256 <code>9009e663f283</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  generated at 2026-09-13 09:30 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/normalization_init_tutorial.md">
 <meta name="aris:source-sha256" content="0e158f6f31513f901613914c449fb6e7639a80b63adccf8a695ea7ca9b8b3d0c">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:30 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -620,6 +631,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   <div class="eyebrow">Interview Prep · 归一化 / 残差 / 初始化 (Normalization / Residual / Init)</div>
   <h1>归一化 / 残差 / 初始化 面试 Cheat Sheet</h1>
   <p class="subtitle">BatchNorm / LayerNorm / RMSNorm / Pre-vs-Post-LN / DeepNorm / QK-Norm / 残差缩放 / Xavier·Kaiming / GPT-2 init / μP / DyT + 公式推导 + From-Scratch PyTorch + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
@@ -627,7 +642,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/normalization_init_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>0e158f6f3151</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:30 UTC</span>
     
   </div>
 </header>
@@ -1034,10 +1049,11 @@ all normalization / residual / init sanity checks passed ✓</code></pre>
 <ul><li><strong>BatchNorm</strong> — Ioffe &amp; Szegedy, <em>Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift</em>, arXiv 1502.03167 (2015), ICML 2015.</li><li><strong>LayerNorm</strong> — Ba, Kiros &amp; Hinton, <em>Layer Normalization</em>, arXiv 1607.06450 (2016).</li><li><strong>RMSNorm</strong> — Zhang &amp; Sennrich, <em>Root Mean Square Layer Normalization</em>, arXiv 1910.07467 (2019), NeurIPS 2019.</li><li><strong>How Does BN Help Optimization (covariate-shift debunk)</strong> — Santurkar et al., <em>How Does Batch Normalization Help Optimization?</em>, arXiv 1805.11604 (2018), NeurIPS 2018.</li><li><strong>Pre-LN vs Post-LN (gradient argument)</strong> — Xiong et al., <em>On Layer Normalization in the Transformer Architecture</em>, arXiv 2002.04745 (2020), ICML 2020.</li><li><strong>DeepNorm / DeepNet</strong> — Wang et al., <em>DeepNet: Scaling Transformers to 1,000 Layers</em>, arXiv 2203.00555 (2022).</li><li><strong>Kaiming init</strong> — He et al., <em>Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification</em>, arXiv 1502.01852 (2015), ICCV 2015.</li><li><strong>Xavier / Glorot init</strong> — Glorot &amp; Bengio, <em>Understanding the difficulty of training deep feedforward neural networks</em>, AISTATS 2010（PMLR proceedings，<strong>无 arXiv id</strong>，待引用核查）.</li><li><strong>ResNet (residual learning)</strong> — He et al., <em>Deep Residual Learning for Image Recognition</em>, arXiv 1512.03385 (2015), CVPR 2016.</li><li><strong>Residuals as ensembles</strong> — Veit et al., <em>Residual Networks Behave Like Ensembles of Relatively Shallow Networks</em>, arXiv 1605.06431 (2016), NeurIPS 2016.</li><li><strong>Fixup</strong> — Zhang et al., <em>Fixup Initialization: Residual Learning Without Normalization</em>, arXiv 1901.09321 (2019), ICLR 2019.</li><li><strong>ReZero</strong> — Bachlechner et al., <em>ReZero is All You Need: Fast Convergence at Large Depth</em>, arXiv 2003.04887 (2020), UAI 2021.</li><li><strong>LayerScale / CaiT</strong> — Touvron et al., <em>Going deeper with Image Transformers</em>, arXiv 2103.17239 (2021), ICCV 2021.</li><li><strong>SkipInit</strong> — De &amp; Smith, <em>Batch Normalization Biases Residual Blocks Towards the Identity Function in Deep Networks</em>, arXiv 2002.10444 (2020), NeurIPS 2020.</li><li><strong>μP / μTransfer</strong> — Yang et al., <em>Tensor Programs V: Tuning Large Neural Networks via Zero-Shot Hyperparameter Transfer</em>, arXiv 2203.03466 (2022), NeurIPS 2021.</li><li><strong>NFNets (normalizer-free)</strong> — Brock et al., <em>High-Performance Large-Scale Image Recognition Without Normalization</em>, arXiv 2102.06171 (2021), ICML 2021.</li><li><strong>GroupNorm</strong> — Wu &amp; He, <em>Group Normalization</em>, arXiv 1803.08494 (2018), ECCV 2018.</li><li><strong>WeightNorm</strong> — Salimans &amp; Kingma, <em>Weight Normalization: A Simple Reparameterization to Accelerate Training of Deep Neural Networks</em>, arXiv 1602.07868 (2016), NeurIPS 2016.</li><li><strong>QK-Norm</strong> — Henry et al., <em>Query-Key Normalization for Transformers</em>, arXiv 2010.04245 (2020), EMNLP 2020 Findings.</li><li><strong>DyT (Dynamic Tanh)</strong> — Zhu et al., <em>Transformers without Normalization</em>, 2025（CVPR 2025；arXiv 2503.10622，<strong>arXiv id 以引用核查为准</strong>）.</li><li><strong>T-Fixup</strong> — Huang et al., <em>Improving Transformer Optimization Through Better Initialization</em>, ICML 2020（PMLR proceedings；无广泛使用的独立 arXiv id，按会议出处引用）.</li><li><strong>GPT-2 (residual-projection $1/\sqrt{2N}$ init)</strong> — Radford et al., <em>Language Models are Unsupervised Multitask Learners</em>, OpenAI 技术报告 (2019)（<strong>无 arXiv id</strong>）.</li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/normalization_init_tutorial.md</code> ·
   SHA256 <code>0e158f6f3151</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  generated at 2026-09-13 09:30 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

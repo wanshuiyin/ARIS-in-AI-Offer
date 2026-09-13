@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/llm_pretraining_pipeline_tutorial_en.md">
 <meta name="aris:source-sha256" content="b4b62b43241a2396290c01eeace31a1e7ae5b82ae53a0fb67953cca38a4c2348">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:30 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -599,6 +610,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   
   <h1>Llm Pretraining Pipeline Tutorial En</h1>
   
@@ -606,7 +621,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/llm_pretraining_pipeline_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>b4b62b43241a</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:30 UTC</span>
     
   </div>
 </header>
@@ -1032,10 +1047,11 @@ all pretraining pipeline sanity checks passed</code></pre>
 <ul><li><strong>Scaling Laws (Kaplan)</strong> — Kaplan et al. (OpenAI), <em>Scaling Laws for Neural Language Models</em>, arXiv 2001.08361 (2020).</li><li><strong>Chinchilla (Hoffmann)</strong> — Hoffmann et al. (DeepMind), <em>Training Compute-Optimal Large Language Models</em>, arXiv 2203.15556 (2022).</li><li><strong>GPT-3</strong> — Brown et al. (OpenAI), <em>Language Models are Few-Shot Learners</em>, arXiv 2005.14165 (2020), NeurIPS 2020.</li><li><strong>Gopher</strong> — Rae et al. (DeepMind), <em>Scaling Language Models: Methods, Analysis &amp; Insights from Training Gopher</em>, arXiv 2112.11446 (2021).</li><li><strong>OPT (training logs and instability records)</strong> — Zhang et al. (Meta), <em>OPT: Open Pre-trained Transformer Language Models</em>, arXiv 2205.01068 (2022).</li><li><strong>PaLM (incl. loss-spike / checkpoint-restart practice)</strong> — Chowdhery et al. (Google), <em>PaLM: Scaling Language Modeling with Pathways</em>, arXiv 2204.02311 (2022).</li><li><strong>Mixed-precision training</strong> — Micikevicius et al. (NVIDIA/Baidu), <em>Mixed Precision Training</em>, arXiv 1710.03740 (2017), ICLR 2018.</li><li><strong>The Pile (data-pipeline design reference)</strong> — Gao et al. (EleutherAI), <em>The Pile: An 800GB Dataset of Diverse Text for Language Modeling</em>, arXiv 2101.00027 (2020).</li><li><strong>C4 corpus audit (extraction-quality issues)</strong> — Dodge et al., <em>Documenting Large Webtext Corpora: A Case Study on the Colossal Clean Crawled Corpus</em>, arXiv 2104.08758 (2021).</li><li><strong>RefinedWeb (web-corpus extraction/filtering pipeline)</strong> — Penedo et al., <em>The RefinedWeb Dataset for Falcon LLM: Outperforming Curated Corpora with Web Data, and Web Data Only</em>, arXiv 2306.01116 (2023).</li><li><strong>FineWeb (large-scale web corpus + ablations)</strong> — Penedo et al. (Hugging Face), <em>The FineWeb Datasets: Decanting the Web for the Finest Text Data at Scale</em>, arXiv 2406.17557 (2024).</li><li><strong>Training-data dedup (near-duplicates' downstream effects)</strong> — Lee et al. (Google), <em>Deduplicating Training Data Makes Language Models Better</em>, arXiv 2107.06499 (2021), ACL 2022.</li><li><strong>MinHash / Jaccard estimation original source</strong> — Broder, <em>On the Resemblance and Containment of Documents</em>, Proceedings of Compression and Complexity of Sequences (1997) (no arXiv id).</li><li><strong>Data mixtures / domain reweighting</strong> — Xie et al., <em>DoReMi: Optimizing Data Mixtures Speeds Up Language Model Pretraining</em>, arXiv 2305.10429 (2023), NeurIPS 2023.</li><li><strong>Data-constrained scaling (repeated data's effect on effective D)</strong> — Muennighoff et al., <em>Scaling Data-Constrained Language Models</em>, arXiv 2305.16264 (2023), NeurIPS 2023.</li><li><strong>Llama 2 (incl. pretraining data/recipe description)</strong> — Touvron et al. (Meta), <em>Llama 2: Open Foundation and Fine-Tuned Chat Models</em>, arXiv 2307.09288 (2023).</li><li><strong>Llama 3 (incl. data-pipeline/training-recipe description)</strong> — Grattafiori et al. (Meta), <em>The Llama 3 Herd of Models</em>, arXiv 2407.21783 (2024).</li><li><strong>DeepSeek-V3 (active/total parameters and MoE training practice)</strong> — DeepSeek-AI, <em>DeepSeek-V3 Technical Report</em>, arXiv 2412.19437 (2024).</li><li><strong>C4 / T5 (classic reference for tokenizer and corpus preprocessing)</strong> — Raffel et al., <em>Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer</em>, arXiv 1910.10683 (2019), JMLR 2020.</li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/llm_pretraining_pipeline_tutorial_en.md</code> ·
   SHA256 <code>b4b62b43241a</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  generated at 2026-09-13 09:30 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

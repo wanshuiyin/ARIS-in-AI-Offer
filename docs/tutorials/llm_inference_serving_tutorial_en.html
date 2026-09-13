@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/llm_inference_serving_tutorial_en.md">
 <meta name="aris:source-sha256" content="8b4ddfefb05b1f31c82eb848fb4314533647c1dff701ab3108cc3cc017743ef4">
-<meta name="aris:generated-at" content="2026-07-31 03:22 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:29 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -605,6 +616,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   
   <h1>Llm Inference Serving Tutorial En</h1>
   
@@ -612,7 +627,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/llm_inference_serving_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>8b4ddfefb05b</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 03:22 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:29 UTC</span>
     
   </div>
 </header>
@@ -975,10 +990,11 @@ all inference serving sanity checks passed</code></pre>
 <ul><li><strong>PagedAttention / vLLM</strong> — Kwon et al., <em>Efficient Memory Management for Large Language Model Serving with PagedAttention</em>, arXiv 2309.06180 (2023), SOSP 2023.</li><li><strong>Orca (iteration-level / continuous batching)</strong> — Yu et al., <em>Orca: A Distributed Serving System for Transformer-Based Generative Models</em>, arXiv 2204.05120 (2022), OSDI 2022.</li><li><strong>Sarathi-Serve (chunked prefill)</strong> — Agrawal et al., <em>Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve</em>, arXiv 2403.02310 (2024), OSDI 2024.</li><li><strong>DistServe (disaggregation, goodput)</strong> — Zhong et al., <em>DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving</em>, arXiv 2401.09670 (2024), OSDI 2024.</li><li><strong>Splitwise (phase splitting)</strong> — Patel et al., <em>Splitwise: Efficient Generative LLM Inference Using Phase Splitting</em>, arXiv 2311.18677 (2023), ISCA 2024.</li><li><strong>SGLang / RadixAttention (radix-tree prefix caching)</strong> — Zheng et al., <em>SGLang: Efficient Execution of Structured Language Model Programs</em>, arXiv 2312.07104 (2023).</li><li><strong>Nucleus sampling (top-p)</strong> — Holtzman et al., <em>The Curious Case of Neural Text Degeneration</em>, arXiv 1904.09751 (2019), ICLR 2020.</li><li><strong>Top-k sampling</strong> — Fan, Lewis &amp; Dauphin, <em>Hierarchical Neural Story Generation</em>, arXiv 1805.04833 (2018), ACL 2018.</li><li><strong>Min-p sampling</strong> — Nguyen et al., <em>Turning Up the Heat: Min-p Sampling for Creative and Coherent LLM Outputs</em>, arXiv 2407.01082 (2024).</li><li><strong>Locally typical sampling</strong> — Meister et al., <em>Locally Typical Sampling</em>, arXiv 2202.00666 (2022), TACL 2023.</li><li><strong>Speculative decoding</strong> — Leviathan, Kalman &amp; Matias, <em>Fast Inference from Transformers via Speculative Decoding</em>, arXiv 2211.17192 (2022), ICML 2023.</li><li><strong>Speculative sampling</strong> — Chen et al. (DeepMind), <em>Accelerating Large Language Model Decoding with Speculative Sampling</em>, arXiv 2302.01318 (2023).</li><li><strong>FlashAttention (attention-kernel IO optimization — not the same technique as PagedAttention)</strong> — Dao et al., <em>FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness</em>, arXiv 2205.14135 (2022), NeurIPS 2022.</li><li><strong>Megatron-LM (TP)</strong> — Shoeybi et al., <em>Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism</em>, arXiv 1909.08053 (2019).</li><li><strong>Roofline model</strong> — Williams, Waterman &amp; Patterson, <em>Roofline: An Insightful Visual Performance Model for Multicore Architectures</em>, Communications of the ACM (2009) (no arXiv id).</li><li><strong>Constrained decoding / grammar-constrained generation</strong> — Willard &amp; Louf, <em>Efficient Guided Generation for Large Language Models</em>, arXiv 2307.09702 (2023). This paper backs the concrete implementation of guided/grammar-constrained generation, but it should not be cited to argue that "every constrained-decoding implementation is essentially nothing but mask-and-renormalize" — §3.3's "essentially a mask" is an abstraction at the sampling-primitive level, not a restatement of that paper's scope.</li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/llm_inference_serving_tutorial_en.md</code> ·
   SHA256 <code>8b4ddfefb05b</code> ·
-  generated at 2026-07-31 03:22 UTC.
+  generated at 2026-09-13 09:29 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

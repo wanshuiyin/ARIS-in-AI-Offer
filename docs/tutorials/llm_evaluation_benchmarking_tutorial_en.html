@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md">
 <meta name="aris:source-sha256" content="065e8d0ada793023e81a4b92faf891056130996d51892d272e8c57d1ba16fde9">
-<meta name="aris:generated-at" content="2026-07-31 03:22 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:29 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -598,6 +609,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   
   <h1>Llm Evaluation Benchmarking Tutorial En</h1>
   
@@ -605,7 +620,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>065e8d0ada79</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 03:22 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:29 UTC</span>
     
   </div>
 </header>
@@ -987,10 +1002,11 @@ all llm_eval sanity checks passed ✓</code></pre>
 <ul><li><strong>pass@k unbiased estimation (Codex/HumanEval)</strong> — Chen et al. (OpenAI), <em>Evaluating Large Language Models Trained on Code</em>, arXiv 2107.03374 (2021).</li><li><strong>Bradley-Terry model</strong> — Bradley &amp; Terry, <em>Rank Analysis of Incomplete Block Designs: I. The Method of Paired Comparisons</em>, Biometrika (1952) (<strong>no arXiv id</strong>).</li><li><strong>Elo rating system</strong> — Elo, <em>The Rating of Chessplayers, Past and Present</em>, Arco Publishing (1978) (<strong>no arXiv id</strong>).</li><li><strong>Cohen's kappa</strong> — Cohen, <em>A Coefficient of Agreement for Nominal Scales</em>, Educational and Psychological Measurement (1960) (<strong>no arXiv id</strong>).</li><li><strong>Krippendorff's alpha</strong> — Krippendorff, <em>Content Analysis: An Introduction to Its Methodology</em>, Sage Publications (<strong>no arXiv id</strong>, multiple reissued editions).</li><li><strong>Fleiss' kappa</strong> — Fleiss, <em>Measuring Nominal Scale Agreement Among Many Raters</em>, Psychological Bulletin (1971) (<strong>no arXiv id</strong>).</li><li><strong>Calibration / ECE</strong> — Guo, Pleiss, Sun &amp; Weinberger, <em>On Calibration of Modern Neural Networks</em>, arXiv 1706.04599 (2017), ICML 2017.</li><li><strong>Brier score (proper scoring rule)</strong> — Brier, <em>Verification of Forecasts Expressed in Terms of Probability</em>, Monthly Weather Review (1950) (<strong>no arXiv id</strong>).</li><li><strong>BLEU</strong> — Papineni, Roukos, Ward &amp; Zhu, <em>BLEU: a Method for Automatic Evaluation of Machine Translation</em>, ACL 2002 (<strong>no arXiv id</strong>).</li><li><strong>ROUGE</strong> — Lin, <em>ROUGE: A Package for Automatic Evaluation of Summaries</em>, ACL Workshop (2004) (<strong>no arXiv id</strong>).</li><li><strong>BERTScore</strong> — Zhang, Kishore, Wu, Weinberger &amp; Artzi, <em>BERTScore: Evaluating Text Generation with BERT</em>, arXiv 1904.09675 (2019), ICLR 2020.</li><li><strong>MMLU</strong> — Hendrycks et al., <em>Measuring Massive Multitask Language Understanding</em>, arXiv 2009.03300 (2020), ICLR 2021.</li><li><strong>HELM (holistic evaluation framework)</strong> — Liang et al. (Stanford), <em>Holistic Evaluation of Language Models</em>, arXiv 2211.09110 (2022).</li><li><strong>LLM-as-judge / MT-Bench / Chatbot Arena</strong> — Zheng et al., <em>Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena</em>, arXiv 2306.05685 (2023), NeurIPS 2023.</li><li><strong>Chatbot Arena platform</strong> — Chiang et al., <em>Chatbot Arena: An Open Platform for Evaluating LLMs by Human Preference</em>, arXiv 2403.04132 (2024).</li><li><strong>Position bias in LLM judges</strong> — Wang, Peiyi et al., <em>Large Language Models are not Fair Evaluators</em>, arXiv 2305.17926 (2023).</li><li><strong>Length-controlled win rate (mitigating length preference)</strong> — Dubois et al., <em>Length-Controlled AlpacaEval: A Simple Way to Debias Automatic Evaluators</em>, arXiv 2404.04475 (2024).</li><li><strong>Prompt injection attack research / systematization</strong> — Perez &amp; Ribeiro, <em>Ignore Previous Prompt: Attack Techniques For Language Models</em>, arXiv 2211.09527 (2022).</li><li><strong>Indirect prompt injection</strong> — Greshake et al., <em>Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection</em>, arXiv 2302.12173 (2023).</li><li><strong>Provable test-set contamination detection</strong> — Oren et al., <em>Proving Test Set Contamination in Black Box Language Models</em>, arXiv 2310.17623 (2023).</li><li><strong>Indirect data-contamination detection</strong> — Golchin &amp; Surdeanu, <em>Time Travel in LLMs: Tracing Data Contamination in Large Language Models</em>, arXiv 2308.08493 (2023).</li><li><strong>Model self-reported confidence / calibration</strong> — Kadavath et al. (Anthropic), <em>Language Models (Mostly) Know What They Know</em>, arXiv 2207.05221 (2022).</li><li><strong>Statistical significance testing methodology for NLP</strong> — Dror, Baumer, Shlomov &amp; Reichart, <em>The Hitchhiker's Guide to Testing Statistical Significance in Natural Language Processing</em>, arXiv 1809.01448 (2018), ACL 2018.</li><li><strong>Statistical power in NLP experiments</strong> — Card, Henderson, Khandelwal, Jia, Mahowald &amp; Jurafsky, <em>With Little Power Comes Great Responsibility</em>, arXiv 2010.06595 (2020), EMNLP 2020.</li><li><strong>Multiple comparisons: FDR control</strong> — Benjamini &amp; Hochberg, <em>Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing</em>, Journal of the Royal Statistical Society B (1995) (<strong>no arXiv id</strong>).</li><li><strong>Multiple comparisons: FDR control under arbitrary dependence</strong> — Benjamini &amp; Yekutieli, <em>The Control of the False Discovery Rate in Multiple Testing under Dependency</em>, Annals of Statistics (2001) (<strong>no arXiv id</strong>).</li><li><strong>Multiple comparisons: Holm step-down</strong> — Holm, <em>A Simple Sequentially Rejective Multiple Test Procedure</em>, Scandinavian Journal of Statistics (1979) (<strong>no arXiv id</strong>).</li><li><strong>IRT-driven subset selection and performance estimation (tinyBenchmarks, L3 background)</strong> — Polo et al., <em>tinyBenchmarks: evaluating LLMs with fewer examples</em>, arXiv 2402.14992 (2024); this tutorial does not separately trace the original sources of classical psychometric concepts such as item discrimination/DIF — they are mentioned only as background extensions.</li><li><strong>InstructGPT / RLHF pipeline (main subject of the sibling tutorial)</strong> — Ouyang et al., <em>Training Language Models to Follow Instructions with Human Feedback</em>, arXiv 2203.02155 (2022), NeurIPS 2022.</li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md</code> ·
   SHA256 <code>065e8d0ada79</code> ·
-  generated at 2026-07-31 03:22 UTC.
+  generated at 2026-09-13 09:29 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

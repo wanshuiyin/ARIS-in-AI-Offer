@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/llm_evaluation_benchmarking_tutorial.md">
 <meta name="aris:source-sha256" content="5622aa351679a75fc0d71216ceafda7463353e89cada0854c25e67d92a316659">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:29 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -598,6 +609,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   <div class="eyebrow">Interview Prep · LLM Evaluation &amp; Benchmarking</div>
   <h1>LLM Evaluation &amp; Benchmarking 面试 Cheat Sheet</h1>
   <p class="subtitle">pass@k 无偏估计 vs 有偏 plug-in · evaluator ladder · benchmark 污染检测 · human eval → LLM-as-judge · Bradley-Terry/Elo · bootstrap 统计推断 · 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
@@ -605,7 +620,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/llm_evaluation_benchmarking_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>5622aa351679</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:29 UTC</span>
     
   </div>
 </header>
@@ -987,10 +1002,11 @@ all llm_eval sanity checks passed ✓</code></pre>
 <ul><li><strong>pass@k 无偏估计（Codex/HumanEval）</strong> — Chen et al. (OpenAI), <em>Evaluating Large Language Models Trained on Code</em>, arXiv 2107.03374 (2021).</li><li><strong>Bradley-Terry 模型</strong> — Bradley &amp; Terry, <em>Rank Analysis of Incomplete Block Designs: I. The Method of Paired Comparisons</em>, Biometrika (1952)（<strong>无 arXiv id</strong>）.</li><li><strong>Elo 评级系统</strong> — Elo, <em>The Rating of Chessplayers, Past and Present</em>, Arco Publishing (1978)（<strong>无 arXiv id</strong>）.</li><li><strong>Cohen's kappa</strong> — Cohen, <em>A Coefficient of Agreement for Nominal Scales</em>, Educational and Psychological Measurement (1960)（<strong>无 arXiv id</strong>）.</li><li><strong>Krippendorff's alpha</strong> — Krippendorff, <em>Content Analysis: An Introduction to Its Methodology</em>, Sage Publications（<strong>无 arXiv id</strong>，多版本再版）.</li><li><strong>Fleiss' kappa</strong> — Fleiss, <em>Measuring Nominal Scale Agreement Among Many Raters</em>, Psychological Bulletin (1971)（<strong>无 arXiv id</strong>）.</li><li><strong>校准 / ECE</strong> — Guo, Pleiss, Sun &amp; Weinberger, <em>On Calibration of Modern Neural Networks</em>, arXiv 1706.04599 (2017), ICML 2017.</li><li><strong>Brier score（proper scoring rule）</strong> — Brier, <em>Verification of Forecasts Expressed in Terms of Probability</em>, Monthly Weather Review (1950)（<strong>无 arXiv id</strong>）.</li><li><strong>BLEU</strong> — Papineni, Roukos, Ward &amp; Zhu, <em>BLEU: a Method for Automatic Evaluation of Machine Translation</em>, ACL 2002（<strong>无 arXiv id</strong>）.</li><li><strong>ROUGE</strong> — Lin, <em>ROUGE: A Package for Automatic Evaluation of Summaries</em>, ACL Workshop (2004)（<strong>无 arXiv id</strong>）.</li><li><strong>BERTScore</strong> — Zhang, Kishore, Wu, Weinberger &amp; Artzi, <em>BERTScore: Evaluating Text Generation with BERT</em>, arXiv 1904.09675 (2019), ICLR 2020.</li><li><strong>MMLU</strong> — Hendrycks et al., <em>Measuring Massive Multitask Language Understanding</em>, arXiv 2009.03300 (2020), ICLR 2021.</li><li><strong>HELM（整体评估框架）</strong> — Liang et al. (Stanford), <em>Holistic Evaluation of Language Models</em>, arXiv 2211.09110 (2022).</li><li><strong>LLM-as-judge / MT-Bench / Chatbot Arena</strong> — Zheng et al., <em>Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena</em>, arXiv 2306.05685 (2023), NeurIPS 2023.</li><li><strong>Chatbot Arena 平台</strong> — Chiang et al., <em>Chatbot Arena: An Open Platform for Evaluating LLMs by Human Preference</em>, arXiv 2403.04132 (2024).</li><li><strong>LLM judge 的 position bias</strong> — Wang, Peiyi et al., <em>Large Language Models are not Fair Evaluators</em>, arXiv 2305.17926 (2023).</li><li><strong>Length-controlled win rate（缓解长度偏好）</strong> — Dubois et al., <em>Length-Controlled AlpacaEval: A Simple Way to Debias Automatic Evaluators</em>, arXiv 2404.04475 (2024).</li><li><strong>Prompt injection 攻击研究 / 系统化整理</strong> — Perez &amp; Ribeiro, <em>Ignore Previous Prompt: Attack Techniques For Language Models</em>, arXiv 2211.09527 (2022).</li><li><strong>间接 prompt injection</strong> — Greshake et al., <em>Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection</em>, arXiv 2302.12173 (2023).</li><li><strong>测试集污染的可证明检测</strong> — Oren et al., <em>Proving Test Set Contamination in Black Box Language Models</em>, arXiv 2310.17623 (2023).</li><li><strong>数据污染的间接检测</strong> — Golchin &amp; Surdeanu, <em>Time Travel in LLMs: Tracing Data Contamination in Large Language Models</em>, arXiv 2308.08493 (2023).</li><li><strong>模型自报置信度 / 校准</strong> — Kadavath et al. (Anthropic), <em>Language Models (Mostly) Know What They Know</em>, arXiv 2207.05221 (2022).</li><li><strong>NLP 统计显著性检验方法论</strong> — Dror, Baumer, Shlomov &amp; Reichart, <em>The Hitchhiker's Guide to Testing Statistical Significance in Natural Language Processing</em>, arXiv 1809.01448 (2018), ACL 2018.</li><li><strong>NLP 实验的统计功效</strong> — Card, Henderson, Khandelwal, Jia, Mahowald &amp; Jurafsky, <em>With Little Power Comes Great Responsibility</em>, arXiv 2010.06595 (2020), EMNLP 2020.</li><li><strong>多重比较：FDR 控制</strong> — Benjamini &amp; Hochberg, <em>Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing</em>, Journal of the Royal Statistical Society B (1995)（<strong>无 arXiv id</strong>）.</li><li><strong>多重比较：任意依赖下的 FDR 控制</strong> — Benjamini &amp; Yekutieli, <em>The Control of the False Discovery Rate in Multiple Testing under Dependency</em>, Annals of Statistics (2001)（<strong>无 arXiv id</strong>）.</li><li><strong>多重比较：Holm step-down</strong> — Holm, <em>A Simple Sequentially Rejective Multiple Test Procedure</em>, Scandinavian Journal of Statistics (1979)（<strong>无 arXiv id</strong>）.</li><li><strong>IRT 驱动的子集选择与性能估计（tinyBenchmarks，L3 延伸背景）</strong> — Polo et al., <em>tinyBenchmarks: evaluating LLMs with fewer examples</em>, arXiv 2402.14992 (2024)；item discrimination/DIF 等经典心理测量学概念的原始出处本教程不专门溯源，仅做背景延伸提及。</li><li><strong>InstructGPT / RLHF pipeline（sibling 教程主体）</strong> — Ouyang et al., <em>Training Language Models to Follow Instructions with Human Feedback</em>, arXiv 2203.02155 (2022), NeurIPS 2022.</li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/llm_evaluation_benchmarking_tutorial.md</code> ·
   SHA256 <code>5622aa351679</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  generated at 2026-09-13 09:29 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

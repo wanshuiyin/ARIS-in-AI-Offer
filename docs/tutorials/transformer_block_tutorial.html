@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/transformer_block_tutorial.md">
 <meta name="aris:source-sha256" content="31932660b11995549c27ca6261389dc3d50431cd93b40259c57e0f65c2042c8d">
-<meta name="aris:generated-at" content="2026-09-11 10:08 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:30 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -584,6 +595,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   <div class="eyebrow">Interview Prep · Transformer Block</div>
   <h1>Transformer Block 面试 Cheat Sheet</h1>
   <p class="subtitle">Post-LN / Pre-LN / branch pre+post 残差拓扑 · MHA/MQA/GQA/MLA 独立设计轴 · Dense FFN vs MoE 容量轴 · GPT-2→Llama-style 演进 · 30 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
@@ -591,7 +606,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/transformer_block_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>31932660b119</code></span>
-    <span><strong>Rendered:</strong> 2026-09-11 10:08 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:30 UTC</span>
     
   </div>
 </header>
@@ -927,10 +942,11 @@ all transformer block sanity checks passed ✓</code></pre>
 <ul><li><strong>Transformer（原始 encoder-decoder）</strong> — Vaswani et al., <em>Attention Is All You Need</em>, arXiv 1706.03762 (2017), NeurIPS 2017.</li><li><strong>GPT-2（decoder-only，Pre-LN，learned absolute PE）</strong> — Radford et al., <em>Language Models are Unsupervised Multitask Learners</em>, OpenAI 技术报告 (2019)（<strong>无 arXiv id</strong>）.</li><li><strong>GPT-3</strong> — Brown et al., <em>Language Models are Few-Shot Learners</em>, arXiv 2005.14165 (2020), NeurIPS 2020.</li><li><strong>GPT-J（parallel residual）</strong> — Wang &amp; Komatsuzaki, <em>GPT-J-6B: A 6 Billion Parameter Autoregressive Language Model</em>, EleutherAI 开源发布 (2021)（<strong>无正式论文/arXiv id</strong>）.</li><li><strong>PaLM（parallel residual，MQA）</strong> — Chowdhery et al. (Google), <em>PaLM: Scaling Language Modeling with Pathways</em>, arXiv 2204.02311 (2022).</li><li><strong>RoPE</strong> — Su et al., <em>RoFormer: Enhanced Transformer with Rotary Position Embedding</em>, arXiv 2104.09864 (2021)。LLaMA 系是重要采用者，不是提出者。</li><li><strong>Llama 1</strong> — Touvron et al., <em>LLaMA: Open and Efficient Foundation Language Models</em>, arXiv 2302.13971 (2023).</li><li><strong>Llama 2</strong> — Touvron et al., <em>Llama 2: Open Foundation and Fine-Tuned Chat Models</em>, arXiv 2307.09288 (2023).</li><li><strong>Llama 3</strong> — Grattafiori et al. (Meta), <em>The Llama 3 Herd of Models</em>, arXiv 2407.21783 (2024).</li><li><strong>Qwen2</strong> — Yang et al. (Qwen Team), <em>Qwen2 Technical Report</em>, arXiv 2407.10671 (2024).</li><li><strong>Qwen2.5</strong> — Qwen Team, <em>Qwen2.5 Technical Report</em>, arXiv 2412.15115 (2024).</li><li><strong>Mistral 7B（sliding-window attention）</strong> — Jiang et al., <em>Mistral 7B</em>, arXiv 2310.06825 (2023).</li><li><strong>Gemma（1）</strong> — Gemma Team (Google DeepMind), <em>Gemma: Open Models Based on Gemini Research and Technology</em>, arXiv 2403.08295 (2024).</li><li><strong>Gemma 2（branch pre+post norm，soft-capping）</strong> — Gemma Team (Google DeepMind), <em>Gemma 2: Improving Open Language Models at a Practical Size</em>, arXiv 2408.00118 (2024).</li><li><strong>Gemma 3（QK-Norm）</strong> — Gemma Team (Google DeepMind), <em>Gemma 3 Technical Report</em>, arXiv 2503.19786 (2025).</li><li><strong>MQA</strong> — Shazeer, <em>Fast Transformer Decoding: One Write-Head is All You Need</em>, arXiv 1911.02150 (2019).</li><li><strong>GQA</strong> — Ainslie et al., <em>GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints</em>, arXiv 2305.13245, EMNLP 2023.</li><li><strong>MLA / DeepSeek-V2</strong> — DeepSeek-AI, <em>DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model</em>, arXiv 2405.04434 (2024).</li><li><strong>DeepSeek-V3</strong> — DeepSeek-AI, <em>DeepSeek-V3 Technical Report</em>, arXiv 2412.19437 (2024).</li><li><strong>DeepSeekMoE（fine-grained + shared experts）</strong> — Dai et al., <em>DeepSeekMoE: Towards Ultimate Expert Specialization in Mixture-of-Experts Language Models</em>, arXiv 2401.06066 (2024), ACL 2024.</li><li><strong>Auxiliary-Loss-Free Balance</strong> — Wang, Gao, Zhao, Sun &amp; Dai, <em>Auxiliary-Loss-Free Load Balancing Strategy for Mixture-of-Experts</em>, arXiv 2408.15664 (2024).</li><li><strong>Mixtral of Experts</strong> — Jiang et al., <em>Mixtral of Experts</em>, arXiv 2401.04088 (2024).</li><li><strong>Pre-LN vs Post-LN 梯度论证</strong> — Xiong et al., <em>On Layer Normalization in the Transformer Architecture</em>, arXiv 2002.04745 (2020), ICML 2020.</li><li><strong>DeepNorm / DeepNet</strong> — Wang et al., <em>DeepNet: Scaling Transformers to 1,000 Layers</em>, arXiv 2203.00555 (2022).</li><li><strong>RMSNorm</strong> — Zhang &amp; Sennrich, <em>Root Mean Square Layer Normalization</em>, arXiv 1910.07467 (2019), NeurIPS 2019.</li><li><strong>QK-Norm</strong> — Henry et al., <em>Query-Key Normalization for Transformers</em>, arXiv 2010.04245 (2020), EMNLP 2020 Findings.</li><li><strong>GELU</strong> — Hendrycks &amp; Gimpel, <em>Gaussian Error Linear Units (GELUs)</em>, arXiv 1606.08415 (2016).</li><li><strong>GLU Variants / SwiGLU</strong> — Shazeer, <em>GLU Variants Improve Transformer</em>, arXiv 2002.05202 (2020)。提出并系统评估了这些 Transformer FFN 变体；原始 GLU 与 SiLU/Swish 的基础思想各有更早来源。</li><li><strong>同系列教程</strong> — <a href="attention_tutorial.md">attention_tutorial.md</a>、<a href="normalization_init_tutorial.md">normalization_init_tutorial.md</a>、<a href="moe_tutorial.md">moe_tutorial.md</a>、<a href="long_context_rope_yarn_mla_tutorial.md">long_context_rope_yarn_mla_tutorial.md</a>、<a href="linear_sparse_attention_tutorial.md">linear_sparse_attention_tutorial.md</a>、<a href="quantization_tutorial.md">quantization_tutorial.md</a>、<a href="lora_peft_tutorial.md">lora_peft_tutorial.md</a>、<a href="llm_inference_serving_tutorial.md">llm_inference_serving_tutorial.md</a></li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/transformer_block_tutorial.md</code> ·
   SHA256 <code>31932660b119</code> ·
-  generated at 2026-09-11 10:08 UTC.
+  generated at 2026-09-13 09:30 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

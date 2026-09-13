@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/tokenization_tutorial.md">
 <meta name="aris:source-sha256" content="8824f62111f0af1d57bde73d54ad23270a36d7d0f858d294440d308f50e662aa">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:30 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -592,6 +603,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   <div class="eyebrow">Interview Prep · 分词器 (Tokenization)</div>
   <h1>Tokenization / 分词器 面试 Cheat Sheet</h1>
   <p class="subtitle">BPE·WordPiece·Unigram(SentencePiece) / byte-level BPE 与 byte fallback / 词表大小·多语言 fertility·扩词表 / 生产陷阱（prefix instability·special token 注入·glitch token·offset mapping）/ tokenizer-free（ByT5·MegaByte·BLT）+ 公式推导 + From-Scratch 纯 Python + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）</p>
@@ -599,7 +614,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/tokenization_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>8824f62111f0</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:30 UTC</span>
     
   </div>
 </header>
@@ -1020,10 +1035,11 @@ all tokenization sanity checks passed ✓</code></pre>
 <ul><li><strong>BPE（压缩起源）</strong> — Gage, <em>A New Algorithm for Data Compression</em>, C Users Journal (1994)（<strong>无 arXiv id</strong>）.</li><li><strong>BPE for NMT</strong> — Sennrich, Haddow &amp; Birch, <em>Neural Machine Translation of Rare Words with Subword Units</em>, arXiv 1508.07909 (2015), ACL 2016.</li><li><strong>WordPiece（起源）</strong> — Schuster &amp; Nakajima, <em>Japanese and Korean Voice Search</em>, ICASSP 2012（<strong>无 arXiv id</strong>）.</li><li><strong>GNMT（WordPiece 大规模应用）</strong> — Wu et al., <em>Google's Neural Machine Translation System: Bridging the Gap between Human and Machine Translation</em>, arXiv 1609.08144 (2016).</li><li><strong>BERT</strong> — Devlin, Chang, Lee &amp; Toutanova, <em>BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding</em>, arXiv 1810.04805 (2018), NAACL 2019.</li><li><strong>Unigram LM / subword regularization</strong> — Kudo, <em>Subword Regularization: Improving Neural Network Translation Models with Multiple Subword Candidates</em>, arXiv 1804.10959 (2018), ACL 2018.</li><li><strong>SentencePiece</strong> — Kudo &amp; Richardson, <em>SentencePiece: A simple and language independent subword tokenizer and detokenizer for Neural Text Processing</em>, arXiv 1808.06226 (2018), EMNLP 2018 (System Demonstrations).</li><li><strong>T5（SentencePiece-Unigram 用户）</strong> — Raffel et al., <em>Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer</em>, arXiv 1910.10683 (2019), JMLR 2020.</li><li><strong>ALBERT（SentencePiece-Unigram 用户）</strong> — Lan et al., <em>ALBERT: A Lite BERT for Self-supervised Learning of Language Representations</em>, arXiv 1909.11942 (2019), ICLR 2020.</li><li><strong>BPE-dropout</strong> — Provilkov, Emelianenko &amp; Voita, <em>BPE-Dropout: Simple and Effective Subword Regularization</em>, arXiv 1910.13267 (2019), ACL 2020.</li><li><strong>GPT-2（byte-level BPE）</strong> — Radford et al., <em>Language Models are Unsupervised Multitask Learners</em>, OpenAI technical report (2019)（<strong>无 arXiv id</strong>）.</li><li><strong>tiktoken</strong> — OpenAI, https://github.com/openai/tiktoken（BPE 实现库，cl100k_base / o200k_base encodings；<strong>无论文</strong>）.</li><li><strong>Llama 2</strong> — Touvron et al., <em>Llama 2: Open Foundation and Fine-Tuned Chat Models</em>, arXiv 2307.09288 (2023).</li><li><strong>Llama 3</strong> — Grattafiori et al. (Meta), <em>The Llama 3 Herd of Models</em>, arXiv 2407.21783 (2024).</li><li><strong>Qwen2</strong> — Yang et al. (Qwen Team), <em>Qwen2 Technical Report</em>, arXiv 2407.10671 (2024).</li><li><strong>Gemma</strong> — Gemma Team (Google DeepMind), <em>Gemma: Open Models Based on Gemini Research and Technology</em>, arXiv 2403.08295 (2024).</li><li><strong>ByT5</strong> — Xue et al., <em>ByT5: Towards a token-free future with pre-trained byte-to-byte models</em>, arXiv 2105.13626 (2021), TACL 2022.</li><li><strong>MegaByte</strong> — Yu et al. (Meta), <em>MEGABYTE: Predicting Million-byte Sequences with Multiscale Transformers</em>, arXiv 2305.07185 (2023), NeurIPS 2023.</li><li><strong>BLT</strong> — Pagnoni et al. (Meta), <em>Byte Latent Transformer: Patches Scale Better Than Tokens</em>, arXiv 2412.09871 (2024).</li><li><strong>CANINE</strong> — Clark, Garrette, Turc &amp; Wieting, <em>CANINE: Pre-training an Efficient Tokenization-Free Encoder for Language Representation</em>, arXiv 2103.06874 (2021), TACL 2022.</li><li><strong>Speculative decoding</strong> — Leviathan, Kalman &amp; Matias, <em>Fast Inference from Transformers via Speculative Decoding</em>, arXiv 2211.17192 (2022), ICML 2023.</li><li><strong>Speculative sampling</strong> — Chen et al. (DeepMind), <em>Accelerating Large Language Model Decoding with Speculative Sampling</em>, arXiv 2302.01318 (2023).</li><li><strong>SolidGoldMagikarp（glitch tokens）</strong> — Rumbelow &amp; Watkins, <em>SolidGoldMagikarp (plus, prompt generation)</em>, LessWrong blog post (2023)（<strong>无 arXiv id</strong>，按博客出处引用）.</li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/tokenization_tutorial.md</code> ·
   SHA256 <code>8824f62111f0</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  generated at 2026-09-13 09:30 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

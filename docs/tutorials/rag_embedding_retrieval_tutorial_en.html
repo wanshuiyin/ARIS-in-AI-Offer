@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/rag_embedding_retrieval_tutorial_en.md">
 <meta name="aris:source-sha256" content="0a2f735bd41483393909e65a77e36f9bf9e6e2c68b1bde854507950b0ca598ba">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:30 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -588,6 +599,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   
   <h1>Rag Embedding Retrieval Tutorial En</h1>
   
@@ -595,7 +610,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/rag_embedding_retrieval_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>0a2f735bd414</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:30 UTC</span>
     
   </div>
 </header>
@@ -955,10 +970,11 @@ all RAG / embedding sanity checks passed ✓</code></pre>
 <ul><li><strong>RAG</strong> — Lewis et al., <em>Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</em>, arXiv 2005.11401 (2020), NeurIPS 2020.</li><li><strong>DPR</strong> — Karpukhin et al., <em>Dense Passage Retrieval for Open-Domain Question Answering</em>, arXiv 2004.04906 (2020), EMNLP 2020.</li><li><strong>InfoNCE / CPC</strong> — van den Oord et al., <em>Representation Learning with Contrastive Predictive Coding</em>, arXiv 1807.03748 (2018).</li><li><strong>SimCSE</strong> — Gao et al., <em>SimCSE: Simple Contrastive Learning of Sentence Embeddings</em>, arXiv 2104.08821 (2021), EMNLP 2021.</li><li><strong>ColBERT</strong> — Khattab &amp; Zaharia, <em>ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT</em>, arXiv 2004.12832 (2020), SIGIR 2020.</li><li><strong>Matryoshka Representation Learning</strong> — Kusupati et al., arXiv 2205.13147 (2022), NeurIPS 2022.</li><li><strong>BGE-M3</strong> — Chen et al., <em>BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation</em>, arXiv 2402.03216 (2024).</li><li><strong>HyDE</strong> — Gao et al., <em>Precise Zero-Shot Dense Retrieval without Relevance Labels</em>, arXiv 2212.10496 (2022), ACL 2023.</li><li><strong>Self-RAG</strong> — Asai et al., <em>Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</em>, arXiv 2310.11511 (2023), ICLR 2024.</li><li><strong>CRAG</strong> — Yan et al., <em>Corrective Retrieval Augmented Generation</em>, arXiv 2401.15884 (2024).</li><li><strong>GraphRAG</strong> — Edge et al., <em>From Local to Global: A Graph RAG Approach to Query-Focused Summarization</em>, arXiv 2404.16130 (2024).</li><li><strong>RAGAS</strong> — Es et al., <em>RAGAS: Automated Evaluation of Retrieval Augmented Generation</em>, arXiv 2309.15217 (2023).</li><li><strong>RRF</strong> — Cormack et al., <em>Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods</em>, SIGIR 2009.</li><li><strong>HNSW</strong> — Malkov &amp; Yashunin, <em>Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</em>, arXiv 1603.09320 (2016), IEEE TPAMI 2020.</li><li><strong>Lost in the Middle</strong> — Liu et al., <em>Lost in the Middle: How Language Models Use Long Contexts</em>, arXiv 2307.03172 (2023), TACL 2024.</li><li><strong>BM25</strong> — Robertson &amp; Zaragoza, <em>The Probabilistic Relevance Framework: BM25 and Beyond</em>, Foundations and Trends in IR (2009).</li><li><strong>SPLADE</strong> — Formal et al., <em>SPLADE: Sparse Lexical and Expansion Model for First Stage Ranking</em>, arXiv 2107.05720 (2021), SIGIR 2021.</li><li><strong>ColBERTv2</strong> — Santhanam et al., <em>ColBERTv2: Efficient and Effective Retrieval via Lightweight Late Interaction</em>, arXiv 2112.01488 (2021), NAACL 2022.</li><li><strong>PLAID</strong> — Santhanam et al., <em>PLAID: An Efficient Engine for Late Interaction Retrieval</em>, arXiv 2205.09707 (2022), CIKM 2022.</li><li><strong>Contextual Retrieval</strong> — Anthropic, <em>Introducing Contextual Retrieval</em> (engineering blog, 2024).</li><li><strong>Late Chunking</strong> — Günther et al., <em>Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models</em>, arXiv 2409.04701 (2024).</li><li><strong>BEIR</strong> — Thakur et al., <em>BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models</em>, arXiv 2104.08663 (2021), NeurIPS 2021 D&amp;B.</li><li><strong>MTEB</strong> — Muennighoff et al., <em>MTEB: Massive Text Embedding Benchmark</em>, arXiv 2210.07316 (2022), EACL 2023.</li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/rag_embedding_retrieval_tutorial_en.md</code> ·
   SHA256 <code>0a2f735bd414</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  generated at 2026-09-13 09:30 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

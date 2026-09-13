@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/optimizer_lr_schedule_tutorial_en.md">
 <meta name="aris:source-sha256" content="beb3d4efdbddea7867535d114ed40dbb173c1e39aea9ac1129293bfa23a1b07c">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:30 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -615,6 +626,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   
   <h1>Optimizer Lr Schedule Tutorial En</h1>
   
@@ -622,7 +637,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/optimizer_lr_schedule_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>beb3d4efdbdd</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:30 UTC</span>
     
   </div>
 </header>
@@ -1045,10 +1060,11 @@ all optimizer / LR-schedule sanity checks passed ✓</code></pre>
 <ul><li><strong>Adam</strong> — Kingma &amp; Ba, <em>Adam: A Method for Stochastic Optimization</em>, arXiv 1412.6980 (2014), ICLR 2015.</li><li><strong>AdamW (Decoupled Weight Decay)</strong> — Loshchilov &amp; Hutter, <em>Decoupled Weight Decay Regularization</em>, arXiv 1711.05101 (2017), ICLR 2019.</li><li><strong>AdaGrad</strong> — Duchi, Hazan &amp; Singer, <em>Adaptive Subgradient Methods for Online Learning and Stochastic Optimization</em>, JMLR 12 (2011) (<strong>no arXiv id</strong>, cited by JMLR venue).</li><li><strong>RMSProp</strong> — Hinton, <em>Neural Networks for Machine Learning</em>, Coursera Lecture 6e (2012) (course lecture, <strong>no formal paper / arXiv id</strong>).</li><li><strong>Nesterov accelerated gradient</strong> — Nesterov, <em>A method of solving a convex programming problem with convergence rate $O(1/k^2)$</em>, Soviet Math. Doklady 27 (1983) (<strong>no arXiv id</strong>).</li><li><strong>Momentum for deep nets</strong> — Sutskever, Martens, Dahl &amp; Hinton, <em>On the importance of initialization and momentum in deep learning</em>, ICML 2013 (PMLR proceedings; <strong>no standalone arXiv id</strong>, cited by venue).</li><li><strong>AMSGrad (Adam convergence)</strong> — Reddi, Kale &amp; Kumar, <em>On the Convergence of Adam and Beyond</em>, arXiv 1904.09237 (2019), ICLR 2018.</li><li><strong>SGDR / cosine annealing</strong> — Loshchilov &amp; Hutter, <em>SGDR: Stochastic Gradient Descent with Warm Restarts</em>, arXiv 1608.03983 (2016), ICLR 2017.</li><li><strong>Transformer / Noam schedule</strong> — Vaswani et al., <em>Attention Is All You Need</em>, arXiv 1706.03762 (2017), NeurIPS 2017.</li><li><strong>Linear scaling rule</strong> — Goyal et al., <em>Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour</em>, arXiv 1706.02677 (2017).</li><li><strong>LARS</strong> — You, Gitman &amp; Ginsburg, <em>Large Batch Training of Convolutional Networks</em>, arXiv 1708.03888 (2017).</li><li><strong>LAMB</strong> — You et al., <em>Large Batch Optimization for Deep Learning: Training BERT in 76 minutes</em>, arXiv 1904.00962 (2019), ICLR 2020.</li><li><strong>Lion</strong> — Chen et al., <em>Symbolic Discovery of Optimization Algorithms</em>, arXiv 2302.06675 (2023), NeurIPS 2023.</li><li><strong>Shampoo</strong> — Gupta, Koren &amp; Singer, <em>Shampoo: Preconditioned Stochastic Tensor Optimization</em>, arXiv 1802.09568 (2018), ICML 2018.</li><li><strong>SOAP</strong> — Vyas et al., <em>SOAP: Improving and Stabilizing Shampoo using Adam</em>, arXiv 2409.11321 (2024).</li><li><strong>Adafactor</strong> — Shazeer &amp; Stern, <em>Adafactor: Adaptive Learning Rates with Sublinear Memory Cost</em>, arXiv 1804.04235 (2018), ICML 2018.</li><li><strong>Sophia</strong> — Liu et al., <em>Sophia: A Scalable Stochastic Second-order Optimizer for Language Model Pre-training</em>, arXiv 2305.14342 (2023), ICLR 2024.</li><li><strong>One-cycle / Super-Convergence</strong> — Smith &amp; Topin, <em>Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates</em>, arXiv 1708.07120 (2017).</li><li><strong>WSD / MiniCPM</strong> — Hu et al., <em>MiniCPM: Unveiling the Potential of Small Language Models with Scalable Training Strategies</em>, arXiv 2404.06395 (2024), COLM 2024.</li><li><strong>8-bit Adam</strong> — Dettmers et al., <em>8-bit Optimizers via Block-wise Quantization</em>, arXiv 2110.02861 (2021), ICLR 2022.</li><li><strong>Gradient clipping</strong> — Pascanu, Mikolov &amp; Bengio, <em>On the difficulty of training Recurrent Neural Networks</em>, arXiv 1211.5063 (2012), ICML 2013.</li><li><strong>Muon (scaling)</strong> — Liu et al. (Moonshot AI), <em>Muon is Scalable for LLM Training</em>, arXiv 2502.16982 (2025).</li><li><strong>Muon (original writeup)</strong> — Keller Jordan et al., <em>Muon: An optimizer for the hidden layers of neural networks</em>, 2024 tech blog (<strong>no standalone arXiv paper</strong>, cited as a blog writeup).</li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/optimizer_lr_schedule_tutorial_en.md</code> ·
   SHA256 <code>beb3d4efdbdd</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  generated at 2026-09-13 09:30 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

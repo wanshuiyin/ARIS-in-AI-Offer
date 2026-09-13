@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/linear_sparse_attention_tutorial_en.md">
 <meta name="aris:source-sha256" content="b2ca3a16be8c8d3efed8383c8629c771bb1f21b2c14a9fbb605d4ac664c68bb4">
-<meta name="aris:generated-at" content="2026-07-31 02:58 UTC">
+<meta name="aris:generated-at" content="2026-09-13 09:29 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -106,6 +106,17 @@ header.hero {
   padding-bottom: 24px;
   margin-bottom: 32px;
 }
+header.hero .site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+header.hero .site a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--border); }
+header.hero .site a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+html:lang(en) .l-cn { display: none; }
+html:not(:lang(en)) .l-en { display: none; }
 header.hero .eyebrow {
   font-family: inherit;
   color: var(--ink-muted);
@@ -609,6 +620,10 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 
 <main>
 <header class="hero">
+  <div class="site">
+    <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/"><span class="l-cn">⌂ 全部教程</span><span class="l-en">⌂ All tutorials</span></a>
+    <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ GitHub 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a>
+  </div>
   
   <h1>Linear Sparse Attention Tutorial En</h1>
   
@@ -616,7 +631,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/linear_sparse_attention_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>b2ca3a16be8c</code></span>
-    <span><strong>Rendered:</strong> 2026-07-31 02:58 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-13 09:29 UTC</span>
     
   </div>
 </header>
@@ -1057,10 +1072,11 @@ all linear / sparse attention sanity checks passed ✓</code></pre>
 <ul><li><strong>Linear Attention / Transformers are RNNs</strong> — Katharopoulos et al., <em>Transformers are RNNs: Fast Autoregressive Transformers with Linear Attention</em>, arXiv 2006.16236 (2020), ICML 2020.</li><li><strong>Performer (FAVOR+)</strong> — Choromanski et al., <em>Rethinking Attention with Performers</em>, arXiv 2009.14794 (2020), ICLR 2021.</li><li><strong>RetNet</strong> — Sun et al., <em>Retentive Network: A Successor to Transformer for Large Language Models</em>, arXiv 2307.08621 (2023).</li><li><strong>GLA (Gated Linear Attention)</strong> — Yang et al., <em>Gated Linear Attention Transformers with Hardware-Efficient Training</em>, arXiv 2312.06635 (2023), ICML 2024.</li><li><strong>Mamba</strong> — Gu &amp; Dao, <em>Mamba: Linear-Time Sequence Modeling with Selective State Spaces</em>, arXiv 2312.00752 (2023), COLM 2024.</li><li><strong>Mamba-2 / SSD</strong> — Dao &amp; Gu, <em>Transformers are SSMs: Generalized Models and Efficient Algorithms Through Structured State Space Duality</em>, arXiv 2405.21060 (2024), ICML 2024.</li><li><strong>DeltaNet</strong> — Yang et al., <em>Parallelizing Linear Transformers with the Delta Rule over Sequence Length</em>, arXiv 2406.06484 (2024), NeurIPS 2024.</li><li><strong>Gated DeltaNet</strong> — Yang et al., <em>Gated Delta Networks: Improving Mamba2 with Delta Rule</em>, arXiv 2412.06464 (2024), ICLR 2025.</li><li><strong>NSA (Native Sparse Attention)</strong> — Yuan et al. (DeepSeek), <em>Native Sparse Attention: Hardware-Aligned and Natively Trainable Sparse Attention</em>, arXiv 2502.11089 (2025).</li><li><strong>MoBA (Mixture of Block Attention)</strong> — Lu et al. (Moonshot AI), <em>MoBA: Mixture of Block Attention for Long-Context LLMs</em>, arXiv 2502.13189 (2025).</li><li><strong>Lightning Attention / MiniMax-01</strong> — MiniMax, <em>MiniMax-01: Scaling Foundation Models with Lightning Attention</em>, arXiv 2501.08313 (2025).</li><li><strong>Jamba</strong> — Lieber et al., <em>Jamba: A Hybrid Transformer-Mamba Language Model</em>, arXiv 2403.19887 (2024).</li><li><strong>Hymba</strong> — Dong et al., <em>Hymba: A Hybrid-head Architecture for Small Language Models</em>, arXiv 2411.13676 (2024).</li><li><strong>Kimi-Linear</strong> — Kimi Team, <em>Kimi Linear: An Expressive, Efficient Attention Architecture</em>, arXiv 2510.26692 (2025).</li><li><strong>HiPPO</strong> — Gu et al., <em>HiPPO: Recurrent Memory with Optimal Polynomial Projections</em>, arXiv 2008.07669 (2020), NeurIPS 2020.</li><li><strong>S4</strong> — Gu et al., <em>Efficiently Modeling Long Sequences with Structured State Spaces</em>, arXiv 2111.00396 (2021), ICLR 2022.</li><li><strong>DeepSeek-V3.2 / DSA</strong> — DeepSeek-AI, <em>DeepSeek-V3.2: Pushing the Frontier of Open Large Language Models</em>, arXiv 2512.02556 (2025) — the technical report itself covers the DeepSeek Sparse Attention (DSA, lightning indexer) mechanism, not just a model card.</li><li><strong>Zamba</strong> — Glorioso et al., <em>Zamba: A Compact 7B SSM Hybrid Model</em>, arXiv 2405.16712 (2024).</li><li><strong>Qwen3-Next</strong> — Qwen Team, <em>Qwen3-Next</em> (Gated DeltaNet + gated full attention hybrid), 2025 (technical blog / model report; no standalone arXiv paper).</li><li><strong>Longformer</strong> — Beltagy et al., <em>Longformer: The Long-Document Transformer</em>, arXiv 2004.05150 (2020).</li><li><strong>BigBird</strong> — Zaheer et al., <em>Big Bird: Transformers for Longer Sequences</em>, arXiv 2007.14062 (2020), NeurIPS 2020.</li></ul>
 
 <footer class="aris-footer">
+  <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/linear_sparse_attention_tutorial_en.md</code> ·
   SHA256 <code>b2ca3a16be8c</code> ·
-  generated at 2026-07-31 02:58 UTC.
+  generated at 2026-09-13 09:29 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>
