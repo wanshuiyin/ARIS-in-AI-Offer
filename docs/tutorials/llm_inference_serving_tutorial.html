@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/llm_inference_serving_tutorial.md">
-<meta name="aris:source-sha256" content="b8534a9e5b0f0a6f80f5a4fb4ef58441b2b9b534ad5f36994552910aa44567fd">
-<meta name="aris:generated-at" content="2026-09-13 09:29 UTC">
+<meta name="aris:source-sha256" content="a03b7b739c5c458aa20f9f0f627ab075f20dc726a174c6e7a889b77ad80398fa">
+<meta name="aris:generated-at" content="2026-09-13 18:01 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -538,7 +538,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <nav class="toc">
   <h3>Contents</h3>
   <ol>
-<li><a href="#0-请求状态机心智模型--tldr-cheat-sheet">§0 请求状态机心智模型 + TL;DR Cheat Sheet</a>
+<li><a href="#0-请求状态机--tldr-cheat-sheet">§0 请求状态机 + TL;DR Cheat Sheet</a>
 <ul>
 <li><a href="#01-happy-path一个正常完成的请求">0.1　Happy path：一个正常完成的请求</a></li>
 <li><a href="#02-完整状态机聚合视图">0.2　完整状态机：聚合视图</a></li>
@@ -573,7 +573,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 </li>
 <li><a href="#4-kv-生命周期分配分页共享与路由">§4 KV 生命周期：分配、分页、共享与路由</a>
 <ul>
-<li><a href="#41-容量核算把-sibling-教程的已知量接到-serving-侧">4.1　容量核算：把 sibling 教程的已知量接到 serving 侧</a></li>
+<li><a href="#41-容量核算kv-字节数进入-serving-之后">4.1　容量核算：KV 字节数进入 serving 之后</a></li>
 <li><a href="#42-pagedattentionblock-table不是自动换出到磁盘">4.2　PagedAttention：block table，不是自动换出到磁盘</a></li>
 <li><a href="#43-prefix-caching-与多租户正确性">4.3　Prefix caching 与多租户正确性</a></li>
 <li><a href="#44-eviction-与-preemption">4.4　Eviction 与 preemption</a></li>
@@ -626,15 +626,15 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/llm_inference_serving_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>b8534a9e5b0f</code></span>
-    <span><strong>Rendered:</strong> 2026-09-13 09:29 UTC</span>
+    <span><strong>SHA256:</strong> <code>a03b7b739c5c</code></span>
+    <span><strong>Rendered:</strong> 2026-09-13 18:01 UTC</span>
     
   </div>
 </header>
 
-<h2 id="0-请求状态机心智模型--tldr-cheat-sheet">§0 请求状态机心智模型 + TL;DR Cheat Sheet</h2>
-<p><strong>LLM 推理服务不是"跑一次 forward"，而是一台横跨网关、调度器、显存管理器和采样器的状态机。</strong> 面试里被问烂的"prefill 和 decode 有什么区别"，其实只是这台状态机里的两个格子——不先把整条路径立起来，就说不清 TTFT 卡在哪一步、KV OOM 是哪个资源在报警、p99 恶化该从哪里查起。本教程的主线就是这台状态机；量化、KV 容量公式、speculative decoding 的推导已经在其他教程讲过，这里只讲它们在 serving 这条流水线上<strong>插在哪、改变了什么</strong>。</p>
-<div class="callout callout-info"><div class="callout-title">8 条 TL;DR</div><p>30 秒抓住主线，细节在 §0.1–§0.2 与 §1–§7 展开。</p></div>
+<h2 id="0-请求状态机--tldr-cheat-sheet">§0 请求状态机 + TL;DR Cheat Sheet</h2>
+<p><strong>LLM 推理服务是一台横跨网关、调度器、显存管理器和采样器的状态机</strong>，prefill 和 decode 只是其中两个状态。看清整条路径，才说得清 TTFT 卡在哪一步、KV OOM 是哪个资源在报警、p99 恶化从哪里查起。量化、KV 容量公式、speculative decoding 的推导在各自的教程里，这里只讲它们<strong>插在 serving 流水线的哪一步、改变了什么</strong>。</p>
+<div class="callout callout-info"><div class="callout-title">8 条 TL;DR</div><p>细节在 §1–§7。</p></div>
 <ol><li><strong>请求路径</strong>：ingress gate → tokenize/validate → prefix lookup → scheduler admission + KV <strong>预留</strong> → queued/runnable → prefill → 首 token（直接来自最后一次 prefill forward 的 logits，不是"再单独跑一次 decode"）→ 逐轮 decode（采样 + streaming）→ finished → KV 回收（§0.1、§1）。</li><li><strong>两级准入</strong>：ingress gate 在 tokenize 之前只做粗粒度检查；精确的 KV/token-budget 判断要等 tokenize、prefix lookup 之后才能做，通过也只是<strong>预留</strong>（记账层面），物理分配发生在被某次 tick 选中时（§1.2）。</li><li><strong>指标</strong>：$TTFT=t_{\text{first emit}}-t_{\text{arrival}}$、$ITL_j=t_{\text{emit},j}-t_{\text{emit},j-1}$、$TPOT=\frac{t_{\text{last emit}}-t_{\text{first emit}}}{N_{\text{out}}-1}$，每个量先声明系统边界；throughput 是速率、SLO attainment 是比例、goodput 是"满足 SLO 的速率"，三者不能混用（§2）。</li><li><strong>典型瓶颈</strong>："prefill compute-bound、decode bandwidth-bound"只是常见工作区间的经验结论，不是定理——batch 变大、量化、超长 context 都会移动瓶颈（§2.3）。</li><li><strong>采样</strong>：top-p 是排序后累计概率首次越过阈值的最小前缀（边界 token 必须保留）；min-p 支持集随温度改变；多个过滤器不总能交换顺序；constrained decoding 本质是把非法 token 的 logit 置 $-\infty$ 再照常采样（§3）。</li><li><strong>KV</strong>：PagedAttention 是 block table 间接寻址，不是"缺页自动从磁盘加载"；prefix caching 复用<strong>精确 token 前缀</strong>而非语义相似的 prompt，多租户下还要防 cache 侧信道（§4）。</li><li><strong>调度</strong>：static batching 的真正限制是空 slot 在整批结束前不能被新请求替换；continuous batching 靠 iteration 级 refill 省空槽，但不保证对所有负载都降延迟；chunked prefill 改善 decode ITL 却可能拉长长 prompt 自己的 TTFT（§5）。</li><li><strong>扩展与诊断</strong>：disaggregation 不是无条件加速（收益要过 KV 传输/协调/故障恢复的 break-even）；优化手段不能线性叠加；同一种子不保证逐 token 复现；p99 恶化先拆排队时间和服务时间，再按状态机分阶段打点（§6、§7、§1.6）。</li></ol>
 <h3 id="01-happy-path一个正常完成的请求">0.1　Happy path：一个正常完成的请求</h3>
 <pre><code class="language-text">客户端请求
@@ -697,12 +697,12 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <ul><li><strong>throughput（吞吐）</strong>：单位时间处理的工作量，是一个<strong>速率</strong>——但要先声明维度是哪一种：request throughput（requests/s）、output-token throughput（output tokens/s），还是 total-token throughput（含 prompt token 的 total tokens/s，常用于估算 GPU 时间占用/成本）。三种 throughput 在长 prompt/短输出或短 prompt/长输出的负载下可能给出完全不同的排名。</li><li><strong>SLO attainment（达标率）</strong>：满足 TTFT/TPOT/deadline SLO 的请求（或 token）<strong>占总数的比例</strong>，是一个无量纲的<strong>比例</strong>——$A = N_{\text{SLO}} / N_{\text{total}}$。</li><li><strong>goodput（有效吞吐）</strong>：满足同样 SLO 约束的请求（或 token）在单位时间内的<strong>速率</strong>——$G = N_{\text{SLO}} / \Delta t$，单位仍然是 requests/s 或 tokens/s，<strong>不是比例</strong>。把 goodput 说成"满足 SLO 的请求占比"是常见但不准确的说法：达标率和 goodput 是两个维度不同的量，可能达标率很高但因为系统整体很慢导致 goodput 很低，也可能达标率一般但因为系统吞吐极高导致 goodput 数值上仍然可观。</li></ul>
 <p>报告系统能力时应该同时给吞吐-延迟曲线（在不同并发/到达率下扫出来，见 §2.4），而不是单点吞吐数字；声明是三种 throughput 里的哪一种、SLO attainment 还是 goodput，同样是必须先声明的"系统边界"的一部分。</p>
 <h3 id="23-prefilldecode-的经验区间不是定理">2.3　Prefill/Decode 的经验区间——不是定理</h3>
-<p>标准 Transformer 一层的 FLOPs 展开（完整推导见 <a href="kv_cache_speculative_decoding_tutorial.md"><code>kv_cache_speculative_decoding_tutorial.md</code></a> §3.1，此处不重复）大致是：prefill 阶段 $L$ 个 token 一次算完，权重被 $L$ 次复用，通常有较高算术强度，容易跑满 GPU 算力；decode 阶段每步只算 1 个新 token，却要把整层权重和随历史增长的 KV 都重新读一遍，小 batch 下算术强度低，往往落在 HBM 带宽瓶颈区间。这条"prefill compute-bound、decode bandwidth-bound"是<strong>常见工作区间下的经验结论</strong>，两句限定：decode batch 增大后算术强度上升（同一份权重摊给更多 token），部分线性层可能重新变成 compute-bound，量化会改变这个转折点的 batch size；而超长 context 下 prefill attention 也可能受 IO/HBM/workspace/kernel 实现限制——用了 FlashAttention 不自动意味着整个 prefill 就一定 compute-bound。另外输入/输出长度的作用不对称：输入长度直接决定 prefill 工作量和每步 decode 的 KV 读取量，输出长度不改变初始 prefill 的算术强度，但会增加 decode 轮数、KV 驻留时间与后期 context 长度。</p>
+<p>标准 Transformer 一层的 FLOPs 展开（完整推导见 <a href="kv_cache_speculative_decoding_tutorial.md"><code>kv_cache_speculative_decoding_tutorial.md</code></a> §3.1）大致是：prefill 阶段 $L$ 个 token 一次算完，权重被 $L$ 次复用，通常有较高算术强度，容易跑满 GPU 算力；decode 阶段每步只算 1 个新 token，却要把整层权重和随历史增长的 KV 都重新读一遍，小 batch 下算术强度低，往往落在 HBM 带宽瓶颈区间。这条"prefill compute-bound、decode bandwidth-bound"是<strong>常见工作区间下的经验结论</strong>，两句限定：decode batch 增大后算术强度上升（同一份权重摊给更多 token），部分线性层可能重新变成 compute-bound，量化会改变这个转折点的 batch size；而超长 context 下 prefill attention 也可能受 IO/HBM/workspace/kernel 实现限制——用了 FlashAttention 不自动意味着整个 prefill 就一定 compute-bound。另外输入/输出长度的作用不对称：输入长度直接决定 prefill 工作量和每步 decode 的 KV 读取量，输出长度不改变初始 prefill 的算术强度，但会增加 decode 轮数、KV 驻留时间与后期 context 长度。</p>
 <blockquote><p>🎯 <strong>Roofline 是上界思想实验，不是延迟预测器</strong> — Ridge point $I^{*}=\text{peak FLOP/s}/\text{HBM byte/s}$ 只是拿来跟某个 kernel 自己的算术强度对比、判断它理论上更靠近哪一侧；真实延迟还受 kernel 实现、调度开销、访存模式影响，见 §8 的 [D09]。</p></blockquote>
 <p>FlashAttention 一类工作优化的是<strong>attention kernel 的 IO 效率</strong>（省显存读写）；PagedAttention（§4）管理的是<strong>serving 阶段 KV 的地址空间与分配策略</strong>——两者解决的是不同层面的问题，不要混成同一技术。</p>
-<p>再往下的纯 kernel/assembly 级因素——算子融合、CUDA Graph（形状变化需重新 capture）、prefill 宽 GEMM vs decode 窄 GEMM/GEMV（$L_q=1$）、paged attention 按 block table 间接寻址的额外开销——本教程只点名不展开，它们都是"实现细节会显著影响实测数字"的例子。</p>
+<p>再往下的纯 kernel/assembly 级因素——算子融合、CUDA Graph（形状变化需重新 capture）、prefill 宽 GEMM vs decode 窄 GEMM/GEMV（$L_q=1$）、paged attention 按 block table 间接寻址的额外开销——都是实现细节显著影响实测数字的例子。</p>
 <h3 id="24-可信-benchmark-与容量规划概览">2.4　可信 Benchmark 与容量规划（概览）</h3>
-<p>把吞吐、goodput、TTFT/TPOT 报成一条可信的数字，比看起来更容易出错；下面是一个不完整但覆盖了最常见坑的检查清单，完整的压测脚本设计不在本教程范围内。</p>
+<p>把吞吐、goodput、TTFT/TPOT 报成一条可信的数字，比看起来更容易出错；下面是最常见的坑。</p>
 <ul><li><strong>open-loop vs. closed-loop</strong>：open-loop 按固定 arrival rate（如 Poisson 到达）持续发请求，closed-loop 固定并发数（完成一个才发下一个）。<strong>两者衡量的是不同的东西</strong>：closed-loop 天然会在系统变慢时自动降低有效到达率，容易把一个已经过载的系统压出"虚假稳定"的延迟数字；open-loop 更贴近真实线上流量，但要求压测客户端本身不能成为瓶颈。</li><li><strong>coordinated omission</strong>：closed-loop 或简单重试逻辑下，如果某个请求卡住了，压测工具往往会"忘记"继续按原定节奏发送后续请求，导致统计样本系统性地漏掉了最慢的那些情况——测出来的 p99 会比真实值乐观得多。修正方法是按<strong>计划到达时间</strong>而不是<strong>实际发送时间</strong>来计算延迟。</li><li><strong>真实输入/输出长度分布</strong>：用真实 trace（或至少匹配真实分布的合成分布）而不是固定长度，因为 prefill/decode 的比例、KV 占用、batch 组成都强烈依赖长度分布；固定长度的压测会系统性偏离生产行为。</li><li><strong>load sweep 与饱和点</strong>：单点并发/到达率测出来的数字没有意义，要扫一条从空载到饱和的曲线，找到吞吐-延迟曲线开始陡峭上升的拐点（饱和点），并明确报告"这个吞吐数字对应哪个延迟"。</li><li><strong>冷启动分报与 p99 样本量</strong>：冷启动尾部必须与稳态分布分开报告（§1.5），否则扩容抖动会被误判成常态问题；p99 这类尾部分位数在小样本下噪声很大，需要足够样本量并说明置信区间。</li></ul>
 <p>replica sizing（goodput-based 副本数计算）的完整输入清单见 Q19。</p>
 <h2 id="3-logits-到-token采样约束解码与流式输出">§3 Logits 到 Token：采样、约束解码与流式输出</h2>
@@ -729,12 +729,12 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Stop conditions 至少要区分：<strong>EOS token</strong>、<strong>stop-token 序列</strong>、<strong>stop string</strong>（字符串级，可能跨多个 token 边界）、<code>max_new_tokens</code>、<strong>总 context 上限</strong>、<strong>约束解码的终态</strong>（如 JSON 语法闭合）、<strong>deadline</strong>、<strong>客户端取消</strong>。</p>
 <p>stop string 跨 token 边界时，服务器必须在推给客户端前<strong>缓冲一段"可能仍是 stop string 前缀"的未提交文本</strong>，确认不会再匹配到 stop string 才能安全吐出（§8 [D03] 给出最小实现）。这与 tokenization 教程的 <strong>prefix instability</strong> 同属"边界不稳定"问题但发生在不同层面——一个在 tokenizer 的 encode 边界，一个在流式输出的字符串匹配边界；前者与 token healing 的完整机制见 <a href="tokenization_tutorial.md"><code>tokenization_tutorial.md</code></a> §5.4。</p>
 <h2 id="4-kv-生命周期分配分页共享与路由">§4 KV 生命周期：分配、分页、共享与路由</h2>
-<h3 id="41-容量核算把-sibling-教程的已知量接到-serving-侧">4.1　容量核算：把 sibling 教程的已知量接到 serving 侧</h3>
+<h3 id="41-容量核算kv-字节数进入-serving-之后">4.1　容量核算：KV 字节数进入 serving 之后</h3>
 <p>每 token 的 KV 字节数直接复用 <a href="kv_cache_speculative_decoding_tutorial.md"><code>kv_cache_speculative_decoding_tutorial.md</code></a> §2.1 的结论：</p>
 <p>$$m_{\text{token}} = 2\, N_{\text{layer}}\, N_{\text{kv\_head}}\, d_{\text{head}}\, b$$</p>
-<p>（因子 2 对应 K/V，$b$ 为每元素字节数；这是<strong>理想 payload</strong>，不含 allocator 对齐、block table 元数据、量化 scale 等开销——MQA/GQA/MLA 的推导见那篇教程）。本教程把 $m_{\text{token}}$ 当成外部已知参数，只关心它进入 serving 生命周期之后的三件事：block 分配与内部碎片、跨请求共享与 copy-on-write（§4.2）、抢占/淘汰时的回收（§4.4）——[D07]–[D08] 把这条已知量接到这三件事上，不重复验证公式本身。</p>
+<p>（因子 2 对应 K/V，$b$ 为每元素字节数；这是<strong>理想 payload</strong>，不含 allocator 对齐、block table 元数据、量化 scale 等开销——MQA/GQA/MLA 的推导见那篇教程）。$m_{\text{token}}$ 在这里是外部已知量。它进入 serving 生命周期后牵涉三件事：block 分配与内部碎片、跨请求共享与 copy-on-write（§4.2）、抢占/淘汰时的回收（§4.4）；[D07]–[D08] 覆盖这三件事。</p>
 <h3 id="42-pagedattentionblock-table不是自动换出到磁盘">4.2　PagedAttention：block table，不是自动换出到磁盘</h3>
-<p>核心机制（完整设计见 <a href="kv_cache_speculative_decoding_tutorial.md"><code>kv_cache_speculative_decoding_tutorial.md</code></a> §5，本节只讲 serving 视角需要的那一半）：每个序列的逻辑 KV block 通过一张 <strong>block table</strong> 映射到显存里不连续的物理 block，attention kernel 按这张表间接寻址读取 KV。固定大小 block 消除了"每个请求必须预留整段连续最大长度 KV 空间"的要求，降低外部碎片与过度预留；但<strong>最后一个未填满的 block 仍有内部碎片</strong>（§8 [D07] 的分配器演示）。</p>
+<p>核心机制（完整设计见 <a href="kv_cache_speculative_decoding_tutorial.md"><code>kv_cache_speculative_decoding_tutorial.md</code></a> §5）：每个序列的逻辑 KV block 通过一张 <strong>block table</strong> 映射到显存里不连续的物理 block，attention kernel 按这张表间接寻址读取 KV。固定大小 block 消除了"每个请求必须预留整段连续最大长度 KV 空间"的要求，降低外部碎片与过度预留；但<strong>最后一个未填满的 block 仍有内部碎片</strong>（§8 [D07] 的分配器演示）。</p>
 <div class="callout callout-warn"><div class="callout-title">PagedAttention 不等于&quot;缺页时自动从磁盘加载 KV&quot;</div><p>OS 分页只是设计灵感上的类比；PagedAttention 的核心是 <strong>GPU attention kernel 与 block-table 间接寻址机制</strong>，管理的是显存内不连续物理 block 的映射与共享。这不代表整套 serving 系统就此与磁盘/host 内存绝缘——真正涉及"移出显存"的是另一套可以叠加在它之上的机制：host swap / KV offload（把 KV 挪到 CPU 内存甚至更慢的存储），这是 §4.4 preemption 里的一种代价选项，只是<strong>不属于 PagedAttention 本身的默认行为</strong>。</p></div>
 <p>物理 block 可以通过引用计数在共同前缀或 beam 分支间共享；共享的可写尾 block 需要分叉时，通常触发 <strong>copy-on-write</strong>（复制该 block 并改写映射，而不是原地修改共享内容）。</p>
 <h3 id="43-prefix-caching-与多租户正确性">4.3　Prefix caching 与多租户正确性</h3>
@@ -778,7 +778,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h2 id="7-优化组合与瓶颈迁移">§7 优化组合与瓶颈迁移</h2>
 <p>单独看每个优化手段都有清晰的收益故事，但<strong>组合在一起时收益不能直接相乘或相加</strong>——它们共同改变的是 batch size、显存余量、kernel 形状和瓶颈的位置本身：</p>
 <ul><li><p><strong>量化</strong>：权重量化主要降低权重的带宽与容量压力；<strong>KV-cache 量化是独立的设计点</strong>，不能因为模型权重用了低比特就假定 KV 也理所当然用相同比特数（数值敏感度、per-channel/per-token 粒度选择完全不同）。数值细节（scale/zero-point、GPTQ/AWQ/FP8 具体误差分析）见 <a href="quantization_tutorial.md"><code>quantization_tutorial.md</code></a>，本节只给决策维度：</p>
-<div class="table-wrap"><table><thead><tr><th>量化对象</th><th>主要影响</th><th>与 serving 的耦合点</th></tr></thead><tbody><tr><td>权重</td><td>带宽、显存容量</td><td>改变 decode 算术强度的转折点（§2.3）</td></tr><tr><td>KV cache</td><td>显存容量、允许的 batch/context 上限</td><td>影响 §4 的容量核算与 block 分配</td></tr><tr><td>Activation</td><td>kernel 支持、数值稳定性</td><td>影响能用哪些融合 kernel、prefill 的实际吞吐</td></tr></tbody></table></div></li><li><strong>Speculative decoding</strong>：接受率、$E[\tau]$ 期望加速比的完整推导见 <a href="kv_cache_speculative_decoding_tutorial.md"><code>kv_cache_speculative_decoding_tutorial.md</code></a> §7；本教程只强调 serving 记账：每次 target verification 会处理多个候选 token，产生<strong>可变数量</strong>的已接受 token，调度器必须按"验证 token 数"“输出 token 数”“KV 增量”分别记账，不能当成固定步长的 decode。Target 或 draft 的量化可能通过数值误差改变 draft/target 的分布差异与接受率——<strong>speculative decoding 与量化不严格正交</strong>。</li><li><strong>Prefix caching × continuous batching × disaggregation</strong>：prefix 命中缩短的是有效 prefill 长度，这会改变 disaggregated 部署里 prefill pool 的实际工作量、进而改变两个资源池该按什么比例配置——三者互相耦合，孤立评估任何一个都会得出误导性结论。</li></ul>
+<div class="table-wrap"><table><thead><tr><th>量化对象</th><th>主要影响</th><th>与 serving 的耦合点</th></tr></thead><tbody><tr><td>权重</td><td>带宽、显存容量</td><td>改变 decode 算术强度的转折点（§2.3）</td></tr><tr><td>KV cache</td><td>显存容量、允许的 batch/context 上限</td><td>影响 §4 的容量核算与 block 分配</td></tr><tr><td>Activation</td><td>kernel 支持、数值稳定性</td><td>影响能用哪些融合 kernel、prefill 的实际吞吐</td></tr></tbody></table></div></li><li><strong>Speculative decoding</strong>：接受率、$E[\tau]$ 期望加速比的完整推导见 <a href="kv_cache_speculative_decoding_tutorial.md"><code>kv_cache_speculative_decoding_tutorial.md</code></a> §7；serving 侧要记的是：每次 target verification 会处理多个候选 token，产生<strong>可变数量</strong>的已接受 token，调度器必须按"验证 token 数"“输出 token 数”“KV 增量”分别记账，不能当成固定步长的 decode。Target 或 draft 的量化可能通过数值误差改变 draft/target 的分布差异与接受率——<strong>speculative decoding 与量化不严格正交</strong>。</li><li><strong>Prefix caching × continuous batching × disaggregation</strong>：prefix 命中缩短的是有效 prefill 长度，这会改变 disaggregated 部署里 prefill pool 的实际工作量、进而改变两个资源池该按什么比例配置——三者互相耦合，孤立评估任何一个都会得出误导性结论。</li></ul>
 <blockquote><p>🎯 <strong>线上现象 → 定位路径（诊断表）</strong></p></blockquote>
 <div class="table-wrap"><table><thead><tr><th>现象</th><th>优先检查</th></tr></thead><tbody><tr><td>TTFT 高</td><td>排队时长、admission 拒绝率、prefix cache 命中率、prefill 是否被 chunk 挤占</td></tr><tr><td>TPOT/ITL 抖动</td><td>是否有长 prefill 插队、preemption 频率、batch 组成是否频繁变化</td></tr><tr><td>KV OOM</td><td>block 分配碎片率、长 generation 请求占用、admission 的 KV 预留策略</td></tr><tr><td>cache 命中低</td><td>hash key 设计、租户隔离策略是否过度分区、路由是否破坏了 locality</td></tr><tr><td>GPU 利用率低但延迟也不好</td><td>先看 batch 是否太小/太碎，而不是急着加 GPU——多半是调度或 admission 问题</td></tr><tr><td>p99 突然恶化</td><td>先拆 queueing time 和 service time；再按 queue → cache hit → prefill → decode → KV pressure → preemption → kernel/collective → 网络 → streaming 分阶段打点（cache hit 影响是否/要做多少 prefill，排在 prefill 之前），不要只盯 GPU 利用率</td></tr></tbody></table></div>
 <h2 id="8-从零实现demo-索引">§8 从零实现：demo 索引</h2>
@@ -824,7 +824,7 @@ u_cont,   _ = utilization(comp_cont,   reqs, 2)   # slot utilization: 6 / (2*4) 
 </details>
 <details>
 <summary>(c) KV block 分配与共享：关键断言片段</summary>
-<p>per-token 字节数直接取 §4.1 已经说明的 sibling 已知量（$m_{\text{token}}=64$ bytes 只是这个已知量代入一组示例配置后的结果，不是本教程要验证的新结论），本节真正关心的是这个数字进入 serving 侧之后的三件事——block 分配器同时报告 logical 与 allocated 两套数字（内部碎片）；prefix-sharing 场景验证共享后物理 block 数下降；以及"KV heads 不能被 TP degree 整除时不能直接除"的显式检查：</p>
+<p>per-token 字节数直接取 §4.1 的公式（$m_{\text{token}}=64$ bytes 是代入一组示例配置的结果），要看的是这个数字进入 serving 侧之后的三件事——block 分配器同时报告 logical 与 allocated 两套数字（内部碎片）；prefix-sharing 场景验证共享后物理 block 数下降；以及"KV heads 不能被 TP degree 整除时不能直接除"的显式检查：</p>
 <pre><code class="language-python">m_token = kv_bytes_per_token(n_layer=2, n_kv_head=2, d_head=4, bytes_per_elem=2)
 assert m_token == 64                                        # 2*2*2*4*2 bytes/token
 
@@ -915,7 +915,7 @@ with_share = no_share - 1                                    # 共享一个完�
 </details>
 <details>
 <summary>Q16. Speculative decoding 在 serving iteration 里怎么记账？</summary>
-<ul><li>draft→verify→accept/reject 的位置在 decode 迭代内部；接受率/$E[\tau]$ 的推导见 sibling 教程，本教程只讲 serving 视角（§7）</li><li>每次 verification 产生<strong>可变数量</strong>的已接受 token；调度器须按验证 token 数、输出 token 数、KV 增量分别记账，不能当固定步长处理</li><li><strong>accepted、emitted、committed 的 KV 不总相等</strong>：被拒绝的候选 token 对应的 KV 增量需要 rollback，不能算进这条请求已提交的 KV；输出侧还可能包含 bonus/residual token（比如验证成功后 target 模型额外多出的一个自由 token），这个 token 是否计入"输出 token 数"由具体实现的计费口径决定，必须显式声明（§1.7）</li></ul>
+<ul><li>draft→verify→accept/reject 的位置在 decode 迭代内部；接受率/$E[\tau]$ 的推导见 <code>kv_cache_speculative_decoding_tutorial.md</code>；serving 视角见 §7</li><li>每次 verification 产生<strong>可变数量</strong>的已接受 token；调度器须按验证 token 数、输出 token 数、KV 增量分别记账，不能当固定步长处理</li><li><strong>accepted、emitted、committed 的 KV 不总相等</strong>：被拒绝的候选 token 对应的 KV 增量需要 rollback，不能算进这条请求已提交的 KV；输出侧还可能包含 bonus/residual token（比如验证成功后 target 模型额外多出的一个自由 token），这个 token 是否计入"输出 token 数"由具体实现的计费口径决定，必须显式声明（§1.7）</li></ul>
 <p><strong>误区</strong>：把 spec decoding 当成固定倍数的吞吐提升；以为生成的 token、真正提交的 KV、最终计费的输出 token 数三者总是一回事。</p>
 </details>
 <details>
@@ -971,7 +971,7 @@ with_share = no_share - 1                                    # 共享一个完�
 <p>运行 <code>python3 code/inference_serving.py</code>（纯 Python 标准库、无第三方依赖、CPU 秒级）应通过 [D01]–[D09] 全部检查；关键不变量清单与真实终端输出折叠如下。</p>
 <details>
 <summary>关键不变量清单（[D01]–[D09]）</summary>
-<ol><li><strong>[D01] 采样支持集</strong>：greedy 对并列最大值取最低 index；<code>temperature_probs</code> 对 $T\le0$ 抛异常；唯一最大 logit 时 $T\to0^+$ 集中到 argmax，并列最大 logit 时质量对半分；top-k 支持集大小恰为 $k$；top-p 在 $p=[0.4,0.3,0.2,0.1]$、阈值 $0.65$ 时支持集为前两个 token（累计 $0.7$）；min-p 恒保留最大概率 token，支持集随 $\alpha\downarrow$ 单调不减，随 $T\uparrow$（$\alpha&lt;1$ 时）单调不减；typical sampling 在构造例子里排除最高概率 token；logits 整体加常数不改变 min-p/top-k/top-p 支持集。</li><li><strong>[D02] 过滤顺序不可交换</strong>：同一分布下 <code>top_k-&gt;top_p</code> 与 <code>top_p-&gt;top_k</code> 得到不同支持集（$\{0,1\}$ vs $\{0,1,2\}$）。</li><li><strong>[D03] 流式 stop 检测</strong>：stop string 跨 3 个 token chunk 仍能被检测到，且中途从未提前泄漏任何不安全的部分前缀；无匹配时全部文本可通过 flush 完整恢复。</li><li><strong>[D04] 批调度</strong>：static 给出 $A=1,B=4,C=5$（utilization $0.60$），continuous 给出 $A=1,C=2,B=4$（utilization $0.75$）；等长请求反例下两策略 makespan 相同；调度器满足 token 数守恒、到达前不运行、active 数不超容量、完成即释放。</li><li><strong>[D05] Chunked prefill 权衡</strong>：max decode gap 从 3（unchunked）降到 1（chunked），但该长 prompt 自身 TTFT 从 3 升到 4。</li><li><strong>[D07]–[D08] KV block 分配与共享</strong>（per-token 字节数复用 §4.1 已经给出的 sibling 已知量 $m_{\text{token}}=64$ bytes，$N_{\text{layer}}=2,N_{\text{kv\_head}}=2,d_{\text{head}}=4,b=2$，不在本教程内单独验证）：长度 $[1,5]$、block size $4$ 下 logical/allocated slots $=6/12$（对应 $384/768$ bytes，内部碎片真实存在）；长度 $[6,7]$ 共享 1 个完整 block 后物理 block 数从 4 降到 3；KV heads 不能被 TP degree 整除时拒绝直接相除。</li><li><strong>[D09] roofline ridge point</strong> 仅作为上界参考量，不作为延迟预测器使用。</li></ol>
+<ol><li><strong>[D01] 采样支持集</strong>：greedy 对并列最大值取最低 index；<code>temperature_probs</code> 对 $T\le0$ 抛异常；唯一最大 logit 时 $T\to0^+$ 集中到 argmax，并列最大 logit 时质量对半分；top-k 支持集大小恰为 $k$；top-p 在 $p=[0.4,0.3,0.2,0.1]$、阈值 $0.65$ 时支持集为前两个 token（累计 $0.7$）；min-p 恒保留最大概率 token，支持集随 $\alpha\downarrow$ 单调不减，随 $T\uparrow$（$\alpha&lt;1$ 时）单调不减；typical sampling 在构造例子里排除最高概率 token；logits 整体加常数不改变 min-p/top-k/top-p 支持集。</li><li><strong>[D02] 过滤顺序不可交换</strong>：同一分布下 <code>top_k-&gt;top_p</code> 与 <code>top_p-&gt;top_k</code> 得到不同支持集（$\{0,1\}$ vs $\{0,1,2\}$）。</li><li><strong>[D03] 流式 stop 检测</strong>：stop string 跨 3 个 token chunk 仍能被检测到，且中途从未提前泄漏任何不安全的部分前缀；无匹配时全部文本可通过 flush 完整恢复。</li><li><strong>[D04] 批调度</strong>：static 给出 $A=1,B=4,C=5$（utilization $0.60$），continuous 给出 $A=1,C=2,B=4$（utilization $0.75$）；等长请求反例下两策略 makespan 相同；调度器满足 token 数守恒、到达前不运行、active 数不超容量、完成即释放。</li><li><strong>[D05] Chunked prefill 权衡</strong>：max decode gap 从 3（unchunked）降到 1（chunked），但该长 prompt 自身 TTFT 从 3 升到 4。</li><li><strong>[D07]–[D08] KV block 分配与共享</strong>（per-token 字节数取 §4.1 的公式，$m_{\text{token}}=64$ bytes，$N_{\text{layer}}=2,N_{\text{kv\_head}}=2,d_{\text{head}}=4,b=2$）：长度 $[1,5]$、block size $4$ 下 logical/allocated slots $=6/12$（对应 $384/768$ bytes，内部碎片真实存在）；长度 $[6,7]$ 共享 1 个完整 block 后物理 block 数从 4 降到 3；KV heads 不能被 TP degree 整除时拒绝直接相除。</li><li><strong>[D09] roofline ridge point</strong> 仅作为上界参考量，不作为延迟预测器使用。</li></ol>
 </details>
 <details>
 <summary>运行 <code>python3 code/inference_serving.py</code> 的真实输出</summary>
@@ -993,8 +993,8 @@ all inference serving sanity checks passed</code></pre>
   <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/llm_inference_serving_tutorial.md</code> ·
-  SHA256 <code>b8534a9e5b0f</code> ·
-  generated at 2026-09-13 09:29 UTC.
+  SHA256 <code>a03b7b739c5c</code> ·
+  generated at 2026-09-13 18:01 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>
