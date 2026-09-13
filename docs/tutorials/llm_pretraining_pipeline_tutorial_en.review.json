@@ -1,19 +1,34 @@
 {
- "skill": "interview-cheatsheet (EN translation-fidelity)",
- "source": "docs/tutorials/llm_pretraining_pipeline_tutorial_en.md",
- "source_sha256": "b4b62b43241a2396290c01eeace31a1e7ae5b82ae53a0fb67953cca38a4c2348",
- "output": "docs/tutorials/llm_pretraining_pipeline_tutorial_en.html",
- "zh_source": "docs/tutorials/llm_pretraining_pipeline_tutorial.md",
- "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
- "verdict": "PASS",
- "thread_id": "019fb61c-e705-7720-b657-b392e616e719",
- "translated_by": "subagent, incremental section-by-section Edits (48 edits); U+3000 heading separators restored to collection convention by orchestrator",
- "translation_fidelity_review": {
+  "skill": "interview-cheatsheet (EN translation-fidelity)",
+  "source": "docs/tutorials/llm_pretraining_pipeline_tutorial_en.md",
+  "source_sha256": "eede1706c7c21dec583dc37ff1c4e7f50f7511c8b803b33c2ced7cbaac3dbf5f",
+  "output": "docs/tutorials/llm_pretraining_pipeline_tutorial_en.html",
+  "zh_source": "docs/tutorials/llm_pretraining_pipeline_tutorial.md",
+  "reviewer": "codex gpt-5.6-sol xhigh, fresh thread",
   "verdict": "PASS",
-  "date": "2026-07-31",
   "thread_id": "019fb61c-e705-7720-b657-b392e616e719",
-  "notes": "去冗余后全量重翻(48次逐节Edit+U+3000标题分隔恢复)。保真审PASS,0 P0/P1:全部指定scaling-law指数与8.0×/12.5×/1.56×数值一致,漂移推导限定条件完整保留,四张新表格表头/单元格准确,代码注释一致。"
- },
- "structural_parity": "## 10/10 · ### 35/35 · fences 10/10 · $$ 10/10 · table dividers 5/5 · <details> 26/26 · 887/887 lines; 0 residual CJK characters",
- "rendered_at": "2026-07-31"
+  "translated_by": "subagent, incremental section-by-section Edits (48 edits); U+3000 heading separators restored to collection convention by orchestrator",
+  "translation_fidelity_review": {
+    "verdict": "PASS",
+    "date": "2026-07-31",
+    "thread_id": "019fb61c-e705-7720-b657-b392e616e719",
+    "notes": "去冗余后全量重翻(48次逐节Edit+U+3000标题分隔恢复)。保真审PASS,0 P0/P1:全部指定scaling-law指数与8.0×/12.5×/1.56×数值一致,漂移推导限定条件完整保留,四张新表格表头/单元格准确,代码注释一致。"
+  },
+  "structural_parity": "## 10/10 · ### 35/35 · fences 10/10 · $$ 10/10 · table dividers 5/5 · <details> 26/26 · 887/887 lines; 0 residual CJK characters",
+  "rendered_at": "2026-09-14",
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-14-prose",
+      "verdict": "PASS after round 2 (no lost facts; two qualifiers restored)",
+      "reviewer": "codex gpt-6-astra xhigh, 4 fresh threads (diagnosis, section plan, CN fidelity, EN fidelity)",
+      "thread_ids": [
+        "01a09baf-5a3e-7a90-b53c-186da0f4e152",
+        "01a09bbb-6d88-78c2-b887-a9ae0e06641b",
+        "01a09bd2-948f-7d51-a477-20f96c72a6a3",
+        "01a09be1-b06d-7a73-b0a6-30845d3190a8"
+      ],
+      "scope": "English edition rebuilt from the rewritten Chinese canonical; see the CN sidecar for the full scope. rebuilt from the new Chinese (prose re-translated; verbatim zones reused), fidelity PASS after three wording fixes.",
+      "notes": "CN round 2 restored two qualifiers the compression had hardened ('并不保证逐 bit 相同', '例如几十到几百 token'), added three qualifiers to the new table ('代入舍入后的 α,β', '通常不相等', '至多 L_seq−1'), dropped four table rows that only repeated the body, and removed residual navigation in Q19/Q20/Q21/Q25. EN round: 'this tutorial uses' → 'here'; 'learning rate' → 'learning rate being too high'; a leftover 'deep end' clause removed."
+    }
+  ]
 }

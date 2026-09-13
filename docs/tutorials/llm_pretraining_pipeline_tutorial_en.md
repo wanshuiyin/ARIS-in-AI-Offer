@@ -1,59 +1,22 @@
-## §0 "Input-State-Output" Master Diagram + TL;DR Cheat Sheet
+## §0 Overview
 
-> **Scope**: this tutorial only covers decoder-only causal LMs (next-token prediction). The shifted labels, causal mask, and loss normalization in §3 all assume this setting; other pretraining objectives are out of scope. (Examples not covered: encoder-decoder, BERT-style masked LM, denoising objectives such as T5 span corruption.)
+A decoder-only causal LM predicts the next token from the preceding text. The pretraining pipeline is responsible for corpus processing, supervision-signal construction, parameter updates, and training-state recovery.
 
-**Pretraining is not "feed data, tune hyperparameters by loss" — it is a complete state machine from raw documents to checkpoints.** Most interview point losses ("6ND is an exact formula", "exceeding Chinchilla means overfitting", "the causal mask naturally isolates documents") come from compressing this pipeline into one or two isolated formulas. Build the overall mental model first:
+1. Training compute is approximately $C\approx6ND$, where $N$ is the parameter scale of the main matrix multiplies, $D$ is the number of tokens presented and supervised, and $C$ is counted in FLOPs.
+2. MoE's per-token compute is estimated with active parameters; the aggregate size of the model state and of checkpoints is counted with total parameters.
+3. Kaplan and Chinchilla give different budget-allocation exponents, and the difference involves the fitting method, the training horizon, and the learning-rate schedule.
+4. A small model can keep lowering loss on more new, related data, trading extra training compute for a lower deployment cost.
+5. Near-duplicate documents are first grouped into dedup clusters, and whole clusters are then assigned to train/val/test, reducing the validation bias caused by duplication across splits.
+6. Document-independent packing needs a block-diagonal causal mask, plus separate handling of cross-document target labels.
+7. The loss of each update is the NLL summed over all valid targets, divided by the total number of valid targets.
+8. The number of input tokens of one update equals the product of sequences per DP replica, sequence length, accumulation steps, and DP world size.
 
 ```text
-Raw web/book/code snapshots (with license records)
-  → ① corpus factory (raw-document stage): extraction/encoding normalization → language identification → basic quality filtering → exact dedup → near dedup
-                      → privacy/safety processing → benchmark decontamination → cluster-level data split (dedup FIRST, split SECOND!)
-                      → document-level mixture quotas → deterministic sharding, emitting raw-document shards + end-to-end lineage (§2.1-§2.6)
-  → ② tokenizer (a version-frozen contract; training details not repeated here — see tokenization_tutorial.md)
-token stream
-  → ③ tokenized stage: token-level mixture sampling (correcting the gap between document-level quotas and actual token shares, §2.7)
-                      → long-document chunk/truncate (§2.9) → emit tokenized training shards (§2.8)
-  → ④ data-stream/sampler layer: shard shuffle → domain-sampling RNG → with/without replacement
-                      → mutually exclusive DP-rank sharding → worker/prefetch queues → cursor position (§2.10)
-train token stream                                    val/test token stream (frozen version, independent scoring protocol, §2.11)
-  → ⑤ objective-to-tensor: teacher-forcing shifted labels → causal / block-diagonal mask
-                      → EOS/BOS boundary rules → dual padding masks → document packing (§3)
-packed batch (micro-batch × seq_len)
-  → ⑥ conceptual state machine of one update: model/config contract → forward → loss (Σ NLL / Σ valid target token count)
-                      → backward → gradient sync (DP all-reduce; mind sum/mean reduction semantics, §4.2)
-                      → unscale (AMP) / gradient clipping (once, on the final gradient after the accumulation window ends)
-                      → optimizer step (AdamW etc.; formulas deferred to optimizer_lr_schedule_tutorial.md)
-                      → scheduler / consumed-token counter advance → atomic checkpoint write (checkpoint boundary)
-  → ⑦ lifecycle: warmup/stable/decay (LR) and late-stage data reweighting (data side; two independent things, §5.1)
-                      → per-domain monitoring / spike-NaN triage (§5.4)
-                      → checkpoint (weights + optimizer + RNG + data cursor + …; three strength tiers in §5.2) → resume
+raw documents → corpus factory → raw-document shards
+raw-document shards → tokenizer → token-level sampling → chunk/truncate → tokenized shards
+tokenized shards → sampler → packing / labels / masks → parameter update
+parameter update → scheduler / token counting → checkpoint / resume
 ```
-
-> Step ⑥ above is the **conceptual execution order** of the stages within one optimizer step. The minimal implementation in §6 only covers **sanity checks for the key invariants** — dedup/packing/Chinchilla fitting/spike monitoring — and contains no runnable training loop or real checkpoint/resume code; the master diagram is a conceptual map for building the mental model, not a claim that §6 reproduces the whole chain.
-
-**Notation conventions**:
-
-| Symbol | Meaning | Notes |
-| --- | --- | --- |
-| $N$ | Compute-bearing parameter count participating in the main matrix multiplies per token | dense uses total, MoE uses **active**; embedding/output-projection counting differences in §1.1 |
-| $D$ | Number of tokens actually presented to the model and supervised during training | not guaranteed to equal the corpus's "unique token" total (§2.7); precise accounting in §4.1 |
-| $C$ | Training compute (FLOPs approximation) | not actual GPU wall-clock time |
-| $B_{input}$ | Tokens fed to the model per optimizer step (processed token slots) | regardless of loss participation |
-| $B_{target}$ | Valid target tokens actually contributing to the loss in the same update | exact formula and difference vs $B_{input}$ in §4.1 |
-| $L$ | Loss $L(N,D)$ in scaling-law contexts; context length in attention/sequence contexts | disambiguate by context; written $L_{\text{seq}}$ when needed |
-
-> 💡 **The LLM pretraining pipeline in one pass** — the interview essentials on one page (full derivations in §1–§7 below).
-
-1. **$C\approx 6ND$ is only an approximation**: the coefficient $6$ comes from "forward ≈ $2ND$ + backward ≈ $4ND$" (one multiply-add = 2 FLOPs), with $N$ the compute-bearing/non-embedding parameter count; it ignores the long-context attention term, vocabulary projection, norm/softmax, activation recomputation, and FLOP-counting convention differences (item-by-item analysis in §1.1); it is an algorithm-level approximate training compute, not actual GPU FLOPs, and cannot be converted directly into wall-clock time.
-2. **MoE keeps two separate ledgers**: per-token compute is estimated with **active** parameters; memory/checkpoint size is counted with **total** parameters (details deferred to moe_tutorial.md).
-3. **Kaplan (2020) and Chinchilla (2022) exponents are not the same thing**: Kaplan gives $N_{opt}\propto C^{0.73}, D_{opt}\propto C^{0.27}$; Chinchilla has no single set of "exact exponents" — the analytic optimum gives $N_*\propto C^{0.452}, D_*\propto C^{0.548}$ (estimation methods and fitted $\alpha,\beta$ in §1.3). The divergence is not just "more data" — training-horizon design, whether the LR schedule matches the budget, and the fitting method all differ.
-4. **Exceeding "20 tokens per parameter" does not mean overfitting**: a fixed model fed new, non-repeated, related-distribution data usually still lowers loss; what actually happens is that the configuration is "over-trained" relative to the compute-optimal frontier point at the final compute $C=kND$ (§1.4); 20 tokens/parameter itself is an empirical approximation, not a universal constant. Deliberately over-training small models cuts deployment cost — training-compute-optimal $\ne$ lifecycle-cost-optimal.
-5. **The corpus factory is the largest, most self-contained block of this tutorial** (§2): upstream extraction errors easily produce systematic noise, so extraction quality is often the high-leverage stage; MinHash estimates the **Jaccard similarity** of shingle sets, not semantic similarity; LSH only recalls candidates, which still need exact-Jaccard verification; **dedup must precede splitting** — near-duplicate samples must be assigned to train/val/test as whole dedup clusters, otherwise rewrites of the same content crossing splits make validation loss spuriously low.
-6. **Document packing's causal mask does not automatically isolate documents, and that is not a bug**: many systems treat the packed token stream as a continuous EOS-separated stream, and a plain causal mask is a legitimate choice; if the semantics require document independence, you need a block-diagonal mask **plus** a separate boundary loss mask — blocking attention does not automatically mask cross-document prediction labels.
-7. **Loss normalization must be "total sum divided by total count"**: averaging per-micro-batch means introduces bias when valid token counts differ across batches.
-8. **Global batch formula**: $B_{input}=B_{micro,seq}\times L_{seq}\times G_{acc}\times W_{DP}$ — only the DP world size directly multiplies independent samples; TP/PP must not be double-counted; the loss-participating $B_{target}$ is smaller, with only $L_{seq}-1$ valid targets per sequence under shifted labels (accounting details in §4.1).
-9. **"Deterministic resume" splits into three strength tiers**: resumable training → identical sample sequence → bitwise-identical numerical trajectory; the three must not be conflated, and the states each tier requires are in §5.2.
-10. **Loss spike/NaN triage should follow a layered order**: bad batch/data shard → LR and resume state → gradients and activations → mixed precision → cross-rank anomalies → hardware faults, keeping reproducible batch IDs/step numbers.
 
 ## §1 Training budget and scaling laws
 
@@ -63,38 +26,41 @@ Training compute for a decoder-only dense Transformer is commonly approximated a
 
 $$C \approx 6ND$$
 
-The intuition: one multiply-add counts as 2 FLOPs; for each token, the forward pass runs through all the main matrix multiplies (QKV projections, attention output projection, FFN up/down projections, etc.), costing approximately $2N$ FLOPs, so the forward pass over $D$ tokens totals $\approx 2ND$. The backward pass computes both activation gradients and weight gradients, roughly twice the forward cost, i.e. $\approx 4ND$. Forward + backward $\approx 6ND$ (the $6$ is likewise an approximate coefficient; more rigorously it should be written $k\approx 6$).
+This approximation was first systematically laid out by Kaplan et al. (2020). The coefficient comes from: one multiply-add counts as 2 FLOPs; for each token the forward pass runs through all the main matrix multiplies — QKV projections, the attention output projection, FFN up/down projections — costing approximately $2N$ FLOPs, so the forward pass over $D$ tokens totals $\approx 2ND$. The backward pass computes both activation gradients and weight gradients, roughly twice the forward cost, i.e. $\approx 4ND$. Forward plus backward $\approx 6ND$; the $6$ is likewise an approximate coefficient, more rigorously written $k\approx 6$.
 
-**Parameter-counting convention**: $N$ should be read as the **compute-bearing / non-embedding parameter count** — the embedding lookup is an index operation, not a matrix multiply, and mechanically counting embedding parameters into $N$ systematically overestimates that portion of the compute. Whether and how the output vocabulary projection is counted separately varies across papers/implementations, so when reading any specific FLOPs estimate, first confirm its parameter-counting convention.
+**Parameter-counting convention**: $N$ is the compute-bearing, non-embedding parameter count. The embedding lookup is an index operation rather than a matrix multiply, and mechanically counting embedding parameters into $N$ systematically overestimates that portion of the compute. Whether and how the output vocabulary projection is counted separately varies across papers and implementations, so when reading any specific FLOPs estimate, first confirm its parameter-counting convention.
 
-> ⚠️ **$6ND$ is an algorithm-level approximation, not an exact formula** — the terms it ignores/simplifies fall into three categories:
-> - **Sequence-length term**: attention-score compute grows as $L_{\text{seq}}^2$ **within each sequence** ($N$ itself does not vary with sequence length); but at fixed total training tokens $D$, the number of sequences is approximately $D/L_{\text{seq}}$, so the **total** attention cost grows approximately as $D\times L_{\text{seq}}$, not $D\times L_{\text{seq}}^2$. The longer the sequences, the less this term can be neglected relative to the other linear terms in $6ND$.
-> - **Model and training details**: vocabulary projection (the output-layer matrix multiply is substantial when $V$ is large); non-matmul operators such as norm/softmax; **activation recomputation** (activation checkpointing re-runs the forward pass to save memory, pushing the effective backward multiplier above 4); MoE's active-vs-total parameter accounting (§1.2); and the **counting-convention** difference between communities that count a multiply-add as two FLOPs versus one.
-> - **Hardware efficiency**: $6ND$ **does not equal the FLOPs the GPU actually executes**, let alone predict wall-clock time — a rough GPU-days estimate additionally needs GPU count, peak FLOPs, and MFU: $t\approx C/(n_{GPU}\times\text{peak FLOPs}\times MFU)$; communication overhead, recomputation, and data stalls all make this an estimate, not a precise prediction.
+The terms $6ND$ ignores and simplifies fall into three categories. **Sequence-length term**: attention-score compute grows as $L_{\text{seq}}^2$ within each sequence, while $N$ itself does not vary with sequence length; at fixed total training tokens $D$ the number of sequences is approximately $D/L_{\text{seq}}$, so the total attention cost grows approximately as $D\times L_{\text{seq}}$, not $D\times L_{\text{seq}}^2$. The longer the sequences, the less this term can be neglected relative to the other linear terms in $6ND$. **Model and training details**: the vocabulary projection is a substantial output-layer matrix multiply when $V$ is large; non-matmul operators such as norm/softmax are not counted; activation recomputation re-runs the forward pass to save memory, pushing the effective backward multiplier above 4; MoE has two parameter conventions, active and total (§1.2); and communities differ on whether "1 FLOP" counts a multiply-add once or twice. **Hardware efficiency**: $6ND$ does not equal the FLOPs the GPU actually executes, and cannot directly predict wall-clock time.
 
-(This approximation was first systematically laid out by Kaplan et al. (2020); full citation in the references at the end.)
+A rough GPU-days estimate additionally needs the GPU count, peak FLOPs, and MFU:
+
+$$t\approx C/(n_{GPU}\times\text{peak FLOPs}\times MFU)$$
+
+Communication overhead, recomputation, and data stalls all make this an estimate rather than a precise prediction.
 
 ### 1.2　MoE: active parameters for per-token compute, total for memory
 
-MoE keeps **two ledgers**: per-token compute is estimated with **active parameters** (the expert parameters that actually participate in that token's forward/backward computation); model capacity, memory footprint, and checkpoint file size are counted with **total parameters**. For a 671B/37B-style model (public configurations like DeepSeek-V3; see references at the end), the $N$ in $6ND$ uses the 37B scale to estimate the compute budget, while checkpoint storage is counted at 671B. Note that total corresponds to the **aggregate** model-state size; actual per-GPU memory also depends on the sharding scheme (see Q25). Routing mechanisms, load balancing, and aux-loss derivations are out of scope here; see `moe_tutorial.md`.
+MoE's per-token compute is estimated with **active parameters** — the expert parameters that actually participate in that token's forward and backward computation. Model capacity, memory footprint, and checkpoint file size are counted with **total parameters**, which corresponds to the aggregate model-state size. Actual per-GPU memory also depends on the sharding scheme (see Q25).
+
+For a 671B/37B-style model (public configurations like DeepSeek-V3): the $N$ in $6ND$ uses the 37B scale to estimate the budget, while checkpoint storage is counted at 671B. Routing, load balancing, and the aux-loss derivation are in `moe_tutorial.md`.
 
 ### 1.3　Kaplan (2020) vs Chinchilla (2022): the exponents must not be conflated
 
-The two foundational papers give **different** optimal-allocation exponents; the common interview answer "the exponents differ because they lacked data" is incomplete.
+The two foundational papers give different optimal-allocation exponents.
 
 **Kaplan et al. (2020)**:
 
 $$N_{opt}\propto C^{0.73},\qquad D_{opt}\propto C^{0.27}$$
 
-When the compute budget grows, Kaplan's conclusion is to allocate **more to parameters** rather than data.
+When the compute budget grows, Kaplan's conclusion is to allocate more to parameters than to data.
 
-**Hoffmann et al. (2022, "Chinchilla")**: the paper cross-validates with multiple estimation methods and **gives no single set of "exact exponents"** — the different methods yield a family of close but not identical results, roughly **0.50/0.50**, **0.49/0.51**, and **0.46/0.54**. The most frequently cited **parametric loss model** is written as
+**Hoffmann et al. (2022, "Chinchilla")**: the paper cross-validates with multiple estimation methods and gives no single set of "exact exponents". Different estimation methods yield a family of close but not identical results, roughly **0.50/0.50**, **0.49/0.51**, and **0.46/0.54**. The most frequently cited parametric loss model is written as
 
 $$L(N,D) = E + \frac{A}{N^\alpha} + \frac{B}{D^\beta}$$
 
-with fitted values around $\alpha\approx 0.34,\ \beta\approx 0.28$. $E$ is the fitted **asymptotic loss floor**, roughly comprising the entropy of the data itself plus the approximation error of the model family — though the fit cannot uniquely decompose the two. $A/N^\alpha$ is the price paid for "parameters not large enough", $B/D^\beta$ the price for "data not plentiful enough".
+with fitted values around $\alpha\approx 0.34,\ \beta\approx 0.28$. $E$ is the fitted asymptotic loss floor, roughly comprising the entropy of the data itself plus the approximation error of that model family; the fit cannot uniquely decompose the two. $A/N^\alpha$ is the price paid for parameters not being large enough, $B/D^\beta$ the price for data not being plentiful enough.
 
-Constrained optimization of $L(N,D)$ under the compute budget $C=kND$ ($k=6$, see §1.1), eliminating variables via Lagrange multipliers, yields the analytic solution:
+Constrained optimization of $L(N,D)$ under the compute budget $C=kND$ ($k=6$), eliminating variables via Lagrange multipliers, yields the analytic solution:
 
 $$N_* = \left(\frac{\alpha A}{\beta B}\right)^{\frac{1}{\alpha+\beta}}\left(\frac{C}{k}\right)^{\frac{\beta}{\alpha+\beta}},\qquad D_* = \left(\frac{\beta B}{\alpha A}\right)^{\frac{1}{\alpha+\beta}}\left(\frac{C}{k}\right)^{\frac{\alpha}{\alpha+\beta}}$$
 
@@ -102,35 +68,30 @@ Substituting the rounded $\alpha=0.34,\beta=0.28$: $\dfrac{\beta}{\alpha+\beta}=
 
 $$N_*\propto C^{0.452},\qquad D_*\propto C^{0.548}$$
 
-(Computed with the paper's full-precision $\alpha,\beta$, the commonly reported values are about 0.46/0.54; [D06] in §6 turns these exponents into an executable fitting unit test.)
+Computed with the paper's full-precision $\alpha,\beta$, the commonly reported values are about 0.46/0.54. [D06] in §6 turns this pair of exponents into an executable fitting unit test.
 
-> ⚠️ **Three common confusions, clarified one by one**
-> 1. **"About 0.50/0.50" and "about 0.46/0.54" are not the same exact result** — the former is the coarse-grained empirical conclusion "scale parameters and tokens roughly proportionally", the latter is the specific exponent fitted by the parametric loss model; they are close but should not impersonate each other.
-> 2. **"About 20 training tokens per parameter" is an empirical approximation**, not a universal constant derivable from $\alpha,\beta$ alone.
->    - **Analytic result**: $D_*/N_*$ also depends on the constants $A,B$ (and $k$); when $\alpha\ne\beta$, $D_*/N_*\propto (C/k)^{(\alpha-\beta)/(\alpha+\beta)}$ drifts slowly with $C$ — holding $A,B,\alpha,\beta,k$ fixed and keeping this fitted model, the ratio grows by about 1.56x per 100x compute at that exponent, and this derivation is mathematically sound.
->    - **Not extrapolatable**: it must not be extrapolated into the empirical claim "the true optimal ratio reliably grows 1.56x per 100x compute" — Chinchilla's two other independent estimation methods (IsoFLOP curve fitting, parameter/data ratio fitting) give an approximately constant ~0.5/0.5; when $\alpha,\beta$ are close, fitting error strongly affects the exponent $(\alpha-\beta)/(\alpha+\beta)$; and $A,B,k$ need not stay constant across data distributions, architectures, and training recipes spanning orders of magnitude of compute — while the derivation assumes exactly that they are all fixed.
-> 3. **The technical reasons for the Kaplan-Chinchilla divergence** go beyond "more data". The two differ in datasets, experimental coverage, loss-fitting methods, and training-horizon design. The key difference: Kaplan heavily used losses at intermediate points of single training curves (whose LR-schedule endpoint was not configured for that budget), whereas Chinchilla configured a matched training schedule for each predetermined token horizon (e.g. cosine-decay length aligned to the target token count) before comparing.
+"About 0.50/0.50" is the coarse-grained empirical conclusion that parameters and tokens scale roughly proportionally; "about 0.46/0.54" is the specific exponent fitted by the parametric loss model. "About 20 training tokens per parameter" is an empirical approximation, not a universal constant derivable from $\alpha,\beta$ alone. $D_*/N_*$ also depends on the constants $A,B$ and on $k$; when $\alpha\ne\beta$, $D_*/N_*\propto (C/k)^{(\alpha-\beta)/(\alpha+\beta)}$ drifts slowly with $C$. Holding $A,B,\alpha,\beta,k$ fixed and keeping this fitted model, the ratio grows by about 1.56x per 100x compute at that exponent, and this derivation is mathematically sound. It cannot be extrapolated into the empirical claim that the true optimal ratio reliably grows 1.56x per 100x compute: Chinchilla's two other independent estimation methods (IsoFLOP curve fitting, parameter/data ratio fitting) give an approximately constant ~0.5/0.5; when $\alpha,\beta$ are close, fitting error strongly affects the exponent $(\alpha-\beta)/(\alpha+\beta)$; and $A,B,k$ need not stay constant across data distributions, architectures, and training recipes spanning orders of magnitude of compute — while the derivation assumes exactly that they are all fixed.
 
-### 1.4　"Exceeding the Chinchilla ratio = overfitting" is a false statement
+The technical reasons for the Kaplan-Chinchilla divergence involve datasets, experimental coverage, loss-fitting methods, and training-horizon design. The key difference is the training schedule: Kaplan heavily used losses at intermediate points of single training curves, whose LR-schedule endpoint was not configured for that budget; Chinchilla configured a matched training schedule for each predetermined token horizon — e.g. cosine-decay length aligned to the target token count — before comparing.
 
-**This is a common misconception that must be corrected.** Overfitting is defined as training loss falling while validation loss rises — a model of fixed size $N$ fed additional new (non-repeated, same- or related-distribution) data usually **still lowers loss**, which does not meet that definition. What actually happens: as $D$ keeps growing at fixed $N$, the final compute $C=kND$ (§1.1) grows in lockstep — you arrive at a **larger $C$**, and relative to that $C$'s compute-optimal frontier point $(N_*,D_*)$ (§1.3), the configuration $(N,D)$ has a **smaller $N$ and a larger $D$**. This configuration is called "**over-trained**" — an economic judgment relative to the compute-optimal frontier, not a training error, and certainly not overfitting.
+### 1.4　Over-training small models and deployment cost
 
-Industry **deliberately** trains many small models far past the Chinchilla-optimal ratio (e.g. choosing a smaller model at equal capability and feeding it more tokens), justified by **deployment-side inference cost** (memory, latency, per-token serving cost) — trading one-off extra training compute for cheaper inference over the model's entire lifecycle. This is a trade-off between "training-compute-optimal" and "lifecycle-cost-optimal", not a "wrong recipe".
+Overfitting means training loss falling while validation loss rises. A model of fixed size $N$ fed additional new, non-repeated, same- or related-distribution data usually still lowers loss, which does not meet that definition. What actually happens: as $D$ keeps growing at fixed $N$, the final compute $C=kND$ grows in lockstep, and you arrive at a larger $C$; relative to that $C$'s compute-optimal frontier point $(N_*,D_*)$, the configuration $(N,D)$ has a smaller $N$ and a larger $D$. This configuration is called **over-trained** — an economic judgment relative to the compute-optimal frontier.
 
-### 1.5　Choosing $N,D$ for a given budget: an engineering checklist
+Industry deliberately trains many small models far past the Chinchilla-optimal ratio, e.g. choosing a smaller model at equal capability and feeding it more tokens. The justification is deployment-side inference cost: memory, latency, per-token serving cost. One-off extra training compute buys cheaper inference over the model's entire lifecycle — training-compute-optimal and lifecycle-cost-optimal are two different objectives.
 
-1. First pin down the optimization objective: **training-compute-optimal** (use the $N_*,D_*$ analytic solution directly) or **inference-aware optimal** (first cap a smaller $N$ by the deployment budget; at fixed $C$, $D$ grows accordingly — i.e. deliberately "over-train" a small model);
-2. Long-context training brings in the $L_{\text{seq}}^2$ attention term that $6ND$ ignores (§1.1); budget for it separately rather than applying $6ND$ across the board;
-3. MoE models use active parameters for the compute budget (§1.2) and total parameters when reporting storage/memory budgets;
-4. Clarify the accounting for $D$ — the number of tokens "presented during training", or the deduplicated "effective" data volume (§2.7); a highly repetitive corpus makes the "effective data volume" fall below the nominal $D$, which is also the concern of the post-Chinchilla line of "data-constrained scaling" work.
+### 1.5　Choosing $N,D$ for a given budget
+
+1. First pin down the optimization objective. Training-compute-optimal applies the $N_*,D_*$ analytic solution directly; inference-aware optimal first caps a smaller $N$ by the deployment budget, so at fixed $C$ the $D$ grows accordingly — deliberately over-training a small model.
+2. Long-context training brings in the $L_{\text{seq}}^2$ attention term that $6ND$ ignores; budget for it separately.
+3. MoE models use active parameters for the compute budget and total parameters when reporting storage and memory budgets.
+4. Clarify the accounting for $D$: the number of tokens presented during training, or the deduplicated effective data volume. A highly repetitive corpus makes the effective data volume fall below the nominal $D$, which is also the concern of the post-Chinchilla line of data-constrained scaling work.
 
 ## §2 The corpus factory: from web snapshots to training shards
 
-**This section is the largest, most self-contained block of the tutorial** — whether pretraining "runs stably and correctly" is often decided more by corpus-pipeline design than by model architecture or hyperparameter choices.
+The corpus pipeline decides whether training runs stably and correctly, and its impact often exceeds that of model architecture and hyperparameters.
 
 ### 2.1　The eleven-step pipeline overview + lineage
-
-An auditable, recoverable data pipeline roughly comprises the following stages (order is critical, especially "dedup before split"):
 
 | Step | What it does | Key pitfall |
 | --- | --- | --- |
@@ -146,46 +107,41 @@ An auditable, recoverable data pipeline roughly comprises the following stages (
 | 10. Mixture sampling (document-level quotas) | Decide per-domain document contributions by domain weights | document-level weight ≠ token-level weight (§2.7) |
 | 11. Deterministic sharding | Emit reproducible raw-document shard files | must be versioned together with lineage (§2.8) |
 
-> **Two stages, not one line**:
-> 1. **Raw-document stage**: the 11 steps above — step 10's "mixture sampling" is a **document-level** quota (what fraction of documents each domain contributes), and step 11 emits raw-document shards;
-> 2. **The tokenizer runs after this**: turning raw-document shards into a token stream (interface contract in §2.8);
-> 3. **Tokenized stage**: token-level mixture sampling (the token-level shares implied by document-level quotas need not match the configuration, §2.7) → long-document chunk/truncate (§2.9) → emit tokenized training shards → the data-stream/sampler layer of §2.10; after the split, train and val/test diverge (§2.11).
->
-> Mixture sampling happens once at the document level and once at the token level, with different meanings — reading it as a single step in the table is the easiest way to misread the order of this pipeline.
+**Two stages**: all 11 steps in the table are in the raw-document stage. Step 10's mixture sampling is a **document-level** quota deciding how many documents each domain contributes; step 11 emits raw-document shards. The tokenizer runs after that, turning raw-document shards into a token stream. The tokenized stage does token-level mixture sampling and long-document chunk/truncate, writes tokenized training shards, and hands them to the data-stream/sampler layer of §2.10. After the split, train and val/test are processed separately. Mixture sampling happens once at the document level and once at the token level, and the two do not mean the same thing.
 
-**Data lineage**: every training sample should ideally be traceable to — source dataset/URL, snapshot/crawl version, extraction and filtering pipeline version, quality filters and thresholds it hit, its dedup cluster ID, split assignment, and the final shard file plus offset it landed in. These records are the only basis, months later, for investigating "did some output memorize training data" or "was some benchmark contaminated".
+**Data lineage**: every training sample should ideally be traceable to its source dataset or URL, snapshot/crawl version, extraction and filtering pipeline version, the quality filters and thresholds it hit, its dedup cluster ID, its split assignment, and the final shard file plus offset it landed in. These records are the only basis, months later, for investigating "did some output memorize training data" or "was some benchmark contaminated".
 
-### 2.2　Extraction quality: often the high-leverage stage, not "rigor matters more"
+### 2.2　Extraction and quality filtering
 
-The **most upstream** steps — web main-content extraction (stripping nav bars, ads, footer templates, comment-section noise) and encoding/Unicode normalization — are **high-leverage stages**: upstream extraction errors systematically press large amounts of structural noise (navigation text, repeated templates, mojibake) into every document, and their impact often exceeds fine-tuning of downstream quality classifiers — this is an empirical observation, not a universal ordering that "extraction always outranks classifiers" (indirectly supported by the C4 corpus audit of Dodge et al. and the RefinedWeb/FineWeb experience of Penedo et al.). The training corpus's normalization rules must match those used when the tokenizer was trained, otherwise "online/offline segmentation mismatch" drift appears — tokenizer training details, normalization options, and byte fallback are in `tokenization_tutorial.md` §3–§4.
+Web main-content extraction (stripping nav bars, ads, footer templates, comment-section noise) and encoding/Unicode normalization sit at the very top of the pipeline. Upstream extraction errors systematically press large amounts of structural noise — navigation text, repeated templates, mojibake — into every document, and their impact often exceeds fine-tuning of downstream quality classifiers. This is an empirical observation, indirectly supported by the C4 corpus audit (Dodge et al.) and the RefinedWeb/FineWeb results (Penedo et al.), not a universal ordering that extraction always outranks classifiers. The training corpus's normalization rules must match those used when the tokenizer was trained, otherwise online/offline segmentation drift appears. Normalization options and byte fallback are in `tokenization_tutorial.md` §3–§4.
 
-Language identification usually routes documents with a lightweight classifier (e.g. a fastText-style n-gram model); low-confidence judgments on code-switched text and short text are common engineering edge cases. Basic quality filtering typically stacks several heuristics (line-length distribution, symbol/letter ratio, repeated-n-gram share) and/or a small auxiliary LM's perplexity score — in essence "use cheap signals to screen out the worst batch", not fine-grained semantic judgment.
+Language identification usually routes documents with a lightweight classifier, e.g. a fastText-style n-gram model; code-switched text and short text get low-confidence judgments. Basic quality filtering stacks several heuristics — line-length distribution, symbol/letter ratio, repeated-n-gram share — and/or a small auxiliary language model's perplexity score; in essence it uses cheap signals to screen out the worst batch, not fine-grained semantic judgment.
 
 ### 2.3　Exact dedup vs near dedup
 
-**Exact dedup**: byte-level/hash-level full matching (whole-document hash dedup, or suffix-array-based cross-document duplicate-substring dedup); it catches only identical content, missing near-duplicates like "one word changed in the title".
+**Exact dedup** is byte-level, hash-level full matching: whole-document dedup, or suffix-array-based cross-document duplicate-substring dedup. It catches only identical content, missing near-duplicates like "one word changed in the title".
 
-**Near dedup** (MinHash + LSH): represent documents as shingle (n-gram) sets, estimate pairwise Jaccard similarity with MinHash (Broder, 1997; see references at the end), then use LSH bucketing for candidate recall. Three boundaries that must be clarified:
+**Near dedup** (MinHash + LSH) has four steps: represent documents as shingle (n-gram) sets; estimate pairwise Jaccard similarity with MinHash (Broder, 1997); use LSH bucketing for candidate recall; verify candidate pairs with exact Jaccard.
 
-> ⚠️ **MinHash estimates the Jaccard similarity of shingle sets, not semantic similarity**
-> Two documents discussing the same concept with entirely different wording can have very low Jaccard similarity; two documents dominated by templated text (nav bars, license notices, boilerplate code) but topically unrelated can have high Jaccard similarity. MinHash/LSH catches **surface-level duplication** (mirror sites, near-verbatim copies, templated documents), not "same meaning".
+MinHash estimates the Jaccard similarity of shingle sets. Two documents discussing the same concept with entirely different wording can have very low Jaccard similarity; two documents dominated by templated text (nav bars, license notices, boilerplate code) but topically unrelated can have high Jaccard similarity. MinHash/LSH catches **surface-level duplication**: mirror sites, near-verbatim copies, templated documents.
 
-- **LSH banding only does candidate recall**: candidate pairs usually still need exact-Jaccard verification, because LSH bucketing only guarantees that candidate probability rises monotonically with similarity (**under the idealized assumption that MinHash rows/hash functions are approximately independent**, $P=1-(1-s^r)^b$, with $b$ bands of $r$ rows each); it does not guarantee a candidate is a true near-duplicate — treating candidates as conclusions introduces false positives.
-- **Semantic dedup is not an unconditional upgrade of near dedup**: embedding-threshold semantic dedup can wrongly delete legitimate "same topic, different expression" text, and this over-deletion hits low-resource languages, dialects, and templated technical documents (whose embedding distributions are more concentrated) unevenly — it must not be swapped in as a "fancier MinHash"; the two address different levels of duplication.
+LSH banding only does candidate recall. Under the idealized assumption that MinHash rows and hash functions are approximately independent, the candidate probability is $P=1-(1-s^r)^b$, with $b$ bands of $r$ rows each. Bucketing only guarantees that candidate probability rises monotonically with similarity; it does not guarantee a candidate is a true near-duplicate.
+
+Embedding-threshold semantic dedup can wrongly delete legitimate "same topic, different expression" text, and this over-deletion hits low-resource languages, dialects, and templated technical documents unevenly, because those texts' own embedding distributions are more concentrated. It and near dedup address different levels of duplication.
 
 ### 2.4　Privacy/safety processing + benchmark decontamination
 
-Privacy/safety processing (PII redaction — emails, phone numbers, keys; illegal and harmful content filtering) is a process independent of "quality level"; it usually needs dedicated detection rules and thresholds and should not be tuned together with quality filters.
+Privacy and safety processing is a process independent of "quality level": PII redaction (emails, phone numbers, keys) and illegal/harmful content filtering use dedicated detection rules and thresholds, and are not tuned together with quality filters.
 
-**Benchmark decontamination**: detect n-gram overlap between the training corpus and target eval sets (e.g. common QA/reasoning benchmarks), removing or flagging overlapping documents. **Exact matching at the 13-gram scale** is the concrete practice explicitly adopted in the GPT-3 paper (Brown et al., 2020; see references at the end) to detect overlap between training corpus and eval sets — a widely borrowed specific precedent, but teams differ in the n-gram lengths they actually use, so it should not be treated as an industry-wide standard. This guards against **benchmark contamination** ("seeing the eval answers during training") and is a completely different problem from the train-val leakage of §2.6 below — do not conflate them.
+**Benchmark decontamination** detects n-gram overlap between the training corpus and target eval sets, removing or flagging overlapping documents, so that eval answers are not seen during training. **Exact matching at the 13-gram scale** is the concrete practice explicitly adopted in the GPT-3 paper (Brown et al., 2020) and widely borrowed; teams differ in the n-gram lengths they actually use, so it should not be treated as an industry-wide standard.
 
-### 2.5　Dedup before split: cluster-level split (critical)
+### 2.5　Dedup before split: cluster-level split
 
-If you **split first and dedup later**: near-duplicate content (mirror sites, reposted/rewritten articles, different instances of templated documents) can easily land one copy in train and another in val — the model has "seen" a near-verbatim copy of a validation sample during training, so validation loss is **spuriously low**, not because the model generalizes well but because it has effectively memorized a rewrite of the validation sample. This misleads early stopping, model selection, and any downstream quality reporting based on that validation loss (for a systematic discussion of this phenomenon and dedup's effect on downstream model quality, see Lee et al., 2021, in the references).
+Run near dedup first, partitioning all documents into connected components (dedup clusters), then assign **whole clusters** atomically to train/val/test; documents in the same cluster must never be split across splits. What this relies on is the **transitive closure**: even if document A was only directly compared with B, and B only with C, with A and C never directly compared, as long as A~B and B~C, A and C must land in the same split. [D01] in §6 turns this rule into an executable assertion with union-find.
 
-**Correct order**: first run near dedup, partitioning all documents into connected components (dedup clusters); then assign **whole clusters** atomically to train/val/test — documents in the same cluster must never be split across splits. The key is the **transitive closure**: even if document A was only directly compared with B, and B only with C (A and C never directly compared), as long as A~B and B~C, A and C must land in the same split — [D01] in §6 turns this rule into an executable assertion with union-find.
+If you split first and dedup later, near-duplicate content (mirror sites, reposted and rewritten articles, different instances of templated documents) can easily land one copy in train and another in val. The model has "seen" a near-verbatim copy of a validation sample during training, so validation loss is **spuriously low** — not because the model generalizes well, but because it has effectively memorized a rewrite of the validation sample. This misleads early stopping, model selection, and any downstream quality reporting based on that validation loss. For a systematic discussion of dedup's effect on downstream model quality, see Lee et al., 2021.
 
-### 2.6　Three kinds of "leakage" that must be discussed separately
+### 2.6　Train-val leakage, benchmark contamination, and cross-document context
 
 | Type | Definition | Root cause | Response |
 | --- | --- | --- | --- |
@@ -193,157 +149,146 @@ If you **split first and dedup later**: near-duplicate content (mirror sites, re
 | benchmark contamination | training corpus contains eval-set content | no decontamination check | n-gram overlap detection (§2.4) |
 | packed-sequence cross-document history context | after packing, document B can read document A's tokens | causal mask allows reading cross-document history | **usually not data leakage but a sequence-semantics choice** (§3.4) |
 
-A more accurate name for the third is **"cross-sample context coupling"**: the later document reads earlier tokens, not future labels — a modeling choice at the level of training dynamics/statistical independence, not information leakage in the evaluation sense. Whether to sever it with a block-diagonal mask depends on whether you require the modeling assumption "every document must be a statistically independent sample"; see §3.4.
+The third is **cross-sample context coupling**: the later document reads earlier tokens, not future labels — a modeling choice at the level of training dynamics and statistical independence, not information leakage in the evaluation sense. Whether to sever it with a block-diagonal mask depends on whether you require the modeling assumption that every document must be a statistically independent sample.
 
 ### 2.7　Mixture sampling: domain weights need not equal token weights
 
-Mixture sampling has at least three different "sampling units", and the same "domain weight" configuration produces **different** final token distributions under each:
+Mixture sampling has at least three different "sampling units", and the same domain-weight configuration produces **different** final token distributions under each:
 
-- **Sample by document**: first select a document pool by domain weights, then draw documents uniformly/weighted from the pool, taking whole documents;
+- **Sample by document**: first select a document pool by domain weights, then draw documents uniformly or weighted from the pool, taking whole documents;
 - **Sample by token**: cut fixed-length blocks directly from the concatenated token stream, decoupled from document boundaries;
 - **Sample domain first, then document**: first pick a domain by domain weights, then pick a document within it.
 
-The differences come from domains having different **average document lengths** — a domain with longer average documents contributes more tokens at the same document-count weight. The relationship between "domain weights" and token weights splits into two cases:
+The differences come from domains having different **average document lengths**: a domain with longer average documents contributes more tokens at the same document-count weight. The relationship between domain weights and token weights splits into two cases. When configured as document counts or document weights but used directly as token weights, the two are usually unequal, and this is the source of the bias. When the configuration itself is defined as token-level target shares, the two can be equal in expectation.
 
-- **Configured as document counts/document weights but used directly as token weights**: the two are usually unequal — this is the source of the bias;
-- **The configuration itself is defined as token-level target shares**: in expectation the two can be equal.
+Whichever sampling unit is used, the actual token share must be measured and reported separately after sampling, not just the configured values. For a systematic approach to domain reweighting, see DoReMi (Xie et al., 2023).
 
-Whichever sampling unit is used, the "actual token share" must be measured and reported separately after sampling, not just the configured values. For a systematic approach to domain reweighting, see DoReMi (Xie et al., 2023, references at the end).
+This also ties into the accounting for $D$ in §1: the $D$ in scaling laws usually means the tokens **presented** to the model during training, i.e. the total number of times tokens flow through the optimizer, and is not guaranteed to equal the corpus's unique token total. If some domain is repeatedly oversampled (multiple epochs), or the corpus still contains many residual near-duplicates, the nominal $D$ is inflated above the effective data volume, and the excess does not carry the same statistical information as new data. For a systematic discussion of how repeated data affects effective $D$, see Muennighoff et al. (2023).
 
-This also ties into the accounting for $D$ in §1: the $D$ in scaling laws usually means the tokens **presented** to the model during training (total tokens flowing through the optimizer), and is **not guaranteed to equal the corpus's unique token total** — if some domain is repeatedly oversampled (multiple epochs), or the corpus still contains many residual near-duplicates, the nominal $D$ is inflated above the "effective" data volume, and the excess does not carry the same statistical information as new data; for a systematic discussion of how repeated data affects effective $D$ in such "data-constrained" settings, see Muennighoff et al. (2023, references at the end) — only the qualitative conclusion is stated here, without adopting their specific numbers.
+### 2.8　Deterministic sharding + the tokenizer interface
 
-### 2.8　Deterministic sharding + the tokenizer interface contract
+**Deterministic sharding**: given the same corpus, the same mixture configuration, and the same random seed, "which document goes into which shard file, at which position" must be reproducible. This property directly underpins deterministic resume, where a restart must pinpoint exactly where consumption stopped; it also underpins spike triage, where reproducing the specific batch that caused a spike depends on exactly reconstructing the data consumed at the time.
 
-**Deterministic sharding**: given the same corpus + the same mixture configuration + the same random seed, "which document goes into which shard file, at which position" must be reproducible — this directly underpins the deterministic resume of §5.2 (after a restart you must be able to pinpoint exactly where consumption stopped) and the spike triage of §5.4 ("reproduce the specific batch that caused this spike" depends on exactly reconstructing the data consumed at the time).
-
-**Tokenizer interface contract** (a pointer; training is not re-taught here): the corpus factory's output interface toward the tokenizer should be a small, frozen contract — a version-locked tokenizer artifact (with hash), fixed BOS/EOS/PAD IDs, fixed normalization rules, byte-fallback behavior, and a bytes/token ratio for budget estimation. How the tokenizer itself is trained (BPE/WordPiece/Unigram) and SentencePiece framework details are in `tokenization_tutorial.md` §2–§5; this tutorial only consumes the contract and does not re-derive it.
+The corpus factory's output toward the tokenizer is a small, frozen contract: a version-locked tokenizer artifact (with its hash), fixed BOS/EOS/PAD IDs, fixed normalization rules, byte-fallback behavior, and a bytes/token ratio for budget estimation. How the tokenizer itself is trained (BPE/WordPiece/Unigram) and SentencePiece framework details are in `tokenization_tutorial.md` §2–§5.
 
 ### 2.9　Long-document chunking / truncation
 
-A single document's raw length often exceeds the training context length (sometimes by many multiples — a book or a long code repository can far exceed a window of a few thousand to tens of thousands of tokens). Such documents must be **chunked** before entering packing, with several decision points that must be made explicitly:
+A single document's raw length often exceeds the training context length, sometimes by many multiples — a book or a long code repository can far exceed a window of a few thousand to tens of thousands of tokens. Such documents are **chunked** before entering packing, with four decision points:
 
-- **Whether to overlap**: non-overlapping chunking is simplest but hard-cuts the context at every chunk boundary; overlapping chunking (e.g. keeping an overlap region of tens to hundreds of tokens between adjacent chunks) mitigates the missing context at boundaries, at the cost of the same original text being shared by multiple chunks;
-- **Whether the overlap region counts toward loss twice**: if two adjacent chunks share a stretch of overlapping tokens, you must decide whether that content contributes target loss in only one chunk or in both — counting both effectively "oversamples" that content, distorting its true weight in the total $D$ (§1, and $B_{target}$ of §4.1); usually the loss should be kept only in the chunk that sees the longer preceding context, marking it as pure context (no loss) in the other;
-- **Whether to insert EOS at artificial chunk boundaries**: this is a semantic choice, not a standard answer — if each chunk should be treated as an independent sample (echoing the packing semantics of §3.4), insert EOS/BOS boundaries at the cuts and assign new doc-ids, so the downstream block-diagonal mask and boundary loss-mask rules correctly recognize "these are actually two artificially cut segments of the same document"; without boundary markers, multiple chunks are treated as "continuous continuation of the same document";
-- **How position ids / doc-ids carry over**: if you choose "each chunk is an independent sample", each chunk should have its own doc-id (and decide whether to reset position ids per the discussion in §3.4); if you choose "chunks are just cuts, logically still the continuation of one document", the doc-id should stay consistent across chunks and position ids should be numbered continuously rather than restarting from 0 per chunk — this choice must stay consistent with how a "document" is defined at training/inference time, otherwise you get inconsistencies like "treated as independent samples in training but assumed positionally continuous at inference".
+- **Whether to overlap**: non-overlapping chunking is simplest, at the cost of hard-cutting the context at every chunk boundary; overlapping chunking keeps an overlap region between adjacent chunks (e.g. tens to hundreds of tokens), mitigating the missing context at boundaries, at the cost of the same original text being shared by multiple chunks.
+- **Whether the overlap region counts toward loss twice**: for the overlapping tokens shared by two adjacent chunks, if both chunks count loss, that content is effectively oversampled, distorting its true weight in the total $D$ and in $B_{target}$. Usually the loss should be kept only in the chunk that sees the longer preceding context, and the other chunk should mark it as pure context.
+- **Whether to insert EOS at artificial chunk boundaries**: if each chunk should be treated as an independent sample, insert EOS/BOS boundaries at the cuts and assign new doc-ids, so the downstream block-diagonal mask and boundary loss-mask rules can recognize "these are actually two artificially cut segments of the same document"; without boundary markers, multiple chunks are treated as a continuous continuation of the same document.
+- **How position ids / doc-ids carry over**: if each chunk is an independent sample, each chunk should have its own doc-id, and whether to reset position ids follows §3.4; if chunks are logically still the continuation of one document, the doc-id should stay consistent across chunks and position ids should be numbered continuously rather than restarting from 0 per chunk. This choice must stay consistent with how a "document" is defined at training and inference time, otherwise you get inconsistencies like treating chunks as independent samples in training but assuming positional continuity at inference.
 
-None of these decisions has a universal default, but they must be recorded explicitly in the lineage (§2.1): if a piece of training data has been chunked, its lineage should trace back to "which chunk of which original document, whether it overlaps with adjacent chunks, whether the overlap region counts toward loss" — otherwise it is impossible to determine afterward whether an observed problem (say, anomalous loss weight on some content) was caused by the chunking policy.
+None of these decisions has a universal default, but they must be recorded explicitly in the lineage. If a piece of training data has been chunked, its lineage should trace back to which chunk of which original document it is, whether it overlaps with adjacent chunks, and whether the overlap region counts toward loss. Without those records, it is impossible to determine afterward whether an anomalous loss weight on some content was caused by the chunking policy.
 
 ### 2.10　The data-stream / sampler layer
 
-After tokenized training shards are written to disk, what actually reads them at training time is a **data-stream / sampler layer** that is usually skipped over, yet whose state definitions §4 (gradient accumulation) and §5.2 (deterministic resume) repeatedly depend on:
+After tokenized training shards are written to disk, what actually reads them at training time is a **data-stream / sampler layer**, and both gradient accumulation and deterministic resume depend on this layer's state definitions:
 
-- **Shard shuffle**: whether the shard-file read order is shuffled before each epoch (or each traversal), and the random seed/state used for the shuffle;
-- **Domain-sampling RNG**: if the mixture is sampled dynamically at training time (rather than pre-mixed offline with fixed ratios), you need a domain-selection random number generator independent of other randomness sources (dropout, data shuffling), whose state must also be capturable by checkpoints;
-- **With / without replacement**: whether documents/shards within a domain may be resampled — multi-epoch training, or data insufficient to support the compute-optimal $D$ (§1.5), usually requires sampling with replacement, and the "repetition" itself must then be recorded, because it directly affects the "nominal $D$ vs effective data volume" accounting discussed in §2.7;
-- **Mutually exclusive DP-rank sharding**: the shard/sample sets read by each DP rank must be pairwise disjoint, otherwise the same data is counted by multiple ranks simultaneously, implicitly double-counting $D$ (this constraint also appears in §4.4);
-- **Worker/prefetch state**: multi-process/multi-thread dataloaders typically prefetch several batches into a queue, and the queue's own state (what has been prefetched, what remains unconsumed) is also part of the training state — if resume restores only the "which sample have I read" cursor without correctly handling data already dequeued but not yet consumed, that data may be skipped or consumed twice;
-- **Cursor position**: all the randomness and ordering decisions above must ultimately converge to a "cursor" that can be saved and restored precisely — usually "which byte/sample offset in which shard file"; the precision of this cursor determines how exact the "identical sample sequence" tier of §5.2 can be.
-
-When deterministic resume (§5.2) is discussed, this layer's state is often waved through as "the data iterator position", but a real implementation involves at least the five independent state classes above, and failing to save any one of them degrades the "identical sample sequence" promise of resume.
+- **Shard shuffle**: whether the shard-file read order is shuffled before each epoch or each traversal, and the random seed and state used for the shuffle;
+- **Domain-sampling RNG**: if the mixture is sampled dynamically at training time rather than pre-mixed offline, you need a domain-selection random number generator independent of other randomness sources (dropout, data shuffling), whose state must also be capturable by checkpoints;
+- **With / without replacement**: whether documents or shards within a domain may be resampled. Multi-epoch training, or data insufficient to support the compute-optimal $D$, usually requires sampling with replacement, and the repetition itself must then be recorded, because it directly affects the "nominal $D$ vs effective data volume" accounting;
+- **Mutually exclusive DP-rank sharding**: the shard/sample sets read by each DP rank must be pairwise disjoint, otherwise the same data is counted by multiple ranks simultaneously, which is equivalent to implicitly double-counting $D$;
+- **Worker/prefetch state**: multi-process/multi-thread dataloaders typically prefetch several batches into a queue, and that queue's own state — what has been prefetched, what remains unconsumed — is part of the training state. If resume restores only the "which sample have I read" cursor without correctly handling data already dequeued but not yet consumed, that data is skipped or consumed twice;
+- **Cursor position**: all the randomness and ordering decisions above must ultimately converge to a cursor that can be saved and restored precisely, usually "which byte or sample offset in which shard file". The cursor's own precision determines how exact the "identical sample sequence" tier can be.
 
 ### 2.11　After the cluster split: where train and val/test diverge
 
-The cluster-level split of §2.5 settles only one thing — "which dedup clusters belong to which split"; once the split is done, train and val/test follow two completely different downstream processes and must not be vaguely handled by "reusing the same training mixture":
+The cluster-level split settles only one thing — which dedup clusters belong to which split; once the split is done, train and val/test follow two completely different downstream processes.
 
-- **train**: continues through the full §2.7-§2.10 process — mixture sampling (possibly with dynamically adjusted domain weights, echoing the late-stage data reweighting of §5.1), shuffling, with-replacement resampling (if needed), and all the state of the data-stream/sampler layer;
-- **val/test**: must be **version-frozen** — once fixed, the same val/test set should keep its sample content, size, and scoring protocol unchanged for the entire training lifecycle (and across multiple training runs when comparing fairly); it should not be affected by the dynamically adjusted mixture like train, nor "diluted" or "reweighted" by resampling — per-domain reporting (§5.3) requires an independent, comparable validation set for each domain, not a subset that tracks the train mixture;
-- if val/test also needs to cover multiple domains, the within-domain sampling should be determined once at the split stage and frozen, rather than dynamically resampled each epoch/run like train — otherwise validation losses across checkpoints are no longer measured with the same yardstick.
+**train** continues through the full §2.7–§2.10 process: mixture sampling (with possibly dynamically adjusted domain weights), shuffling, with-replacement resampling when needed, and all the state of the data-stream/sampler layer.
 
-Casually treating val/test as "a scaled-down version of the train mixture" is the most easily overlooked stage of this pipeline, and it directly contaminates the per-domain monitoring conclusions of §5.3 and the checkpoint-selection conclusions of §5.5.
+**val/test must be version-frozen**: once fixed, the same val/test set keeps its sample content, size, and scoring protocol unchanged for the entire training lifecycle, and across multiple training runs when comparing fairly. It is not affected by the dynamically adjusted mixture, nor diluted or reweighted by resampling. Per-domain reporting requires an independent, comparable validation set for each domain, not a subset that tracks the train mixture.
+
+If val/test also needs to cover multiple domains, the within-domain sampling should be determined once at the split stage and frozen, rather than dynamically resampled each epoch as train is. Otherwise validation losses across checkpoints are no longer measured with the same yardstick.
 
 ## §3 Objective-to-tensor: how the token stream becomes supervision
 
 ### 3.1　Teacher forcing + shifted labels
 
-Standard next-token training uses teacher forcing: given a token sequence $x_1,\dots,x_T$, the **label** at position $i$ is $x_{i+1}$ (the sequence shifted right by one); the model outputs the predictive distribution $p(x_{i+1}\mid x_{\le i})$ at position $i$, and the loss is the NLL over all **valid** target positions (§3.5 gives the exact normalization formula). The last position has no next token, so its label is marked `IGNORE` (this tutorial follows the PyTorch convention and uses the sentinel value $-100$).
+Standard next-token training uses teacher forcing: given a token sequence $x_1,\dots,x_T$, the **label** at position $i$ is $x_{i+1}$, the sequence shifted right by one. The model outputs the predictive distribution $p(x_{i+1}\mid x_{\le i})$ at position $i$. The loss is the NLL over all **valid** target positions; the exact normalization formula is in §3.5. The last position of a sequence has no next token, so its label is marked `IGNORE`, using the sentinel value $-100$ per the PyTorch convention.
 
 ### 3.2　Causal mask + EOS/BOS boundary rules
 
-A plain causal mask $M[q,k]=\mathbb{1}[k\le q]$ only guarantees "cannot see the future". Around document boundaries there is one supervision rule that is frequently written incorrectly:
+A plain causal mask $M[q,k]=\mathbb{1}[k\le q]$ only guarantees "cannot see the future". Around document boundaries there are two supervision rules:
 
-- **Keep** the supervision "last content token of a document → EOS" — this is the direct signal from which the model learns "when to stop";
-- **Mask (per configuration)** the supervision "previous document's EOS → next document's first token (or BOS)" — the "label" at that position is merely an artifact of concatenation, not any meaningful generation continuation.
+- **Keep** the supervision "document's last content token → EOS" — the direct signal from which the model learns when to stop;
+- **Mask (per configuration)** the supervision "previous document's EOS → next document's first token (or BOS)" — the label at that position is merely an artifact of concatenation, not any meaningful generation continuation.
 
-Both rules can be produced automatically by **one and the same** document-boundary rule: treat EOS as the last token of its document (same id as the rest of that document in the doc-id array), and construct labels with the single rule "a label is valid iff the current position and the next position belong to the same document" — content-end token to EOS naturally shares a document (rule says valid), while EOS to the next document's first token naturally crosses documents (rule says invalid). No separate special-case logic for EOS is needed; [D04] in §6 demonstrates this.
+Both rules can be produced automatically by **one and the same** document-boundary rule. Treat EOS as the last token of its document, with the same id as the rest of that document in the doc-id array, then construct labels with the rule "a label is valid iff the current position and the next position belong to the same document". Content-end token to EOS naturally shares a document, so the rule says valid; EOS to the next document's first token naturally crosses documents, so the rule says invalid. No separate special-case logic for EOS is needed, and [D04] in §6 demonstrates this.
 
-One pointer worth a sentence: when assembling chat templates, using both the template's built-in BOS and the tokenizer's `add_special_tokens` easily inserts BOS twice — a tokenizer/inference-side correctness issue detailed in `tokenization_tutorial.md` §5.5; this section only notes that it pollutes the supervision signal and does not expand on it.
+When assembling chat templates, using both the template's built-in BOS and the tokenizer's `add_special_tokens` easily inserts BOS twice and pollutes the supervision signal; details are in `tokenization_tutorial.md` §5.5.
 
 ### 3.3　Padding: the loss mask is mandatory; whether the key mask is depends on layout
 
-Padding involves two distinct concerns:
-
-1. **Key padding mask**: prevent query positions from attending to padding keys;
-2. **Loss mask**: exclude positions whose target is padding from the loss (otherwise gradients are computed against meaningless filler targets).
+Padding involves two distinct concerns: the **key padding mask** prevents query positions from attending to padding keys; the **loss mask** excludes positions whose target is padding from the loss, without which gradients are computed against meaningless filler targets.
 
 - **The loss mask is always mandatory** — without it, the loss is guaranteed to be polluted by filler targets;
 - **The key mask can be omitted under strict causal + right padding** — real query positions are naturally smaller than the padding start, so the causal mask ($k\le q$) already blocks those future padding keys, and omitting it does not change real tokens' outputs;
 - **The key mask is mandatory under left padding, holes inside sequences, or other layouts** — the causal condition alone cannot exclude padding keys, and real queries can easily read meaningless content.
 
-**Recommendation**: a general-purpose implementation constructs both; only omit the key mask, with justification, when you can confirm you are strictly in the "right padding + causal" special case and are willing to maintain that implicit assumption long-term.
+A general-purpose implementation constructs both; only omit the key mask, with justification, when you can confirm you are strictly in the "right padding + causal" special case and are willing to maintain that implicit assumption long-term.
 
-> ⚠️ **The classic accident when PAD and EOS share the same token ID**
-> Many tokenizers have no dedicated PAD token and simply set `pad_id` to `eos_id` — this is **not necessarily wrong**. The real accident happens when downstream code indiscriminately builds masks via `input_ids == pad_id`: this also masks out **every real EOS position** in the corpus as padding, systematically removing the "where documents should end" supervision from the training signal and significantly weakening the model's stopping ability (especially fatal when training from scratch). The correct approach is to build masks from the **actual padding positions** (each sequence's valid length `valid_len`, or an explicit padding flag carried with the batch), never from "equals some token ID". [D05] in §6 turns this mask construction into executable assertions.
+Many tokenizers have no dedicated PAD token and simply set `pad_id` to `eos_id`, which is not necessarily wrong. The accident happens when downstream code indiscriminately builds masks via `input_ids == pad_id`: this also masks out **every real EOS position** in the corpus as padding. The supervision for "where documents should end" is systematically removed from the training signal, significantly weakening the model's stopping ability, and is especially fatal when training from scratch. Masks must be built from the **actual padding positions** — each sequence's valid length `valid_len`, or an explicit padding flag carried with the batch — never from equality with some token ID. [D05] in §6 turns this mask construction into executable assertions.
 
-### 3.4　Document packing: cross-document attention is not a bug
+### 3.4　Document packing: attention, labels, and positions
 
-Packing multiple documents into one training sequence is a common way to raise effective batch utilization. The core facts:
+Packing multiple documents into one training sequence is a common way to raise effective batch utilization. A plain causal mask only prevents reading the future; it does not prevent a later document from reading an earlier document's history tokens. Many systems deliberately treat the packed token stream as one **EOS-separated continuous stream** with a plain causal mask.
 
-- A plain causal mask only prevents "reading the future"; it **does not automatically prevent a later document from reading an earlier document's history tokens** — this is not an implementation defect: many systems deliberately treat the packed token stream as one **EOS-separated continuous stream** with a plain causal mask (as §2.6 explained, a sequence-semantics choice, not data leakage);
-- If the semantics require "each document is an independent sample", you need a **block-diagonal causal mask**:
+If the semantics require "each document is an independent sample", you need a **block-diagonal causal mask**:
 
 $$M[q,k] = (k\le q)\ \wedge\ (\text{docid}[q]=\text{docid}[k])$$
 
-Whether to reset position IDs within each document depends on the position-encoding scheme and training semantics — it is not a universal rule:
+Whether to reset position IDs within each document depends on the position-encoding scheme and training semantics; it is not a universal rule:
 
-  - **Absolute position embeddings**: without a reset, later documents start from a huge position number that does not belong to them; usually reset;
-  - **Standard RoPE**: depends only on the relative position difference between query and key — once the block-diagonal mask restricts attention to within documents, adding the same offset to a whole document does not, in ideal math, change the relative phases within the document, so attention is not polluted merely because "numbering did not start from 0";
-  - **Variants and engineering considerations**: RoPE length-extrapolation/scaling variants, numerical behavior at finite precision, and the desire to train every document strictly from position 0 (aligning with the position distribution at inference) — these still lead most implementations to reset;
+- **Absolute position embeddings**: without a reset, later documents start from a huge position number that does not belong to them, so usually reset;
+- **Standard RoPE**: depends only on the relative position difference between query and key. Once the block-diagonal mask restricts attention to within documents, adding the same offset to a whole document does not, in ideal math, change the relative phases within the document, so attention is not polluted merely because numbering did not start from 0;
+- **Variants and engineering considerations**: RoPE length-extrapolation/scaling variants, numerical behavior at finite precision, and the desire to train every document strictly from position 0 to align with the position distribution at inference — these still lead most implementations to reset.
 
-- **Blocking attention does not automatically mask cross-document prediction labels** — the most common bug in packing implementations: a team adds the block-diagonal mask and assumes "documents are now fully independent", but without separate label handling, document A's last position is still, by default, asked to predict document B's first token (a cross-document target through and through), which must be excluded separately by the boundary loss mask of §3.2.
+Blocking attention does not automatically mask cross-document prediction labels. After adding the block-diagonal mask, if labels are not handled separately, document A's last position is still, by default, asked to predict document B's first token. That is a cross-document target through and through, and it must be excluded separately by the boundary loss mask of §3.2.
 
-**Numerical example** (tokens = `[11,12,13,21,22]`, doc IDs = `[0,0,0,1,1]`): under independent-document semantics the shifted labels are `[12,13,IGNORE,22,IGNORE]`; the block mask asserts `M[3,2]=False` (position 3 belongs to document 1, position 2 to document 0 — blocked for crossing documents even though $k\le q$), `M[4,0]=False`, `M[4,3]=True`; under continuous-stream semantics the same position has `M[3,2]=True` — a legitimate configuration choice, not an implementation failure.
+**Numerical example** (tokens = `[11,12,13,21,22]`, doc IDs = `[0,0,0,1,1]`): under independent-document semantics the shifted labels are `[12,13,IGNORE,22,IGNORE]`; the block mask asserts `M[3,2]=False` (position 3 belongs to document 1, position 2 to document 0 — blocked for crossing documents even though $k\le q$), `M[4,0]=False`, `M[4,3]=True`; under continuous-stream semantics the same position has `M[3,2]=True`, a legitimate configuration choice.
 
-> ✅ **A functional test stronger than "just look at the mask's shape"**
-> Construct $QK^\top=0$ (softmax degenerates to uniform attention over allowed keys), set document 0's three positions' values to `[100,100,100]` and document 1's two positions' values to `[0,0]`. Under the plain causal mask, position 3 (document 1's first token) outputs the mean over allowed keys `[0,1,2,3]` $= (100+100+100+0)/4=75$; under the block mask only key `3` itself remains, so the output is $0$. Now change document 0's values from 100 to 1000: **in block mode, document 1's output is completely unchanged (still 0)** — exactly the property "document independence" should have; in continuous-stream mode the same output goes from 75 to 750, because it never severed the coupling with document 0. Checking only the mask's shape, or whether each row normalizes to 1, cannot catch bugs where the boundary logic is wrong but the shape still "looks right"; this "change the values, recompute, and see whether the other document stays perfectly still" test is the assertion that truly locks down independence. [D03] in §6 is the executable version of this test.
+**Functional test**: construct $QK^\top=0$, so softmax degenerates to uniform attention over the allowed keys; set document 0's three positions' values to `[100,100,100]` and document 1's two positions' values to `[0,0]`. Under the plain causal mask, position 3 (document 1's first token) outputs the mean over allowed keys `[0,1,2,3]` $= (100+100+100+0)/4=75$; under the block mask only key `3` itself remains, so the output is $0$. Now change document 0's values from 100 to 1000: in block mode document 1's output is completely unchanged, still 0; in continuous-stream mode the same output goes from 75 to 750, because it never severed the coupling with document 0. Checking only the mask's shape, or whether each row normalizes to 1, cannot catch bugs where the boundary logic is wrong but the shape still looks normal. [D03] in §6 is the executable version of this test.
 
-### 3.5　Loss normalization: total sum over total count, not a mean of means
-
-The correct training loss is
+### 3.5　Normalizing the loss by valid targets
 
 $$\mathcal{L} = \frac{\sum_i \mathrm{NLL}_i}{\#\{\text{valid target tokens}\}}$$
 
-Sum the NLL over all valid target tokens in the **global batch**, then divide by the total valid-token count. A common but insidious bug: first compute "the mean loss within this micro-batch" for each micro-batch, then average those means (e.g. across the micro-batches of gradient accumulation, or across DP ranks). When micro-batches have different valid-token counts (different padding ratios, different packing efficiency, or an in-progress short-to-long context-length switch), this "mean of means" implicitly overweights micro-batches with few tokens and underweights those with many, deviating from the truly token-weighted loss. A correct implementation must accumulate two quantities — "NLL sum" and "valid token count" — across the whole gradient-accumulation window (and across DP-rank communication), dividing once at the end.
+Sum the NLL over all valid target tokens in the **global batch**, then divide by the total valid-token count. In implementation, accumulate two quantities separately — the NLL sum and the valid token count — across the whole gradient-accumulation window and across DP-rank communication, dividing once at the end.
 
-If the model is MoE, the total loss usually also adds the router's auxiliary loss term per configuration (router aux loss, typically far smaller in magnitude than the main loss) — its mechanics are out of scope here; see `moe_tutorial.md`.
+Another way to write it is to first compute the mean loss within each micro-batch, then average those means. When micro-batches have different valid-token counts — different padding ratios, different packing efficiency, or an in-progress short-to-long context-length switch — this implicitly overweights micro-batches with few tokens and underweights those with many, deviating from the truly token-weighted loss.
+
+An MoE model's total loss usually also adds the router's auxiliary loss term per configuration (router aux loss), typically far smaller in magnitude than the main loss; its mechanics are in `moe_tutorial.md`.
 
 ### 3.6　Exact PPL/BPB formulas
 
 $$\mathrm{PPL} = \exp\left(\frac{\sum_i \mathrm{NLL}_i}{\#\text{valid target tokens}}\right),\qquad \mathrm{BPB} = \frac{\sum_i \mathrm{NLL}_i}{\#\text{bytes}\cdot\ln 2}$$
 
-PPL is directly comparable only when tokenizer, normalization, and evaluation text are all identical — the denominator (token count) itself depends on the tokenizer, so even at identical total NLL, a tokenizer that segments more finely drives loss/token down. BPB replaces the denominator with the UTF-8 byte count of the same text, making it more robust to tokenizer differences, though still affected by whether encoding/preprocessing match. The full derivation and the numerical example of "loss/token differs by 2x yet BPB is identical" are in `tokenization_tutorial.md` §1.3 and §7 [D07]; this section does not repeat them and only stresses the exact form of these two formulas.
+PPL is directly comparable only when tokenizer, normalization, and evaluation text are all identical. The denominator's token count itself depends on the tokenizer, so even at identical total NLL, a tokenizer that segments more finely drives loss/token down. BPB replaces the denominator with the UTF-8 byte count of the same text, making it more robust to tokenizer differences, though still affected by whether encoding and preprocessing match. The full derivation and the numerical example of "loss/token differs by 2x yet BPB is identical" are in `tokenization_tutorial.md` §1.3 and §7 [D07].
 
 ## §4 Update accounting: what the global batch actually is
 
-### 4.1　Micro-batch / DP / gradient accumulation: the global batch formula, and three different token-counting conventions
+The conceptual execution order of the stages within one optimizer step: model/config contract → forward → loss (NLL sum divided by the valid target token count) → backward → gradient sync (DP all-reduce; mind sum/mean reduction semantics). Then comes unscale (AMP), one gradient clipping on the final gradient after the accumulation window ends, the optimizer step, the scheduler and consumed-token counter advance, and finally the atomic checkpoint write.
 
-Pin the notation first: $B_{micro,seq}$ is the number of sequences per micro-batch per DP replica, $L_{seq}$ the sequence length, $G_{acc}$ the gradient-accumulation steps, $W_{DP}$ the data-parallel world size.
+### 4.1　The global batch and three token counts
 
-**A DP replica is not a GPU**: when TP/PP > 1, one DP replica itself spans multiple GPUs — "per GPU" and "per DP replica" are not the same thing.
+$B_{micro,seq}$ is the number of sequences per micro-batch per DP replica, $L_{seq}$ the sequence length, $G_{acc}$ the gradient-accumulation steps, $W_{DP}$ the data-parallel world size. When TP/PP > 1, one DP replica itself spans multiple GPUs, so "per GPU" and "per DP replica" are not the same thing.
 
 **Tokens fed to the model** (processed token slots, regardless of valid loss participation):
 
 $$B_{input} = B_{micro,seq}\times L_{seq}\times G_{acc}\times W_{DP}$$
 
-**Only $W_{DP}$ directly multiplies the number of independent samples.** Tensor parallelism (TP) and pipeline parallelism (PP) partition the computation of the **same** samples; multiplying their world sizes into $B_{input}$ is the most common source of global-batch miscalculation. (Communication primitives and partitioning mechanics are deferred to `distributed_training_tutorial.md`.)
+**Only $W_{DP}$ directly multiplies the number of independent samples.** Tensor parallelism (TP) and pipeline parallelism (PP) partition the computation of the **same** samples, and multiplying their world sizes into $B_{input}$ is the most common source of global-batch miscalculation. Communication primitives and partitioning mechanics are in `distributed_training_tutorial.md`; the data consumed by DP ranks must not overlap, otherwise $D$ is double-counted.
 
 **Valid targets actually participating in the loss**:
 
 $$B_{target} = \sum_i m_i$$
 
-where $m_i$ is the valid-target mask count of sequence $i$ (the loss-mask sum of §3.5). $B_{input}$ and $B_{target}$ are generally unequal, even with **no padding at all**: under shifted labels, each sequence's last position has no next token and is marked `IGNORE` (§3.1), so valid targets per sequence number $L_{seq}-1$, not $L_{seq}$; stacking on padding (§3.3) or packing's document-boundary loss mask (§3.2, §3.4) shrinks $B_{target}$ further below $B_{input}$.
+where $m_i$ is the valid-target mask count of sequence $i$. $B_{input}$ and $B_{target}$ are generally unequal, even with **no padding at all**. Under shifted labels, each sequence's last position has no next token and is marked `IGNORE`, so valid targets per sequence number $L_{seq}-1$, not $L_{seq}$. Stacking on padding or packing's document-boundary loss mask shrinks $B_{target}$ further below $B_{input}$.
 
-**Which quantity each of the three accounting conventions maps to — do not mix them**:
+The three accounting conventions map to different quantities:
 
 | Convention | Quantity | Where it is used |
 | --- | --- | --- |
@@ -351,86 +296,84 @@ where $m_i$ is the valid-target mask count of sequence $i$ (the loss-mask sum of
 | non-padding input tokens | $B_{input}$ minus padding positions | estimating actual effective GPU throughput, evaluating packing/padding efficiency |
 | valid target tokens | $B_{target}$ | the loss-normalization denominator of §3.5; the $D$ in §1's scaling laws should track this convention when padding/boundary masking is present |
 
-Once the three are mixed, the question "how many tokens did this training run feed" produces several mutually inconsistent numbers in reports.
-
 ### 4.2　Conditions for gradient accumulation to be strictly equivalent to "one big batch"
 
-For gradient accumulation to be **strictly equivalent** to running one big batch directly, all of the following must hold:
+For gradient accumulation to be **strictly equivalent** to running one big batch directly, six conditions must hold at once:
 
-1. **Same samples** — the data consumed within the accumulation window must exactly match what the big batch would consume at once; no samples missed or repeated due to different sharding;
-2. **Normalize over all valid tokens** (§3.5) — not a mean over per-micro-batch means;
-3. **Exactly one optimizer step** — gradients are only summed/averaged within the accumulation window; the weight update happens once, at the window's end;
+1. **Same samples** — the data consumed within the accumulation window must exactly match what the big batch would consume at once, with no samples missed or repeated due to different sharding;
+2. **Normalize over all valid tokens** — not a mean over per-micro-batch means;
+3. **Exactly one optimizer step** — gradients are only summed or averaged within the accumulation window, and the weight update happens once, at the window's end;
 4. **Consistent final-gradient post-processing** — gradient clipping must act on the **final gradient** after accumulation completes, not clip each micro-batch's local gradient separately;
 5. **Consistent randomness and batch-dependent state** — dropout and other randomness, plus any cross-sample running statistics, must behave as if computed once on the full big batch;
-6. **Match the communication library's reduction semantics** — the final invariant: the global gradient should equal $\nabla\left(\sum_r \mathrm{NLL}_r \big/ \sum_r M_r\right)$ ($r$ ranging over DP ranks, $M_r$ that rank's valid-token count).
-   - Frameworks like DDP/FSDP **average** multi-rank gradients by default rather than summing: if the local loss was already normalized as "NLL sum / this rank's valid tokens", the default averaging implicitly divides by the world size once more;
-   - Pick one fix: explicitly switch to sum-reduce and normalize by the global valid-token count, or pre-multiply by $W_{DP}$ when normalizing locally.
-   - The one core check: **the local loss and the communication layer must not both divide by $W_{DP}$**.
+6. **Match the communication library's reduction semantics** — the global gradient should equal $\nabla\left(\sum_r \mathrm{NLL}_r \big/ \sum_r M_r\right)$, with $r$ ranging over DP ranks and $M_r$ that rank's valid-token count.
 
-The points above guarantee **mathematical equivalence** — under exact real arithmetic, the accumulated gradient and the one-shot big-batch gradient are the same quantity; they do not guarantee **bitwise-identical floating-point values**: accumulation order, the all-reduce reduction-tree structure, etc. still cause differences in the last few significant digits (a distinction consistent with the three-tier deterministic-resume framework of §5.2).
+Condition 6 is the easiest to get wrong in implementation. Frameworks like DDP/FSDP **average** multi-rank gradients by default rather than summing: if the local loss was already normalized as "NLL sum / this rank's valid tokens", the default averaging implicitly divides by the world size once more. Pick one fix: explicitly switch to sum-reduce and normalize by the global valid-token count, or pre-multiply by $W_{DP}$ when normalizing locally. The local loss and the communication layer must not both divide by $W_{DP}$.
 
-### 4.3　Numerical precision: operational constraints only, no number-format textbook
+The points above guarantee **mathematical equivalence**: under exact real arithmetic, the accumulated gradient and the one-shot big-batch gradient are the same quantity. They do not guarantee bitwise-identical floating-point values: accumulation order and the all-reduce reduction-tree structure still cause differences in the last few significant digits.
 
-BF16 has the same exponent width as FP32 (similar dynamic range) and in pretraining typically overflows less readily than FP16; FP16's narrower dynamic range makes it more dependent on loss scaling to keep small gradients from underflowing to zero. Only the operational constraints relevant to the spike/NaN triage of §5.4 are given here; floating-point format derivations are not expanded.
+### 4.3　BF16, FP16, and loss scaling
 
-### 4.4　Sibling boundaries (strictly enforced)
-
-- **optimizer_lr_schedule_tutorial.md**: owns the AdamW update derivation and warmup/cosine/WSD scheduling math; this tutorial cares only about why optimizer state must be saved with checkpoints (§5.2), whether the schedule advances by step or by token count, the coupling when batch size changes, and the lifecycle roles of the three phases (§5.1) — all specific formulas are deferred to that tutorial.
-- **distributed_training_tutorial.md**: owns the communication primitives and partitioning mechanics of ZeRO/FSDP/TP/PP/CP; this tutorial cares only about the global-batch accounting of §4.1 and that the data consumed by DP ranks must not overlap (otherwise $D$ is double-counted).
-- **Uncovered boundary**: how checkpoints reshard when the world size changes, and whether the resharded run can match the original trajectory — neither this tutorial nor that sibling gives a systematic answer; this tutorial only states the weaker qualitative conclusion in §5.2 that "changing the world size usually cannot guarantee a bitwise-identical trajectory".
+BF16 has the same exponent width as FP32 and a similar dynamic range, so it typically overflows less readily than FP16 in pretraining. FP16's narrower dynamic range makes it more dependent on loss scaling to keep small gradients from underflowing to zero.
 
 ## §5 Lifecycle: from warmup to deterministic resume
 
 ### 5.1　Warmup/stable/decay/cooldown + data-phase changes
 
-The lifecycle divides roughly into phases along the LR schedule (only the **roles** of the phases are covered here; the math is in `optimizer_lr_schedule_tutorial.md`): warmup suppresses early-training instability; stable/plateau occupies the bulk of training. In the final stretch, two things often happen simultaneously, but they are controlled by different configurations:
+Warmup suppresses early-training instability, stable/plateau occupies the bulk of training, and decay/cooldown steps the learning rate down to a very small value per the schedule. AdamW's update formula and the warmup/cosine/WSD scheduling math are in `optimizer_lr_schedule_tutorial.md`. What the pipeline side cares about is three things: optimizer state must be saved with the checkpoint, whether the schedule advances by step or by token count, and how the two couple when the batch size changes.
 
-- **Decay/cooldown is an LR-side concept** — the learning rate steps down to a very small value per the schedule; formulas and schedule shapes are deferred to `optimizer_lr_schedule_tutorial.md`;
-- **Data annealing/late-stage reweighting is an independent data-side concept** — raising the weight of high-quality/curated data in the mixture near the end of training (described in public training reports such as Llama 3; see references at the end).
+Two things often happen simultaneously in the final stretch of training, but they are controlled by different configurations. Decay/cooldown is an LR-side concept; data annealing / late-stage reweighting is an independent data-side concept that raises the weight of high-quality, curated data in the mixture near the end of training (described in public training reports such as Llama 3). A training recipe can perfectly well do LR decay without adjusting data weights, and vice versa.
 
-A training recipe can perfectly well do LR decay without adjusting data weights, and vice versa — do not treat "the LR is decaying" and "the data is being reweighted" as two phrasings of the same thing.
+Another lifecycle axis is the **context-length curriculum**: most of the training budget uses shorter sequences, switching to long context late. This changes $L_{seq}$, meaning the global-batch accounting of §4.1 and the consumed-token counter must both be recomputed consistently at the switch point.
 
-Another lifecycle axis is the **context-length curriculum**: most of the training budget uses shorter sequences, switching to long context late. This changes $L_{seq}$, meaning the global-batch accounting of §4.1 and the consumed-token counter must both be recomputed consistently at the switch point rather than silently carrying over pre-switch assumptions.
+### 5.2　Resuming training, sample order, and numerical reproduction
 
-### 5.2　"Deterministic resume" must be split into three promises of different strength
+"After resume, the training trajectory is exactly as if uninterrupted" corresponds to three results of different strength, each requiring different state.
 
-The sentence "after resume, the training trajectory is exactly as if uninterrupted" is itself ambiguous — different engineering goals need very different necessary conditions, best discussed as three increasing strength tiers:
+1. **Resumable training**: the model can restore weights and optimizer state from the checkpoint and continue lowering loss, with no requirement that data order or numerics align exactly. Only model weights, optimizer state, the LR schedule, and the consumed-token count are needed.
+2. **Identical sample sequence**: after restart, the data order the model sees (which sample at which step) exactly matches the uninterrupted run, without requiring bitwise-identical numerics. Beyond tier 1, this additionally requires RNG states (the generators in Python, the framework, CUDA, and elsewhere), the data-iterator position, the shuffle epoch, the sampler state, and the dataloader worker/prefetch queue state — otherwise multi-worker prefetch order is itself a nondeterminism source; multi-rank training also needs per-rank checkpoint metadata.
+3. **Numerically/bitwise identical trajectory** (usually not fully attainable): on top of tier 2, this needs the AMP loss-scaler state, otherwise the dynamic loss scale restarts from a different point and the gradient-scaling path forks within the first few steps; it needs any in-flight gradients inside an unfinished accumulation window, which is avoidable if checkpoints are only taken at accumulation boundaries; it needs deterministic kernels, with nondeterministic cuDNN/cuBLAS operators explicitly disabled; and it needs exactly identical software versions and communication topology, since different GPU counts and different collective implementations reduce floats in different orders, accumulating ULP-level differences. **When the world size changes**, even the most careful resharding semantics usually cannot guarantee a trajectory bitwise-identical to the unchanged-world-size run, because both the data partitioning and the gradient-reduction tree structure change.
 
-1. **Resumable training** (weakest): the model can restore weights and optimizer state from the checkpoint and continue lowering loss, with no requirement that data order or numerics align exactly. Only model weights, optimizer state, and the LR schedule/consumed-token count are needed.
-2. **Identical sample sequence**: after restart, the data order the model sees (which sample at which step) exactly matches the uninterrupted run, without requiring bitwise-identical numerics. Beyond tier 1, this additionally requires: RNG states (the generators in Python/framework/CUDA etc.), the data-iterator position, the shuffle epoch, the sampler state, and the dataloader worker/prefetch queue state (§2.10; otherwise multi-worker prefetch order is itself a nondeterminism source); multi-rank training also needs per-rank checkpoint metadata.
-3. **Numerically/bitwise identical trajectory** (strongest, usually not fully attainable): on top of tier 2, this needs the AMP loss-scaler state (otherwise the dynamic loss scale restarts from a different point and the gradient-scaling path forks within the first few steps), any "in-flight" pending gradients inside an unfinished accumulation window (avoidable if checkpoints are only taken at accumulation boundaries), deterministic kernels (nondeterministic cuDNN/cuBLAS operators must be explicitly disabled), and exactly identical software versions and communication topology (different GPU counts/collective implementations reduce floats in different orders, accumulating ULP-level differences). **When the world size changes**, even the most careful resharding semantics usually cannot guarantee a trajectory bitwise-identical to the unchanged-world-size run — the data partitioning and the gradient-reduction tree structure both change.
-
-Missing the state required by any tier degrades the promise to a weaker tier — checkpoint metadata should explicitly declare which tier it guarantees (the world-size-change resharding boundary is in §4.4).
+Missing the state required by any tier means what you actually achieve is a weaker tier. Checkpoint metadata should explicitly declare which tier it guarantees.
 
 ### 5.3　Monitoring: per-domain validation loss
 
-Validation loss should be reported **per domain** (code/math/low-resource languages/long context, etc.), not just as one aggregate loss — the aggregate is easily dominated by the domain with the highest token weight (e.g. with web text at 80% of the mixture, the aggregate loss curve basically reflects only web-text quality), masking the degradation of a lower-weight but strategically important capability (code correctness, mathematical reasoning, some low-resource language, long-context retrieval) until it is far too late to fix cheaply.
+Validation loss should be reported **per domain** — code, math, low-resource languages, long context each counted separately — not just as one aggregate loss. The aggregate is easily dominated by the domain with the highest token weight: with web text at 80% of the mixture, the aggregate loss curve basically reflects only web-text quality. When a lower-weight but strategically important capability (code correctness, mathematical reasoning, some low-resource language, long-context retrieval) is degrading, the aggregate loss curve does not show it, and by the time it is noticed it is often very hard to recover.
 
-### 5.4　Loss spike / NaN: layered localization
+### 5.4　Loss spike / NaN triage
 
-The recommended triage order (not guessing causes all at once, but descending the "cheapest checks first" hierarchy):
+The recommended order, arranged "cheapest checks first", is a heuristic rather than a mandatory procedure, and can be adjusted when you have stronger priors:
 
-1. **Bad batch / data shard** — first see whether the spike reproduces in isolation on the same batch/shard (this depends on the deterministic sharding of §2.8, the sampler/cursor state of §2.10, and lineage; otherwise you cannot even locate "which batch");
+1. **Bad batch / data shard** — see whether the spike reproduces in isolation on the same batch or shard; this depends on deterministic sharding, the sampler's cursor state, and lineage (§2.8), without which you cannot even locate which batch it was;
 2. **LR and resume state** — a misconfigured LR schedule, or a schedule counter accidentally reset after a resume, can both produce anomalous updates whose actual step count differs from expectations;
-3. **Gradients and activations** — anomalous gradient norms, exploding activation norms, runaway logit magnitude in some layer; the runaway mechanisms are deferred to `normalization_init_tutorial.md` (that sibling's boundary is described in §5.6); this section only lists these quantities as triage items;
-4. **Mixed precision** — BF16/FP16 overflow/underflow (§4.3);
+3. **Gradients and activations** — anomalous gradient norms, exploding activation norms, runaway logit magnitude in some layer, residual instability; the mechanisms behind these diagnostic quantities are derived in `normalization_init_tutorial.md`, and concrete monitoring thresholds still require your own engineering;
+4. **Mixed precision** — BF16/FP16 overflow and underflow;
 5. **Cross-rank anomalies** — one DP/TP/PP rank quietly diverging (e.g. a GPU with hardware trouble) while the others look normal on the surface; only per-rank loss/gradient statistics reveal this;
 6. **Hardware faults** — ECC errors, single-GPU failures, collective-communication jitter.
 
-Keeping reproducible batch IDs / step numbers / shard attribution (§2.8, §2.10) is what enables after-the-fact replay and localization instead of guessing from memory. [D07] in §6 is the automated first line of defense — a rolling median/MAD detector responsible for flagging "when to start the triage above", not for judging root cause.
+Keeping reproducible batch IDs, step numbers, and shard attribution is what enables after-the-fact replay and localization. [D07] in §6 is the automated first line of defense: a rolling median/MAD detector that flags when to start the triage, not what the root cause is.
 
 ### 5.5　Checkpoint selection
 
-Checkpoint selection for downstream deployment should rely on the per-domain validation sets of §5.3 / a dedicated eval-set combination, not just the training loss — under a fixed data mixture, training loss mainly reflects fitting progress and does not directly correspond to generalization or the specific capability profile you actually care about.
+The checkpoint used for downstream deployment is chosen from the per-domain validation sets plus a dedicated eval-set combination. Under a fixed data mixture, training loss mainly reflects fitting progress and does not directly correspond to generalization or to the specific capability profile you actually care about.
 
-### 5.6　Sibling boundaries
+### 5.6　Common wrong answers
 
-- **normalization_init_tutorial.md** owns the full formula derivations for norm/residual/initialization and the **stability mechanisms** themselves; this tutorial only cites the **names of the diagnostic quantities** — activation norm / gradient norm / logit magnitude / residual instability — in NaN diagnosis (§5.4) without re-deriving them. That sibling explains "why these mechanisms make training more stable"; it is not a copy-paste monitoring-metrics runbook, and concrete monitoring thresholds still require your own engineering.
-- **moe_tutorial.md** owns the full mechanics of routing and load balancing; this tutorial only cares about the router aux-loss term that may appear in the total loss (§3.5) and the two ledger rules — active parameters for compute budget, total parameters for storage/memory (§1.2). Routing mechanics are uniformly deferred to that tutorial.
+| Wrong answer | Correct judgment |
+| --- | --- |
+| $6ND$ is an exact formula, so dividing $C$ by peak FLOPs gives the training time | It is an algorithm-level approximation that ignores the long-context attention term, the vocabulary projection, activation recomputation, and FLOP-counting conventions; estimating wall-clock time additionally needs the GPU count, peak FLOPs, and MFU |
+| Chinchilla gives one exact set of exponents, and its divergence from Kaplan is just "more data" | Different estimation methods give about 0.50/0.50, 0.49/0.51, 0.46/0.54; substituting the rounded $\alpha,\beta$ gives an analytic optimum of about 0.452/0.548, and the divergence also involves the fitting method, the training horizon, and whether the LR schedule matches the budget |
+| "20 tokens per parameter" is a universal constant | It is an empirical approximation; $D_*/N_*$ also depends on the fitted constants $A,B,k$, and drifts slowly with $C$ when $\alpha\ne\beta$ |
+| Training tokens beyond the Chinchilla ratio means overfitting, so the recipe is wrong | Feeding new, non-repeated, related data usually still lowers loss; over-trained is an economic judgment relative to the compute-optimal frontier |
+| MinHash measures semantic similarity, and semantic dedup is its unconditional upgrade | MinHash estimates the surface-level Jaccard duplication of shingle sets; semantic dedup addresses another level of duplication and does wrongly delete legitimate text with different wording |
+| Splitting first and deduplicating afterwards also blocks near-duplicates from crossing splits | Dedup clusters must form first and whole clusters be assigned to splits, merging by transitive closure documents that were never directly compared |
+| The domain weights in the config are the token shares the model actually sees, and the nominal $D$ is the effective data volume | Configured by document but used as token weights, the two are usually unequal (equal in expectation when defined as token-level target shares); repeatedly presented tokens inflate the nominal $D$ without bringing equivalent new information |
+| Cross-document attention after packing is a bug, and adding a block-diagonal mask achieves document independence | The continuous stream is a legitimate sequence-semantics choice; document independence additionally requires masking the cross-document label "previous document's EOS → next document's first token" |
+| Multiply the GPU count or the TP/PP world size into the global batch; $B_{input}$ and $B_{target}$ are interchangeable | Only the DP world size multiplies independent samples, and under shifted labels each sequence has at most $L_{seq}-1$ valid targets |
+| Mathematical equivalence means bitwise-identical numerics, and a run that resumes proves the trajectory was reproduced | Floating-point accumulation order and the reduction-tree structure change the last few digits; a bitwise-identical trajectory additionally needs the scaler state, in-flight gradients, deterministic kernels, and an identical topology, and is usually unattainable when the world size changes |
 
-## §6 From-scratch implementation: corpus → packing → key-invariant sanity checks (not a full training loop)
+## §6 From-scratch implementation: corpus → packing → key-invariant sanity checks
 
-The complete runnable script is [`code/pretraining_pipeline.py`](code/pretraining_pipeline.py) (pure Python standard library, zero third-party dependencies; all [D01]–[D07] sanity checks finish in seconds on CPU). Four demo groups chain into a mini pipeline: text → dedup → pack + loss mask → synthetic budget planner → spike monitor — this covers the **key invariants** that are the easiest to get wrong and the most worth backstopping with executable assertions, not an end-to-end runnable training loop: the script has no real forward/backward/optimizer step, and no real checkpoint writing or resume (for that conceptual state machine, see the master diagram in §0 and the three-tier framework of §5.2). The main text shows only the three most essential code segments; the full document-packing functional test, EOS boundary (§3.2), and padding (§3.3) are folded into the same script as short test functions and not pasted line by line.
+The complete runnable script is [`code/pretraining_pipeline.py`](code/pretraining_pipeline.py) — pure Python standard library, zero third-party dependencies, all [D01]–[D07] sanity checks finishing in seconds on CPU. Four demo groups chain into a mini pipeline: text → dedup → pack + loss mask → synthetic budget planner → spike monitor. The script covers four invariants with executable assertions — dedup, packing, Chinchilla fitting, spike monitoring — and has no real forward/backward/optimizer step, and no checkpoint writing or resume. Below are the three core code segments; the full document-packing functional test, the EOS boundary (§3.2), and padding (§3.3) are folded into the same script as short test functions.
 
 **[D01] MinHash / LSH / cluster-split transitive closure** (executable version of §2.3, §2.5):
 
@@ -456,7 +399,7 @@ assert uf.find(0) == uf.find(2) # transitive closure still merges them into one 
 # -> every doc in this cluster MUST receive the same train/val/test split label
 ```
 
-**[D02]/[D03] document packing: shifted labels + block-diagonal mask + functional test** (executable version of §3.4 — the most essential and most error-prone segment of the whole codebase):
+**[D02]/[D03] document packing: shifted labels + block-diagonal mask + functional test** (executable version of §3.4):
 
 ```python
 tokens = [11, 12, 13, 21, 22]
@@ -501,11 +444,11 @@ assert abs(n_star_100x / n_star - 100 ** (beta / (alpha + beta))) < 1e-6   # ~8.
 assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) < 1e-6  # ~12.5x
 ```
 
-[D04] (EOS boundary, reusing the same doc-id rule as [D02]), [D05] (padding's dual masks + no-empty-row check), and [D07] (rolling median/MAD spike detection + unconditional NaN/Inf alerts + spike/sustained-shift event classification) are folded into `main()` as independent assertion groups; their logic was already explained in §3.2, §3.3, and §5.4 respectively, so the code is not pasted again here.
+[D04] (EOS boundary, reusing the same doc-id rule as [D02]), [D05] (padding's dual masks + no-empty-row check), and [D07] (rolling median/MAD spike detection + unconditional NaN/Inf alerts + spike/sustained-shift event classification) are folded into `main()` as independent assertion groups.
 
 ## §7 26 High-Frequency Interview Questions
 
-Three difficulty tiers; expand each for answer key points + common pitfalls. When answering, **do not repeat the main-text derivations** — organize as "framework → key formulas → common mistakes".
+Three difficulty tiers; each question gives answer key points and common pitfalls.
 
 ### L1 Must-Know
 
@@ -525,7 +468,7 @@ Treating $6ND$ as exact, counting even embedding parameters into $N$ indiscrimin
 
 <summary>Q2. How are a causal LM's inputs/labels offset? Why is a randomly initialized model's loss usually close to $\ln V$?</summary>
 
-- Under teacher forcing, the label at position $i$ is $x_{i+1}$ (the sequence shifted right by one); the last position has no next token and is marked `IGNORE` (this tutorial uses $-100$, §3.1)
+- Under teacher forcing, the label at position $i$ is $x_{i+1}$ (the sequence shifted right by one); the last position has no next token and is marked `IGNORE` ($-100$ here, §3.1)
 - In packing/document-boundary settings, the rule "a label is valid iff the current position and the next position belong to the same document" uniformly handles both IGNORE sources — sequence end and document boundary (§3.2)
 - A randomly initialized model assigns approximately uniform probability to the next token, so the NLL at each valid position is approximately $\ln V$ ($V$ the vocabulary size) — the loss observed at the very start of training should be near this value; a clear deviation (far higher, or an anomalously low value) usually signals a problem with initialization, label alignment, or the data itself
 
@@ -616,7 +559,7 @@ Knowing only "lower PPL is better" without being able to state its tokenizer-dep
 - Chinchilla: no single "exact exponents" — different methods give about 0.50/0.50, 0.49/0.51, 0.46/0.54; the parametric model $L=E+A/N^\alpha+B/D^\beta$ fits $\alpha\approx0.34,\beta\approx0.28$, with analytic optimum $N_*\propto C^{0.452}, D_*\propto C^{0.548}$
 - The divergence is not just "more data": training-horizon design, whether the LR schedule matches the budget, and fitting methods all differ (§1.3)
 
-Answering only "Chinchilla says more data" without the three concrete exponent sets, and without the key technical divergence of training horizon/LR schedule — this question requires remembering all three estimation methods and their applicable settings at once, well beyond an L1-level shallow answer; that is its deep end.
+Answering only "Chinchilla says more data", without the exponents each of the three estimation methods gives, and without the key technical divergence of training horizon/LR schedule.
 
 </details>
 
@@ -640,7 +583,7 @@ The exponents are crossed: $N_*$ takes $\beta/(\alpha+\beta)$ and $D_*$ takes $\
 - MoE uses active parameters for the compute budget and total parameters for memory/checkpoints (§1.2)
 - Long context introduces the $L_{seq}^2$ term $6ND$ ignores; budget for it separately (§1.5)
 
-Only reciting the $N_*,D_*$ formulas without articulating the "training-optimal ≠ inference-aware-optimal" fork (also a high-frequency point called out in design reviews).
+Only reciting the $N_*,D_*$ formulas without articulating the "training-optimal ≠ inference-aware-optimal" fork.
 
 </details>
 
@@ -655,7 +598,7 @@ Only reciting the $N_*,D_*$ formulas without articulating the "training-optimal 
 - The two most common combinations are "continuous stream = causal attention + no position-id reset + no extra target masking" and "independent documents = block-diagonal attention + position-id reset + cross-document target masking", but intermediate configurations like "causal attention yet still masking cross-document targets" exist in practice — the two extremes must not be treated as the only two options
 - Both keep the supervision "document's last content token → EOS"; they differ only in how the "cross-document" part is handled (§3.2, §3.4)
 
-Answering this question by "reciting two fixed recipes", without saying the three knobs combine independently, or that resetting position ids under RoPE is not mathematically required, is its deep end.
+Answering this question by "reciting two fixed recipes", without saying the three knobs combine independently, or that resetting position ids under RoPE is not mathematically required.
 
 </details>
 
@@ -693,7 +636,7 @@ Treating LSH candidates directly as "confirmed near-duplicates", skipping the ex
 - The model has "memorized" a near-copy of validation samples during training; validation loss is spuriously low, misleading early stopping and model selection
 - Correct approach: run near dedup first to get connected components (dedup clusters), then assign whole clusters atomically to a split; even if A and C were never directly compared, transitive connection through B still forces them into the same split (§2.5, [D01])
 
-Knowing only "dedup is needed" without saying that the **ordering** is the real point of this question, and without the hidden transitive-closure requirement.
+Knowing only "dedup is needed", without saying the ordering of dedup and split, and without the hidden transitive-closure requirement.
 
 </details>
 
@@ -742,11 +685,11 @@ Only reciting the absolutist conclusion "PAD=EOS is wrong", without being able t
 <summary>Q19. Design a complete data pipeline from web crawling to training shards.</summary>
 
 - **The eleven steps of §2.1 are a reference flow; the main hard constraint is a single one: dedup clusters must form first, then the cluster-level split** (which depends on the already-computed connected components, §2.5); privacy/safety processing and quality filtering are often moved earlier in practice, or run once at several stages, and need not be locked into their fixed table positions
-- After the raw-document stage comes a frequently omitted **tokenized stage**: tokenizer materialization (actually running the tokenizer over raw-document shards to produce the token stream, §2.8), token-level mixture sampling (correcting the gap between document-level quotas and actual token shares, §2.7), long-document chunk/truncate (§2.9), and the data-stream/sampler layer that decides how those tokenized shards are read at training time (shard shuffle, domain-sampling RNG, mutually exclusive DP-rank sharding, worker/prefetch state, cursor position, §2.10)
+- After the raw-document stage comes a frequently omitted **tokenized stage**: tokenizer materialization (actually running the tokenizer over raw-document shards to produce the token stream), token-level mixture sampling (correcting the gap between document-level quotas and actual token shares), long-document chunk/truncate, and the data-stream/sampler layer that decides how those tokenized shards are read at training time (shard shuffle, domain-sampling RNG, mutually exclusive DP-rank sharding, worker/prefetch state, cursor position) — see §2.7–§2.10
 - Every step must keep lineage: source/snapshot version/filter version/dedup cluster ID/split assignment/chunk attribution/final shard position (§2.1, §2.9)
 - Benchmark decontamination targets eval sets and is a different matter from the train-val split (§2.4, §2.6)
 
-Memorizing only the eleven steps' names and order as the one true answer, without stating that "dedup before split" is the only hard constraint, and omitting the tokenizer/chunking/sampler stages of the tokenized phase, is the deep end of this system-design question.
+Memorizing only the eleven steps' names and order as the one true answer, without stating that "dedup before split" is the only hard constraint, and omitting the tokenizer/chunking/sampler stages of the tokenized phase.
 
 </details>
 
@@ -755,10 +698,10 @@ Memorizing only the eleven steps' names and order as the one true answer, withou
 <summary>Q20. What state must a checkpoint save for "deterministic resume"? Which determinism, exactly?</summary>
 
 - First decide which tier you want (§5.2): **resumable training** needs only model weights + optimizer state (Adam's $m,v$) + LR schedule/consumed-token count; **identical sample sequence** additionally needs RNG states, data-iterator position, shuffle epoch, sampler state, and dataloader worker/prefetch state, plus per-rank checkpoint metadata for multi-rank training
-- The strongest tier, **numerically/bitwise identical trajectory**, additionally needs the AMP loss-scaler state, in-flight pending gradients (from an unfinished accumulation window), deterministic kernels, and exactly identical software versions/communication topology — and even then, changing the world size usually still cannot guarantee a bitwise-identical trajectory (resharding semantics deferred to `distributed_training_tutorial.md`)
+- The strongest tier, **numerically/bitwise identical trajectory**, additionally needs the AMP loss-scaler state, in-flight pending gradients (from an unfinished accumulation window), deterministic kernels, and exactly identical software versions/communication topology — and even then, changing the world size usually still cannot guarantee a bitwise-identical trajectory; how a checkpoint reshards when the world size changes, and whether the resharded run can match the original trajectory, has no general answer, and `distributed_training_tutorial.md` does not cover it either
 - Missing the data-iterator position or RNG state drops you straight out of the "identical sample sequence" tier; satisfying the first two tiers but missing the AMP scaler/pending gradients/deterministic kernels gives you "restartable" and "order-consistent" but not full numerical reproduction
 
-Treating "deterministic resume" as a single black-or-white promise, without mapping the three strength tiers to their necessary states, is the real deep end of this question.
+Treating "deterministic resume" as a single black-or-white promise, without mapping the three strength tiers to their necessary states.
 
 </details>
 
@@ -770,7 +713,7 @@ Treating "deterministic resume" as a single black-or-white promise, without mapp
 - Keep reproducible batch IDs/step numbers for after-the-fact replay and localization
 - Automated first line of defense: a rolling median/MAD detector responsible for flagging "when to start the triage", not for judging root cause (§5.4, [D07])
 
-Jumping straight to "it must be the learning rate", skipping "can it reproduce on the same batch" — the cheapest and most deserving first step.
+Jumping straight to "it must be the learning rate being too high", skipping "can it reproduce on the same batch" — the cheapest and most deserving first step.
 
 </details>
 
@@ -819,7 +762,7 @@ Claiming the first two detections "solve it completely", or treating the third a
 - **Compute budget uses active parameters**: the $N$ in $6ND$ takes the expert parameters that actually participate in that token's forward/backward computation
 - **$6N_{active}D$ is itself still an approximation**: it excludes MoE-specific all-to-all communication overhead, inter-expert load imbalance, and the extra compute of capacity padding (tokens exceeding routing capacity must be dropped or handled specially); details deferred to `moe_tutorial.md`
 - **Aggregate checkpoint/model-state size grows with total parameters**: all expert weights must be storable in full
-- **Per-GPU memory cannot simply be counted by total**: it also depends on the sharding scheme — EP (expert parallelism)/FSDP etc. — parameter dtype, optimizer state (Adam's $m,v$ counted at post-sharding scale), gradients, and activation memory; at the same total parameter count, different sharding strategies give very different per-GPU memory; if the total loss includes a router aux loss, its magnitude is usually far below the main loss (§1.2, §3.5, §5.6)
+- **Per-GPU memory cannot simply be counted by total**: it also depends on the sharding scheme — EP (expert parallelism)/FSDP etc. — parameter dtype, optimizer state (Adam's $m,v$ counted at post-sharding scale), gradients, and activation memory; at the same total parameter count, different sharding strategies give very different per-GPU memory; if the total loss includes a router aux loss, its magnitude is usually far below the main loss (§1.2, §3.5)
 
 Mixing up active and total parameters — estimating $6ND$ training compute with total parameters significantly overestimates; conversely, estimating per-GPU memory by simply dividing total parameters by GPU count, ignoring sharding and optimizer/activation footprints, is the other common oversimplification here.
 
@@ -833,17 +776,17 @@ Mixing up active and total parameters — estimating $6ND$ training compute with
 - **Strong audit (recorded on top of minimum traceability)**: sample/content hash (confirming "the content now" matches "as written then"), raw snapshot hash (not just a version number), tokenizer/normalizer hashes (the concrete artifact, not a version string), code/container versions, mixture-sampling random seeds, shard checksums, exact document→segment/token mapping (especially with chunking, §2.9), and license plus takedown-request status
 - Strong-audit records serve four scenarios: benchmark-contamination investigation, loss-spike reproduction and localization, tracing suspicious model outputs to sources, and compliance takedown-request response (§2.1, §2.8, §2.9, §5.4)
 
-Storing just a "source URL + version number" and calling it enough — unable to name the content hash, tokenizer hash, mixture seed, and document→token mapping that equally determine "what this sample looks like now", and unable to name the license/takedown compliance dimension — is the deep end of this question.
+Storing just a "source URL + version number" and calling it enough — unable to name the content hash, tokenizer hash, mixture seed, and document→token mapping that equally determine "what this sample looks like now", and unable to name the license/takedown compliance dimension.
 
 </details>
 
 ## §A Appendix: Sanity Checks
 
-This tutorial's from-scratch implementation should satisfy the following key invariants (pure Python standard library, no third-party dependencies, seconds on CPU; script at [`code/pretraining_pipeline.py`](code/pretraining_pipeline.py)):
+The from-scratch implementation should satisfy the following key invariants; script at [`code/pretraining_pipeline.py`](code/pretraining_pipeline.py):
 
 1. **[D01] dedup**: exact Jaccard $J(A,B)=8/12=2/3$ ($A=\{1..10\}$, $B=\{1..8,11,12\}$); the fixed-seed, 1024-permutation MinHash estimate falls within a tolerance set by sampling theory (exact equality is not asserted); LSH ($b=128,r=8$) candidate probability is far higher for the high-similarity pair ($s=2/3$) than for the low-similarity pair ($s=0.05$); union-find verifies that the transitive closure of A~B, B~C puts A and C in the same dedup cluster, which must receive the same split.
 2. **[D02] packing shifted labels**: with `tokens=[11,12,13,21,22]`, `doc_ids=[0,0,0,1,1]`, independent-document semantics give labels `[12,13,IGNORE,22,IGNORE]`; continuous-stream semantics give `[12,13,21,22,IGNORE]` (the same token stream, two legitimate configurations, different labels).
-3. **[D03] block-diagonal mask + functional test**: `M[3,2]=False`, `M[4,0]=False`, `M[4,3]=True` (block mode); the same coordinate in continuous-stream mode has `M[3,2]=True`. With $QK^\top=0$, changing doc0's values from 100 to 1000 leaves block mode's document-1 output unchanged at $0$, while continuous-stream mode's output goes from $75$ to $750$.
+3. **[D03] block-diagonal mask + functional test**: `M[3,2]=False`, `M[4,0]=False`, `M[4,3]=True` (block mode); the same coordinate in continuous-stream mode has `M[3,2]=True`. With $QK^\top=0$, when doc0's values change from `[1,2,3]` to `[1000,2000,3000]` while doc1's values stay `[10,20]`, block mode's document-1 outputs at q3 and q4 stay unchanged at `10.0` and `15.0`, while continuous-stream mode's q3 output goes from `4.0` to `1502.5`.
 4. **[D04] EOS boundary**: on `[11,12,13,EOS,21,22,EOS]` / `doc_ids=[0,0,0,0,1,1,1]`, the label content-end token (13)→EOS is kept (=EOS) and the label EOS→next document's first token (21) is masked (IGNORE) — both produced automatically by the same doc-id boundary rule.
 5. **[D05] padding**: with `valid_len=3` the loss mask is `[1,1,0,0,0]`; real queries cannot attend to padding keys; every attention row is non-empty (no all-`-inf` row causing softmax NaN).
 6. **[D06] Chinchilla fit**: from a log-spaced grid ($N\in[10^7,10^{12}]$, $D\in[10^8,10^{13}]$, 6 points each) the noiseless recovery of $E,A,B$ is within $<10^{-3}$ of the synthetic ground truth; the recovered $E$ is below all finite observed losses; the analytic $N_*,D_*$ differ from the fine-grid-search minimum by at most one grid step; at 100x compute, $N_*$ grows about $100^{0.452}\approx 8.0$x and $D_*$ about $100^{0.548}\approx 12.5$x.
