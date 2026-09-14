@@ -19,6 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "index.html"
 SITE = "https://wanshuiyin.github.io/ARIS-in-AI-Offer"
+SHORT = "https://easyaioffer.github.io"  # org-level redirect to SITE; the address people type
 REPO = "https://github.com/wanshuiyin/ARIS-in-AI-Offer"
 
 # id, 中文, English, emoji
@@ -147,7 +148,7 @@ def build() -> str:
     tpl = (ROOT / "tools" / "templates" / "index.html").read_text(encoding="utf-8")
     return (tpl.replace("{{N}}", str(n)).replace("{{NCAT}}", str(len(CATEGORIES) - 1))
                .replace("{{CHIPS}}", chips).replace("{{SECTIONS}}", "".join(sections))
-               .replace("{{SITE}}", SITE).replace("{{REPO}}", REPO))
+               .replace("{{SITE}}", SITE).replace("{{SHORT}}", SHORT).replace("{{REPO}}", REPO))
 
 if __name__ == "__main__":
     OUT.write_text(build(), encoding="utf-8")

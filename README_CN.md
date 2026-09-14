@@ -8,7 +8,7 @@
 >
 > 📖 **English version (default)**: [README.md](README.md)
 
-> 📱 **一个链接看全部：**[**wanshuiyin.github.io/ARIS-in-AI-Offer**](https://wanshuiyin.github.io/ARIS-in-AI-Offer/) —— 全部教程一页收齐，可搜索、中/EN 切换、深色模式、本机记「已读」。存到手机里刷。
+> 📱 **一个链接看全部：**[**easyaioffer.github.io**](https://easyaioffer.github.io)（短地址，站点本体是 [wanshuiyin.github.io/ARIS-in-AI-Offer](https://wanshuiyin.github.io/ARIS-in-AI-Offer/)）—— 全部教程一页收齐，可搜索、中/EN 切换、深色模式、本机记「已读」。存到手机里刷。
 
 **📚 按方向直达** —— 35 篇 first-party cheat sheet，8 大方向，外加 1 份社区贡献题库：
 

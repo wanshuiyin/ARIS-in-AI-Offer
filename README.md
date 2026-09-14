@@ -8,7 +8,7 @@
 >
 > 📖 **中文版 (Chinese version)**: [README_CN.md](README_CN.md)
 
-> 📱 **One link for everything:** [**wanshuiyin.github.io/ARIS-in-AI-Offer**](https://wanshuiyin.github.io/ARIS-in-AI-Offer/) — every sheet on one page, searchable, 中/EN switch, dark mode, and a per-reader 已读 tracker. Save it on your phone.
+> 📱 **One link for everything:** [**easyaioffer.github.io**](https://easyaioffer.github.io) (short address; the site itself is [wanshuiyin.github.io/ARIS-in-AI-Offer](https://wanshuiyin.github.io/ARIS-in-AI-Offer/)) — every sheet on one page, searchable, 中/EN switch, dark mode, and a per-reader 已读 tracker. Save it on your phone.
 
 **📚 Jump to a topic** — 35 first-party cheat sheets across 8 categories, plus a community-contributed question bank:
 
