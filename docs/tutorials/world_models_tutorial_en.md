@@ -21,7 +21,7 @@
 
 A world model is an agent's **internally learned model of the environment's structure and dynamics**: given the observations and actions so far, it can predict "if I do this, what happens next". The definition deliberately leaves the output form open, because **which output is necessary depends on the use** — to do RL inside the model you need a way to compute returns in imagination and to truncate episodes (the Dreamer family does this by learning a reward head and a continuation head; when the reward function or the termination rule is known, using the known one is equally fine); for visual goal-directed navigation you only need to compare distances between goal representations; to serve as a playable simulator you must generate observations a human can look at.
 
-So "does it count as a world model" is mostly a fake question. The real ones are three: **what information is kept, which quantity is predicted, and which kind of decision that quantity can support**. This tutorial is organised around those three.
+So "does it count as a world model" is mostly a fake question. The real ones are three: **what information is kept, which quantity is predicted, and which kind of decision that quantity can support**.
 
 ### 1.2　Three lineages (they overlap)
 
@@ -33,19 +33,19 @@ So "does it count as a world model" is mostly a fake question. The real ones are
 
 > ⚠️ **Classify by "which quantity is predicted", not by camp** — Dreamer 4 is both a transformer generative dynamics model and imagination RL; Cosmos 3 is a single model spanning language, image, video, audio and action; video diffusion models generate inside a VAE latent, which shares only its name with RSSM's latent. Classifying by camp contradicts itself immediately; classifying by "which quantity is predicted and how it enters a decision" does not.
 
-### 1.3　Selection criterion for this tutorial
+### 1.3　Selection criterion
 
-"This tutorial gives priority to work that establishes a key mechanism, represents a major technical route, or was released by a major research group and is closely tied to embodied decision-making; at equal representativeness, open weights come first. The newest releases are used to indicate direction, and their maturity is stated separately."
+"Priority goes to work that establishes a key mechanism, represents a major technical route, or was released by a major research group and is closely tied to embodied decision-making; at equal representativeness, open weights come first. The newest releases are used to indicate direction, and their maturity is stated separately."
 
-The work that was excluded and the reason for each entry are in §A.2 — when an interview asks about a name this tutorial does not cover, knowing why it was excluded is more useful than memorising one more name.
+The work that was excluded and the reason for each entry are in §A.2 — when an interview asks about a name that was not included, knowing why it was excluded is more useful than memorising one more name.
 
 ### 1.4　Term disambiguation (where interviews most often talk past each other)
 
-- **The environment model of RL**: $p(s_{t+1}, r_{t+1} \mid s_t, a_t)$, in service of planning and imagination. Lineage one here.
-- **The world model in LeCun's sense**: prediction in an abstract representation space, explicitly refusing pixel-level reconstruction. His position paper was published on OpenReview (v0.9.2, 2022-06-27) and has **no arXiv number** — don't invent one when citing it. Lineage two here.
-- **"World simulator"**: a generative model that can produce interactive video conditioned on actions. Lineage three here.
-- **The "world model" inside an LLM**: whether a language model's activations encode external state such as a chess board or a map. That asks "is it in the representation", not "can it predict the consequence of an action". A different question, not covered here.
-- **"World model" in the sense of code execution**: a model that predicts program execution state. This is a **terminology collision** with the present topic, not the same line of work.
+- **The environment model of RL**: $p(s_{t+1}, r_{t+1} \mid s_t, a_t)$, in service of planning and imagination. Lineage one.
+- **The world model in LeCun's sense**: prediction in an abstract representation space, explicitly refusing pixel-level reconstruction. His position paper was published on OpenReview (v0.9.2, 2022-06-27) and has **no arXiv number** — don't invent one when citing it. Lineage two.
+- **"World simulator"**: a generative model that can produce interactive video conditioned on actions. Lineage three.
+- **The "world model" inside an LLM**: whether a language model's activations encode external state such as a chess board or a map. That asks "is it in the representation", not "can it predict the consequence of an action". A different question, outside the scope.
+- **"World model" in the sense of code execution**: a model that predicts program execution state. This is a **terminology collision** with the world models discussed here, not the same line of work.
 
 Two more pairs of symbols and scopes that must be kept apart:
 
@@ -78,7 +78,7 @@ So $r_{t+1}$ is the immediate reward of action $a_t$, and $c_{t+1}\in\{0,1\}$ fl
 
 ### 2.3　Prediction heads: which ones are necessary
 
-A Dreamer-style world model usually carries three heads: **observation** (reconstruction or token prediction), **reward** and **continuation**. The latter two exist so that "RL inside the model" can run — **in the Dreamer implementation described here**, returns in imagination come from the learned reward head and episode truncation from the learned continuation head; remove either one and the computation no longer closes.
+A Dreamer-style world model usually carries three heads: **observation** (reconstruction or token prediction), **reward** and **continuation**. The latter two exist so that "RL inside the model" can run — **in this Dreamer implementation**, returns in imagination come from the learned reward head and episode truncation from the learned continuation head; remove either one and the computation no longer closes.
 
 That necessity holds only for this implementation; don't promote it into a general law. When the reward function or the termination rule is known (which is true of many simulators and games), calling the known one computes returns and truncates episodes in imagination just as well. Observation reconstruction is even further from necessary for "RL inside the model" — MuZero and TD-MPC2 both plan without reconstructing observations (§3.8).
 
@@ -86,7 +86,7 @@ A pure video generation model **does not necessarily need reward and continuatio
 
 ### 2.4　Number provenance
 
-Every external number in this tutorial states, at its first appearance in the body, the **task, metric, model version and setting**; speed numbers name the hardware; improvements distinguish **percentage points** from **relative percentages**. Openness is reported per artefact — paper, code, weights and data are four different things, and **a planned release is not written as already open**. Claims supported only by an official blog post or press release are labelled "blog-only" throughout.
+Every external number states, at its first appearance in the body, the **task, metric, model version and setting**; speed numbers name the hardware; improvements distinguish **percentage points** from **relative percentages**. Openness is reported per artefact — paper, code, weights and data are four different things, and **a planned release is not written as already open**. Claims supported only by an official blog post or press release are always labelled "blog-only".
 
 ---
 
@@ -132,7 +132,7 @@ $$\mathcal L_{KL}=\beta_{dyn}D_{KL}(\mathrm{sg}\,q\Vert p)+\beta_{rep}D_{KL}(q\V
 
 **free bits** is a different thing: $\max(\tau, D_{KL})$ flattens the KL at a floor $\tau$, so once the KL is small enough it is not pushed further and the spare capacity goes to reconstruction. It applies to the **joint KL** — sum over all latent groups first, then truncate; it is not a truncation per categorical probability.
 
-DreamerV3 paper v1 (Hafner et al. 2023, arXiv 2301.04104, Eq. 4 and Table W.1) takes $\beta_{dyn}=0.5$, $\beta_{rep}=0.1$; the v2 body of the same paper writes $\beta_{dyn}=1$, $\beta_{rep}=0.1$. This tutorial uses v1 throughout — **when quoting coefficients, always say which version**.
+DreamerV3 paper v1 (Hafner et al. 2023, arXiv 2301.04104, Eq. 4 and Table W.1) takes $\beta_{dyn}=0.5$, $\beta_{rep}=0.1$; the v2 body of the same paper writes $\beta_{dyn}=1$, $\beta_{rep}=0.1$. Coefficients are taken from v1 — **when quoting coefficients, always say which version**.
 
 ### 3.5　Where actions come from: online planning vs an actor-critic inside imagination
 
@@ -146,7 +146,7 @@ The λ-return, written under the time convention of §2.1:
 
 $$G_t^\lambda=\hat r_{t+1}+\gamma\hat c_{t+1}\big[(1-\lambda)v(s_{t+1})+\lambda G_{t+1}^\lambda\big],\qquad G_H^\lambda=v(s_H)$$
 
-The critic's regression target takes a stop-gradient. DreamerV3 v1 Table W.1 takes $H=15$ while the body's prediction sequence length is $T=16$: **this tutorial always counts action transitions by $H$, so the state sequence including the start point has $H+1$ states**. That difference of 1 is not a typo, it is "counting states versus counting transitions".
+The critic's regression target takes a stop-gradient. DreamerV3 v1 Table W.1 takes $H=15$ while the body's prediction sequence length is $T=16$: **action transitions are always counted by $H$, so the state sequence including the start point has $H+1$ states**. That difference of 1 is not a typo, it is "counting states versus counting transitions".
 
 > ⚠️ **Write the actor gradient per version, don't fuse them into one formula** — Dreamer uses **pathwise gradients**: the return is differentiable with respect to the action, and the gradient travels back to the actor through the learned dynamics. DreamerV3's actor loss is of the **score-function (REINFORCE-style)** form, with return normalization and an entropy regulariser. Also, "freeze the world-model parameters when updating actor/critic" means not changing the dynamics model's parameters; it is **not** the same as putting the whole imagination under `no_grad()` — a pathwise gradient only exists if it can pass through the dynamics graph.
 
@@ -251,11 +251,11 @@ Navigation World Models (Bar et al. 2024, arXiv 2412.03572) is often filed under
 
 A 2026 paper on JEPA generalisation (arXiv 2606.27014) connects pre-training error to the regret of downstream planning, in a setting of **low-rank factorisation** of a conditional spectral graph / action-conditioned co-occurrence matrix. The conclusion holds only under those assumptions — it is **not an unconditional guarantee that "small representation loss implies good planning"**. Cite it together with its setting, or you are substituting a paper's title for an argument.
 
-VL-JEPA (arXiv 2512.10942) brings language into the same framework; this tutorial mentions it directionally only and cites none of its numbers.
+VL-JEPA (arXiv 2512.10942) brings language into the same framework; only the direction is mentioned here, with none of its numbers cited.
 
 ### 4.9　What this lineage is missing
 
-Read against lineage one, the gap is clear — **confined to the planning instance described here** (2-AC's representation-space MPC): **no reward, no continuation, no explicit uncertainty**, with the decision resting entirely on one quantity, the distance to the goal representation. That is a property of that interface, not a law of the whole lineage: reward or uncertainty estimation can perfectly well be attached on top of the same representation.
+Read against lineage one, the gap is clear — **confined to the planning instance above** (2-AC's representation-space MPC): **no reward, no continuation, no explicit uncertainty**, with the decision resting entirely on one quantity, the distance to the goal representation. That is a property of that interface, not a law of the whole lineage: reward or uncertainty estimation can perfectly well be attached on top of the same representation.
 
 It is therefore naturally suited to **goal-conditioned** tasks (move the gripper to this visual goal), and when long-horizon returns or risk aversion are needed you have to supply the missing quantities yourself. Don't count "sparse reward" among the exclusions either — sparse-reward tasks can often be written in goal-conditioned form, which makes goal-conditioned MPC the convenient choice.
 
@@ -321,9 +321,9 @@ Besides LAM there are three other interfaces, **semantically completely differen
 
 ### 5.4　Driving, and Sora as a contrast
 
-For driving this tutorial keeps only the **task difference**: **GAIA-2** (Wayve 2025, arXiv 2503.20523) makes one concrete point — adding **action, road layout and driving conditions** as conditions gets much closer to the controllability that driving decisions need than unconditional video generation does. **GAIA-3** currently has information only at the press-release level (**blog-only**), so this tutorial mentions it only at the level of its release.
+For driving, only the **task difference** is kept: **GAIA-2** (Wayve 2025, arXiv 2503.20523) makes one concrete point — adding **action, road layout and driving conditions** as conditions gets much closer to the controllability that driving decisions need than unconditional video generation does. **GAIA-3** currently has information only at the press-release level (**blog-only**), so it is mentioned only at the level of its release.
 
-Sora / Sora 2 appear here as a **contrast**, not a protagonist: their public material is high-level reporting, and their goal is the quality and usability of general video generation, which is not the same problem as the "consequences of actions and decisions" this cheat sheet is about (reasons for exclusion in §A.2). Equating "video generator" with "world model" is exactly the starting point of the definition fight in §7.4.
+Sora / Sora 2 are a **contrast**, not a protagonist: their public material is high-level reporting, and their goal is the quality and usability of general video generation, which is not the same problem as the main thread of "the consequences of actions and decisions" (reasons for exclusion in §A.2). Equating "video generator" with "world model" is exactly the starting point of the definition fight in §7.4.
 
 ---
 
@@ -374,7 +374,7 @@ Both papers reach conclusions of the form "no model meets the requirements acros
 - **L0–L7 position** (arXiv 2606.15032) proposes a grading over **several crossing axes**, not levels along a single line.
 - **Agentic World Modeling** (arXiv 2604.22748) discusses world models inside an agent's decision loop, caring about "which step of the decision the model serves"; **"Predictor / Simulator / Evolver" comes from this paper**.
 
-> ⚠️ **Don't mix the grading schemes, and don't treat them as consensus** — L0–L7 (2606.15032) is a multi-axis grading, Predictor/Simulator/Evolver comes from Agentic World Modeling (2604.22748), and Definition & Roadmap (2607.06401) is yet another division; **all of them are the authors' positions, not a consensus of the field**. The L1/L2/L3 in §10 of this tutorial denote only **interview question difficulty** and have nothing to do with any of those gradings.
+> ⚠️ **Don't mix the grading schemes, and don't treat them as consensus** — L0–L7 (2606.15032) is a multi-axis grading, Predictor/Simulator/Evolver comes from Agentic World Modeling (2604.22748), and Definition & Roadmap (2607.06401) is yet another division; **all of them are the authors' positions, not a consensus of the field**. The L1/L2/L3 in §10 denote only **interview question difficulty** and have nothing to do with any of those gradings.
 
 ### 7.5　Two things to say fairly
 
@@ -448,7 +448,7 @@ def balanced_kl(post, prior, beta_dyn=0.5, beta_rep=0.1, free_nats=1.0):
 
 `post.detach()` stops the gradient **on that path**; $h_t$ is shared by the two heads, and its gradient still comes back along the other one.
 
-In this code $\beta_{dyn},\beta_{rep}$ (v1 Eq. 4 / Table W.1), the 32-group × 32-class categorical latent (Table W.1) and `free_nats=1.0` (the 1 nat of Eq. 5) all follow the DreamerV3 paper; **using `GRUCell` as the recurrent cell and the network widths are choices made here for readability**, not the only implementation the paper prescribes.
+In this code $\beta_{dyn},\beta_{rep}$ (v1 Eq. 4 / Table W.1), the 32-group × 32-class categorical latent (Table W.1) and `free_nats=1.0` (the 1 nat of Eq. 5) all follow the DreamerV3 paper; **using `GRUCell` as the recurrent cell and the network widths are choices made for readability**, not the only implementation the paper prescribes.
 
 ### 9.2　JEPA: asymmetric predictor + EMA target
 
@@ -498,7 +498,7 @@ class LatentActionModel(nn.Module):
         return pred, k, loss
 ```
 
-The bottleneck's entire job is to **limit the amount of information**: at $K=8$ one code is at most 3 bits. The decoder only gets $o_t$ and $e_k$, so $e_k$ has to carry "the bit of the inter-frame change most worth keeping" — but whether that is an **action**, the code does not guarantee (§5.1). The `beta_commit=0.25` here is the common empirical value from VQ-VAE, **copied here as a demonstration**; Genie prescribes no such number.
+The bottleneck's entire job is to **limit the amount of information**: at $K=8$ one code is at most 3 bits. The decoder only gets $o_t$ and $e_k$, so $e_k$ has to carry "the bit of the inter-frame change most worth keeping" — but whether that is an **action**, the code does not guarantee (§5.1). The `beta_commit=0.25` here is the common empirical value from VQ-VAE, **copied over as a demonstration**; Genie prescribes no such number.
 
 ---
 
@@ -640,7 +640,7 @@ No guarantee. The argument for a small codebook is **capacity**: one code carrie
 
 <summary>Q15. Write the λ-return used in imagination and state the start-point and length conventions.</summary>
 
-Under this tutorial's time convention:
+Under the §2 time convention:
 
 $$G_t^\lambda=\hat r_{t+1}+\gamma\hat c_{t+1}\big[(1-\lambda)v(s_{t+1})+\lambda G_{t+1}^\lambda\big],\qquad G_H^\lambda=v(s_H)$$
 
@@ -752,7 +752,7 @@ Then check the evidence tier: is there a paper or only a blog post; how far are 
 
 Finally put it on the evaluation map: WorldModelBench measures instruction following and physics/common-sense violations, WorldScore measures controllability, quality and dynamics, WorldRoamBench measures action following, visual consistency, physical plausibility and memory retention during interaction, and WorldArena 2.0 brings in visuo-tactile signals, policy optimisation inside the model and a real robot platform. They do not ask the same thing, and doing well on one does not vouch for another; and the "no model meets the requirements across the board" conclusions in these benchmarks are confined to the models and protocols they tested.
 
-Be careful with the gradings: L0–L7 (arXiv 2606.15032) is a proposal over **several crossing axes**; Predictor / Simulator / Evolver comes from **Agentic World Modeling (arXiv 2604.22748)**, so don't file it under Definition & Roadmap — the latter (arXiv 2607.06401) is yet another proposal with a different set of roles (Renderer / Simulator / Planner, etc.). **None of these is a consensus of the field**; the GLP critique (arXiv 2507.05169) represents yet another position. The L1/L2/L3 in §10 of this tutorial denote only interview question difficulty.
+Be careful with the gradings: L0–L7 (arXiv 2606.15032) is a proposal over **several crossing axes**; Predictor / Simulator / Evolver comes from **Agentic World Modeling (arXiv 2604.22748)**, so don't file it under Definition & Roadmap — the latter (arXiv 2607.06401) is yet another proposal with a different set of roles (Renderer / Simulator / Planner, etc.). **None of these is a consensus of the field**; the GLP critique (arXiv 2507.05169) represents yet another position. The L1/L2/L3 in §10 denote only interview question difficulty.
 
 </details>
 
@@ -762,7 +762,7 @@ Be careful with the gradings: L0–L7 (arXiv 2606.15032) is a proposal over **se
 
 ### A.1　Papers and provenance
 
-Evidence tier: **✅ paper** (public on arXiv; the details cited here are taken from the paper) / **⚠️ blog-only** (official blog post or press release only, no paper). A third case is written out separately: **a paper exists but this tutorial mentions it directionally only** (its numbers were not individually verified), and it is not merged into "blog-only".
+Evidence tier: **✅ paper** (public on arXiv; the details cited are taken from the paper) / **⚠️ blog-only** (official blog post or press release only, no paper). A third case is written out separately: **a paper exists but only the direction is mentioned** (its numbers were not individually verified), and it is not merged into "blog-only".
 
 **Lineage one: latent dynamics / MBRL**
 
@@ -793,7 +793,7 @@ Evidence tier: **✅ paper** (public on arXiv; the details cited here are taken 
 | V-JEPA 2.1 | ✅ 2603.14482 | both masked and visible-context tokens supervised; multi-layer deep self-supervision; scaling |
 | DINO-WM | ✅ 2411.04983 | learns dynamics on frozen DINOv2 features, plans with goal features |
 | JEPA generalisation theory | ✅ 2606.27014 | low-rank factorisation of a conditional spectral graph / action-conditioned co-occurrence matrix → pre-training error and planning regret |
-| VL-JEPA | ✅ 2512.10942 | brings language into the same framework; **paper 2512.10942; mentioned directionally only here**, none of its numbers cited |
+| VL-JEPA | ✅ 2512.10942 | brings language into the same framework; **paper 2512.10942; direction only**, none of its numbers cited |
 
 **Lineage three, embodiment and evaluation**
 
@@ -828,17 +828,17 @@ Evidence tier: **✅ paper** (public on arXiv; the details cited here are taken 
 | L0–L7 position | ✅ 2606.15032 | a grading proposal over several crossing axes |
 | Agentic World Modeling | ✅ 2604.22748 | puts the world model back in the agent's decision loop; **Predictor / Simulator / Evolver comes from this paper** |
 
-**Openness**: Cosmos 3's Edge, Nano and Super are all released (Edge released 2026-07-20, see its HF model card) under the OpenMDW-1.1 licence; Genie 3, Project Genie, Atlas and GAIA-3 have information only at the official blog level (Cosmos-Predict2.5 **has a paper**, arXiv 2511.00062). For the remaining entries this tutorial asserts only that "the paper is public"; whether code, weights and data are open **is governed by each project's own official page** — this tutorial makes no per-entry assertion, because those four things are frequently out of sync.
+**Openness**: Cosmos 3's Edge, Nano and Super are all released (Edge released 2026-07-20, see its HF model card) under the OpenMDW-1.1 licence; Genie 3, Project Genie, Atlas and GAIA-3 have information only at the official blog level (Cosmos-Predict2.5 **has a paper**, arXiv 2511.00062). For the remaining entries the only assertion is that "the paper is public"; whether code, weights and data are open **is governed by each project's own official page** — no per-entry assertion is made, because those four things are frequently out of sync.
 
 ### A.2　Exclusion list and reasons
 
 | Excluded | Reason |
 | --- | --- |
-| Sora / Sora 2 | high-level public reporting only; does not match this tutorial's focus on the consequences of actions and decisions — kept in §5.4 as a contrast |
+| Sora / Sora 2 | high-level public reporting only; does not match the main thread of the consequences of actions and decisions — kept in §5.4 as a contrast |
 | Oasis | the mechanism is already represented by GameNGen; researchability and length |
 | Hunyuan-GameCraft | the same technical problem is already covered by a representative work |
 | Runway GWM / Odyssey | at the level of a release announcement |
-| HunyuanWorld | **has a paper** (HunyuanWorld 1.0, arXiv 2507.21809); excluded because its topic leans toward 3D scene generation and roamable world construction, which is not the same question as this tutorial's "how the consequences of actions enter a decision", plus limited length |
+| HunyuanWorld | **has a paper** (HunyuanWorld 1.0, arXiv 2507.21809); excluded because its topic leans toward 3D scene generation and roamable world construction, which is not the same question as the main thread of "how the consequences of actions enter a decision", plus limited length |
 | STORM / TransDreamer | mechanisms overlap with Dreamer / IRIS |
 | Meta CWM | terminology collision: it refers to "world model" in the code-execution sense |
 | Othello-GPT-style world models inside LLMs | asks "is it in the representation", not "can it predict the consequence of an action" |
