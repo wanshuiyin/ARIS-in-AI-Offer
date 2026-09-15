@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/world_models_tutorial.md">
-<meta name="aris:source-sha256" content="9c020f19850518c69ec03a4d117861d5310c27e0bb3b5a25526f1fcaffc8d67e">
-<meta name="aris:generated-at" content="2026-09-14 05:02 UTC">
+<meta name="aris:source-sha256" content="6fb3b06bb5da560a369514436495b812a6f65307b73929b7d924e160611b686c">
+<meta name="aris:generated-at" content="2026-09-15 16:09 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -568,7 +568,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <ul>
 <li><a href="#11-world-model-是什么">1.1　world model 是什么</a></li>
 <li><a href="#12-三条谱系会重叠">1.2　三条谱系（会重叠）</a></li>
-<li><a href="#13-本文入选标准">1.3　本文入选标准</a></li>
+<li><a href="#13-入选标准">1.3　入选标准</a></li>
 <li><a href="#14-名词消歧面试里最容易各说各话的地方">1.4　名词消歧（面试里最容易各说各话的地方）</a></li>
 </ul>
 </li>
@@ -660,8 +660,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/world_models_tutorial.md</code></span>
-    <span><strong>SHA256:</strong> <code>9c020f198505</code></span>
-    <span><strong>Rendered:</strong> 2026-09-14 05:02 UTC</span>
+    <span><strong>SHA256:</strong> <code>6fb3b06bb5da</code></span>
+    <span><strong>Rendered:</strong> 2026-09-15 16:09 UTC</span>
     
   </div>
 </header>
@@ -673,15 +673,15 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h2 id="1-一个问题三条谱系">§1 一个问题，三条谱系</h2>
 <h3 id="11-world-model-是什么">1.1　world model 是什么</h3>
 <p>world model 是智能体<strong>内部学到的环境结构与动态模型</strong>：给定至今的观测与动作，它能预测"如果我这样做，接下来会怎样"。这个定义刻意不规定输出形式，因为<strong>必要的输出取决于用途</strong>——要在模型里做 RL，就得有办法在想象里算回报并截断 episode（Dreamer 一类的做法是学奖励头与 continuation 头，奖励函数或终止规则已知时直接用已知的那份也行）；要做视觉目标导航，只需能比较目标表征的距离；要当可玩的模拟器，就必须生成人能看的观测。</p>
-<p>所以"它算不算 world model"多半是假问题。真问题是三个：<strong>保留了什么信息、预测的是哪个量、这个量能支撑哪一种决策</strong>。全文按这三问组织。</p>
+<p>所以"它算不算 world model"多半是假问题。真问题是三个：<strong>保留了什么信息、预测的是哪个量、这个量能支撑哪一种决策</strong>。</p>
 <h3 id="12-三条谱系会重叠">1.2　三条谱系（会重叠）</h3>
 <div class="table-wrap"><table><thead><tr><th>谱系</th><th>预测什么</th><th>典型决策接口</th><th>代表工作</th></tr></thead><tbody><tr><td>latent dynamics / MBRL</td><td>紧凑潜状态的转移，通常带奖励与 continuation</td><td>潜空间规划、imagination 内 actor-critic、MCTS</td><td>PlaNet、Dreamer 系列、MuZero、TD-MPC2</td></tr><tr><td>predict-in-representation-space</td><td>冻结或 EMA 编码器输出的表征</td><td>表征空间 MPC（最小化与目标表征的距离）</td><td>I-JEPA、V-JEPA 系列、DINO-WM</td></tr><tr><td>生成式视频 / 交互式模拟器</td><td>未来观测本身（像素或视频 token）</td><td>动作条件生成 + 人/策略在环交互</td><td>Genie 系列、GameNGen、Cosmos、Matrix-Game</td></tr></tbody></table></div>
 <div class="callout callout-warn"><div class="callout-title">按&quot;预测哪个量&quot;分类，不要按门派分类</div><p>Dreamer 4 既是 transformer 生成式动态模型也是 imagination RL；Cosmos 3 同一个模型跨语言、图像、视频、音频与动作；视频扩散模型在 VAE latent 里生成，和 RSSM 的 latent 只是同名。用门派分类会立刻自相矛盾，用"预测哪个量、怎么进决策"分类不会。</p></div>
-<h3 id="13-本文入选标准">1.3　本文入选标准</h3>
-<p>「本文优先选择奠定关键机制、代表重要技术路线，或由主要研究团队公开且与具身决策密切相关的工作；同等代表性下优先开放权重。最新发布用于说明方向，其成熟度另行说明。」</p>
-<p>被排除的工作与逐条理由见 §A.2——面试里被问到本文没写的名字时，知道它为什么被排除，比多背一个名字有用。</p>
+<h3 id="13-入选标准">1.3　入选标准</h3>
+<p>「优先选择奠定关键机制、代表重要技术路线，或由主要研究团队公开且与具身决策密切相关的工作；同等代表性下优先开放权重。最新发布用于说明方向，其成熟度另行说明。」</p>
+<p>被排除的工作与逐条理由见 §A.2——面试里被问到没收录的名字时，知道它为什么被排除，比多背一个名字有用。</p>
 <h3 id="14-名词消歧面试里最容易各说各话的地方">1.4　名词消歧（面试里最容易各说各话的地方）</h3>
-<ul><li><strong>RL 的环境模型</strong>：$p(s_{t+1}, r_{t+1} \mid s_t, a_t)$，服务于规划与想象。本文谱系一。</li><li><strong>LeCun 意义上的世界模型</strong>：在抽象表征空间预测，明确拒绝像素级重建。他的立场文章发表在 OpenReview（v0.9.2，2022-06-27），<strong>没有 arXiv 编号</strong>，引用时别硬编一个。本文谱系二。</li><li><strong>"世界模拟器"</strong>：能按动作条件生成可交互视频的生成模型。本文谱系三。</li><li><strong>LLM 内部的"世界模型"</strong>：指语言模型激活里是否编码了棋盘、地图这类外部状态，问的是"表征里有没有"，不是"能不能预测动作后果"。另一个问题，本文不覆盖。</li><li><strong>代码执行意义上的 "world model"</strong>：指预测程序执行状态的模型，与本文是<strong>术语碰撞</strong>，不是同一条线。</li></ul>
+<ul><li><strong>RL 的环境模型</strong>：$p(s_{t+1}, r_{t+1} \mid s_t, a_t)$，服务于规划与想象。谱系一。</li><li><strong>LeCun 意义上的世界模型</strong>：在抽象表征空间预测，明确拒绝像素级重建。他的立场文章发表在 OpenReview（v0.9.2，2022-06-27），<strong>没有 arXiv 编号</strong>，引用时别硬编一个。谱系二。</li><li><strong>"世界模拟器"</strong>：能按动作条件生成可交互视频的生成模型。谱系三。</li><li><strong>LLM 内部的"世界模型"</strong>：指语言模型激活里是否编码了棋盘、地图这类外部状态，问的是"表征里有没有"，不是"能不能预测动作后果"。另一个问题，不在讨论范围内。</li><li><strong>代码执行意义上的 "world model"</strong>：指预测程序执行状态的模型，和这里讨论的世界模型只是<strong>术语碰撞</strong>，不是同一条线。</li></ul>
 <p>还有两组必须分清的符号与口径：</p>
 <ul><li><strong>$x_t$ vs $s_t$</strong>：$x_t$ 是环境真实状态，不可观测，模型不承诺恢复它；$s_t$ 是模型自己的状态。说"潜状态就是真实状态"是错的。</li><li><strong>静态表征 vs 可交互动态</strong>：I-JEPA 是静态图像表征方法，<strong>不直接构成可交互的动态模型</strong>；把它说成"图像版世界模型"会在追问下崩掉。</li></ul>
 <hr />
@@ -692,11 +692,11 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <h3 id="22-符号表">2.2　符号表</h3>
 <div class="table-wrap"><table><thead><tr><th>符号</th><th>含义</th><th>注意</th></tr></thead><tbody><tr><td>$x_t$</td><td>环境真实状态</td><td>不可观测；模型不承诺恢复</td></tr><tr><td>$o_t$</td><td>观测（图像、本体感觉等）</td><td>部分可观测是常态</td></tr><tr><td>$a_t$</td><td>在 $s_t$ 之后执行的动作</td><td>语义随接口而变（见 §5.1）</td></tr><tr><td>$r_{t+1}, c_{t+1}$</td><td>奖励与 continuation</td><td>按 §2.1 的下标</td></tr><tr><td>$s_t=(h_t,z_t)$</td><td>模型状态</td><td>RSSM 的确定性 + 随机两部分</td></tr><tr><td>$p_\theta(z_t\mid h_t)$</td><td>prior</td><td>无观测，用于预测与 imagination</td></tr><tr><td>$q_\phi(z_t\mid h_t,o_t)$</td><td>posterior</td><td>吸收观测，<strong>不能</strong>在 imagination 里调用</td></tr><tr><td>$E_\phi, E_{\bar\phi}, P_\theta$</td><td>在线 encoder、EMA target encoder、predictor</td><td>JEPA 三件套</td></tr><tr><td>$\mathrm{sg}[\cdot]$</td><td>stop-gradient</td><td>针对计算路径，不是冻结网络</td></tr></tbody></table></div>
 <h3 id="23-预测头哪些是必要的">2.3　预测头：哪些是必要的</h3>
-<p>Dreamer 一类的 world model 通常带三个头：<strong>观测</strong>（重建或 token 预测）、<strong>奖励</strong>、<strong>continuation</strong>。后两个是为了"在模型里做 RL"——<strong>在本文描述的 Dreamer 实现里</strong>，想象里的回报由学到的奖励头给出，episode 的截断由学到的 continuation 头给出，去掉哪个都算不下去。</p>
+<p>Dreamer 一类的 world model 通常带三个头：<strong>观测</strong>（重建或 token 预测）、<strong>奖励</strong>、<strong>continuation</strong>。后两个是为了"在模型里做 RL"——<strong>在这套 Dreamer 实现里</strong>，想象里的回报由学到的奖励头给出，episode 的截断由学到的 continuation 头给出，去掉哪个都算不下去。</p>
 <p>这句必要性只对这套实现成立，别升级成普遍规律：奖励函数或终止规则已知时（很多仿真与游戏环境就是如此），直接调用已知的那份同样能在想象里算回报、截断 episode。观测重建更不是"在模型里做 RL"的必要条件——MuZero 与 TD-MPC2 都不重建观测照样规划（§3.8）。</p>
 <p>纯视频生成模型<strong>未必需要奖励与 continuation</strong>：它的用途是生成可看的未来。把"没有奖励头"当成缺陷，或者把"有奖励头"当成世界模型的定义，都会答错。</p>
 <h3 id="24-数字口径">2.4　数字口径</h3>
-<p>本文每个外部数字第一次出现时，在正文里交代<strong>任务、指标、模型版本、设置</strong>；速度数字注明硬件；提升区分<strong>百分点</strong>与<strong>相对百分比</strong>。开放状态按发布物分别说——论文、代码、权重、数据是四件事，<strong>计划发布不写成已开放</strong>。只有官方博客或新闻稿支撑的说法，全文标注为"仅博客"。</p>
+<p>每个外部数字第一次出现时，正文里都交代<strong>任务、指标、模型版本、设置</strong>；速度数字注明硬件；提升区分<strong>百分点</strong>与<strong>相对百分比</strong>。开放状态按发布物分别说——论文、代码、权重、数据是四件事，<strong>计划发布不写成已开放</strong>。只有官方博客或新闻稿支撑的说法，一律标注为"仅博客"。</p>
 <hr />
 <h2 id="3-谱系一latent-dynamics-与-model-based-rl">§3 谱系一：latent dynamics 与 model-based RL</h2>
 <h3 id="31-起点在梦里训练策略">3.1　起点：在梦里训练策略</h3>
@@ -719,14 +719,14 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p><strong>两项都是 $q\Vert p$ 方向</strong>。balancing 不动 KL 的方向，动的是梯度往哪走：第一项停 $q$ 的梯度，只让 prior 去追 posterior（dynamics learning）；第二项停 $p$ 的梯度，只让 posterior 向 prior 妥协（representation regularisation）。取 $\beta_{dyn}\gg\beta_{rep}$ 等于说：<strong>先让动态学会预测，再让表征为了好预测让步</strong>。</p>
 <p><code>sg</code> 针对的是<strong>计算路径</strong>。$q$ 与 $p$ 共享 $h_t$，$h_t$ 的梯度照样从另一条路径流回来——实现上是用 <code>probs.detach()</code> 造一个新分布，不是把某块网络 <code>requires_grad_(False)</code>。</p>
 <p><strong>free bits</strong> 是另一件事：$\max(\tau, D_{KL})$，把 KL 在下限 $\tau$ 处截平，KL 已经够小时不再继续压，省下的容量留给重建。它作用在<strong>联合 KL</strong>——先对所有 latent 组求和再截断，不是对每个类别概率截断。</p>
-<p>DreamerV3 论文 v1（Hafner et al. 2023，arXiv 2301.04104，式 4 与表 W.1）取 $\beta_{dyn}=0.5$、$\beta_{rep}=0.1$；同一篇的 v2 正文写成 $\beta_{dyn}=1$、$\beta_{rep}=0.1$。本文统一用 v1，<strong>报系数时一定要说是哪个版本</strong>。</p>
+<p>DreamerV3 论文 v1（Hafner et al. 2023，arXiv 2301.04104，式 4 与表 W.1）取 $\beta_{dyn}=0.5$、$\beta_{rep}=0.1$；同一篇的 v2 正文写成 $\beta_{dyn}=1$、$\beta_{rep}=0.1$。系数统一取 v1，<strong>报系数时一定要说是哪个版本</strong>。</p>
 <h3 id="35-动作从哪来在线规划-vs-imagination-内的-actor-critic">3.5　动作从哪来：在线规划 vs imagination 内的 actor-critic</h3>
 <p>PlaNet 不训练策略网络。每一步它在<strong>潜空间</strong>在线规划，用的是 <strong>CEM</strong>：从一个高斯分布采一批动作序列，用 prior 向前 rollout、用奖励头打分，取回报最高的一批 elite 序列<strong>重新拟合</strong>这个分布，如此迭代若干轮；最后执行<strong>末轮分布均值</strong>的第一个动作，下一步重来。注意它<strong>不是</strong>"采一次、执行最好的那条样本"——迭代重拟合才是 CEM 的主体。规划全程不解码图像，所以采样数可以开得很大。</p>
 <p>PlaNet 还有 <strong>latent overshooting</strong>：不只让一步预测的 prior 贴近 posterior，还让<strong>多步</strong>展开的 prior 贴近对应时刻的 posterior。它是<strong>多步一致性信号</strong>，不是"把训练 horizon 拉长"——单步准确的模型复合几十步后照样会漂到荒谬状态，overshooting 直接惩罚这种漂移。</p>
 <p>Dreamer（Hafner et al.，arXiv 1912.01603）换了决策接口：<strong>在 imagination 里训练 actor-critic</strong>。从重放缓冲取真实片段，用 posterior 得到起点 $s_t$，之后只用 prior 向前展开 $H$ 步，在这些想象状态上更新策略与价值。策略更新不再消耗真实交互，样本效率大幅提升；代价是<strong>策略只见过模型认为会发生的事</strong>。</p>
 <p>λ-return 按 §2.1 的时间约定写：</p>
 <p>$$G_t^\lambda=\hat r_{t+1}+\gamma\hat c_{t+1}\big[(1-\lambda)v(s_{t+1})+\lambda G_{t+1}^\lambda\big],\qquad G_H^\lambda=v(s_H)$$</p>
-<p>critic 的回归目标要停梯度。DreamerV3 v1 表 W.1 取 $H=15$，正文的预测序列长度 $T=16$：<strong>本文一律以 $H$ 计动作转移数，状态序列含起点因而有 $H+1$ 个</strong>。差的这个 1 不是笔误，是"数状态还是数转移"。</p>
+<p>critic 的回归目标要停梯度。DreamerV3 v1 表 W.1 取 $H=15$，正文的预测序列长度 $T=16$：<strong>一律以 $H$ 计动作转移数，状态序列含起点因而有 $H+1$ 个</strong>。差的这个 1 不是笔误，是"数状态还是数转移"。</p>
 <div class="callout callout-warn"><div class="callout-title">actor 梯度按版本写，不要合成一个公式</div><p>Dreamer 用<strong>路径梯度</strong>：回报对动作可微，梯度穿过学到的动态传回 actor。DreamerV3 的 actor loss 是 <strong>score-function（REINFORCE 式）</strong>形式，配 return normalization 与熵正则。另外"更新 actor/critic 时冻结 world model 参数"指的是不改动态模型的参数，<strong>不等于</strong>对整个 imagination <code>no_grad()</code>——路径梯度必须穿过动态图才存在。</p></div>
 <h3 id="36-离散潜变量与-dreamerv3-的三件工程">3.6　离散潜变量与 DreamerV3 的三件工程</h3>
 <p>DreamerV2 把 $z_t$ 从高斯换成<strong>一组分类分布</strong>（若干组、每组若干类的 one-hot），前向采样、反向用 straight-through 近似。这是<strong>有偏</strong>的梯度估计——它把不可导的采样当成恒等映射来传梯度。</p>
@@ -777,9 +777,9 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Navigation World Models（Bar et al. 2024，arXiv 2412.03572）经常被放进 JEPA 一节，其实<strong>不属于这里</strong>：它是在第一人称视频与动作上的 <strong>conditional diffusion transformer</strong>，预测的是<strong>未来观测</strong>，所以归谱系三（见 §5.2）。两者都做"以目标为条件的导航规划"，但预测的量不同，是 §1.1 三问里最关键的一问。</p>
 <h3 id="48-理论进展与它的边界">4.8　理论进展与它的边界</h3>
 <p>2026 年的一篇 JEPA 泛化理论（arXiv 2606.27014）把预训练误差与下游规划的 regret 联系起来，设置是：条件谱图 / 动作条件共现矩阵的<strong>低秩分解</strong>。结论只在这套假设下成立——<strong>不是无条件保证"表征损失小则规划好"</strong>。引用它时把设置一起说，否则等于用一篇论文的标题替代论证。</p>
-<p>VL-JEPA（arXiv 2512.10942）把语言接进同一框架；本文只作方向性提及，不引用它的任何具体数字。</p>
+<p>VL-JEPA（arXiv 2512.10942）把语言接进同一框架；这里只提方向，不引用它的任何具体数字。</p>
 <h3 id="49-这条谱系缺的是什么">4.9　这条谱系缺的是什么</h3>
-<p>和谱系一对照着看，缺口很清楚——<strong>限定在本文描述的那个规划实例上</strong>（2-AC 的表征空间 MPC）：<strong>没有奖励、没有 continuation、没有显式的不确定性</strong>，决策全靠"与目标表征的距离"这一个量。这是那套接口的性质，不是整条谱系的定律：同一个表征上完全可以再挂奖励或不确定性估计。</p>
+<p>和谱系一对照着看，缺口很清楚——<strong>限定在上面那个规划实例上</strong>（2-AC 的表征空间 MPC）：<strong>没有奖励、没有 continuation、没有显式的不确定性</strong>，决策全靠"与目标表征的距离"这一个量。这是那套接口的性质，不是整条谱系的定律：同一个表征上完全可以再挂奖励或不确定性估计。</p>
 <p>因此它天然适合<strong>目标条件</strong>任务（把手移到这个视觉目标上），而需要长程回报或风险规避时就得自己补上缺的那几个量。别把"稀疏奖励"也算进排除项——稀疏奖励任务常常正好能写成目标条件形式，用目标条件 MPC 做反而顺手。</p>
 <p>它也继承了一个评测缺口：probe 准确率衡量的是表征里有没有信息，<strong>不衡量动作后果预测得对不对</strong>。所以这条线的论文必须同时给两类证据——表征指标和闭环成功率，只给前者就只能说明表征好。</p>
 <hr />
@@ -808,8 +808,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <ul><li><strong>Cosmos WFM</strong>（NVIDIA 2025，arXiv 2501.03575）同时给出<strong>自回归</strong>与<strong>扩散</strong>两条路径，并把 <strong>Predict / Transfer / Reason</strong> 当作<strong>不同任务</strong>而不是一个模型的三个模式。</li><li><strong>Cosmos-Reason1</strong>（arXiv 2503.15558）是物理常识与具身推理的<strong>视觉语言模型</strong>，<strong>不能</strong>拿来当"动态模型"的证据——它回答问题，不预测动作后果。</li><li><strong>Cosmos-Predict2.5</strong>（arXiv 2511.00062）公布 2B / 14B 两档配置；它<strong>有论文</strong>，不属于"仅博客"那一档；这些配置<strong>不继承</strong>给 Cosmos 3。</li><li><strong>Cosmos 3</strong>（arXiv 2606.02800）是 omnimodal 的：语言、图像、视频、音频、动作。它的 <strong>mixture-of-transformers</strong> 指的是<strong>每一层同时含一组自回归 reasoner 参数与一组扩散 generator 参数</strong>——<strong>不是</strong>稀疏 FFN 的 MoE，也<strong>不是</strong>"每个模态一个专家"。规模按其论文 §2.5 与 HF 模型卡是 <strong>Edge 4B / Nano 16B / Super 64B</strong>，三档<strong>均已发布</strong>（Edge 发布于 2026-07-20），许可为 <strong>OpenMDW-1.1</strong>。</li></ul>
 <p><strong>Atlas</strong>（World Labs 官方博客，2026-09-01，<strong>仅博客</strong>）要落到接口上说：在<strong>文本、图像、相机位姿、深度与空间上下文</strong>上做自回归扩散；博客展示了<strong>最多一分钟、1440p</strong> 的结果。展示长度<strong>不是</strong>实时速度的证据，"相机可控"、"稀疏重建"、"机器人接触动力学"是三类不同的证据，不能互相顶替。</p>
 <h3 id="54-驾驶与-sora-这个对照">5.4　驾驶与 Sora 这个对照</h3>
-<p>驾驶方向在本文只保留<strong>任务差异</strong>：<strong>GAIA-2</strong>（Wayve 2025，arXiv 2503.20523）说明的是一件具体的事——把<strong>动作、道路布局、驾驶条件</strong>作为条件加进去，比无条件视频生成更贴近驾驶决策需要的可控性。<strong>GAIA-3</strong> 目前只有新闻稿层面的信息（<strong>仅博客</strong>），本文只在发布层面提及。</p>
-<p>Sora / Sora 2 在本文作为<strong>对照</strong>而非主角：它们的公开材料是高层级报告，且目标是通用视频生成的质量与可用性，与本速查关注的"动作后果与决策"不是同一个问题（详见 §A.2 的排除理由）。把"视频生成器"和"世界模型"直接划等号，正是 §7.4 那场定义之争的起点。</p>
+<p>驾驶方向只保留<strong>任务差异</strong>：<strong>GAIA-2</strong>（Wayve 2025，arXiv 2503.20523）说明的是一件具体的事——把<strong>动作、道路布局、驾驶条件</strong>作为条件加进去，比无条件视频生成更贴近驾驶决策需要的可控性。<strong>GAIA-3</strong> 目前只有新闻稿层面的信息（<strong>仅博客</strong>），只在发布层面提及。</p>
+<p>Sora / Sora 2 是<strong>对照</strong>而非主角：它们的公开材料是高层级报告，且目标是通用视频生成的质量与可用性，与"动作后果与决策"这条主线不是同一个问题（详见 §A.2 的排除理由）。把"视频生成器"和"世界模型"直接划等号，正是 §7.4 那场定义之争的起点。</p>
 <hr />
 <h2 id="6-具身智能里的三条路">§6 具身智能里的三条路</h2>
 <p>生成式模型要真正帮到机器人，必须跨过同一个缺口：<strong>生成的是像素，策略需要的是动作</strong>。目前有三条明确的路。</p>
@@ -831,7 +831,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>两篇都给出了"没有模型全面满足要求"这类结论。<strong>这个结论限定在它们各自测过的模型与协议之内</strong>，不是对整个领域的普适判断。</p>
 <h3 id="74-定义之争若干提案不是共识">7.4　定义之争：若干提案，不是共识</h3>
 <ul><li><strong>GLP critique</strong>（arXiv 2507.05169）批评的是把生成式视频模型直接当作通用世界模型的路线，主张预测能力与决策效用要分开论证。</li><li><strong>Definition &amp; Roadmap</strong>（arXiv 2607.06401）给出一份定义与路线图提案，其分类另有一套角色划分（Renderer / Simulator / Planner 等）。<strong>它不是 Predictor / Simulator / Evolver 那份</strong>——这是本领域最容易张冠李戴的一处。</li><li><strong>L0–L7 position</strong>（arXiv 2606.15032）提出的是<strong>多个交叉轴</strong>上的分级，不是一条直线上的等级。</li><li><strong>Agentic World Modeling</strong>（arXiv 2604.22748）把世界模型放进 agent 的决策回路来谈，关心的是"模型服务于哪一步决策"；<strong>"预测器 / 模拟器 / 演化器"（Predictor / Simulator / Evolver）出自这一篇</strong>。</li></ul>
-<div class="callout callout-warn"><div class="callout-title">几套等级不要混用，也不要当共识</div><p>L0–L7（2606.15032）是多轴分级，Predictor/Simulator/Evolver 出自 Agentic World Modeling（2604.22748），Definition &amp; Roadmap（2607.06401）又是另一套划分；<strong>它们都是作者立场，不是领域共识</strong>。本文 §10 的 L1/L2/L3 只表示<strong>面试题难度</strong>，与上述任何分级无关。</p></div>
+<div class="callout callout-warn"><div class="callout-title">几套等级不要混用，也不要当共识</div><p>L0–L7（2606.15032）是多轴分级，Predictor/Simulator/Evolver 出自 Agentic World Modeling（2604.22748），Definition &amp; Roadmap（2607.06401）又是另一套划分；<strong>它们都是作者立场，不是领域共识</strong>。§10 的 L1/L2/L3 只表示<strong>面试题难度</strong>，与上述任何分级无关。</p></div>
 <h3 id="75-两条要说公平的话">7.5　两条要说公平的话</h3>
 <p><strong>生成式路线的价值</strong>：可见的细节可能直接决定接触、碰撞与奖励——DIAMOND 就是这个论点的实验支持。另外，扩散生成<strong>不是</strong>"用 MSE 预测一个平均未来"，它建模的是条件分布，采样给出的是一个具体的、清晰的未来，而不是多个未来的模糊叠加。</p>
 <p><strong>表征预测路线的价值</strong>：忽略不可预测的细节可以省下大量算力，并让预测集中在对下游有用的量上。但反过来也有硬边界——<strong>表征损失小不等于动作后果预测正确</strong>。表征空间的距离是模型自己定义的，它和"这个动作会不会把杯子打翻"之间没有免费的等价关系。</p>
@@ -881,7 +881,7 @@ def balanced_kl(post, prior, beta_dyn=0.5, beta_rep=0.1, free_nats=1.0):
     kl_rep = cat_kl(post, prior.detach())                     # q||sg(p)：只让 posterior 让步
     return beta_dyn * kl_dyn.clamp(min=free_nats) + beta_rep * kl_rep.clamp(min=free_nats)</code></pre>
 <p><code>post.detach()</code> 停的是<strong>这条路径</strong>上的梯度；$h_t$ 由两个头共享，它的梯度照样从另一条路径回来。</p>
-<p>这段代码里 $\beta_{dyn},\beta_{rep}$（v1 式 4 / 表 W.1）、32 组 × 32 类的分类潜变量（表 W.1）和 <code>free_nats=1.0</code>（式 5 的 1 nat）都沿用 DreamerV3 论文；<strong>用 <code>GRUCell</code> 作递推单元、网络宽度这类写法是本文为了可读性选的</strong>，不是论文规定的唯一实现。</p>
+<p>这段代码里 $\beta_{dyn},\beta_{rep}$（v1 式 4 / 表 W.1）、32 组 × 32 类的分类潜变量（表 W.1）和 <code>free_nats=1.0</code>（式 5 的 1 nat）都沿用 DreamerV3 论文；<strong>用 <code>GRUCell</code> 作递推单元、网络宽度这类写法是为了可读性选的</strong>，不是论文规定的唯一实现。</p>
 <h3 id="92-jepa非对称-predictor--ema-目标">9.2　JEPA：非对称 predictor + EMA 目标</h3>
 <pre><code class="language-python">@torch.no_grad()
 def ema_update(target, online, m=0.999):
@@ -922,7 +922,7 @@ def latent_mpc_cost(pred_ac, s0, action_seq, z_goal):
                 + F.mse_loss(e_k, e.detach())                 # codebook 项
                 + beta_commit * F.mse_loss(e, e_k.detach()))  # commitment 项
         return pred, k, loss</code></pre>
-<p>瓶颈的全部作用是<strong>限制信息量</strong>：$K=8$ 时一个码至多 3 bits。解码器只拿得到 $o_t$ 与 $e_k$，所以 $e_k$ 必须携带"帧间变化里最值得留的那点信息"——但那是不是<strong>动作</strong>，代码不保证（§5.1）。这里的 <code>beta_commit=0.25</code> 是 VQ-VAE 常用的经验取值，<strong>本文照搬作为演示</strong>，Genie 并未规定这个数。</p>
+<p>瓶颈的全部作用是<strong>限制信息量</strong>：$K=8$ 时一个码至多 3 bits。解码器只拿得到 $o_t$ 与 $e_k$，所以 $e_k$ 必须携带"帧间变化里最值得留的那点信息"——但那是不是<strong>动作</strong>，代码不保证（§5.1）。这里的 <code>beta_commit=0.25</code> 是 VQ-VAE 常用的经验取值，<strong>照搬过来作为演示</strong>，Genie 并未规定这个数。</p>
 <hr />
 <h2 id="10-25-高频面试题">§10 25 高频面试题</h2>
 <h3 id="l1-必会题10-题">L1 必会题（10 题）</h3>
@@ -1008,7 +1008,7 @@ def latent_mpc_cost(pred_ac, s0, action_seq, z_goal):
 <details>
 
 <summary>Q15. 写出 imagination 里的 λ-return，并说明起点与长度约定。</summary>
-<p>按本文时间约定：</p>
+<p>按 §2 的时间约定：</p>
 <p>$$G_t^\lambda=\hat r_{t+1}+\gamma\hat c_{t+1}\big[(1-\lambda)v(s_{t+1})+\lambda G_{t+1}^\lambda\big],\qquad G_H^\lambda=v(s_H)$$</p>
 <p>critic 的回归目标要停梯度。DreamerV3 v1 的表 W.1 取 $H=15$、正文的预测序列长度 $T=16$：<strong>以 $H$ 计动作转移数，状态序列含起点因而有 $H+1$ 个状态</strong>。被追问"到底是 15 还是 16"时，答"数转移是 15、数状态是 16"。</p>
 </details>
@@ -1074,21 +1074,21 @@ def latent_mpc_cost(pred_ac, s0, action_seq, z_goal):
 <p>先按三问读：<strong>预测哪个量</strong>（像素 / 表征 / 规划量）、<strong>动作接口是什么</strong>、<strong>预测如何进决策</strong>。这三问定谱系，比看它自称什么可靠——Dreamer 4 同时是生成式动态与 imagination RL，Cosmos 3 横跨理解、生成与动作。</p>
 <p>再查证据层级：有论文还是只有博客；代码、权重、数据分别开放到哪一步（<strong>计划发布不算已开放</strong>）；每个数字有没有给全任务、指标、模型版本、设置与硬件。</p>
 <p>最后放进评测坐标：WorldModelBench 测指令遵循与物理/常识违规，WorldScore 测可控性、质量与动态性，WorldRoamBench 测交互过程中的动作跟随、视觉一致、物理合理与记忆保持，WorldArena 2.0 把视觉触觉、模型内策略优化与真实机器人平台纳进来。它们问的不是同一件事，某一项好不能替另一项背书；这些基准里"没有模型全面满足"的结论，也只限定在它们测过的模型与协议之内。</p>
-<p>分级要小心：L0–L7（arXiv 2606.15032）是<strong>多个交叉轴</strong>上的提案；Predictor / Simulator / Evolver 出自 <strong>Agentic World Modeling（arXiv 2604.22748）</strong>，别记到 Definition &amp; Roadmap 头上——后者（arXiv 2607.06401）是又一份提案，用的是另一套角色划分（Renderer / Simulator / Planner 等）。<strong>这几套都不是领域共识</strong>；GLP critique（arXiv 2507.05169）代表的是另一种立场。本文 §10 的 L1/L2/L3 只表示面试题难度。</p>
+<p>分级要小心：L0–L7（arXiv 2606.15032）是<strong>多个交叉轴</strong>上的提案；Predictor / Simulator / Evolver 出自 <strong>Agentic World Modeling（arXiv 2604.22748）</strong>，别记到 Definition &amp; Roadmap 头上——后者（arXiv 2607.06401）是又一份提案，用的是另一套角色划分（Renderer / Simulator / Planner 等）。<strong>这几套都不是领域共识</strong>；GLP critique（arXiv 2507.05169）代表的是另一种立场。§10 的 L1/L2/L3 只表示面试题难度。</p>
 </details>
 <hr />
 <h2 id="a-附录">§A 附录</h2>
 <h3 id="a1-论文与出处">A.1　论文与出处</h3>
-<p>证据层级：<strong>✅ 论文</strong>（arXiv 公开，本文引用的细节取自论文）／<strong>⚠️ 仅博客</strong>（只有官方博客或新闻稿，无论文）。第三种情况单独写明：<strong>有论文但本文只作方向性提及</strong>（未逐项核验其数字），不并进"仅博客"。</p>
+<p>证据层级：<strong>✅ 论文</strong>（arXiv 公开，引用的细节取自论文）／<strong>⚠️ 仅博客</strong>（只有官方博客或新闻稿，无论文）。第三种情况单独写明：<strong>有论文但只提方向</strong>（未逐项核验其数字），不并进"仅博客"。</p>
 <p><strong>谱系一：latent dynamics / MBRL</strong></p>
 <div class="table-wrap"><table><thead><tr><th>工作</th><th>出处</th><th>一句话</th></tr></thead><tbody><tr><td>World Models</td><td>✅ 1803.10122</td><td>VAE + MDN-RNN + 线性 controller；<strong>VizDoom 实验</strong>里策略完全在 dream 里训练，CarRacing 的 controller 在真实环境训练</td></tr><tr><td>PlaNet</td><td>✅ 1811.04551</td><td>RSSM；latent overshooting；潜空间在线规划</td></tr><tr><td>Dreamer</td><td>✅ 1912.01603</td><td>imagination 里训 actor-critic（路径梯度）</td></tr><tr><td>DreamerV2</td><td>✅ 2010.02193</td><td>分类潜变量；KL balancing；从想象中达到 Atari 人类水平</td></tr><tr><td>DreamerV3</td><td>✅ 2301.04104</td><td>symlog / twohot / return normalization；一套超参数覆盖 150+ 任务；Minecraft 钻石来自环境交互</td></tr><tr><td>Dreamer 4</td><td>✅ 2509.24527</td><td>tokenizer + transformer 动态 + shortcut forcing；离线 Minecraft 设定下的钻石；单 GPU 实时<strong>推理</strong></td></tr><tr><td>MuZero</td><td>✅ 1911.08265</td><td>只学奖励/价值/策略量，无重建；MCTS</td></tr><tr><td>TD-MPC2</td><td>✅ 2310.16828</td><td>decoder-free 潜动态 + 奖励 + 价值供 MPC；317M 单 agent / 80 任务</td></tr><tr><td>DayDreamer</td><td>✅ 2206.14176</td><td>该实验中四足约 1 小时真实交互学会行走</td></tr><tr><td>PETS</td><td>✅ 1805.12114</td><td>概率 ensemble + 轨迹采样 = 不确定性表示</td></tr><tr><td>MBPO</td><td>✅ 1906.08253</td><td>从真实数据分支的短 rollout = 控制模型偏差</td></tr><tr><td>IRIS</td><td>✅ 2209.00588</td><td>离散 tokenizer + transformer 想象</td></tr><tr><td>DIAMOND</td><td>✅ 2405.12399</td><td>扩散 world model；视觉细节影响控制回报</td></tr></tbody></table></div>
 <p><strong>谱系二：predict-in-representation-space</strong></p>
-<div class="table-wrap"><table><thead><tr><th>工作</th><th>出处</th><th>一句话</th></tr></thead><tbody><tr><td>LeCun 立场文章</td><td>OpenReview v0.9.2（2022-06-27）</td><td>在抽象表征空间预测；<strong>无 arXiv 编号</strong></td></tr><tr><td>I-JEPA</td><td>✅ 2301.08243</td><td>非对称 predictor + EMA 目标；patch 表征平方 $L_2$；多块 masking</td></tr><tr><td>V-JEPA</td><td>✅ 2404.08471</td><td>视频 masked feature prediction；$L_1$；无负样本、无像素重建</td></tr><tr><td>V-JEPA 2 / 2-AC</td><td>✅ 2506.09985</td><td>预训练 action-free；2-AC 冻结 encoder 训动作条件 predictor + 表征空间 MPC</td></tr><tr><td>V-JEPA 2.1</td><td>✅ 2603.14482</td><td>masked 与 visible-context token 都受监督；多层 deep self-supervision；规模扩展</td></tr><tr><td>DINO-WM</td><td>✅ 2411.04983</td><td>在冻结 DINOv2 特征上学动态，用目标特征规划</td></tr><tr><td>JEPA 泛化理论</td><td>✅ 2606.27014</td><td>条件谱图 / 动作条件共现矩阵低秩分解 → 预训练误差与规划 regret</td></tr><tr><td>VL-JEPA</td><td>✅ 2512.10942</td><td>把语言接入同一框架；<strong>论文 2512.10942；本文仅作方向性提及</strong>，不引用其具体数字</td></tr></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>工作</th><th>出处</th><th>一句话</th></tr></thead><tbody><tr><td>LeCun 立场文章</td><td>OpenReview v0.9.2（2022-06-27）</td><td>在抽象表征空间预测；<strong>无 arXiv 编号</strong></td></tr><tr><td>I-JEPA</td><td>✅ 2301.08243</td><td>非对称 predictor + EMA 目标；patch 表征平方 $L_2$；多块 masking</td></tr><tr><td>V-JEPA</td><td>✅ 2404.08471</td><td>视频 masked feature prediction；$L_1$；无负样本、无像素重建</td></tr><tr><td>V-JEPA 2 / 2-AC</td><td>✅ 2506.09985</td><td>预训练 action-free；2-AC 冻结 encoder 训动作条件 predictor + 表征空间 MPC</td></tr><tr><td>V-JEPA 2.1</td><td>✅ 2603.14482</td><td>masked 与 visible-context token 都受监督；多层 deep self-supervision；规模扩展</td></tr><tr><td>DINO-WM</td><td>✅ 2411.04983</td><td>在冻结 DINOv2 特征上学动态，用目标特征规划</td></tr><tr><td>JEPA 泛化理论</td><td>✅ 2606.27014</td><td>条件谱图 / 动作条件共现矩阵低秩分解 → 预训练误差与规划 regret</td></tr><tr><td>VL-JEPA</td><td>✅ 2512.10942</td><td>把语言接入同一框架；<strong>论文 2512.10942；仅提方向</strong>，不引用其具体数字</td></tr></tbody></table></div>
 <p><strong>谱系三、具身与评测</strong></p>
 <div class="table-wrap"><table><thead><tr><th>工作</th><th>出处</th><th>一句话</th></tr></thead><tbody><tr><td>Genie</td><td>✅ 2402.15391</td><td>11B；视频 tokenizer + 8 码 LAM + 动态模型；MaskGIT 式采样</td></tr><tr><td>Genie 3</td><td>⚠️ 博客 2025-08-05</td><td>720p / 24 FPS / 数分钟一致性 / 约一分钟视觉记忆；无论文、无公开参数量</td></tr><tr><td>Project Genie</td><td>⚠️ 博客 2026-01-29</td><td>消费者原型；60 秒是产品限制</td></tr><tr><td>GameNGen</td><td>✅ 2408.14837</td><td>v1 摘要 "&gt;20 FPS"、v2 正文 20 FPS（单 TPU-v5、4 步 DDIM）；29.4 dB 是<strong>下一帧预测</strong> PSNR（DOOM 模拟数字）</td></tr><tr><td>UniSim</td><td>✅ 2310.06114</td><td>统一的动作条件交互式模拟器路线</td></tr><tr><td>Navigation World Models</td><td>✅ 2412.03572</td><td>第一人称视频 + 动作上的 conditional diffusion transformer</td></tr><tr><td>Cosmos WFM</td><td>✅ 2501.03575</td><td>自回归与扩散两条路径；Predict / Transfer / Reason 是不同任务</td></tr><tr><td>Cosmos-Reason1</td><td>✅ 2503.15558</td><td>物理常识与具身推理的 VLM，<strong>不是</strong>动态模型证据</td></tr><tr><td>Cosmos-Predict2.5</td><td>✅ 2511.00062</td><td>2B / 14B 配置；<strong>不继承</strong>给 Cosmos 3</td></tr><tr><td>Cosmos 3</td><td>✅ 2606.02800</td><td>omnimodal；每层 AR reasoner + diffusion generator 参数组；Edge 4B / Nano 16B / Super 64B</td></tr><tr><td>GAIA-2</td><td>✅ 2503.20523</td><td>驾驶：动作、道路布局、驾驶条件作为条件</td></tr><tr><td>GAIA-3</td><td>⚠️ 仅新闻稿</td><td>只在发布层面提及</td></tr><tr><td>Matrix-Game 3.0</td><td>✅ 2604.08995</td><td>5B；异步部署（8 卡 DiT + 1 卡 VAE）最高 40 FPS @ 720p；记忆检索、流式生成</td></tr><tr><td>Atlas</td><td>⚠️ World Labs 博客 2026-09-01</td><td>文本/图像/相机位姿/深度/空间上下文上的 AR diffusion；展示最多一分钟 1440p</td></tr><tr><td>LAM 瓶颈分析</td><td>✅ 2506.15691</td><td>动作变化与外生变化竞争瓶颈容量；线性情形与 PCA 相关</td></tr><tr><td>UniPi</td><td>✅ 2302.00111</td><td>视频当计划，动作靠逆动力学推断</td></tr><tr><td>DreamGen</td><td>✅ 2505.12705</td><td>生成视频 → LAM/IDM 恢复伪动作 → 策略数据</td></tr><tr><td>Genie Envisioner</td><td>✅ 2508.05635</td><td>连接世界模型与策略学习、仿真评估</td></tr><tr><td>SIMA 2</td><td>✅ 2512.04797</td><td>在 Genie 生成世界里行动的 agent；不等于现实迁移</td></tr><tr><td>Physics-IQ</td><td>✅ 2501.09038</td><td>66 场景 / 396 段视频；五秒续写；IoU 与 MSE 指标</td></tr><tr><td>WorldModelBench</td><td>✅ 2502.20694</td><td>指令遵循 + 物理/常识违规</td></tr><tr><td>WorldScore</td><td>✅ 2504.00983</td><td>可控性 / 质量 / 动态性</td></tr><tr><td>WorldArena 2.0</td><td>✅ 2605.17912</td><td>视觉触觉、模型内策略优化、真实机器人平台</td></tr><tr><td>WorldRoamBench</td><td>✅ 2606.31672</td><td>交互中的动作跟随、视觉一致、物理合理、记忆稳定</td></tr><tr><td>GLP critique</td><td>✅ 2507.05169</td><td>反对把生成式视频模型直接当通用世界模型</td></tr><tr><td>Definition &amp; Roadmap</td><td>✅ 2607.06401</td><td>定义与路线图提案；其分类是另一套角色划分（Renderer / Simulator / Planner 等），<strong>不是</strong> Predictor / Simulator / Evolver</td></tr><tr><td>L0–L7 position</td><td>✅ 2606.15032</td><td>多个交叉轴上的分级提案</td></tr><tr><td>Agentic World Modeling</td><td>✅ 2604.22748</td><td>把世界模型放回 agent 决策回路；<strong>Predictor / Simulator / Evolver 出自这一篇</strong></td></tr></tbody></table></div>
-<p><strong>开放状态</strong>：Cosmos 3 的 Edge、Nano、Super 均已发布（Edge 发布于 2026-07-20，见其 HF 模型卡），许可 OpenMDW-1.1；Genie 3、Project Genie、Atlas、GAIA-3 只有官方博客层面的信息（Cosmos-Predict2.5 <strong>有论文</strong>，arXiv 2511.00062）。其余条目本文只断言"论文已公开"，代码、权重与数据是否开放<strong>以各自官方页面为准</strong>——本文不逐条断言，因为这四件事经常不同步。</p>
+<p><strong>开放状态</strong>：Cosmos 3 的 Edge、Nano、Super 均已发布（Edge 发布于 2026-07-20，见其 HF 模型卡），许可 OpenMDW-1.1；Genie 3、Project Genie、Atlas、GAIA-3 只有官方博客层面的信息（Cosmos-Predict2.5 <strong>有论文</strong>，arXiv 2511.00062）。其余条目只断言"论文已公开"，代码、权重与数据是否开放<strong>以各自官方页面为准</strong>——不逐条断言，因为这四件事经常不同步。</p>
 <h3 id="a2-排除清单与理由">A.2　排除清单与理由</h3>
-<div class="table-wrap"><table><thead><tr><th>被排除</th><th>理由</th></tr></thead><tbody><tr><td>Sora / Sora 2</td><td>只有高层级公开报告；与本文关注的动作后果与决策不匹配——在 §5.4 作为对照保留</td></tr><tr><td>Oasis</td><td>机制已由 GameNGen 代表；可研究性与篇幅</td></tr><tr><td>Hunyuan-GameCraft</td><td>同一技术问题已有代表工作覆盖</td></tr><tr><td>Runway GWM / Odyssey</td><td>发布公告层面</td></tr><tr><td>HunyuanWorld</td><td><strong>有论文</strong>（HunyuanWorld 1.0，arXiv 2507.21809）；排除是因为其主题偏 3D 场景生成与可漫游世界构建，与本文关注的"动作后果如何进入决策"不是同一问题，且篇幅有限</td></tr><tr><td>STORM / TransDreamer</td><td>机制与 Dreamer / IRIS 重叠</td></tr><tr><td>Meta CWM</td><td>术语碰撞：指代码执行意义上的 "world model"</td></tr><tr><td>Othello-GPT 一类 LLM 内部世界模型</td><td>问的是"表征里有没有"，不是"能否预测动作后果"</td></tr><tr><td>Tesla</td><td>无论文</td></tr></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>被排除</th><th>理由</th></tr></thead><tbody><tr><td>Sora / Sora 2</td><td>只有高层级公开报告；与"动作后果与决策"这条主线不匹配——在 §5.4 作为对照保留</td></tr><tr><td>Oasis</td><td>机制已由 GameNGen 代表；可研究性与篇幅</td></tr><tr><td>Hunyuan-GameCraft</td><td>同一技术问题已有代表工作覆盖</td></tr><tr><td>Runway GWM / Odyssey</td><td>发布公告层面</td></tr><tr><td>HunyuanWorld</td><td><strong>有论文</strong>（HunyuanWorld 1.0，arXiv 2507.21809）；排除是因为其主题偏 3D 场景生成与可漫游世界构建，与"动作后果如何进入决策"这条主线不是同一问题，且篇幅有限</td></tr><tr><td>STORM / TransDreamer</td><td>机制与 Dreamer / IRIS 重叠</td></tr><tr><td>Meta CWM</td><td>术语碰撞：指代码执行意义上的 "world model"</td></tr><tr><td>Othello-GPT 一类 LLM 内部世界模型</td><td>问的是"表征里有没有"，不是"能否预测动作后果"</td></tr><tr><td>Tesla</td><td>无论文</td></tr></tbody></table></div>
 <h3 id="a3-runnable-toy">A.3　Runnable toy</h3>
 <p>脚本：<a href="code/world_models_toy.py"><code>code/world_models_toy.py</code></a>，纯 PyTorch，CPU 上几秒跑完。三个实验都有解析答案，可以逐项对照——<strong>结论只覆盖各自的显式设定，不是论文复现</strong>。</p>
 <p><strong>实验 1｜RSSM 线性高斯：posterior collapse 与 balanced KL。</strong> 环境 $x_{t+1}=0.5x_t+a_t+\epsilon$，$\epsilon$ 等概率取 $\pm1$。确定性部分 $h=0.5x_t+a_t$ 可精确算出，残差 $\epsilon=o_{t+1}-h$ 是唯一的新信息。标量参数化 $q(z\mid h,o)=\mathcal N(w\epsilon,1)$、$p(z\mid h)=\mathcal N(v,1)$、$\hat o=h+dz$，于是 $\mathcal L_{rec}=\tfrac12[(1-dw)^2+d^2]$、$\mathbb E D_{KL}=\tfrac12(w^2+v^2)$。对比单一 KL 系数 9 与 balanced $\beta_{dyn}=9,\beta_{rep}=0.1$（<strong>toy 取值，不是论文取值</strong>）：从 $w=d=0.5$、$v=1$ 出发，SGD lr 0.05 跑 1,000 步，单系数版收敛到 $\lvert w\rvert,\lvert d\rvert&lt;10^{-6}$——posterior collapse，重建 MSE ≈ 1，等于完全没用上观测；balanced 版收敛到 $v\to0$、$w^2=1/\sqrt{0.1}-1$、$d=w/(1+w^2)$，MSE $=\sqrt{0.1}$。</p>
@@ -1099,8 +1099,8 @@ def latent_mpc_cost(pred_ac, s0, action_seq, z_goal):
   <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/world_models_tutorial.md</code> ·
-  SHA256 <code>9c020f198505</code> ·
-  generated at 2026-09-14 05:02 UTC.
+  SHA256 <code>6fb3b06bb5da</code> ·
+  generated at 2026-09-15 16:09 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

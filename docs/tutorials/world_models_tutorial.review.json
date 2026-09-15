@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/world_models_tutorial.md",
-  "source_sha256": "9c020f19850518c69ec03a4d117861d5310c27e0bb3b5a25526f1fcaffc8d67e",
+  "source_sha256": "6fb3b06bb5da560a369514436495b812a6f65307b73929b7d924e160611b686c",
   "output": "docs/tutorials/world_models_tutorial.html",
   "runnable_code": "docs/tutorials/code/world_models_toy.py",
   "topic": "World Models — one question (what information is kept, how action consequences are predicted, how that feeds decisions) across three overlapping lineages: latent dynamics / MBRL (RSSM, Dreamer v1–4, MuZero, TD-MPC2, PETS/MBPO, IRIS/DIAMOND, DayDreamer) · JEPA (I-/V-JEPA, V-JEPA 2/2-AC/2.1, DINO-WM) · generative & interactive (Genie/Genie 3, GameNGen, UniSim, NWM, Cosmos 1→3, GAIA, Matrix-Game 3.0, Atlas) · three embodied routes (UniPi, DreamGen, Genie Envisioner, SIMA 2) · evaluation (Physics-IQ, WorldModelBench, WorldScore, WorldArena 2.0, WorldRoamBench) and the definition debate · 25 高频题",
@@ -47,5 +47,17 @@
     "notes": "docs/tutorials/code/world_models_toy.py (pure PyTorch, float64, single thread, seconds): A — single KL (β=9) drives w,d→0, MSE 1; balanced (9/0.1) reaches the analytic fixed point w²=√10−1, d=w/(1+w²), MSE √0.1 within 1e-5, with real .detach() branches; B — shared-encoder JEPA shortcut w_n=0.9^n exactly, stop-grad+EMA teacher stays at 1 with loss 0.5, and stays collapsed from 0 (stop-grad is not an anti-collapse theorem); C — coordinate LAM on a 5×5 gridworld recovers the four transition vectors exactly (val recon 0, purity 1, I(K;A)=2 bits, permutation-invariant). The drafter's independent fixed-point derivation matched the design reviewer's numbers."
   },
   "summary": "World Models cheat sheet (effort=max, 855 lines, bilingual): curated to influential/representative/major-lab/open-weight work with the rule stated in-text; design review (68 guardrails) → Opus 5 draft → 2 math/code rounds → EN sibling with a fidelity pass → render gate, all gpt-6-astra xhigh. Q25-style forced escalation avoided; 25 questions at 10/10/5.",
-  "rendered_at": "2026-09-11"
+  "rendered_at": "2026-09-16",
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-16-self-narration",
+      "verdict": "PASS after one fix",
+      "reviewer": "codex gpt-6-astra xhigh, 1 fresh thread",
+      "thread_ids": [
+        "01a0a5d1-7585-7011-86ae-f872b1397d3b"
+      ],
+      "scope": "Prose-only: 27 spots per file where the sheet narrated itself (29×本文, 1×本速查, 2×全文 in CN; 15×'this tutorial' + 'throughout' in EN) rewritten as plain statements — conventions kept as conventions ('系数统一取 v1', '一律以 H 计'), scopes kept without the pointer, coverage disclaimers kept in plain words. Zero factual change; CN/EN edited in parity. Codex flagged one edit that widened a scope (L48 '与本文是术语碰撞' → '和世界模型只是术语碰撞'); narrowed back to '和这里讨论的世界模型'. Also gained proper page metadata in the same PR (EN title/eyebrow/subtitle in the render manifest).",
+      "notes": "Line counts unchanged (855/855)."
+    }
+  ]
 }

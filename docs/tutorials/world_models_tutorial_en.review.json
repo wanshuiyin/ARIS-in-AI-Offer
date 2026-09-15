@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet",
   "source": "docs/tutorials/world_models_tutorial_en.md",
-  "source_sha256": "d8cb6669bce214e4d16faf2de85ddfca5a5d745beaf2803155186e501e73bfd9",
+  "source_sha256": "15ecc5c656201affef8ee72e0d446c3154149aec75623e67251a6f3b9b7e0bcf",
   "output": "docs/tutorials/world_models_tutorial_en.html",
   "zh_source": "docs/tutorials/world_models_tutorial.md",
   "reviewer": "codex gpt-6-astra xhigh, fresh thread",
@@ -10,5 +10,17 @@
   "translated_by": "Opus 5 subagent, section by section; structural lines land on the same line numbers as the Chinese file; arXiv IDs and all numeric tokens match as multisets; code identical modulo comments; only the \\text{} labels inside one \\underbrace translated (collection precedent).",
   "translation_fidelity_review": "Three drifts fixed: 'an order of magnitude apart' (CN 量级不同, no tenfold claim); 'saves' → 'can save' (CN 可以); and a shared stale sentence — §5.3 still said Edge pending while §A.1 dated its release — aligned in both editions.",
   "structural_parity": "855 lines each; 42 subsections with the full-width space; 25 questions in order; render gate thread 01a08fa1-973d-7f82-b05e-d4d530d43929",
-  "rendered_at": "2026-09-11"
+  "rendered_at": "2026-09-16",
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-16-self-narration",
+      "verdict": "PASS after one fix",
+      "reviewer": "codex gpt-6-astra xhigh, 1 fresh thread",
+      "thread_ids": [
+        "01a0a5d1-7585-7011-86ae-f872b1397d3b"
+      ],
+      "scope": "Prose-only: 27 spots per file where the sheet narrated itself (29×本文, 1×本速查, 2×全文 in CN; 15×'this tutorial' + 'throughout' in EN) rewritten as plain statements — conventions kept as conventions ('系数统一取 v1', '一律以 H 计'), scopes kept without the pointer, coverage disclaimers kept in plain words. Zero factual change; CN/EN edited in parity. Codex flagged one edit that widened a scope (L48 '与本文是术语碰撞' → '和世界模型只是术语碰撞'); narrowed back to '和这里讨论的世界模型'. Also gained proper page metadata in the same PR (EN title/eyebrow/subtitle in the render manifest).",
+      "notes": "Line counts unchanged (855/855)."
+    }
+  ]
 }

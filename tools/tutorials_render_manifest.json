@@ -14,7 +14,9 @@
   "docs/tutorials/3d_generation_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/3d_generation_tutorial_en.md",
-    "title": "3D Generation Tutorial En"
+    "title": "3D Generation Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · 3D Generation / NeRF / Gaussian Splatting",
+    "subtitle": "NeRF / Instant-NGP / 3DGS / SDS / DreamFusion / Trellis + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/agent_foundations_tutorial.html": {
     "eyebrow": "Interview Prep · LLM Agent Foundations",
@@ -26,7 +28,9 @@
   "docs/tutorials/agent_foundations_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/agent_foundations_tutorial_en.md",
-    "title": "Agent Foundations Tutorial En"
+    "title": "Agent Foundations Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · LLM Agent Foundations",
+    "subtitle": "derivations + from-scratch code + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/agentic_rl_tutorial.html": {
     "eyebrow": "Interview Prep · Agentic RL",
@@ -38,7 +42,9 @@
   "docs/tutorials/agentic_rl_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/agentic_rl_tutorial_en.md",
-    "title": "Agentic Rl Tutorial En"
+    "title": "Agentic RL Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Agentic RL",
+    "subtitle": "RL for LLM Agents · AgentTuning · ToolRL · GRPO for tool use · RAGEN · WebRL · SWE-RL + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/attention_tutorial.html": {
     "eyebrow": "Interview Prep · Attention / MHA / Cross-Attention",
@@ -50,17 +56,23 @@
   "docs/tutorials/attention_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/attention_tutorial_en.md",
-    "title": "Attention Tutorial En"
+    "title": "Attention Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Attention / MHA / Cross-Attention",
+    "subtitle": "derivations + from-scratch code + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/diffusion_distillation_tutorial.html": {
     "lang": "zh-CN",
     "md": "docs/tutorials/diffusion_distillation_tutorial.md",
-    "title": "Diffusion Distillation Tutorial"
+    "title": "Diffusion Distillation 面试 Cheat Sheet",
+    "eyebrow": "Interview Prep · Diffusion / Flow Distillation",
+    "subtitle": "Consistency Models / iCT / sCM / CTM / LCM / DMD / DMD2 / ADD / LADD / LCM-LoRA + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）"
   },
   "docs/tutorials/diffusion_distillation_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/diffusion_distillation_tutorial_en.md",
-    "title": "Diffusion Distillation Tutorial En"
+    "title": "Diffusion Distillation Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Diffusion / Flow Distillation",
+    "subtitle": "Consistency Models / iCT / sCM / CTM / LCM / DMD / DMD2 / ADD / LADD / LCM-LoRA + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/diffusion_foundations_tutorial.html": {
     "eyebrow": "Interview Prep · Diffusion Generative Modeling",
@@ -72,7 +84,9 @@
   "docs/tutorials/diffusion_foundations_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/diffusion_foundations_tutorial_en.md",
-    "title": "Diffusion Foundations Tutorial En"
+    "title": "Diffusion Foundations Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Diffusion Generative Modeling",
+    "subtitle": "DDPM / Score / DDIM / EDM / CFG / Consistency Models · derivations + from-scratch code + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/diffusion_post_training_tutorial.html": {
     "eyebrow": "Interview Prep · Diffusion Post-Training",
@@ -84,7 +98,9 @@
   "docs/tutorials/diffusion_post_training_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/diffusion_post_training_tutorial_en.md",
-    "title": "Diffusion Post Training Tutorial En"
+    "title": "Diffusion Post-Training Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Diffusion Post-Training",
+    "subtitle": "RL + Preference Optimization for Diffusion/Flow Models (DDPO/Diffusion-DPO/Flow-GRPO) + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/distributed_training_tutorial.html": {
     "eyebrow": "Interview Prep · Distributed Training Systems",
@@ -96,7 +112,9 @@
   "docs/tutorials/distributed_training_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/distributed_training_tutorial_en.md",
-    "title": "Distributed Training Tutorial En"
+    "title": "Distributed Training Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Distributed Training Systems",
+    "subtitle": "DDP / FSDP2 / ZeRO / TP / PP / SP / CP / EP — derivations + from-scratch code + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/flow_matching_tutorial.html": {
     "eyebrow": "Interview Prep · Flow Matching / Diffusion Generative Modeling",
@@ -108,7 +126,9 @@
   "docs/tutorials/flow_matching_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/flow_matching_tutorial_en.md",
-    "title": "Flow Matching Tutorial En"
+    "title": "Flow Matching Quick Reference",
+    "eyebrow": "Interview Prep · Flow Matching / Diffusion Generative Modeling",
+    "subtitle": "Conditional Flow Matching · Rectified Flow / VP / VE · training + sampling + SD3 / FLUX in practice"
   },
   "docs/tutorials/image_generation_systems_tutorial.html": {
     "eyebrow": "Interview Prep · Image Generation Systems",
@@ -120,17 +140,23 @@
   "docs/tutorials/image_generation_systems_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/image_generation_systems_tutorial_en.md",
-    "title": "Image Generation Systems Tutorial En"
+    "title": "Image Generation Systems Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Image Generation Systems",
+    "subtitle": "LDM / SD / SDXL / SD3 / FLUX / ControlNet / LoRA + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/kl_divergence_rlhf_tutorial.html": {
     "lang": "zh-CN",
     "md": "docs/tutorials/kl_divergence_rlhf_tutorial.md",
-    "title": "Kl Divergence Rlhf Tutorial"
+    "title": "KL Divergence in RLHF 面试 Cheat Sheet",
+    "eyebrow": "Interview Prep · KL Divergence in RLHF",
+    "subtitle": "Forward vs Reverse KL · k1 / k2 / k3 estimator · in-reward vs in-loss 放置 · β 调度 · KL-regularized 最优 policy 与 DPO / GRPO / SimPO · Reward Overoptimization + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）"
   },
   "docs/tutorials/kl_divergence_rlhf_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/kl_divergence_rlhf_tutorial_en.md",
-    "title": "Kl Divergence Rlhf Tutorial En"
+    "title": "KL Divergence in RLHF Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · KL Divergence in RLHF",
+    "subtitle": "Forward vs Reverse KL · k1 / k2 / k3 estimator · in-reward vs in-loss placement · β schedules · the KL-regularized optimal policy and DPO / GRPO / SimPO · reward overoptimization + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/kv_cache_speculative_decoding_tutorial.html": {
     "eyebrow": "Interview Prep · Inference Systems / Speculative Decoding",
@@ -142,7 +168,9 @@
   "docs/tutorials/kv_cache_speculative_decoding_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/kv_cache_speculative_decoding_tutorial_en.md",
-    "title": "Kv Cache Speculative Decoding Tutorial En"
+    "title": "KV Cache + Speculative Decoding Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Inference Systems / Speculative Decoding",
+    "subtitle": "derivations + from-scratch code + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/linear_sparse_attention_tutorial.html": {
     "eyebrow": "Interview Prep · 线性 / 稀疏注意力 (Linear / Sparse Attention)",
@@ -154,7 +182,9 @@
   "docs/tutorials/linear_sparse_attention_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/linear_sparse_attention_tutorial_en.md",
-    "title": "Linear Sparse Attention Tutorial En"
+    "title": "Linear / Sparse Attention Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Linear / Sparse Attention",
+    "subtitle": "Linear attention / SSM / Mamba / Mamba-2 SSD / DeltaNet / sparse attention (NSA·MoBA·Lightning) / KV cache / hybrid architectures + derivations + from-scratch PyTorch + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/llm_evaluation_benchmarking_tutorial.html": {
     "eyebrow": "Interview Prep · LLM Evaluation & Benchmarking",
@@ -166,7 +196,9 @@
   "docs/tutorials/llm_evaluation_benchmarking_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md",
-    "title": "Llm Evaluation Benchmarking Tutorial En"
+    "title": "LLM Evaluation & Benchmarking Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · LLM Evaluation & Benchmarking",
+    "subtitle": "unbiased pass@k estimation vs the biased plug-in · evaluator ladder · benchmark contamination detection · human eval → LLM-as-judge · Bradley-Terry/Elo · bootstrap statistical inference · 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/llm_inference_serving_tutorial.html": {
     "eyebrow": "Interview Prep · LLM Inference & Serving Stack",
@@ -178,17 +210,23 @@
   "docs/tutorials/llm_inference_serving_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/llm_inference_serving_tutorial_en.md",
-    "title": "Llm Inference Serving Tutorial En"
+    "title": "LLM Inference & Serving Stack Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · LLM Inference & Serving Stack",
+    "subtitle": "request state machine · exact support-set definitions for sampling operators · PagedAttention/KV lifecycle · continuous batching/chunked prefill · prefill-decode disaggregation · 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/llm_opd_tutorial.html": {
     "lang": "zh-CN",
     "md": "docs/tutorials/llm_opd_tutorial.md",
-    "title": "Llm Opd Tutorial"
+    "title": "LLM On-Policy Distillation (OPD) 面试 Cheat Sheet",
+    "eyebrow": "Interview Prep · LLM On-Policy Distillation (OPD)",
+    "subtitle": "MiniLLM · GKD · Qwen3 · Thinking Machines · student rollout + reverse KL · OPD vs RL / DPO / GRPO · 失败模式与工程实现 + 25 高频题（L1 必会 · L2 进阶 · L3 顶级 lab）"
   },
   "docs/tutorials/llm_opd_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/llm_opd_tutorial_en.md",
-    "title": "Llm Opd Tutorial En"
+    "title": "LLM On-Policy Distillation (OPD) Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · LLM On-Policy Distillation (OPD)",
+    "subtitle": "MiniLLM · GKD · Qwen3 · Thinking Machines · student rollout + reverse KL · OPD vs RL / DPO / GRPO · failure modes and engineering practice + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/llm_pretraining_pipeline_tutorial.html": {
     "eyebrow": "Interview Prep · LLM Pretraining Pipeline",
@@ -200,7 +238,9 @@
   "docs/tutorials/llm_pretraining_pipeline_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/llm_pretraining_pipeline_tutorial_en.md",
-    "title": "Llm Pretraining Pipeline Tutorial En"
+    "title": "LLM Pretraining Pipeline Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · LLM Pretraining Pipeline",
+    "subtitle": "Kaplan vs Chinchilla scaling law · corpus factory data pipeline (dedup/decontamination/mixture) · document packing·loss masking · training lifecycle & checkpoint resume · 26 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/long_context_rope_yarn_mla_tutorial.html": {
     "eyebrow": "Interview Prep · Long Context / Position Encoding",
@@ -212,7 +252,9 @@
   "docs/tutorials/long_context_rope_yarn_mla_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/long_context_rope_yarn_mla_tutorial_en.md",
-    "title": "Long Context Rope Yarn Mla Tutorial En"
+    "title": "Long Context: RoPE / YaRN / NTK / MLA / Sliding Window Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Long Context / Position Encoding",
+    "subtitle": "derivations + from-scratch code + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/lora_peft_tutorial.html": {
     "eyebrow": "Interview Prep · LoRA / PEFT 参数高效微调",
@@ -224,7 +266,9 @@
   "docs/tutorials/lora_peft_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/lora_peft_tutorial_en.md",
-    "title": "Lora Peft Tutorial En"
+    "title": "LoRA / PEFT Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · LoRA / PEFT Parameter-Efficient Fine-Tuning",
+    "subtitle": "LoRA / QLoRA / DoRA / rsLoRA / PiSSA / AdaLoRA / (IA)³ + derivations + from-scratch PyTorch + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/modern_diffusion_post_training_tutorial.html": {
     "eyebrow": "Interview Prep · Flow-GRPO / DGPO / DiffusionNFT",
@@ -236,7 +280,9 @@
   "docs/tutorials/modern_diffusion_post_training_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/modern_diffusion_post_training_tutorial_en.md",
-    "title": "Modern Diffusion Post Training Tutorial En"
+    "title": "Modern Diffusion Post-Training Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Flow-GRPO / DGPO / DiffusionNFT",
+    "subtitle": "Flow-GRPO · DGPO · DiffusionNFT: three routes starting from group sampling — reverse SDE derivation · group-preference log Z cancellation · forward-process two-branch reflection + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/moe_tutorial.html": {
     "eyebrow": "Interview Prep · Mixture-of-Experts Architectures",
@@ -248,7 +294,9 @@
   "docs/tutorials/moe_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/moe_tutorial_en.md",
-    "title": "Moe Tutorial En"
+    "title": "MoE (Mixture-of-Experts) Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Mixture-of-Experts Architectures",
+    "subtitle": "DeepSeek-V3 / Mixtral / Llama 4 + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/multi_agent_long_horizon_tutorial.html": {
     "eyebrow": "Interview Prep · Multi-Agent & Long-Horizon",
@@ -260,7 +308,9 @@
   "docs/tutorials/multi_agent_long_horizon_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/multi_agent_long_horizon_tutorial_en.md",
-    "title": "Multi Agent Long Horizon Tutorial En"
+    "title": "Multi-Agent & Long-Horizon Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Multi-Agent & Long-Horizon",
+    "subtitle": "CAMEL · AutoGen · MetaGPT · MoA · Debate · MemGPT · LATS · SWE-Agent + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/normalization_init_tutorial.html": {
     "eyebrow": "Interview Prep · 归一化 / 残差 / 初始化 (Normalization / Residual / Init)",
@@ -272,7 +322,9 @@
   "docs/tutorials/normalization_init_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/normalization_init_tutorial_en.md",
-    "title": "Normalization Init Tutorial En"
+    "title": "Normalization / Residual / Init Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Normalization / Residual / Init",
+    "subtitle": "BatchNorm / LayerNorm / RMSNorm / Pre-vs-Post-LN / DeepNorm / QK-Norm / residual scaling / Xavier·Kaiming / GPT-2 init / μP / DyT + derivations + from-scratch PyTorch + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/optimizer_lr_schedule_tutorial.html": {
     "eyebrow": "Interview Prep · 优化器 / 学习率调度 (Optimizer / LR Schedule)",
@@ -284,7 +336,9 @@
   "docs/tutorials/optimizer_lr_schedule_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/optimizer_lr_schedule_tutorial_en.md",
-    "title": "Optimizer Lr Schedule Tutorial En"
+    "title": "Optimizer / LR Schedule Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Optimizer / LR Schedule",
+    "subtitle": "SGD·Momentum·Nesterov / Adam·AdamW (decoupled decay) / Muon·Lion·Shampoo·SOAP·Adafactor / warmup·cosine·WSD / weight decay·LR-batch·grad-clip / LLM hyperparameters + derivations + from-scratch PyTorch + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/quantization_tutorial.html": {
     "eyebrow": "Interview Prep · Quantization for LLM Inference",
@@ -296,7 +350,9 @@
   "docs/tutorials/quantization_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/quantization_tutorial_en.md",
-    "title": "Quantization Tutorial En"
+    "title": "Quantization Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Quantization for LLM Inference",
+    "subtitle": "GPTQ / AWQ / FP8 / NVFP4 / SmoothQuant + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/rag_embedding_retrieval_tutorial.html": {
     "eyebrow": "Interview Prep · RAG + Embedding / Retrieval",
@@ -308,7 +364,9 @@
   "docs/tutorials/rag_embedding_retrieval_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/rag_embedding_retrieval_tutorial_en.md",
-    "title": "Rag Embedding Retrieval Tutorial En"
+    "title": "RAG + Text Embeddings Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · RAG + Embedding / Retrieval",
+    "subtitle": "retrieval-augmented generation + text embedding/reranking · InfoNCE / hard negatives / Matryoshka / BM25 / RRF / ColBERT / GraphRAG + derivations + from-scratch PyTorch + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/reasoning_models_tutorial.html": {
     "eyebrow": "Interview Prep · Reasoning Models / Test-Time Compute",
@@ -320,7 +378,9 @@
   "docs/tutorials/reasoning_models_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/reasoning_models_tutorial_en.md",
-    "title": "Reasoning Models Tutorial En"
+    "title": "Reasoning Models Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Reasoning Models / Test-Time Compute",
+    "subtitle": "o1 / R1 / Test-Time Compute / PRM + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/rlhf_dpo_grpo_ppo_tutorial.html": {
     "eyebrow": "Interview Prep · Post-Training Alignment",
@@ -332,7 +392,9 @@
   "docs/tutorials/rlhf_dpo_grpo_ppo_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/rlhf_dpo_grpo_ppo_tutorial_en.md",
-    "title": "Rlhf Dpo Grpo Ppo Tutorial En"
+    "title": "RLHF / DPO / GRPO / PPO Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Post-Training Alignment",
+    "subtitle": "derivations + from-scratch code + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/self_evolving_agents_tutorial.html": {
     "eyebrow": "Interview Prep · Self-Evolving Agents",
@@ -344,7 +406,9 @@
   "docs/tutorials/self_evolving_agents_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/self_evolving_agents_tutorial_en.md",
-    "title": "Self Evolving Agents Tutorial En"
+    "title": "Self-Evolving Agents Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Self-Evolving Agents",
+    "subtitle": "Ctx2Skill · Native Evolution · A²RD · Voyager · Reflexion · STaR + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/tokenization_tutorial.html": {
     "eyebrow": "Interview Prep · 分词器 (Tokenization)",
@@ -356,7 +420,9 @@
   "docs/tutorials/tokenization_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/tokenization_tutorial_en.md",
-    "title": "Tokenization Tutorial En"
+    "title": "Tokenization Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Tokenization",
+    "subtitle": "BPE·WordPiece·Unigram(SentencePiece) / byte-level BPE and byte fallback / vocabulary size·multilingual fertility·vocabulary extension / production pitfalls (prefix instability·special token injection·glitch token·offset mapping) / tokenizer-free (ByT5·MegaByte·BLT) + derivations + from-scratch pure Python + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/transformer_block_tutorial.html": {
     "eyebrow": "Interview Prep · Transformer Block",
@@ -368,7 +434,9 @@
   "docs/tutorials/transformer_block_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/transformer_block_tutorial_en.md",
-    "title": "Transformer Block Tutorial En"
+    "title": "Transformer Block Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Transformer Block",
+    "subtitle": "Post-LN / Pre-LN / branch pre+post residual topologies · MHA/MQA/GQA/MLA as an independent design axis · Dense FFN vs MoE capacity axis · GPT-2→Llama-style evolution · 30 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/vae_vqvae_vqgan_tutorial.html": {
     "eyebrow": "Interview Prep · Latent Variable Models & Discrete Tokenizers",
@@ -380,7 +448,9 @@
   "docs/tutorials/vae_vqvae_vqgan_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/vae_vqvae_vqgan_tutorial_en.md",
-    "title": "Vae Vqvae Vqgan Tutorial En"
+    "title": "VAE / VQ-VAE / VQ-GAN / FSQ Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Latent Variable Models & Discrete Tokenizers",
+    "subtitle": "derivations + from-scratch code + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/video_generation_tutorial.html": {
     "eyebrow": "Interview Prep · Video Generation",
@@ -392,7 +462,9 @@
   "docs/tutorials/video_generation_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/video_generation_tutorial_en.md",
-    "title": "Video Generation Tutorial En"
+    "title": "Video Generation Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Video Generation",
+    "subtitle": "Sora · Hunyuan · Wan · Mochi · Movie Gen · OpenSora full stack: 3D Causal VAE + Spacetime Patches + MM-DiT + 25 interview questions (L1·L2·L3)"
   },
   "docs/tutorials/vlm_multimodal_tutorial.html": {
     "eyebrow": "Interview Prep · Vision-Language Models",
@@ -404,7 +476,9 @@
   "docs/tutorials/vlm_multimodal_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/vlm_multimodal_tutorial_en.md",
-    "title": "Vlm Multimodal Tutorial En"
+    "title": "VLM / Multimodal Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · Vision-Language Models",
+    "subtitle": "derivations + from-scratch code + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   },
   "docs/tutorials/world_models_tutorial.html": {
     "eyebrow": "Interview Prep · World Models / 世界模型",
@@ -416,6 +490,8 @@
   "docs/tutorials/world_models_tutorial_en.html": {
     "lang": "en",
     "md": "docs/tutorials/world_models_tutorial_en.md",
-    "title": "World Models Tutorial En"
+    "title": "World Models Interview Cheat Sheet",
+    "eyebrow": "Interview Prep · World Models",
+    "subtitle": "Latent dynamics (RSSM · Dreamer · MuZero · TD-MPC2) · JEPA (V-JEPA 2/2.1 · DINO-WM) · generative and interactive (Genie · GameNGen · Cosmos 3 · Matrix-Game · Atlas) · three routes to embodiment · the evaluation-and-definition debate + 25 interview questions (L1 essentials · L2 advanced · L3 top-tier lab)"
   }
 }
