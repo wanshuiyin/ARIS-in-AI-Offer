@@ -1,0 +1,1385 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>llm_eval_metrics.py · ARIS in AI Offer</title>
+<meta name="description" content="llm_eval_metrics.py — LLM Evaluation &amp; Benchmarking - minimal runnable implementation">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<style>
+:root{--bg:#fdfcf7;--bg-soft:#f4f1ea;--ink:#1a1a1a;--ink-soft:#4a4a4a;--ink-muted:#6b6b6b;--primary:#1a4a8c;--border:#d6d0c0;--border-soft:#e8e3d5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",sans-serif}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0 0}
+header.top a,.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft);color:var(--ink);white-space:nowrap;font-size:14px}
+header.top a:hover,.btn:hover{border-color:var(--primary);color:var(--primary);text-decoration:none}
+header.top a small{color:var(--ink-muted);font-size:12px}
+h1{font:600 22px/1.3 ui-monospace,Menlo,Consolas,monospace;margin:22px 0 6px;overflow-wrap:anywhere}
+.from{color:var(--ink-soft);margin:0 0 12px}
+.desc{color:var(--ink-soft);margin:0 0 14px;max-width:80ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.run{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--ink-muted);align-self:center}
+.code{display:flex;border:1px solid var(--border);border-radius:8px;background:#fafaf6;overflow:hidden;margin:0 0 28px}
+.code pre{margin:0;font:12.5px/1.6 ui-monospace,Menlo,Consolas,monospace;padding:12px 0}
+.code .ln{color:var(--ink-muted);text-align:right;padding:12px 10px 12px 12px;border-right:1px solid var(--border-soft);background:var(--bg-soft);user-select:none;flex:0 0 auto}
+.code .src{flex:1;min-width:0;overflow-x:auto}
+.code .src code{display:block;padding:0 14px;background:transparent}
+footer{margin:0 0 28px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:13px;color:var(--ink-muted)}
+footer a{margin-right:14px}
+@media (max-width:640px){h1{font-size:18px}.code pre{font-size:12px}}
+@media print{header.top,.actions,footer{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <a href="https://easyaioffer.github.io/">⌂ 全部教程 <small>easyaioffer.github.io</small></a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">⭐ Star</a>
+</header>
+
+<h1>llm_eval_metrics.py</h1>
+<p class="from">配套教程：<a href="../tutorials/llm_evaluation_benchmarking_tutorial.html">LLM 评测与 Benchmark</a> · <a href="../tutorials/llm_evaluation_benchmarking_tutorial_en.html">EN</a></p>
+<p class="desc">LLM Evaluation &amp; Benchmarking - minimal runnable implementation</p>
+<div class="actions">
+  <a class="btn" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/llm_eval_metrics.py">在 GitHub 查看</a>
+  <a class="btn" href="https://raw.githubusercontent.com/wanshuiyin/ARIS-in-AI-Offer/main/docs/tutorials/code/llm_eval_metrics.py">原始 .py</a>
+  <button class="btn" id="copy" type="button">复制全部</button>
+  <span class="run">python llm_eval_metrics.py</span>
+</div>
+
+<div class="code">
+<pre class="ln">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+269
+270
+271
+272
+273
+274
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292
+293
+294
+295
+296
+297
+298
+299
+300
+301
+302
+303
+304
+305
+306
+307
+308
+309
+310
+311
+312
+313
+314
+315
+316
+317
+318
+319
+320
+321
+322
+323
+324
+325
+326
+327
+328
+329
+330
+331
+332
+333
+334
+335
+336
+337
+338
+339
+340
+341
+342
+343
+344
+345
+346
+347
+348
+349
+350
+351
+352
+353
+354
+355
+356
+357
+358
+359
+360
+361
+362
+363
+364
+365
+366
+367
+368
+369
+370
+371
+372
+373
+374
+375
+376
+377
+378
+379
+380
+381
+382
+383
+384
+385
+386
+387
+388
+389
+390
+391
+392
+393
+394
+395
+396
+397
+398
+399
+400
+401
+402
+403
+404
+405
+406
+407
+408
+409
+410
+411
+412
+413
+414
+415
+416
+417
+418
+419
+420
+421
+422
+423
+424
+425
+426
+427
+428
+429
+430
+431
+432
+433
+434
+435
+436
+437
+438
+439
+440
+441
+442
+443
+444
+445
+446
+447
+448
+449
+450
+451
+452
+453
+454
+455
+456
+457
+458
+459
+460
+461
+462
+463
+464
+465
+466
+467
+468
+469
+470
+471
+472
+473
+474
+475
+476
+477
+478
+479
+480
+481
+482
+483
+484
+485
+486
+487
+488
+489
+490
+491
+492
+493
+494
+495
+496
+497
+498
+499
+500
+501
+502
+503
+504
+505
+506
+507
+508
+509
+510
+511
+512
+513
+514
+515
+516
+517
+518
+519
+520
+521
+522
+523
+524
+525
+526
+527
+528
+529
+530
+531
+532
+533
+534
+535
+536
+537
+538
+539
+540
+541
+542
+543
+544
+545
+546
+547
+548
+549
+550
+551
+552
+553
+554
+555
+556
+557
+558
+559
+560
+561
+562
+563
+564
+565
+566
+567
+568
+569
+570
+571
+572
+573
+574
+575
+576
+577
+578
+579
+580
+581
+582
+583
+584
+585
+586
+587
+588
+589
+590
+591
+592
+593
+594
+595
+596
+597
+598
+599
+600
+601
+602
+603
+604
+605
+606
+607
+608
+609
+610
+611
+612
+613
+614
+615
+616
+617
+618
+619
+620
+621
+622
+623
+624
+625
+626
+627
+628
+629
+630
+631
+632
+633
+634
+635
+636
+637
+638
+639
+640
+641
+642
+643
+644
+645
+646
+647
+648
+649
+650
+651
+652
+653
+654
+655
+656</pre>
+<pre class="src"><code class="language-python" id="src">&quot;&quot;&quot;
+LLM Evaluation &amp; Benchmarking - minimal runnable implementation
+================================================================
+
+Pure-stdlib + numpy/scipy (Python 3.9+), runs in a few seconds on CPU.
+Pairs with: docs/tutorials/llm_evaluation_benchmarking_tutorial.md (concept reference).
+
+    [D01] pass@k: high-variance direct estimate vs unbiased combinatorial
+          estimate (Chen et al.) vs biased plug-in estimate
+    [D02] bootstrap CI: paired per-item difference, degenerate constant array,
+          brute-force enumeration check, Wilson interval vs naive percentile
+          bootstrap at a boundary proportion, and the multi-judge-vote /
+          prompt-cluster independence trap
+    [D03] Bradley-Terry MLE: closed-form 2-player case, standard-error scaling
+          under count multiplication, cyclic (intransitive) data, complete
+          separation detection, disconnected-graph detection
+    [D04] position bias: equal-quality responses under a positional logit
+          shift, order-balancing recovers the marginal win rate, and
+          swap-inconsistency exposes what a deterministic &quot;always pick first&quot;
+          judge hides behind that balanced marginal
+
+Run:
+    python3 llm_eval_metrics.py
+&quot;&quot;&quot;
+import itertools
+import math
+import sys
+from math import comb, log
+
+import numpy as np
+from scipy import optimize
+
+
+# ==========================================================================
+# [D01] pass@k: three estimators, not two
+# ==========================================================================
+# Teaching note: &quot;run exactly k samples, check if &gt;=1 passes&quot; is UNBIASED
+# (its expectation is exactly the true pass@k) but high-variance (a single
+# Bernoulli draw per problem). The common BIASED estimator is the plug-in
+# form 1-(1-c/n)^k, which substitutes empirical accuracy into the population
+# formula. The Chen et al. combinatorial estimator is unbiased AND lower
+# variance because it averages over all C(n,k) size-k subsets of n&gt;=k
+# independently drawn samples instead of using only one subset.
+
+def _validate_pass_at_k_inputs(n, c, k):
+    &quot;&quot;&quot;Shared validation for the n/c/k-based pass@k estimators below. n is
+    the number of Monte Carlo samples actually generated, c is how many of
+    them passed, and k is the estimand&#x27;s allowed-attempts budget -- silently
+    accepting out-of-range values would otherwise produce nonsense statistics
+    (a negative pass@k for c&lt;0, a silently-wrong 1.0 for c&gt;n, or a
+    ZeroDivisionError deep inside pass_at_k_plugin for n=0).&quot;&quot;&quot;
+    for name, val in ((&quot;n&quot;, n), (&quot;c&quot;, c), (&quot;k&quot;, k)):
+        if isinstance(val, bool) or not isinstance(val, (int, np.integer)):
+            raise ValueError(f&quot;{name} must be an integer, got {val!r}&quot;)
+    if n &lt; 1:
+        raise ValueError(f&quot;n must be &gt;= 1, got n={n}&quot;)
+    if k &lt; 1:
+        raise ValueError(f&quot;k must be &gt;= 1, got k={k}&quot;)
+    if not (0 &lt;= c &lt;= n):
+        raise ValueError(f&quot;c must satisfy 0 &lt;= c &lt;= n, got c={c}, n={n}&quot;)
+
+
+def pass_at_k_true(p, k):
+    &quot;&quot;&quot;True pass@k for a FIXED per-problem success probability p under a
+    fixed sampling policy (temperature/top-p/max tokens all fixed).&quot;&quot;&quot;
+    if not (isinstance(k, (int, np.integer)) and not isinstance(k, bool) and k &gt;= 1):
+        raise ValueError(f&quot;k must be an integer &gt;= 1, got {k!r}&quot;)
+    if not (0.0 &lt;= p &lt;= 1.0):
+        raise ValueError(f&quot;p must satisfy 0 &lt;= p &lt;= 1, got p={p}&quot;)
+    return 1 - (1 - p) ** k
+
+
+def pass_at_k_unbiased(n, c, k):
+    &quot;&quot;&quot;Chen et al. unbiased, lower-variance estimator from n&gt;=k samples with
+    c correct. Convention: if fewer than k samples are wrong (n-c &lt; k), the
+    estimate is 1 (every size-k subset necessarily contains a correct one).&quot;&quot;&quot;
+    _validate_pass_at_k_inputs(n, c, k)
+    if k &gt; n:
+        raise ValueError(f&quot;k={k} must be &lt;= n={n}&quot;)
+    if n - c &lt; k:
+        return 1.0
+    return 1 - comb(n - c, k) / comb(n, k)
+
+
+def pass_at_k_plugin(n, c, k):
+    &quot;&quot;&quot;Common BIASED plug-in estimator: substitute p_hat=c/n into the
+    population formula. Biased DOWNWARD for k&gt;=2 because 1-(1-p)^k is
+    concave in p (Jensen&#x27;s inequality applied to the random variable c/n).&quot;&quot;&quot;
+    _validate_pass_at_k_inputs(n, c, k)
+    return 1 - (1 - c / n) ** k
+
+
+def binomial_pmf(n, p):
+    return {c: comb(n, c) * p ** c * (1 - p) ** (n - c) for c in range(n + 1)}
+
+
+# ==========================================================================
+# [D02] bootstrap CI: paired design, degeneracy, and cluster dependence
+# ==========================================================================
+
+def percentile_ci(values, alpha=0.05):
+    lo = float(np.percentile(values, 100 * alpha / 2))
+    hi = float(np.percentile(values, 100 * (1 - alpha / 2)))
+    return lo, hi
+
+
+def wilson_ci(x, n, z=1.96):
+    &quot;&quot;&quot;Wilson score interval for a binomial proportion x/n -- does not
+    degenerate to a zero-width interval at x=n like a naive percentile
+    bootstrap of an all-successes sample does.&quot;&quot;&quot;
+    phat = x / n
+    denom = 1 + z ** 2 / n
+    center = (phat + z ** 2 / (2 * n)) / denom
+    margin = (z / denom) * math.sqrt(phat * (1 - phat) / n + z ** 2 / (4 * n ** 2))
+    return center - margin, center + margin
+
+
+# ==========================================================================
+# [D03] Bradley-Terry MLE: identifiability, separation, non-transitivity
+# ==========================================================================
+# comparisons: dict {(i, j): (wins_i_over_j, wins_j_over_i)} for i &lt; j.
+# Player 0&#x27;s theta is fixed at 0 during optimization (removes the additive
+# non-identifiability); the caller may re-center to sum-zero afterward.
+
+def _validate_comparisons(comparisons, n_players):
+    &quot;&quot;&quot;Validate a comparisons dict before any BT computation. Keys must be
+    (i, j) integer pairs with i &lt; j and both indices in range(n_players)
+    (rejects self-comparisons and out-of-range player ids); counts must be
+    finite, non-negative, and sum to a positive total (a (0, 0) entry
+    carries no information and is almost certainly a bug, so it is
+    rejected rather than silently treated as &quot;not an edge&quot;).&quot;&quot;&quot;
+    if not (isinstance(n_players, (int, np.integer)) and n_players &gt;= 2):
+        raise ValueError(f&quot;n_players must be an integer &gt;= 2, got {n_players!r}&quot;)
+    for (i, j), (wij, wji) in comparisons.items():
+        if isinstance(i, bool) or isinstance(j, bool) or not (
+                isinstance(i, (int, np.integer)) and isinstance(j, (int, np.integer))):
+            raise ValueError(f&quot;player indices must be integers, got key {(i, j)!r}&quot;)
+        if not (0 &lt;= i &lt; n_players and 0 &lt;= j &lt; n_players):
+            raise ValueError(
+                f&quot;player indices {(i, j)} out of range for n_players={n_players}&quot;)
+        if i == j:
+            raise ValueError(f&quot;self-comparison is not allowed: key {(i, j)}&quot;)
+        if i &gt;= j:
+            raise ValueError(f&quot;comparisons keys must satisfy i &lt; j, got {(i, j)}&quot;)
+        if not (np.isfinite(wij) and np.isfinite(wji)):
+            raise ValueError(f&quot;non-finite comparison count at {(i, j)}: {(wij, wji)}&quot;)
+        if wij &lt; 0 or wji &lt; 0:
+            raise ValueError(f&quot;negative comparison count at {(i, j)}: {(wij, wji)}&quot;)
+        if wij + wji &lt;= 0:
+            raise ValueError(
+                f&quot;comparison {(i, j)} has zero total games (0, 0), which &quot;
+                &quot;carries no information; remove it from the input&quot;)
+
+
+def _is_connected(comparisons, n_players):
+    &quot;&quot;&quot;Undirected weak-connectivity check. Assumes comparisons has already
+    been validated (see _validate_comparisons), so every entry has
+    wij + wji &gt; 0 and is a genuine edge.&quot;&quot;&quot;
+    adj = {i: set() for i in range(n_players)}
+    for (i, j), (wij, wji) in comparisons.items():
+        if wij + wji &gt; 0:
+            adj[i].add(j)
+            adj[j].add(i)
+    seen, stack = {0}, [0]
+    while stack:
+        u = stack.pop()
+        for v in adj[u]:
+            if v not in seen:
+                seen.add(v)
+                stack.append(v)
+    return len(seen) == n_players
+
+
+def _reachable(start, adj, n_players):
+    seen, stack = {start}, [start]
+    while stack:
+        u = stack.pop()
+        for v in adj.get(u, ()):
+            if v not in seen:
+                seen.add(v)
+                stack.append(v)
+    return seen
+
+
+def detect_complete_separation(comparisons, n_players):
+    &quot;&quot;&quot;Full strong-connectivity check on the directed winner-to-loser graph
+    (edge i -&gt; j iff player i has at least one recorded win over player j).
+    Under the standard unregularized Bradley-Terry model, a finite MLE
+    exists (unique up to the usual additive shift) if and only if this
+    directed graph is STRONGLY CONNECTED: every non-trivial partition of
+    the players must have at least one win crossing in each direction. When
+    it is not strongly connected, the negative log-likelihood&#x27;s infimum is
+    not attained at any finite parameter vector -- the optimal parameters
+    diverge to +/-infinity along the direction separating the strongly
+    connected components (the supremum of the likelihood is finite, but no
+    finite parameter vector attains it).
+
+    For n_players == 2 this collapses to the familiar &quot;one player never
+    lost a single comparison&quot; rule, but that pairwise rule does NOT
+    generalize to n &gt;= 3: e.g. A beats B 10-0 while A:C and B:C are both
+    5-5 is NOT complete separation (C&#x27;s split record against both A and B
+    makes the whole graph strongly connected, hence a finite MLE exists),
+    even though the isolated A-vs-B pair looks exactly like the classic
+    separation pattern.
+
+    Returns a list of the strongly connected components (each a sorted
+    list of player indices), only when there is more than one component
+    (i.e. separation is present); returns an empty list when the graph is
+    strongly connected (no separation). Assumes comparisons has already
+    been validated (see _validate_comparisons).
+    &quot;&quot;&quot;
+    out_adj = {i: set() for i in range(n_players)}
+    for (i, j), (wij, wji) in comparisons.items():
+        if wij &gt; 0:
+            out_adj[i].add(j)
+        if wji &gt; 0:
+            out_adj[j].add(i)
+    in_adj = {i: set() for i in range(n_players)}
+    for u, vs in out_adj.items():
+        for v in vs:
+            in_adj[v].add(u)
+
+    components, assigned = [], set()
+    for u in range(n_players):
+        if u in assigned:
+            continue
+        scc = _reachable(u, out_adj, n_players) &amp; _reachable(u, in_adj, n_players)
+        components.append(sorted(scc))
+        assigned |= scc
+
+    return components if len(components) &gt; 1 else []
+
+
+def bt_negloglik(theta_free, comparisons, n_players, ridge=0.0):
+    theta = np.concatenate(([0.0], theta_free))
+    nll = 0.0
+    for (i, j), (wij, wji) in comparisons.items():
+        d = theta[i] - theta[j]
+        # log sigma(d)  = -log(1+exp(-d)) = -logaddexp(0, -d)
+        # log sigma(-d) = -log(1+exp(d))  = -logaddexp(0, d)
+        nll -= wij * (-np.logaddexp(0, -d))
+        nll -= wji * (-np.logaddexp(0, d))
+    if ridge &gt; 0:
+        # Penalize the SUM-ZERO-CENTERED theta, not theta_free directly.
+        # theta_free implicitly pins player 0&#x27;s parameter at 0 purely as an
+        # optimization device to remove the additive non-identifiability;
+        # penalizing theta_free alone (as if player 0 were a fixed
+        # reference point) makes the ridge ESTIMATE depend on which player
+        # happens to be numbered 0. Centering first makes the penalty (and
+        # the resulting estimate) invariant to that arbitrary choice.
+        theta_centered = theta - theta.mean()
+        nll += ridge * np.sum(theta_centered ** 2)
+    return nll
+
+
+def bt_mle(comparisons, n_players, ridge=0.0, allow_separation=False, x0=None):
+    &quot;&quot;&quot;Batch Bradley-Terry MLE with theta_0 fixed at 0 during optimization,
+    then re-centered to sum-zero. Raises on invalid input (see
+    _validate_comparisons), on a disconnected comparison graph (relative
+    strength across components is not identifiable), and, unless ridge&gt;0
+    or the caller explicitly opts in, on detected complete separation (no
+    finite unregularized MLE exists). Also raises if the optimizer fails to
+    converge to a finite solution, rather than silently returning whatever
+    scipy last tried.
+
+    x0: optional custom starting point for theta_free (shape
+    (n_players-1,)); defaults to all-zeros. Mainly useful for tests where
+    starting exactly at the true solution would make the optimizer&#x27;s
+    correctness untestable.
+    &quot;&quot;&quot;
+    _validate_comparisons(comparisons, n_players)
+    if not (np.isfinite(ridge) and ridge &gt;= 0):
+        raise ValueError(f&quot;ridge must be a finite non-negative real number, got {ridge!r}&quot;)
+
+    if not _is_connected(comparisons, n_players):
+        raise ValueError(
+            &quot;comparison graph is disconnected: relative strength across &quot;
+            &quot;components is not identifiable from this data alone&quot;)
+    flagged = detect_complete_separation(comparisons, n_players)
+    if flagged and not (ridge &gt; 0) and not allow_separation:
+        raise ValueError(
+            f&quot;complete separation detected: the winner-to-loser graph &quot;
+            f&quot;splits into strongly connected components {flagged} with no &quot;
+            &quot;win flowing back into an earlier component from a later one; &quot;
+            &quot;no finite unregularized MLE exists; pass ridge&gt;0 or &quot;
+            &quot;allow_separation=True&quot;)
+
+    if x0 is None:
+        x0 = np.zeros(n_players - 1)
+    else:
+        x0 = np.asarray(x0, dtype=float)
+        if x0.shape != (n_players - 1,):
+            raise ValueError(
+                f&quot;x0 must have shape ({n_players - 1},), got {x0.shape}&quot;)
+
+    res = optimize.minimize(
+        bt_negloglik, x0, args=(comparisons, n_players, ridge), method=&quot;BFGS&quot;)
+    theta = np.concatenate(([0.0], res.x))
+    theta = theta - theta.mean()
+    if not res.success or not np.isfinite(res.fun) or not np.all(np.isfinite(theta)):
+        raise RuntimeError(
+            &quot;BT MLE optimization did not converge to a finite solution: &quot;
+            f&quot;success={res.success}, fun={res.fun}, message={res.message!r}&quot;)
+    return theta, res
+
+
+def bt_pairwise_se(n_ij, p_ij):
+    &quot;&quot;&quot;Standard error of theta_i - theta_j for a pair observed in ISOLATION
+    (no other comparisons touching i or j): the log-likelihood restricted to
+    d=theta_i-theta_j is exactly a binomial-logistic model with n_ij trials,
+    Fisher information n_ij * p * (1-p).&quot;&quot;&quot;
+    info = n_ij * p_ij * (1 - p_ij)
+    return 1.0 / math.sqrt(info)
+
+
+# ==========================================================================
+# [D04] position bias: positional logit shift + swap consistency
+# ==========================================================================
+
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x))
+
+
+POSITION_BIAS_B = math.log(7 / 3)  # calibrated so P(A wins | shown first) = 0.7
+
+
+def p_a_wins(delta, position_a):
+    &quot;&quot;&quot;position_a: +1 if A is shown first, -1 if A is shown second.
+    delta is the TRUE quality gap (0 for equal-quality responses).&quot;&quot;&quot;
+    return sigmoid(delta + POSITION_BIAS_B * position_a)
+
+
+def order_balanced_marginal_win_rate(judge_fn, x, y):
+    &quot;&quot;&quot;Directly compute, for the ACTUAL judge_fn (not a separate smooth
+    logistic model of it), the marginal win rate for x when the pair (x, y)
+    is order-balanced: judged once with x shown first and once with x
+    shown second, each counted with weight 0.5. This is what &quot;order
+    balancing&quot; means operationally, and it is what hides a purely
+    positional judge like always_pick_first behind an innocuous-looking
+    marginal of 0.5, even though the judge never once looked at content.&quot;&quot;&quot;
+    win_when_first = judge_fn(x, y) == x     # x shown first
+    win_when_second = judge_fn(y, x) == x    # x shown second
+    return 0.5 * win_when_first + 0.5 * win_when_second
+
+
+def swap_inconsistency_rate(judge_fn, pairs):
+    &quot;&quot;&quot;For each (X, Y) pair, ask the judge in original order (X first, Y
+    second) and swapped order (Y first, X second); report the fraction of
+    pairs where the WINNER IDENTITY flips between the two orders. A judge
+    that only tracks true quality gives rate 0; a position-driven judge can
+    give rate 1 even though its balanced marginal win rate looks like 0.5.&quot;&quot;&quot;
+    flips = 0
+    for x, y in pairs:
+        winner_original = judge_fn(x, y)          # x shown first
+        winner_swapped = judge_fn(y, x)           # y shown first
+        if winner_original != winner_swapped:
+            flips += 1
+    return flips / len(pairs)
+
+
+def main():
+    if not __debug__:
+        raise SystemExit(&quot;run without -O: the checks below are assert-based&quot;)
+    if hasattr(sys.stdout, &quot;reconfigure&quot;):
+        sys.stdout.reconfigure(encoding=&quot;utf-8&quot;, errors=&quot;backslashreplace&quot;)
+
+    # ---------------------------------------------------------------- D01
+    p, k, n = 0.2, 2, 5
+    true_pk = pass_at_k_true(p, k)
+    assert abs(true_pk - 0.36) &lt; 1e-12                       # 1 - 0.8^2
+
+    pmf = binomial_pmf(n, p)
+    e_unbiased = sum(pass_at_k_unbiased(n, c, k) * w for c, w in pmf.items())
+    e_plugin = sum(pass_at_k_plugin(n, c, k) * w for c, w in pmf.items())
+    assert abs(e_unbiased - 0.36) &lt; 1e-9                     # exactly unbiased
+    assert abs(e_plugin - 0.328) &lt; 1e-9                      # biased downward
+    bias_pred = -p * (1 - p) / n                             # closed form for k=2
+    assert abs((e_plugin - true_pk) - bias_pred) &lt; 1e-9
+
+    # &quot;run exactly k times, record &gt;=1 success&quot;: unbiased single Bernoulli obs
+    var_naive = true_pk * (1 - true_pk)
+    assert abs(var_naive - 0.2304) &lt; 1e-9
+
+    # Chen et al.&#x27;s claim is not just &quot;unbiased&quot; but &quot;unbiased AND lower
+    # variance than the naive k-sample estimator, for the SAME n&quot;. Actually
+    # compute Var[unbiased estimator] over repeated draws of n samples
+    # (c ~ Binomial(n, p)) via the same pmf used for e_unbiased above, and
+    # check it against var_naive rather than only asserting the mean matches.
+    e_unbiased_sq = sum(pass_at_k_unbiased(n, c, k) ** 2 * w for c, w in pmf.items())
+    var_unbiased = e_unbiased_sq - e_unbiased ** 2
+    assert var_unbiased &lt; var_naive                          # Rao-Blackwell: strictly lower here
+    assert abs(var_unbiased - 0.08448) &lt; 1e-4
+
+    # hand example: n=10, c=3, k=5 -&gt; 1 - C(7,5)/C(10,5) = 11/12
+    assert abs(pass_at_k_unbiased(10, 3, 5) - 11 / 12) &lt; 1e-12
+
+    # edge cases
+    assert abs(pass_at_k_unbiased(6, 4, 1) - 4 / 6) &lt; 1e-12   # k=1 -&gt; c/n
+    assert pass_at_k_unbiased(6, 0, 3) == 0.0                 # c=0 -&gt; 0
+    assert pass_at_k_unbiased(6, 5, 3) == 1.0                 # n-c=1&lt;k -&gt; 1
+    try:
+        pass_at_k_unbiased(3, 1, 5)
+        raise AssertionError(&quot;expected ValueError for k&gt;n&quot;)
+    except ValueError:
+        pass
+
+    # illegal n/c/k must raise, not silently produce a negative pass@k, a
+    # falsely-perfect 1.0 for c&gt;n, or (pre-fix) a ZeroDivisionError for n=0
+    for bad_call in (
+        lambda: pass_at_k_unbiased(5, -1, 2),      # negative c
+        lambda: pass_at_k_unbiased(5, 6, 2),       # c &gt; n
+        lambda: pass_at_k_unbiased(0, 0, 1),       # n &lt; 1
+        lambda: pass_at_k_unbiased(5, 2, 0),       # k &lt; 1
+        lambda: pass_at_k_unbiased(5.5, 2, 2),     # non-integer n
+        lambda: pass_at_k_plugin(0, 0, 2),         # n=0 -&gt; used to ZeroDivisionError
+        lambda: pass_at_k_plugin(5, -1, 2),        # negative c
+        lambda: pass_at_k_plugin(5, 6, 2),         # c &gt; n
+        lambda: pass_at_k_true(0.2, 0),            # k &lt; 1
+        lambda: pass_at_k_true(1.5, 2),            # p out of [0, 1]
+    ):
+        try:
+            bad_call()
+            raise AssertionError(f&quot;expected ValueError for invalid pass@k input {bad_call}&quot;)
+        except ValueError:
+            pass
+
+    # multi-problem averaging: per-problem first, THEN average -- not pooled
+    per_problem_avg = (pass_at_k_unbiased(5, 1, 2) + pass_at_k_unbiased(5, 4, 2)) / 2
+    pooled_wrong = pass_at_k_unbiased(10, 5, 2)               # c and n summed first
+    assert abs(per_problem_avg - 0.7) &lt; 1e-12
+    assert abs(pooled_wrong - 0.7778) &lt; 1e-3
+    assert abs(per_problem_avg - pooled_wrong) &gt; 0.05         # nonlinear transform bites
+
+    print(f&quot;[D01] pass@k(p=0.2,k=2)=0.360 true; E[unbiased]={e_unbiased:.3f} &quot;
+          f&quot;(exact) vs E[plugin]={e_plugin:.3f} (biased {e_plugin - true_pk:+.3f}); &quot;
+          f&quot;Var[unbiased]={var_unbiased:.5f} &lt; Var[naive k-sample]={var_naive:.4f}; &quot;
+          f&quot;n=10,c=3,k=5 -&gt; {pass_at_k_unbiased(10, 3, 5):.4f}=11/12; &quot;
+          f&quot;per-problem avg={per_problem_avg:.3f} != pooled={pooled_wrong:.4f}  PASS&quot;)
+
+    # ---------------------------------------------------------------- D02
+    rng = np.random.default_rng(0)
+    n_items = 30
+    A = rng.normal(0.70, 0.10, n_items)
+    B = rng.normal(0.65, 0.10, n_items)
+    d = A - B
+    n_boot = 4000
+    idx_matrix = rng.integers(0, n_items, size=(n_boot, n_items))
+    boot_paired = np.array([A[idx].mean() - B[idx].mean() for idx in idx_matrix])
+    boot_direct = np.array([d[idx].mean() for idx in idx_matrix])
+    # algebraic identity (same bootstrap indices -&gt; identical means): check
+    # against an absolute tolerance ONLY (rtol=0), since the default rtol
+    # would otherwise dominate atol here and mask a real discrepancy
+    assert np.allclose(boot_paired, boot_direct, rtol=0, atol=1e-9)
+
+    # degenerate constant array
+    const_data = np.full(20, 0.07)
+    idx_matrix2 = rng.integers(0, 20, size=(2000, 20))
+    const_means = np.array([const_data[idx].mean() for idx in idx_matrix2])
+    lo_c, hi_c = percentile_ci(const_means)
+    assert lo_c == hi_c
+    assert abs(lo_c - 0.07) &lt; 1e-9
+
+    # brute-force enumeration: mean of ALL 3^3=27 bootstrap-sample means
+    # equals the original sample mean exactly (bootstrap-mean identity)
+    d_small = np.array([0.2, -0.1, 0.4])
+    all_means = [d_small[list(combo)].mean()
+                 for combo in itertools.product(range(3), repeat=3)]
+    assert len(all_means) == 27
+    assert abs(sum(all_means) / len(all_means) - d_small.mean()) &lt; 1e-12
+    assert abs(d_small.mean() - 1 / 6) &lt; 1e-12
+
+    # all-correct edge case: naive percentile bootstrap collapses to a point,
+    # Wilson score interval does not
+    all_correct = np.ones(20)
+    idx_matrix3 = rng.integers(0, 20, size=(2000, 20))
+    ac_means = np.array([all_correct[idx].mean() for idx in idx_matrix3])
+    lo_ac, hi_ac = percentile_ci(ac_means)
+    assert lo_ac == hi_ac == 1.0
+    lo_w, hi_w = wilson_ci(20, 20)
+    assert abs(lo_w - 0.839) &lt; 0.005
+
+    # multi-judge-vote / prompt-cluster independence trap: 4 prompts, each
+    # duplicated by 5 (perfectly agreeing) judge votes. Treating all 20 votes
+    # as independent draws understates uncertainty; resampling by PROMPT
+    # cluster (then keeping each prompt&#x27;s 5 duplicate votes together) is honest.
+    prompt_values = np.array([0.9, 0.5, 0.5, 0.1])
+    votes_flat = np.repeat(prompt_values, 5)                  # 20 &quot;votes&quot;
+    idx_naive = rng.integers(0, 20, size=(5000, 20))
+    naive_means = np.array([votes_flat[idx].mean() for idx in idx_naive])
+    lo_n, hi_n = percentile_ci(naive_means)
+    idx_cluster = rng.integers(0, 4, size=(5000, 4))          # resample PROMPTS
+    cluster_means = np.array([prompt_values[idx].mean() for idx in idx_cluster])
+    lo_cl, hi_cl = percentile_ci(cluster_means)
+    width_naive, width_cluster = hi_n - lo_n, hi_cl - lo_cl
+    assert width_cluster &gt; 1.5 * width_naive                  # cluster CI much wider
+
+    print(f&quot;[D02] paired==direct bootstrap: &quot;
+          f&quot;{np.allclose(boot_paired, boot_direct, rtol=0, atol=1e-9)}; &quot;
+          f&quot;constant-array CI=[{lo_c:.4f},{hi_c:.4f}]; 27-sample enum mean=&quot;
+          f&quot;{sum(all_means)/len(all_means):.4f}=1/6; all-correct naive=[1.0,1.0] vs &quot;
+          f&quot;Wilson=[{lo_w:.3f},{hi_w:.3f}]; cluster CI width {width_cluster:.3f} &gt; &quot;
+          f&quot;naive width {width_naive:.3f}  PASS&quot;)
+
+    # ---------------------------------------------------------------- D03
+    # closed-form 2-player case: A beats B 75/25 -&gt; theta_A-theta_B = log(3)
+    comparisons_2p = {(0, 1): (75, 25)}
+    theta_2p, res_2p = bt_mle(comparisons_2p, n_players=2)
+    assert res_2p.success
+    assert abs((theta_2p[0] - theta_2p[1]) - log(3)) &lt; 1e-6
+    assert abs(theta_2p[0] - log(3) / 2) &lt; 1e-6
+    assert abs(theta_2p[1] + log(3) / 2) &lt; 1e-6
+    pred_win = sigmoid(theta_2p[0] - theta_2p[1])
+    assert abs(pred_win - 0.75) &lt; 1e-6
+
+    # scaling: multiply win/loss counts by 10 -&gt; same point estimate, smaller SE
+    se_orig = bt_pairwise_se(100, 0.75)
+    se_scaled = bt_pairwise_se(1000, 0.75)
+    comparisons_2p_scaled = {(0, 1): (750, 250)}
+    theta_2p_scaled, res_2p_scaled = bt_mle(comparisons_2p_scaled, n_players=2)
+    assert res_2p_scaled.success
+    assert abs((theta_2p_scaled[0] - theta_2p_scaled[1]) - log(3)) &lt; 1e-6
+    assert se_scaled &lt; se_orig
+    assert abs(se_scaled / se_orig - 1 / math.sqrt(10)) &lt; 1e-6
+
+    # cyclic (intransitive) data: A&gt;B&gt;C&gt;A each 2:1 (key (0,2)=(1,2) encodes
+    # &quot;C beats A 2:1&quot; under the i&lt;j key convention) -&gt; scalar model forces
+    # equal strengths, predicting ~0.5 for every pair despite the 2:1 cycles.
+    # Start the optimizer AWAY from the all-zeros initial guess: zeros
+    # happen to be exactly the symmetric solution here, so starting there
+    # would let a broken objective/gradient pass by sheer luck of never
+    # having to move. res_cyc.success is also checked explicitly rather
+    # than only checking theta_cyc for finiteness.
+    comparisons_cyc = {(0, 1): (2, 1), (1, 2): (2, 1), (0, 2): (1, 2)}
+    theta_cyc, res_cyc = bt_mle(comparisons_cyc, n_players=3, x0=np.array([1.0, -1.0]))
+    assert res_cyc.success
+    assert max(theta_cyc) - min(theta_cyc) &lt; 1e-4
+    for (i, j) in comparisons_cyc:
+        assert abs(sigmoid(theta_cyc[i] - theta_cyc[j]) - 0.5) &lt; 1e-3
+
+    # complete separation (2-player): A beats B 10-0, no losses -&gt; flagged,
+    # no finite unregularized MLE; with ridge&gt;0 the estimate is finite AND
+    # the optimizer must actually report success (not just finite numbers).
+    comparisons_sep = {(0, 1): (10, 0)}
+    assert detect_complete_separation(comparisons_sep, n_players=2) == [[0], [1]]
+    try:
+        bt_mle(comparisons_sep, n_players=2)
+        raise AssertionError(&quot;expected ValueError for complete separation&quot;)
+    except ValueError:
+        pass
+    theta_reg, res_reg = bt_mle(comparisons_sep, n_players=2, ridge=1.0)
+    assert res_reg.success
+    assert np.all(np.isfinite(theta_reg))
+
+    # generalization check (the actual P1 bug): A:B=10:0 in isolation looks
+    # exactly like the separation case above, but with A:C=5:5 and B:C=5:5
+    # added, the winner-to-loser graph IS strongly connected (C&#x27;s split
+    # record against both A and B provides a path back), so a finite
+    # unregularized MLE exists and must NOT be flagged or rejected.
+    comparisons_not_sep = {(0, 1): (10, 0), (0, 2): (5, 5), (1, 2): (5, 5)}
+    assert detect_complete_separation(comparisons_not_sep, n_players=3) == []
+    theta_not_sep, res_not_sep = bt_mle(comparisons_not_sep, n_players=3)
+    assert res_not_sep.success
+    assert np.all(np.isfinite(theta_not_sep))
+
+    # a genuine multi-player separation that the naive &quot;one pair only-wins&quot;
+    # rule and the graph-based rule both catch: a strict win chain 0-&gt;1-&gt;2
+    # with no reverse wins anywhere splits into 3 singleton components.
+    comparisons_chain_sep = {(0, 1): (10, 0), (1, 2): (10, 0)}
+    assert detect_complete_separation(comparisons_chain_sep, n_players=3) == [[0], [1], [2]]
+    try:
+        bt_mle(comparisons_chain_sep, n_players=3)
+        raise AssertionError(&quot;expected ValueError for chain complete separation&quot;)
+    except ValueError:
+        pass
+
+    # disconnected graph: {0,1} and {2,3} never compared -&gt; must raise
+    comparisons_disc = {(0, 1): (5, 5), (2, 3): (5, 5)}
+    try:
+        bt_mle(comparisons_disc, n_players=4)
+        raise AssertionError(&quot;expected ValueError for disconnected graph&quot;)
+    except ValueError:
+        pass
+
+    # invalid comparisons input must raise, not silently corrupt the graph
+    # (out-of-range id, self-comparison, negative count, zero-total count,
+    # i&gt;=j key ordering, non-integer id) or bypass separation via bad ridge
+    for bad_call in (
+        lambda: bt_mle({(0, 5): (3, 2)}, n_players=3),          # id out of range
+        lambda: bt_mle({(1, 1): (3, 2)}, n_players=3),          # self-comparison
+        lambda: bt_mle({(0, 1): (-1, 2)}, n_players=2),         # negative count
+        lambda: bt_mle({(0, 1): (0, 0)}, n_players=2),          # zero-total count
+        lambda: bt_mle({(1, 0): (3, 2)}, n_players=2),          # i &gt;= j
+        lambda: bt_mle({(0.5, 1): (3, 2)}, n_players=2),        # non-integer id
+        lambda: bt_mle(comparisons_2p, n_players=2, ridge=-1.0),        # negative ridge
+        lambda: bt_mle(comparisons_2p, n_players=2, ridge=float(&quot;nan&quot;)),  # NaN ridge
+    ):
+        try:
+            bad_call()
+            raise AssertionError(f&quot;expected ValueError for invalid BT input {bad_call}&quot;)
+        except ValueError:
+            pass
+
+    print(f&quot;[D03] 2-player MLE: theta_A-theta_B={theta_2p[0]-theta_2p[1]:.6f}=log3, &quot;
+          f&quot;pred_win={pred_win:.3f}; SE shrinks {se_orig:.4f}-&gt;{se_scaled:.4f} &quot;
+          f&quot;(x10 counts, ratio {se_scaled/se_orig:.4f}=1/sqrt(10)); cyclic strengths &quot;
+          f&quot;span={max(theta_cyc)-min(theta_cyc):.2e} (all ~0.5 pairwise); &quot;
+          f&quot;2-player separation detected+regularized finite; 3-player A:B=10:0/&quot;
+          f&quot;A:C=5:5/B:C=5:5 correctly NOT flagged (strongly connected); chain &quot;
+          f&quot;separation 0-&gt;1-&gt;2 flagged; disconnected graph -&gt; raises  PASS&quot;)
+
+    # ---------------------------------------------------------------- D04
+    p_first = p_a_wins(delta=0.0, position_a=1)
+    p_second = p_a_wins(delta=0.0, position_a=-1)
+    assert abs(p_first - 0.7) &lt; 1e-9
+    assert abs(p_second - 0.3) &lt; 1e-9
+    marginal = 0.5 * p_first + 0.5 * p_second
+    assert abs(marginal - 0.5) &lt; 1e-12
+
+    def always_pick_first(x, y):
+        return x                                              # x is shown first
+
+    pairs = [(&quot;item1&quot;, &quot;item2&quot;), (&quot;item3&quot;, &quot;item4&quot;), (&quot;item5&quot;, &quot;item6&quot;),
+             (&quot;item7&quot;, &quot;item8&quot;), (&quot;item9&quot;, &quot;item10&quot;)]
+    rate = swap_inconsistency_rate(always_pick_first, pairs)
+    assert rate == 1.0
+
+    # the claim &quot;always-pick-first&#x27;s order-balanced marginal is 0.5&quot; is
+    # about the deterministic judge itself, not about the separate smooth
+    # logistic model (p_a_wins) used above -- compute it directly for the
+    # actual judge_fn on a concrete pair.
+    marginal_first_direct = order_balanced_marginal_win_rate(
+        always_pick_first, &quot;item1&quot;, &quot;item2&quot;)
+    assert marginal_first_direct == 0.5
+
+    def quality_only_judge(x, y, quality):
+        return x if quality[x] &gt;= quality[y] else y
+
+    # distinct qualities per item (never tied) so the judge below is a clean
+    # position-INVARIANT baseline: it always favors the higher-quality item
+    # regardless of which slot it is shown in
+    quality = {name: q for q, name in enumerate(
+        item for pair in pairs for item in pair)}
+    consistent_rate = swap_inconsistency_rate(
+        lambda x, y: quality_only_judge(x, y, quality), pairs)
+    assert consistent_rate == 0.0
+
+    print(f&quot;[D04] position bias b=log(7/3)={POSITION_BIAS_B:.6f}: &quot;
+          f&quot;P(A wins|first)={p_first:.1f}, P(A wins|second)={p_second:.1f}, &quot;
+          f&quot;balanced marginal={marginal:.1f}; always-pick-first swap &quot;
+          f&quot;inconsistency={rate:.1f} vs quality-only judge={consistent_rate:.1f}  PASS&quot;)
+
+    print(&quot;\nall llm_eval sanity checks passed ✓&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()</code></pre>
+</div>
+
+<footer>
+  <a href="https://easyaioffer.github.io/">ARIS in AI Offer</a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">GitHub</a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/README.md">全部脚本说明</a>
+</footer>
+</div>
+<script>
+hljs.highlightAll();
+document.getElementById('copy').addEventListener('click', function () {
+  var b = this;
+  navigator.clipboard.writeText(document.getElementById('src').textContent).then(function () {
+    b.textContent = '已复制'; setTimeout(function () { b.textContent = '复制全部'; }, 1500);
+  });
+});
+</script>
+</body>
+</html>

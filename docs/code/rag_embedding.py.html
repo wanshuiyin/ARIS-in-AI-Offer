@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rag_embedding.py · ARIS in AI Offer</title>
+<meta name="description" content="rag_embedding.py — RAG + Embedding / Retrieval - minimal runnable implementation">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<style>
+:root{--bg:#fdfcf7;--bg-soft:#f4f1ea;--ink:#1a1a1a;--ink-soft:#4a4a4a;--ink-muted:#6b6b6b;--primary:#1a4a8c;--border:#d6d0c0;--border-soft:#e8e3d5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",sans-serif}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0 0}
+header.top a,.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft);color:var(--ink);white-space:nowrap;font-size:14px}
+header.top a:hover,.btn:hover{border-color:var(--primary);color:var(--primary);text-decoration:none}
+header.top a small{color:var(--ink-muted);font-size:12px}
+h1{font:600 22px/1.3 ui-monospace,Menlo,Consolas,monospace;margin:22px 0 6px;overflow-wrap:anywhere}
+.from{color:var(--ink-soft);margin:0 0 12px}
+.desc{color:var(--ink-soft);margin:0 0 14px;max-width:80ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.run{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--ink-muted);align-self:center}
+.code{display:flex;border:1px solid var(--border);border-radius:8px;background:#fafaf6;overflow:hidden;margin:0 0 28px}
+.code pre{margin:0;font:12.5px/1.6 ui-monospace,Menlo,Consolas,monospace;padding:12px 0}
+.code .ln{color:var(--ink-muted);text-align:right;padding:12px 10px 12px 12px;border-right:1px solid var(--border-soft);background:var(--bg-soft);user-select:none;flex:0 0 auto}
+.code .src{flex:1;min-width:0;overflow-x:auto}
+.code .src code{display:block;padding:0 14px;background:transparent}
+footer{margin:0 0 28px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:13px;color:var(--ink-muted)}
+footer a{margin-right:14px}
+@media (max-width:640px){h1{font-size:18px}.code pre{font-size:12px}}
+@media print{header.top,.actions,footer{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <a href="https://easyaioffer.github.io/">⌂ 全部教程 <small>easyaioffer.github.io</small></a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">⭐ Star</a>
+</header>
+
+<h1>rag_embedding.py</h1>
+<p class="from">配套教程：<a href="../tutorials/rag_embedding_retrieval_tutorial.html">RAG + 向量检索</a> · <a href="../tutorials/rag_embedding_retrieval_tutorial_en.html">EN</a></p>
+<p class="desc">RAG + Embedding / Retrieval - minimal runnable implementation</p>
+<div class="actions">
+  <a class="btn" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/rag_embedding.py">在 GitHub 查看</a>
+  <a class="btn" href="https://raw.githubusercontent.com/wanshuiyin/ARIS-in-AI-Offer/main/docs/tutorials/code/rag_embedding.py">原始 .py</a>
+  <button class="btn" id="copy" type="button">复制全部</button>
+  <span class="run">python rag_embedding.py</span>
+</div>
+
+<div class="code">
+<pre class="ln">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192</pre>
+<pre class="src"><code class="language-python" id="src">&quot;&quot;&quot;
+RAG + Embedding / Retrieval - minimal runnable implementation
+=============================================================
+
+Educational PyTorch reference for the contrastive-embedding + retrieval pieces
+of a RAG pipeline. Standalone script: runs six sanity checks on CPU in seconds.
+
+Pairs with: docs/tutorials/rag_embedding_retrieval_tutorial.md (concept reference).
+
+What it demonstrates:
+    DualEncoder        - toy bi-encoder, L2-normalized -&gt; dot product = cosine
+    info_nce_in_batch  - InfoNCE with in-batch negatives (diagonal = positive)
+    info_nce_with_hard - InfoNCE with explicit hard negatives
+    bm25_scores / rrf  - sparse retrieval + reciprocal-rank fusion
+    mini-RAG retrieval - hybrid (dense + BM25) fused recall
+
+    Sanity checks:
+      [a] in-batch InfoNCE: with d_pos == q, each row&#x27;s argmax is its own index
+      [b] encoder output is L2-normalized (||v|| ~ 1), dot in [-1, 1]
+      [c] temperature: smaller tau -&gt; lower softmax entropy (sharper)
+      [d] info_nce_with_hard: finite loss, no NaN, logits shape [B, B+2]
+      [e] RRF is monotone: improving a doc&#x27;s rank never lowers its RRF score
+      [f] hybrid recall keeps an exact-entity chunk that pure dense may miss
+
+Run:
+    python rag_embedding.py
+&quot;&quot;&quot;
+import hashlib
+import math
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+torch.manual_seed(0)
+
+
+# ---------- embedding side (contrastive) ----------
+
+class DualEncoder(nn.Module):
+    &quot;&quot;&quot;Toy bi-encoder; real systems use a BERT-like tower. L2-normalized output.&quot;&quot;&quot;
+
+    def __init__(self, vocab, dim=128):
+        super().__init__()
+        self.emb = nn.EmbeddingBag(vocab, dim, mode=&quot;mean&quot;)
+        self.proj = nn.Linear(dim, dim)
+
+    def encode(self, ids, offsets):
+        return F.normalize(self.proj(self.emb(ids, offsets)), dim=-1)
+
+
+def info_nce_in_batch(q, d_pos, tau=0.05):
+    &quot;&quot;&quot;q, d_pos: [B, dim] normalized. In-batch negatives; diagonal is the positive.&quot;&quot;&quot;
+    logits = (q @ d_pos.t()) / tau                    # [B, B]
+    labels = torch.arange(q.size(0), device=q.device)
+    return F.cross_entropy(logits, labels)
+
+
+def info_nce_with_hard(q, d_pos, d_hard, tau=0.05):
+    &quot;&quot;&quot;Append each query&#x27;s own hard negative; positive sits at column 0.&quot;&quot;&quot;
+    pos = (q * d_pos).sum(-1, keepdim=True)           # [B, 1]
+    in_batch = q @ d_pos.t()                          # [B, B]
+    in_batch.fill_diagonal_(float(&quot;-inf&quot;))            # drop self-positive
+    hard = (q * d_hard).sum(-1, keepdim=True)         # [B, 1]
+    logits = torch.cat([pos, in_batch, hard], dim=1) / tau   # [B, B+2]
+    labels = torch.zeros(q.size(0), dtype=torch.long, device=q.device)
+    return F.cross_entropy(logits, labels), logits
+
+
+# ---------- retrieval side ----------
+
+def toy_encode(text, dim=64):
+    &quot;&quot;&quot;Deterministic bag-of-words hashing encoder (no training needed).&quot;&quot;&quot;
+    v = torch.zeros(dim)
+    for w in text.lower().split():
+        v[int(hashlib.md5(w.encode()).hexdigest(), 16) % dim] += 1.0
+    return F.normalize(v, dim=-1)
+
+
+def bm25_scores(query, docs, k1=1.5, b=0.75):
+    toks = [d.lower().split() for d in docs]
+    avgdl = sum(len(t) for t in toks) / len(toks)
+    N = len(docs)
+    df = {}
+    for t in toks:
+        for w in set(t):
+            df[w] = df.get(w, 0) + 1
+    out = []
+    for d in toks:
+        s, dl = 0.0, len(d)
+        for w in set(query.lower().split()):
+            if w not in df:
+                continue
+            idf = math.log(1 + (N - df[w] + 0.5) / (df[w] + 0.5))
+            f = d.count(w)
+            s += idf * f * (k1 + 1) / (f + k1 * (1 - b + b * dl / avgdl))
+        out.append(s)
+    return out
+
+
+def rrf(rank_lists, k=60):
+    score = {}
+    for ranks in rank_lists:
+        for rank, idx in enumerate(ranks, start=1):
+            score[idx] = score.get(idx, 0.0) + 1.0 / (k + rank)
+    return sorted(score, key=score.get, reverse=True)
+
+
+def softmax_entropy(logits):
+    p = F.softmax(logits, dim=-1)
+    return -(p * (p + 1e-12).log()).sum(-1).mean().item()
+
+
+def main():
+    B, dim = 6, 32
+
+    # [a] in-batch InfoNCE: d_pos == q -&gt; argmax on diagonal AND aligned loss is
+    #     strictly lower than a misaligned (shuffled-positive) batch -&gt; the CE/label
+    #     wiring actually responds to alignment (not just the raw sim matrix).
+    q = F.normalize(torch.randn(B, dim), dim=-1)
+    d_pos = q.clone()
+    logits = q @ d_pos.t()
+    perm = torch.tensor([1, 2, 3, 4, 5, 0])            # deterministic shuffle
+    loss_aligned = info_nce_in_batch(q, d_pos).item()
+    loss_shuffled = info_nce_in_batch(q, d_pos[perm]).item()
+    a_ok = bool((logits.argmax(1) == torch.arange(B)).all()) and loss_aligned &lt; loss_shuffled
+    print(f&quot;[a] in-batch InfoNCE: argmax==idx, loss aligned {loss_aligned:.4f} &lt; shuffled &quot;
+          f&quot;{loss_shuffled:.4f}  {&#x27;OK&#x27; if a_ok else &#x27;FAIL&#x27;}&quot;)
+    assert a_ok
+
+    # [b] the REAL DualEncoder output is L2-normalized; dot in [-1, 1]
+    enc = DualEncoder(vocab=50, dim=dim)
+    ids = torch.tensor([3, 7, 9, 2, 5, 1, 4, 8])       # flattened tokens
+    offsets = torch.tensor([0, 3, 5])                  # 3 &quot;documents&quot;
+    ev = enc.encode(ids, offsets)                      # [3, dim]
+    b_ok = torch.allclose(ev.norm(dim=-1), torch.ones(ev.size(0)), atol=1e-5) \
+        and logits.abs().max() &lt;= 1 + 1e-5
+    print(f&quot;[b] DualEncoder ||v|| = {ev.norm(dim=-1).mean():.4f} (~1), max|dot| = &quot;
+          f&quot;{logits.abs().max():.4f} (&lt;=1)  {&#x27;OK&#x27; if b_ok else &#x27;FAIL&#x27;}&quot;)
+    assert b_ok
+
+    # [c] temperature: smaller tau -&gt; sharper softmax -&gt; lower entropy
+    row = (q @ d_pos.t())[0]
+    e_sharp, e_soft = softmax_entropy(row / 0.05), softmax_entropy(row / 0.5)
+    c_ok = e_sharp &lt; e_soft
+    print(f&quot;[c] entropy(tau=0.05) = {e_sharp:.4f} &lt; entropy(tau=0.5) = {e_soft:.4f}  &quot;
+          f&quot;{&#x27;OK&#x27; if c_ok else &#x27;FAIL&#x27;}&quot;)
+    assert c_ok
+
+    # [d] info_nce_with_hard: finite loss, no NaN, logits shape [B, B+2]
+    d_hard = F.normalize(torch.randn(B, dim), dim=-1)
+    loss_d, logits_d = info_nce_with_hard(q, d_pos, d_hard)
+    d_ok = torch.isfinite(loss_d) and logits_d.shape == (B, B + 2)
+    print(f&quot;[d] with-hard loss = {loss_d.item():.4f} finite, logits {tuple(logits_d.shape)} == (B, B+2)  &quot;
+          f&quot;{&#x27;OK&#x27; if d_ok else &#x27;FAIL&#x27;}&quot;)
+    assert d_ok
+
+    # [e] RRF monotone: move doc 7 earlier in one list -&gt; its RRF score must not drop
+    base = [[3, 7, 1, 9], [5, 7, 2, 8]]
+    better = [[7, 3, 1, 9], [5, 7, 2, 8]]            # doc 7 rank 2 -&gt; 1 in list-1
+    def rrf_score(lists, doc):
+        return sum(1.0 / (60 + (lst.index(doc) + 1)) for lst in lists if doc in lst)
+    # doc 7 is the only doc in BOTH lists -&gt; rrf() must rank it first
+    e_ok = rrf_score(better, 7) &gt;= rrf_score(base, 7) and rrf(base)[0] == 7
+    print(f&quot;[e] RRF(doc7): base = {rrf_score(base,7):.5f} -&gt; better = {rrf_score(better,7):.5f} &quot;
+          f&quot;(non-decreasing); rrf top = {rrf(base)[0]}  {&#x27;OK&#x27; if e_ok else &#x27;FAIL&#x27;}&quot;)
+    assert e_ok
+
+    # [f] hybrid recall keeps an exact-entity chunk pure dense may miss
+    corpus = [
+        &quot;the cat sat on the warm mat in the sun&quot;,
+        &quot;device model Zephyrnaut9000 supports 128 channels at 9 ghz&quot;,
+        &quot;a quick brown fox jumps over the lazy dog near the river&quot;,
+    ]
+    query = &quot;Zephyrnaut9000 channel spec&quot;
+    dv = torch.stack([toy_encode(t) for t in corpus])
+    qv = toy_encode(query)
+    dense_rank = (dv @ qv).topk(len(corpus)).indices.tolist()
+    bm25_rank = sorted(range(len(corpus)), key=lambda i: bm25_scores(query, corpus)[i],
+                       reverse=True)
+    fused = rrf([dense_rank, bm25_rank])
+    entity_idx = 1                                    # the Zephyrnaut9000 chunk
+    f_ok = entity_idx == bm25_rank[0] and entity_idx in fused[:2]
+    print(f&quot;[f] BM25 top = {bm25_rank[0]} (entity chunk {entity_idx}); fused top2 = {fused[:2]}  &quot;
+          f&quot;{&#x27;OK&#x27; if f_ok else &#x27;FAIL&#x27;}&quot;)
+    assert f_ok
+
+    print(&quot;\nall RAG / embedding sanity checks passed ✓&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()</code></pre>
+</div>
+
+<footer>
+  <a href="https://easyaioffer.github.io/">ARIS in AI Offer</a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">GitHub</a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/README.md">全部脚本说明</a>
+</footer>
+</div>
+<script>
+hljs.highlightAll();
+document.getElementById('copy').addEventListener('click', function () {
+  var b = this;
+  navigator.clipboard.writeText(document.getElementById('src').textContent).then(function () {
+    b.textContent = '已复制'; setTimeout(function () { b.textContent = '复制全部'; }, 1500);
+  });
+});
+</script>
+</body>
+</html>

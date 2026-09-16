@@ -102,7 +102,7 @@ def card(t: dict) -> str:
     md_en = f"{REPO}/blob/main/docs/tutorials/{t['slug']}_en.md"
     q = (f'<span class="b">{t["q"]} <span class="s-cn">题</span><span class="s-en">Q</span></span>' if t["q"]
          else '<span class="b"><span class="s-cn">速查</span><span class="s-en">quick ref</span></span>')
-    code = "".join(f'<a class="b b-code" href="{REPO}/blob/main/docs/tutorials/code/{c}" title="{e(c)}">{e(c)}</a>' for c in t["code"])
+    code = "".join(f'<a class="b b-code" href="code/{e(c)}.html" title="{e(c)}">{e(c)}</a>' for c in t["code"])
     return (f'<article class="card" data-id="{e(t["slug"])}" data-cat="{t["cat"]}" data-cn="{e(cn_url)}" data-en="{e(en_url)}" '
             f'data-text="{e((t["cn"] + " " + t["en"] + " " + t["tags"] + " " + t["tags_en"]).lower())}">'
             f'<a class="title" href="{e(cn_url)}"><span class="t-cn">{e(t["cn"])}</span><span class="t-en">{e(t["en"])}</span></a>'

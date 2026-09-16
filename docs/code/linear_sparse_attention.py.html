@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>linear_sparse_attention.py · ARIS in AI Offer</title>
+<meta name="description" content="linear_sparse_attention.py — Linear / Sparse Attention - minimal runnable implementation">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<style>
+:root{--bg:#fdfcf7;--bg-soft:#f4f1ea;--ink:#1a1a1a;--ink-soft:#4a4a4a;--ink-muted:#6b6b6b;--primary:#1a4a8c;--border:#d6d0c0;--border-soft:#e8e3d5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",sans-serif}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0 0}
+header.top a,.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft);color:var(--ink);white-space:nowrap;font-size:14px}
+header.top a:hover,.btn:hover{border-color:var(--primary);color:var(--primary);text-decoration:none}
+header.top a small{color:var(--ink-muted);font-size:12px}
+h1{font:600 22px/1.3 ui-monospace,Menlo,Consolas,monospace;margin:22px 0 6px;overflow-wrap:anywhere}
+.from{color:var(--ink-soft);margin:0 0 12px}
+.desc{color:var(--ink-soft);margin:0 0 14px;max-width:80ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.run{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--ink-muted);align-self:center}
+.code{display:flex;border:1px solid var(--border);border-radius:8px;background:#fafaf6;overflow:hidden;margin:0 0 28px}
+.code pre{margin:0;font:12.5px/1.6 ui-monospace,Menlo,Consolas,monospace;padding:12px 0}
+.code .ln{color:var(--ink-muted);text-align:right;padding:12px 10px 12px 12px;border-right:1px solid var(--border-soft);background:var(--bg-soft);user-select:none;flex:0 0 auto}
+.code .src{flex:1;min-width:0;overflow-x:auto}
+.code .src code{display:block;padding:0 14px;background:transparent}
+footer{margin:0 0 28px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:13px;color:var(--ink-muted)}
+footer a{margin-right:14px}
+@media (max-width:640px){h1{font-size:18px}.code pre{font-size:12px}}
+@media print{header.top,.actions,footer{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <a href="https://easyaioffer.github.io/">⌂ 全部教程 <small>easyaioffer.github.io</small></a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">⭐ Star</a>
+</header>
+
+<h1>linear_sparse_attention.py</h1>
+<p class="from">配套教程：<a href="../tutorials/linear_sparse_attention_tutorial.html">线性 / 稀疏注意力</a> · <a href="../tutorials/linear_sparse_attention_tutorial_en.html">EN</a></p>
+<p class="desc">Linear / Sparse Attention - minimal runnable implementation</p>
+<div class="actions">
+  <a class="btn" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/linear_sparse_attention.py">在 GitHub 查看</a>
+  <a class="btn" href="https://raw.githubusercontent.com/wanshuiyin/ARIS-in-AI-Offer/main/docs/tutorials/code/linear_sparse_attention.py">原始 .py</a>
+  <button class="btn" id="copy" type="button">复制全部</button>
+  <span class="run">python linear_sparse_attention.py</span>
+</div>
+
+<div class="code">
+<pre class="ln">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206</pre>
+<pre class="src"><code class="language-python" id="src">&quot;&quot;&quot;
+Linear / Sparse Attention - minimal runnable implementation
+===========================================================
+
+Educational PyTorch reference for linear attention, the chunkwise-parallel
+bridge, the delta rule (DeltaNet), and trainable block-sparse attention.
+Standalone script: runs six sanity checks on CPU in a few seconds.
+
+Pairs with: docs/tutorials/linear_sparse_attention_tutorial.md (concept reference).
+
+What it demonstrates:
+    linear_attn_recurrent  - token-by-token causal linear attention, matrix state S in R^{d_k x d_v}
+    linear_attn_chunkwise  - intra-chunk quadratic + inter-chunk O(1) state recurrence
+    delta_rule_recurrent   - DeltaNet update S &lt;- S(I - beta k k^T) + beta v k^T (overwrite)
+    block_topk_attention   - keep softmax, attend only top-k key blocks (NSA / MoBA &quot;select&quot; idea)
+    Sanity checks:
+      [a] chunkwise == recurrent (the core equivalence) for chunk sizes C in {1, 4, 7, L}
+      [b] chunk-size invariance: output is identical for every C (only the compute path changes)
+      [c] linear-attn state is a [d_k, d_v] matrix independent of L (constant-memory, O(1) decode)
+      [d] delta rule degenerates to additive linear attention when the erase term is dropped &amp; beta=1
+      [e] delta != additive for non-orthogonal keys (overwrite term is active);
+          delta == additive for orthonormal keys &amp; beta=1 (the precise sufficient condition)
+      [f] block-sparse keeps exactly top-k blocks &amp; softmax rows sum to 1,
+          for BOTH divisible (L=12) and non-divisible (L=13) lengths
+
+Run:
+    python linear_sparse_attention.py
+&quot;&quot;&quot;
+import torch
+import torch.nn.functional as F
+
+torch.manual_seed(0)
+
+
+def linear_attn_recurrent(Q, K, V):
+    &quot;&quot;&quot;Token-by-token causal linear attention. Q,K,V: [L, d] -&gt; O: [L, d].
+
+    State S: [d_k, d_v] matrix (here d_k = d_v = d), accumulated outer products
+    sum_{j&lt;=t} k_j v_j^T. Self-inclusive: S is updated before reading o_t.
+    &quot;&quot;&quot;
+    L, d = Q.shape
+    S = torch.zeros(d, d, dtype=Q.dtype)              # [d_k, d_v] matrix state
+    O = torch.zeros(L, d, dtype=Q.dtype)
+    for t in range(L):
+        S = S + torch.outer(K[t], V[t])               # S += k_t v_t^T
+        O[t] = Q[t] @ S                               # o_t = q_t^T S
+    return O
+
+
+def linear_attn_chunkwise(Q, K, V, C=4):
+    &quot;&quot;&quot;Chunkwise parallel form. Mathematically identical to the recurrent form.
+
+    Per chunk: inter = Q_c @ S (history state, tokens strictly before this chunk),
+    intra = ((Q_c K_c^T) * tril) @ V_c (in-chunk causal, diagonal inclusive),
+    then update S += K_c^T V_c. Handles ragged last chunk (L not divisible by C).
+    &quot;&quot;&quot;
+    L, d = Q.shape
+    S = torch.zeros(d, d, dtype=Q.dtype)              # cross-chunk state [d_k, d_v]
+    O = torch.zeros(L, d, dtype=Q.dtype)
+    tri = torch.tril(torch.ones(C, C, dtype=Q.dtype))  # in-chunk causal mask, diagonal incl.
+    for s in range(0, L, C):
+        e = min(s + C, L)
+        Qc, Kc, Vc = Q[s:e], K[s:e], V[s:e]           # [c, d]
+        c = e - s
+        m = tri[:c, :c]                               # ragged-safe slice
+        inter = Qc @ S                                # history-state contribution [c, d]
+        intra = ((Qc @ Kc.t()) * m) @ Vc             # in-chunk causal attention [c, d]
+        O[s:e] = inter + intra
+        S = S + Kc.t() @ Vc                           # update state [d_k, d_v]
+    return O
+
+
+def delta_rule_recurrent(K, V, beta, use_delta=True):
+    &quot;&quot;&quot;DeltaNet recurrence. K,V: [L, d] (k assumed unit-norm), beta: [L] -&gt; states [L, d, d].
+
+    S_t = S_{t-1}(I - beta_t k_t k_t^T) + beta_t v_t k_t^T : the (I - beta k k^T) term
+    first ERASES the old association in the k direction, then writes the new v k^T.
+    use_delta=False with beta=1 falls back to additive linear attention S += v k^T.
+    &quot;&quot;&quot;
+    L, d = K.shape
+    S = torch.zeros(d, d, dtype=K.dtype)              # [d_k, d_v] matrix state
+    I = torch.eye(d, dtype=K.dtype)
+    states = []
+    for t in range(L):
+        k = K[t]                                      # [d]
+        if use_delta:
+            S = S @ (I - beta[t] * torch.outer(k, k))  # erase old association in k direction
+        S = S + beta[t] * torch.outer(V[t], k)        # write new v k^T  (order: v k^T)
+        states.append(S.clone())
+    return torch.stack(states)                        # [L, d, d]
+
+
+def block_topk_attention(Q, K, V, block=4, topk=2):
+    &quot;&quot;&quot;Top-k block-sparse attention: each query attends only its top-k key blocks
+    (in-block softmax). Q,K,V: [L, d] -&gt; out: [L, d], keep_blk: [L, nblk] bool.
+
+    Block representative score = MEAN over the block&#x27;s REAL key columns only (padding
+    ignored), so L not divisible by `block` is handled correctly. The final attention
+    still uses the original dense scores, restricted to the selected blocks.
+    &quot;&quot;&quot;
+    L, d = Q.shape
+    nblk = (L + block - 1) // block
+    scores = (Q @ K.t()) / (d ** 0.5)                 # [Lq, Lk] full scores (select + final attn)
+    pad = nblk * block - L
+    # masked block mean: pad scores with 0, count real columns, divide by the count
+    sc  = F.pad(scores, (0, pad), value=0.0).view(L, nblk, block)
+    cnt = F.pad(torch.ones_like(scores), (0, pad)).view(L, nblk, block)
+    blk_score = sc.sum(-1) / cnt.sum(-1).clamp(min=1)  # [Lq, nblk] mean over real cols only
+    topk = min(topk, nblk)
+    sel = blk_score.topk(topk, dim=-1).indices         # [Lq, topk]
+    keep_blk = torch.zeros(L, nblk, dtype=torch.bool)
+    keep_blk.scatter_(1, sel, True)                    # [Lq, nblk] True = keep this block
+    keep = keep_blk.repeat_interleave(block, dim=1)[:, :L]   # token-level mask [Lq, Lk]
+    masked = scores.masked_fill(~keep, float(&quot;-inf&quot;))
+    w = F.softmax(masked, dim=-1)                      # in-selected-block normalized, rows sum to 1
+    return w @ V, keep_blk
+
+
+def orthonormal_rows(n, d):
+    &quot;&quot;&quot;Return n orthonormal row vectors in R^d (n &lt;= d), via QR of a random matrix.&quot;&quot;&quot;
+    q, _ = torch.linalg.qr(torch.randn(d, d))          # q: [d, d] orthonormal columns
+    return q.t()[:n]                                   # [n, d] orthonormal rows
+
+
+def main():
+    L, d = 13, 6                                       # ragged: L not divisible by C below
+    Q, K, V = torch.randn(L, d), torch.randn(L, d), torch.randn(L, d)
+    ref = linear_attn_recurrent(Q, K, V)
+
+    # [a] chunkwise == recurrent (core equivalence) across chunk sizes
+    sizes = [1, 4, 7, L]
+    max_diff = max((linear_attn_chunkwise(Q, K, V, C=c) - ref).abs().max().item() for c in sizes)
+    a_ok = max_diff &lt; 1e-5
+    print(f&quot;[a] chunkwise == recurrent, C in {sizes}: max |Δ| = {max_diff:.2e}  &quot;
+          f&quot;{&#x27;OK&#x27; if a_ok else &#x27;FAIL&#x27;}&quot;)
+    assert a_ok
+
+    # [b] chunk-size invariance: every C gives the SAME output (path changes, result doesn&#x27;t)
+    outs = [linear_attn_chunkwise(Q, K, V, C=c) for c in sizes]
+    b_ok = all(torch.allclose(o, outs[0], atol=1e-5) for o in outs)
+    print(f&quot;[b] chunk-size invariance over C in {sizes}: all equal = {b_ok}  &quot;
+          f&quot;{&#x27;OK&#x27; if b_ok else &#x27;FAIL&#x27;}&quot;)
+    assert b_ok
+
+    # [c] linear-attn state is [d_k, d_v], independent of L (constant memory, O(1) decode)
+    shapes = set()
+    S = torch.zeros(d, d)
+    for t in range(L):
+        S = S + torch.outer(K[t], V[t])
+        shapes.add(tuple(S.shape))
+    c_ok = shapes == {(d, d)}
+    print(f&quot;[c] state shape over all {L} steps = {shapes} (expect {{({d}, {d})}}), L-independent  &quot;
+          f&quot;{&#x27;OK&#x27; if c_ok else &#x27;FAIL&#x27;}&quot;)
+    assert c_ok
+
+    # [d] delta rule -&gt; additive linear attention when erase term dropped &amp; beta=1
+    Kn = F.normalize(torch.randn(L, d), dim=-1)
+    beta1 = torch.ones(L)
+    S_no_delta = delta_rule_recurrent(Kn, V, beta1, use_delta=False)[-1]   # additive
+    S_additive = torch.zeros(d, d)
+    for t in range(L):
+        S_additive = S_additive + torch.outer(V[t], Kn[t])                 # plain S += v k^T
+    d_ok = torch.allclose(S_no_delta, S_additive, atol=1e-6)
+    print(f&quot;[d] delta(use_delta=False, beta=1) == additive S+=vk^T: |Δ| = &quot;
+          f&quot;{(S_no_delta - S_additive).abs().max():.2e}  {&#x27;OK&#x27; if d_ok else &#x27;FAIL&#x27;}&quot;)
+    assert d_ok
+
+    # [e] overwrite term is real: delta != additive for non-orthogonal keys,
+    #     but delta == additive for orthonormal keys &amp; beta=1 (the precise condition)
+    S_delta_rnd = delta_rule_recurrent(Kn, V, beta1, use_delta=True)[-1]
+    diff_rnd = (S_delta_rnd - S_no_delta).norm().item()                    # expect &gt; 0
+    Ko = orthonormal_rows(d, d)                                            # L=d orthonormal keys
+    Vo = torch.randn(d, d)
+    be = torch.ones(d)
+    S_delta_o = delta_rule_recurrent(Ko, Vo, be, use_delta=True)[-1]
+    S_add_o = delta_rule_recurrent(Ko, Vo, be, use_delta=False)[-1]
+    diff_orth = (S_delta_o - S_add_o).abs().max().item()                  # expect ~0
+    e_ok = diff_rnd &gt; 1e-3 and diff_orth &lt; 1e-5
+    print(f&quot;[e] overwrite term: non-orthogonal ||Δ|| = {diff_rnd:.3e} (&gt;0), &quot;
+          f&quot;orthonormal |Δ| = {diff_orth:.2e} (~0)  {&#x27;OK&#x27; if e_ok else &#x27;FAIL&#x27;}&quot;)
+    assert e_ok
+
+    # [f] block-sparse keeps exactly top-k blocks &amp; softmax rows sum to 1,
+    #     for both divisible (L=12) and non-divisible (L=13) lengths
+    f_ok = True
+    for Lf in (12, 13):
+        Qf, Kf, Vf = torch.randn(Lf, d), torch.randn(Lf, d), torch.randn(Lf, d)
+        out, keep_blk = block_topk_attention(Qf, Kf, Vf, block=4, topk=2)
+        nblk = (Lf + 3) // 4
+        kept = keep_blk.sum(dim=-1)                                        # blocks kept per query
+        exact = int((kept == min(2, nblk)).all())
+        rows_sum1 = torch.allclose((F.softmax(
+            (Qf @ Kf.t() / d ** 0.5).masked_fill(
+                ~keep_blk.repeat_interleave(4, 1)[:, :Lf], float(&quot;-inf&quot;)), dim=-1)).sum(-1),
+            torch.ones(Lf), atol=1e-5)
+        ok = bool(exact) and rows_sum1 and out.shape == (Lf, d)
+        f_ok = f_ok and ok
+        print(f&quot;[f] L={Lf}: blocks kept/query = {kept.unique().tolist()} (expect [2]), &quot;
+              f&quot;rows sum to 1 = {rows_sum1}  {&#x27;OK&#x27; if ok else &#x27;FAIL&#x27;}&quot;)
+    assert f_ok
+
+    print(&quot;\nall linear / sparse attention sanity checks passed ✓&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()</code></pre>
+</div>
+
+<footer>
+  <a href="https://easyaioffer.github.io/">ARIS in AI Offer</a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">GitHub</a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/README.md">全部脚本说明</a>
+</footer>
+</div>
+<script>
+hljs.highlightAll();
+document.getElementById('copy').addEventListener('click', function () {
+  var b = this;
+  navigator.clipboard.writeText(document.getElementById('src').textContent).then(function () {
+    b.textContent = '已复制'; setTimeout(function () { b.textContent = '复制全部'; }, 1500);
+  });
+});
+</script>
+</body>
+</html>

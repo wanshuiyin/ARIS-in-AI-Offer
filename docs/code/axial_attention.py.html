@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>axial_attention.py · ARIS in AI Offer</title>
+<meta name="description" content="axial_attention.py — Axial Attention - minimal runnable implementation">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<style>
+:root{--bg:#fdfcf7;--bg-soft:#f4f1ea;--ink:#1a1a1a;--ink-soft:#4a4a4a;--ink-muted:#6b6b6b;--primary:#1a4a8c;--border:#d6d0c0;--border-soft:#e8e3d5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",sans-serif}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0 0}
+header.top a,.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft);color:var(--ink);white-space:nowrap;font-size:14px}
+header.top a:hover,.btn:hover{border-color:var(--primary);color:var(--primary);text-decoration:none}
+header.top a small{color:var(--ink-muted);font-size:12px}
+h1{font:600 22px/1.3 ui-monospace,Menlo,Consolas,monospace;margin:22px 0 6px;overflow-wrap:anywhere}
+.from{color:var(--ink-soft);margin:0 0 12px}
+.desc{color:var(--ink-soft);margin:0 0 14px;max-width:80ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.run{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--ink-muted);align-self:center}
+.code{display:flex;border:1px solid var(--border);border-radius:8px;background:#fafaf6;overflow:hidden;margin:0 0 28px}
+.code pre{margin:0;font:12.5px/1.6 ui-monospace,Menlo,Consolas,monospace;padding:12px 0}
+.code .ln{color:var(--ink-muted);text-align:right;padding:12px 10px 12px 12px;border-right:1px solid var(--border-soft);background:var(--bg-soft);user-select:none;flex:0 0 auto}
+.code .src{flex:1;min-width:0;overflow-x:auto}
+.code .src code{display:block;padding:0 14px;background:transparent}
+footer{margin:0 0 28px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:13px;color:var(--ink-muted)}
+footer a{margin-right:14px}
+@media (max-width:640px){h1{font-size:18px}.code pre{font-size:12px}}
+@media print{header.top,.actions,footer{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <a href="https://easyaioffer.github.io/">⌂ 全部教程 <small>easyaioffer.github.io</small></a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">⭐ Star</a>
+</header>
+
+<h1>axial_attention.py</h1>
+<p class="from">配套教程：<a href="../tutorials/attention_tutorial.html">Attention</a> · <a href="../tutorials/attention_tutorial_en.html">EN</a></p>
+<p class="desc">Axial Attention - minimal runnable implementation</p>
+<div class="actions">
+  <a class="btn" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/axial_attention.py">在 GitHub 查看</a>
+  <a class="btn" href="https://raw.githubusercontent.com/wanshuiyin/ARIS-in-AI-Offer/main/docs/tutorials/code/axial_attention.py">原始 .py</a>
+  <button class="btn" id="copy" type="button">复制全部</button>
+  <span class="run">python axial_attention.py</span>
+</div>
+
+<div class="code">
+<pre class="ln">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191</pre>
+<pre class="src"><code class="language-python" id="src">&quot;&quot;&quot;
+Axial Attention - minimal runnable implementation
+=================================================
+
+Reference: Ho et al. 2019, &quot;Axial Attention in Multidimensional Transformers&quot;
+           (arxiv 1912.12180)
+
+Core idea:
+    Vanilla 2D self-attention has O((HW)^2 * d) cost which is prohibitive
+    for high-resolution feature maps.
+
+    Axial attention factorizes it: one attention pass along the H axis,
+    another along the W axis.
+        H-axial: fold W into batch; each column attends within its H tokens
+        W-axial: fold H into batch; each row attends within its W tokens
+
+    Complexity drops from O((HW)^2 d) to O(HW(H+W) d), saving HW/(H+W) factor.
+
+    Stacking one H-axial then one W-axial gives an attention path between any
+    two positions (h1, w1) -&gt; (h2, w2), but it&#x27;s a factorized two-step
+    propagation, NOT equivalent to a single dense 2D attention.
+
+Run:
+    python axial_attention.py
+&quot;&quot;&quot;
+import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class AxialAttention(nn.Module):
+    &quot;&quot;&quot;1D axial attention over a specific spatial dim.
+
+    Args:
+        channels: input/output channel count C
+        d_k:      attention head dim
+        axis:     &#x27;H&#x27; or &#x27;W&#x27; - which spatial axis to attend along
+    &quot;&quot;&quot;
+
+    def __init__(self, channels: int, d_k: int, axis: str):
+        super().__init__()
+        assert axis in (&quot;H&quot;, &quot;W&quot;)
+        self.axis = axis
+        self.d_k = d_k
+        self.W_q = nn.Linear(channels, d_k, bias=False)
+        self.W_k = nn.Linear(channels, d_k, bias=False)
+        self.W_v = nn.Linear(channels, d_k, bias=False)
+        self.out = nn.Linear(d_k, channels)
+
+    def forward(self, x: torch.Tensor) -&gt; torch.Tensor:
+        &quot;&quot;&quot;
+        Args:
+            x: [B, C, H, W]
+        Returns:
+            [B, C, H, W]
+        &quot;&quot;&quot;
+        B, C, H, W = x.shape
+
+        if self.axis == &quot;H&quot;:
+            # Fold W into batch: [B, C, H, W] -&gt; [B*W, H, C]
+            x_in = x.permute(0, 3, 2, 1).reshape(B * W, H, C)
+        else:  # axis == &#x27;W&#x27;
+            # Fold H into batch: [B, C, H, W] -&gt; [B*H, W, C]
+            x_in = x.permute(0, 2, 3, 1).reshape(B * H, W, C)
+
+        Q = self.W_q(x_in)                          # [B*?, seq, d_k]
+        K = self.W_k(x_in)
+        V = self.W_v(x_in)
+
+        score = (Q @ K.transpose(-2, -1)) / math.sqrt(self.d_k)
+        attn = F.softmax(score, dim=-1)
+        out = attn @ V                              # [B*?, seq, d_k]
+        out = self.out(out)                         # [B*?, seq, C]
+
+        # Restore spatial shape.
+        if self.axis == &quot;H&quot;:
+            # [B*W, H, C] -&gt; [B, W, H, C] -&gt; [B, C, H, W]
+            out = out.reshape(B, W, H, C).permute(0, 3, 2, 1)
+        else:
+            # [B*H, W, C] -&gt; [B, H, W, C] -&gt; [B, C, H, W]
+            out = out.reshape(B, H, W, C).permute(0, 3, 1, 2)
+        return out
+
+
+class AxialBlock(nn.Module):
+    &quot;&quot;&quot;H-axial + W-axial stacked.
+
+    Two layers in series create an attention path between any (h1, w1)
+    and (h2, w2) -- the H-axial pass moves information along column w1 to
+    (h2, w1), then the W-axial pass moves it to (h2, w2). But this is a
+    factorized two-step propagation, NOT equivalent to one dense 2D attention.
+    The combined &quot;weights&quot; are a product of two 1D softmaxes; expressivity is
+    strictly weaker than full 2D attention. The win is O(HW(H+W)d) vs
+    O(H^2 W^2 d).
+    &quot;&quot;&quot;
+
+    def __init__(self, channels: int, d_k: int):
+        super().__init__()
+        self.h_attn = AxialAttention(channels, d_k, axis=&quot;H&quot;)
+        self.w_attn = AxialAttention(channels, d_k, axis=&quot;W&quot;)
+        self.norm1 = nn.GroupNorm(8, channels)
+        self.norm2 = nn.GroupNorm(8, channels)
+
+    def forward(self, x):
+        x = x + self.h_attn(self.norm1(x))          # residual
+        x = x + self.w_attn(self.norm2(x))
+        return x
+
+
+# --- complexity comparison ----------------------------------------------------
+
+def complexity_vanilla(H: int, W: int, d: int) -&gt; int:
+    &quot;&quot;&quot;Vanilla 2D self-attention FLOPs ~ 2 * (HW)^2 * d  (QK^T + attn @ V).&quot;&quot;&quot;
+    return 2 * (H * W) ** 2 * d
+
+
+def complexity_axial(H: int, W: int, d: int) -&gt; int:
+    &quot;&quot;&quot;Axial: H attention W times + W attention H times, each O(seq^2 d).&quot;&quot;&quot;
+    return 2 * W * H * H * d + 2 * H * W * W * d
+
+
+def print_complexity_table():
+    print(f&quot;{&#x27;H&#x27;:&gt;4} {&#x27;W&#x27;:&gt;4} | {&#x27;vanilla&#x27;:&gt;14} | {&#x27;axial&#x27;:&gt;14} | {&#x27;speedup&#x27;:&gt;8}&quot;)
+    print(&quot;-&quot; * 60)
+    for H, W in [(8, 8), (32, 32), (64, 64), (128, 128), (256, 256)]:
+        d = 64
+        v = complexity_vanilla(H, W, d)
+        a = complexity_axial(H, W, d)
+        print(f&quot;{H:&gt;4} {W:&gt;4} | {v:&gt;14,} | {a:&gt;14,} | {v / a:&gt;8.1f}x&quot;)
+
+
+# --- sanity check -------------------------------------------------------------
+
+def shape_check():
+    B, C, H, W = 2, 32, 16, 16
+    x = torch.randn(B, C, H, W)
+
+    h_only = AxialAttention(C, d_k=32, axis=&quot;H&quot;)
+    w_only = AxialAttention(C, d_k=32, axis=&quot;W&quot;)
+    block = AxialBlock(C, d_k=32)
+
+    y_h = h_only(x)
+    y_w = w_only(x)
+    y_b = block(x)
+
+    print(f&quot;[shape] x        : {tuple(x.shape)}&quot;)
+    print(f&quot;[shape] H-axial  : {tuple(y_h.shape)}&quot;)
+    print(f&quot;[shape] W-axial  : {tuple(y_w.shape)}&quot;)
+    print(f&quot;[shape] H+W block: {tuple(y_b.shape)}&quot;)
+    assert y_h.shape == y_w.shape == y_b.shape == x.shape
+
+
+def receptive_field_check():
+    &quot;&quot;&quot;Verify a single H-axial layer keeps columns isolated.
+
+    Perturbing one pixel at (row=0, col=2) should only change outputs in
+    column 2 (across all rows), leaving every other column untouched.
+    &quot;&quot;&quot;
+    torch.manual_seed(0)
+    B, C, H, W = 1, 4, 6, 6
+    x = torch.randn(B, C, H, W)
+
+    layer = AxialAttention(C, d_k=8, axis=&quot;H&quot;)
+    y_orig = layer(x)
+
+    # Perturb one pixel in column 2.
+    x_perturbed = x.clone()
+    x_perturbed[0, :, 0, 2] += 1.0
+    y_perturbed = layer(x_perturbed)
+
+    diff = (y_orig - y_perturbed).abs().sum(dim=1)  # [B, H, W]
+    print(f&quot;[recep] diff per spatial position after perturbing (row=0, col=2):&quot;)
+    print(diff[0])
+    col2_sum = diff[0, :, 2].sum().item()
+    other_sum = (diff[0].sum() - diff[0, :, 2].sum()).item()
+    print(f&quot;[recep] col=2 total diff = {col2_sum:.4f}  (should be &gt; 0)&quot;)
+    print(f&quot;[recep] other cols diff  = {other_sum:.6f}  (should be 0)&quot;)
+    assert col2_sum &gt; 1e-4 and other_sum &lt; 1e-6
+    print(&quot;[recep] PASS - H-axial isolates columns as expected&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;== Axial Attention ==\n&quot;)
+    print(&quot;--- complexity comparison (FLOPs, d=64) ---&quot;)
+    print_complexity_table()
+    print(&quot;\n--- shape check ---&quot;)
+    shape_check()
+    print(&quot;\n--- receptive field check ---&quot;)
+    receptive_field_check()
+    print(&quot;\nAll checks passed.&quot;)</code></pre>
+</div>
+
+<footer>
+  <a href="https://easyaioffer.github.io/">ARIS in AI Offer</a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">GitHub</a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/README.md">全部脚本说明</a>
+</footer>
+</div>
+<script>
+hljs.highlightAll();
+document.getElementById('copy').addEventListener('click', function () {
+  var b = this;
+  navigator.clipboard.writeText(document.getElementById('src').textContent).then(function () {
+    b.textContent = '已复制'; setTimeout(function () { b.textContent = '复制全部'; }, 1500);
+  });
+});
+</script>
+</body>
+</html>

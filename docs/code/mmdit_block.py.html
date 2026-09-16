@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mmdit_block.py · ARIS in AI Offer</title>
+<meta name="description" content="mmdit_block.py — MMDiT block - minimal runnable implementation">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<style>
+:root{--bg:#fdfcf7;--bg-soft:#f4f1ea;--ink:#1a1a1a;--ink-soft:#4a4a4a;--ink-muted:#6b6b6b;--primary:#1a4a8c;--border:#d6d0c0;--border-soft:#e8e3d5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",sans-serif}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0 0}
+header.top a,.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-soft);color:var(--ink);white-space:nowrap;font-size:14px}
+header.top a:hover,.btn:hover{border-color:var(--primary);color:var(--primary);text-decoration:none}
+header.top a small{color:var(--ink-muted);font-size:12px}
+h1{font:600 22px/1.3 ui-monospace,Menlo,Consolas,monospace;margin:22px 0 6px;overflow-wrap:anywhere}
+.from{color:var(--ink-soft);margin:0 0 12px}
+.desc{color:var(--ink-soft);margin:0 0 14px;max-width:80ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.run{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--ink-muted);align-self:center}
+.code{display:flex;border:1px solid var(--border);border-radius:8px;background:#fafaf6;overflow:hidden;margin:0 0 28px}
+.code pre{margin:0;font:12.5px/1.6 ui-monospace,Menlo,Consolas,monospace;padding:12px 0}
+.code .ln{color:var(--ink-muted);text-align:right;padding:12px 10px 12px 12px;border-right:1px solid var(--border-soft);background:var(--bg-soft);user-select:none;flex:0 0 auto}
+.code .src{flex:1;min-width:0;overflow-x:auto}
+.code .src code{display:block;padding:0 14px;background:transparent}
+footer{margin:0 0 28px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:13px;color:var(--ink-muted)}
+footer a{margin-right:14px}
+@media (max-width:640px){h1{font-size:18px}.code pre{font-size:12px}}
+@media print{header.top,.actions,footer{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <a href="https://easyaioffer.github.io/">⌂ 全部教程 <small>easyaioffer.github.io</small></a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">⭐ Star</a>
+</header>
+
+<h1>mmdit_block.py</h1>
+<p class="from">配套教程：<a href="../tutorials/image_generation_systems_tutorial.html">图像生成系统</a> · <a href="../tutorials/image_generation_systems_tutorial_en.html">EN</a></p>
+<p class="desc">MMDiT block - minimal runnable implementation</p>
+<div class="actions">
+  <a class="btn" href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/mmdit_block.py">在 GitHub 查看</a>
+  <a class="btn" href="https://raw.githubusercontent.com/wanshuiyin/ARIS-in-AI-Offer/main/docs/tutorials/code/mmdit_block.py">原始 .py</a>
+  <button class="btn" id="copy" type="button">复制全部</button>
+  <span class="run">python mmdit_block.py</span>
+</div>
+
+<div class="code">
+<pre class="ln">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+269
+270
+271
+272
+273
+274
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292</pre>
+<pre class="src"><code class="language-python" id="src">&quot;&quot;&quot;
+MMDiT block - minimal runnable implementation
+=============================================
+
+Educational toy version of one double-stream MMDiT block, a building block
+commonly used by modern open MMDiT-family rectified-flow text-to-image
+transformers.
+
+Pairs with: docs/tutorials/image_generation_systems_tutorial.md (concept).
+
+Architecture:
+    - Two streams (text + image) with independent Q/K/V projections
+    - Concatenate along the seq dim and run a single joint attention
+    - Split outputs back and run independent FFNs per stream
+    - AdaLN-Zero gating: timestep -&gt; 6-way (shift, scale, gate) per sublayer
+
+Hidden sizes here are deliberately small so the whole script runs on CPU.
+
+Run:
+    python mmdit_block.py
+&quot;&quot;&quot;
+import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+# ============================================================================
+# Timestep embedding (sinusoidal, transformer-style)
+# ============================================================================
+
+def timestep_embedding(t: torch.Tensor, dim: int, max_period: int = 10000) -&gt; torch.Tensor:
+    &quot;&quot;&quot;
+    Sinusoidal time embedding.
+
+    Args:
+        t: [B] timestep (any positive scale, commonly 0-1000)
+        dim: embedding dim
+    Returns:
+        [B, dim]
+    &quot;&quot;&quot;
+    half = dim // 2
+    freqs = torch.exp(
+        -math.log(max_period) * torch.arange(0, half, device=t.device) / half
+    )
+    args = t[:, None].float() * freqs[None]
+    emb = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
+    if dim % 2 == 1:                                # pad to dim
+        emb = F.pad(emb, (0, 1))
+    return emb
+
+
+# ============================================================================
+# AdaLN-Zero modulation (a common diffusion-transformer pattern)
+# ============================================================================
+
+class AdaLNZero(nn.Module):
+    &quot;&quot;&quot;Project timestep embedding to 6 modulation chunks:
+
+        (shift_attn, scale_attn, gate_attn, shift_mlp, scale_mlp, gate_mlp)
+
+    Zero-init so each block starts as identity, a stabilization trick widely
+    used by modern diffusion-transformer architectures.
+    &quot;&quot;&quot;
+
+    def __init__(self, hidden_dim: int):
+        super().__init__()
+        self.silu = nn.SiLU()
+        self.linear = nn.Linear(hidden_dim, 6 * hidden_dim)
+        # zero init - gates start at 0 =&gt; block is initially identity
+        nn.init.zeros_(self.linear.weight)
+        nn.init.zeros_(self.linear.bias)
+
+    def forward(self, temb: torch.Tensor) -&gt; tuple:
+        &quot;&quot;&quot;Returns 6 tensors of shape [B, hidden_dim].&quot;&quot;&quot;
+        out = self.linear(self.silu(temb))
+        return out.chunk(6, dim=-1)
+
+
+def modulate(x: torch.Tensor, shift: torch.Tensor, scale: torch.Tensor) -&gt; torch.Tensor:
+    &quot;&quot;&quot;x &lt;- (1 + scale) * x + shift.  shift/scale broadcast over the seq dim.&quot;&quot;&quot;
+    return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
+
+
+# ============================================================================
+# Joint Attention (the heart of MMDiT)
+# ============================================================================
+
+class JointAttention(nn.Module):
+    &quot;&quot;&quot;Independent Q/K/V proj per stream; concat along seq and attend once.
+
+    Each stream (text, image) has its own input/output projection. We then
+    concatenate Q/K/V along the seq dim, run a single SDPA, and split the
+    output back into the two streams.
+    &quot;&quot;&quot;
+
+    def __init__(self, hidden_dim: int, num_heads: int):
+        super().__init__()
+        assert hidden_dim % num_heads == 0
+        self.num_heads = num_heads
+        self.head_dim = hidden_dim // num_heads
+        self.scale = 1.0 / math.sqrt(self.head_dim)
+
+        # text stream
+        self.txt_q = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.txt_k = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.txt_v = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.txt_out = nn.Linear(hidden_dim, hidden_dim)
+
+        # image stream
+        self.img_q = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.img_k = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.img_v = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.img_out = nn.Linear(hidden_dim, hidden_dim)
+
+        # QK normalization (RMS or LN) before attention, a common stability
+        # trick in modern diffusion-transformer variants.
+        norm_cls = nn.RMSNorm if hasattr(nn, &quot;RMSNorm&quot;) else nn.LayerNorm
+        self.q_norm_txt = norm_cls(self.head_dim)
+        self.k_norm_txt = norm_cls(self.head_dim)
+        self.q_norm_img = norm_cls(self.head_dim)
+        self.k_norm_img = norm_cls(self.head_dim)
+
+    def _split_heads(self, x: torch.Tensor) -&gt; torch.Tensor:
+        &quot;&quot;&quot;[B, N, C] -&gt; [B, H, N, d_k]&quot;&quot;&quot;
+        B, N, C = x.shape
+        return x.reshape(B, N, self.num_heads, self.head_dim).transpose(1, 2)
+
+    def _merge_heads(self, x: torch.Tensor) -&gt; torch.Tensor:
+        &quot;&quot;&quot;[B, H, N, d_k] -&gt; [B, N, C]&quot;&quot;&quot;
+        B, H, N, d = x.shape
+        return x.transpose(1, 2).reshape(B, N, H * d)
+
+    def forward(self, txt: torch.Tensor, img: torch.Tensor) -&gt; tuple:
+        &quot;&quot;&quot;
+        Args:
+            txt: [B, L_txt, C]
+            img: [B, L_img, C]
+        Returns:
+            (txt_out, img_out) - each with the original shape.
+        &quot;&quot;&quot;
+        # Per-stream Q/K/V projections.
+        q_t = self._split_heads(self.txt_q(txt))
+        k_t = self._split_heads(self.txt_k(txt))
+        v_t = self._split_heads(self.txt_v(txt))
+
+        q_i = self._split_heads(self.img_q(img))
+        k_i = self._split_heads(self.img_k(img))
+        v_i = self._split_heads(self.img_v(img))
+
+        # QK normalization before attention (positional encoding such as RoPE
+        # would typically be applied here in a full implementation; omitted
+        # for simplicity).
+        q_t = self.q_norm_txt(q_t)
+        k_t = self.k_norm_txt(k_t)
+        q_i = self.q_norm_img(q_i)
+        k_i = self.k_norm_img(k_i)
+
+        # Concatenate along seq (text first by convention).
+        L_txt = txt.shape[1]
+        q = torch.cat([q_t, q_i], dim=2)            # [B, H, L_txt + L_img, d_k]
+        k = torch.cat([k_t, k_i], dim=2)
+        v = torch.cat([v_t, v_i], dim=2)
+
+        # Single scaled-dot-product attention call (PyTorch will dispatch to
+        # a memory-efficient attention kernel when available).
+        out = F.scaled_dot_product_attention(q, k, v)  # [B, H, L_total, d_k]
+        out = self._merge_heads(out)                  # [B, L_total, C]
+
+        # Split back into text / image.
+        txt_out = self.txt_out(out[:, :L_txt])
+        img_out = self.img_out(out[:, L_txt:])
+        return txt_out, img_out
+
+
+# ============================================================================
+# FFN (per-stream, GELU)
+# ============================================================================
+
+class FFN(nn.Module):
+    def __init__(self, hidden_dim: int, mlp_ratio: float = 4.0):
+        super().__init__()
+        inner = int(hidden_dim * mlp_ratio)
+        self.fc1 = nn.Linear(hidden_dim, inner)
+        self.fc2 = nn.Linear(inner, hidden_dim)
+        self.act = nn.GELU(approximate=&quot;tanh&quot;)
+
+    def forward(self, x):
+        return self.fc2(self.act(self.fc1(x)))
+
+
+# ============================================================================
+# MMDiT Block - one complete double-stream layer
+# ============================================================================
+
+class MMDiTBlock(nn.Module):
+    &quot;&quot;&quot;One complete double-stream MMDiT block:
+
+        (LN -&gt; modulate -&gt; JointAttn -&gt; gate * residual)
+        (LN -&gt; modulate -&gt; FFN -&gt; gate * residual)   -- per stream
+
+    Reference: standard double-stream MMDiT block as used by modern open
+    rectified-flow text-to-image transformers.
+    &quot;&quot;&quot;
+
+    def __init__(self, hidden_dim: int, num_heads: int):
+        super().__init__()
+        self.norm_attn_txt = nn.LayerNorm(hidden_dim, elementwise_affine=False)
+        self.norm_attn_img = nn.LayerNorm(hidden_dim, elementwise_affine=False)
+        self.norm_mlp_txt = nn.LayerNorm(hidden_dim, elementwise_affine=False)
+        self.norm_mlp_img = nn.LayerNorm(hidden_dim, elementwise_affine=False)
+
+        self.adaln_txt = AdaLNZero(hidden_dim)
+        self.adaln_img = AdaLNZero(hidden_dim)
+
+        self.attn = JointAttention(hidden_dim, num_heads)
+        self.ffn_txt = FFN(hidden_dim)
+        self.ffn_img = FFN(hidden_dim)
+
+    def forward(
+        self, txt: torch.Tensor, img: torch.Tensor, temb: torch.Tensor
+    ) -&gt; tuple:
+        &quot;&quot;&quot;
+        Args:
+            txt:  [B, L_txt, C]
+            img:  [B, L_img, C]
+            temb: [B, C]   - timestep embedding
+        &quot;&quot;&quot;
+        # AdaLN params: (shift, scale, gate) x (attn, mlp), independent per stream.
+        sa_t, sc_t, ga_t, sm_t, scm_t, gm_t = self.adaln_txt(temb)
+        sa_i, sc_i, ga_i, sm_i, scm_i, gm_i = self.adaln_img(temb)
+
+        # === Joint Attention sublayer ===
+        t_norm = modulate(self.norm_attn_txt(txt), sa_t, sc_t)
+        i_norm = modulate(self.norm_attn_img(img), sa_i, sc_i)
+        t_attn, i_attn = self.attn(t_norm, i_norm)
+        txt = txt + ga_t.unsqueeze(1) * t_attn
+        img = img + ga_i.unsqueeze(1) * i_attn
+
+        # === FFN sublayer (per-stream) ===
+        t_mlp = self.ffn_txt(modulate(self.norm_mlp_txt(txt), sm_t, scm_t))
+        i_mlp = self.ffn_img(modulate(self.norm_mlp_img(img), sm_i, scm_i))
+        txt = txt + gm_t.unsqueeze(1) * t_mlp
+        img = img + gm_i.unsqueeze(1) * i_mlp
+
+        # FP16 overflow guard, useful when running large models in fp16/bf16.
+        txt = torch.clamp(txt, -65504, 65504)
+        img = torch.clamp(img, -65504, 65504)
+        return txt, img
+
+
+# ============================================================================
+# Demo
+# ============================================================================
+
+def demo():
+    torch.manual_seed(0)
+    B = 2
+    L_txt, L_img = 128, 256                         # example sequence lengths
+    hidden, heads = 256, 8                          # toy hidden, far smaller
+                                                    # than production MMDiT
+    txt = torch.randn(B, L_txt, hidden)
+    img = torch.randn(B, L_img, hidden)
+    t = torch.rand(B) * 1000                        # timestep 0-1000
+
+    temb = timestep_embedding(t, hidden)
+    block = MMDiTBlock(hidden, heads)
+
+    print(f&quot;input  txt:  {tuple(txt.shape)}&quot;)
+    print(f&quot;input  img:  {tuple(img.shape)}&quot;)
+    print(f&quot;input  temb: {tuple(temb.shape)}&quot;)
+
+    txt_out, img_out = block(txt, img, temb)
+    print(f&quot;output txt:  {tuple(txt_out.shape)}&quot;)
+    print(f&quot;output img:  {tuple(img_out.shape)}&quot;)
+    assert txt_out.shape == txt.shape and img_out.shape == img.shape
+
+    # AdaLN-Zero starts at 0 -&gt; block output should equal input (identity check).
+    diff_txt = (txt_out - txt).abs().max().item()
+    diff_img = (img_out - img).abs().max().item()
+    print(f&quot;\n[init-identity] max |txt_out - txt| = {diff_txt:.2e}&quot;)
+    print(f&quot;[init-identity] max |img_out - img| = {diff_img:.2e}&quot;)
+    print(&quot;(both should be ~0: AdaLN-Zero gate init=0 =&gt; block starts identity)&quot;)
+    assert diff_txt &lt; 1e-5 and diff_img &lt; 1e-5
+
+    total = sum(p.numel() for p in block.parameters())
+    print(f&quot;\n[params] single block: {total/1e6:.2f}M  (toy hidden={hidden})&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;== MMDiT Block (double-stream, AdaLN-Zero, joint attention) ==\n&quot;)
+    demo()</code></pre>
+</div>
+
+<footer>
+  <a href="https://easyaioffer.github.io/">ARIS in AI Offer</a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer">GitHub</a>
+  <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/README.md">全部脚本说明</a>
+</footer>
+</div>
+<script>
+hljs.highlightAll();
+document.getElementById('copy').addEventListener('click', function () {
+  var b = this;
+  navigator.clipboard.writeText(document.getElementById('src').textContent).then(function () {
+    b.textContent = '已复制'; setTimeout(function () { b.textContent = '复制全部'; }, 1500);
+  });
+});
+</script>
+</body>
+</html>
