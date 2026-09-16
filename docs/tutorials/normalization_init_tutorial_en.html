@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/normalization_init_tutorial_en.md">
 <meta name="aris:source-sha256" content="582b7021e94459417061f7ac5e7f8435e4f0b6f74291d00532c1b32af3f72e9f">
-<meta name="aris:generated-at" content="2026-09-15 16:05 UTC">
+<meta name="aris:generated-at" content="2026-09-16 06:00 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -662,7 +662,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/normalization_init_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>582b7021e944</code></span>
-    <span><strong>Rendered:</strong> 2026-09-15 16:05 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-16 06:00 UTC</span>
     
   </div>
 </header>
@@ -976,7 +976,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Reporting a single trick; or missing the combined punch of final LN / residual scaling / depth-aware init and the "identity start" thread.</p>
 </details>
 <h2 id="a-appendix-sanity-check">§A Appendix: sanity check</h2>
-<p>This tutorial's code has a minimal runnable version in <a href="code/normalization.py"><code>docs/tutorials/code/normalization.py</code></a> (pure PyTorch, a few seconds on CPU, 6 <code>assert</code>s covering [a]–[f]). It should satisfy the following key invariants:</p>
+<p>This tutorial's code has a minimal runnable version in <a href="../code/normalization.py.html"><code>docs/tutorials/code/normalization.py</code></a> (pure PyTorch, a few seconds on CPU, 6 <code>assert</code>s covering [a]–[f]). It should satisfy the following key invariants:</p>
 <ol><li><strong>[a] LayerNorm from scratch == <code>nn.LayerNorm</code></strong>: with population variance (<code>unbiased=False</code>, divide by $d$), $\epsilon$ inside the sqrt, after affine it should match PyTorch elementwise within float error (<code>atol≈1e-5</code>).</li><li><strong>[b] RMSNorm from scratch == <code>nn.RMSNorm</code>, and RMSNorm's shift-invariance differs from LN's</strong>: add a constant $c$ to the whole input, and <strong>LayerNorm's output barely changes</strong> (it subtracts the mean → re-centering invariant), while <strong>RMSNorm's output changes</strong> (it only re-scales, no mean-subtraction) — exactly the executable check of §4's "RMSNorm has no re-centering."</li><li><strong>[c] BatchNorm train$\ne$eval</strong>: train mode uses batch stats (output per-feature mean ≈ 0) and pushes the running mean away from 0; switch to eval and it uses running stats, with a clearly different output for the same input — verifying §2.2's dual path.</li><li><strong>[d] Post-LN piles parameter gradients at the top (top-heavy), Pre-LN piles them at the bottom instead (bottom-heavy)</strong>: build a stack of 48 identical residual blocks (with a final linear head — to avoid the artifact where a loss acting directly on the Post-LN normalized output "squashes gradients to 0"), do one forward+backward, and measure each block's Linear weight-grad <strong>top/bottom ratio</strong> (last/first). Pre-LN $\approx0.40$ — i.e. the bottom layer's gradient is about $1/0.40=2.5\times$ the top layer's; by the symmetric imbalance measure $\max(r,1/r)$, this skew (2.5) is comparable to, or even slightly larger than, Post-LN's 2.35 — <strong>the key difference is the opposite skew direction</strong> (Pre-LN skews bottom, Post-LN piles at the top). This confirms §5.2 Xiong et al.'s asymptotic claim: as depth $L$ grows, Post-LN's top-layer gradient stays $\Theta(d\sqrt{\ln d})$ independent of $L$, while Pre-LN's per-layer scale shrinks uniformly as $1/\sqrt L$ — asymptotically better-conditioned, not "this one fixed-depth ratio happens to be near 1." <strong>Use the top/bottom ratio rather than the absolute gradient, since it partially cancels out confounds from the loss choice / output normalization</strong> (a subtle experiment-design pitfall).</li><li><strong>[e] Kaiming preserves the second moment, Xavier-for-ReLU decays</strong>: a unit-second-moment input ($\mathbb{E}[x^2]=1$) through <code>Linear+ReLU</code>, measuring the <strong>post-ReLU second moment $\mathbb{E}[y^2]$</strong> (the signal energy fed to the next layer, the quantity He's derivation actually propagates): with Kaiming ($\sqrt{2/n_\text{in}}$) $\mathbb{E}[y^2]\approx1$ (conserved), with Xavier-for-ReLU ($\sqrt{1/n_\text{in}}$) $\approx0.5$ (halving per layer → vanishing when deep) — verifying §8.3's factor 2. Note we measure $\mathbb{E}[y^2]$, not $\text{Var}(y)$: ReLU makes the output mean non-zero, so $\text{Var}(y)=1-1/\pi\approx0.68$, while the layer-conserved / propagated quantity is the second moment $\mathbb{E}[y^2]$.</li><li><strong>[f] GPT-2 residual scaling $1/\sqrt{2N}$ bounds the residual-stream variance</strong>: simulate $N$ transformer layers, each writing to the residual stream twice ($2N$ writes total) with $O(1)$ updates; unscaled, the variance <strong>grows linearly</strong> with the number of writes, while multiplying by $1/\sqrt{2N}$ keeps it <strong>bounded</strong> — verifying §8.4.</li></ol>
 <p>Below are a few illustrative snippets (CPU-runnable, English comments, logic identical to the script above).</p>
 <p><strong>(a) LayerNorm + RMSNorm from scratch, aligned with PyTorch:</strong></p>
@@ -1075,7 +1075,7 @@ all normalization / residual / init sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/normalization_init_tutorial_en.md</code> ·
   SHA256 <code>582b7021e944</code> ·
-  generated at 2026-09-15 16:05 UTC.
+  generated at 2026-09-16 06:00 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

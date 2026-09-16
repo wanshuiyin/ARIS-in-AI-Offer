@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/tokenization_tutorial.md">
 <meta name="aris:source-sha256" content="8824f62111f0af1d57bde73d54ad23270a36d7d0f858d294440d308f50e662aa">
-<meta name="aris:generated-at" content="2026-09-14 05:02 UTC">
+<meta name="aris:generated-at" content="2026-09-16 06:00 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -634,7 +634,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/tokenization_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>8824f62111f0</code></span>
-    <span><strong>Rendered:</strong> 2026-09-14 05:02 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-16 06:00 UTC</span>
     
   </div>
 </header>
@@ -777,7 +777,7 @@ decode：ID → token 字符串拼接 →（byte 还原 / ▁→空格）→ 文
 <div class="table-wrap"><table><thead><tr><th>模型</th><th>输入粒度</th><th>分块机制</th><th>主要面向</th><th>一句话局限</th></tr></thead><tbody><tr><td>ByT5</td><td>UTF-8 byte</td><td>无（全 byte 序列）</td><td>seq2seq 理解+生成</td><td>序列长、慢</td></tr><tr><td>MegaByte</td><td>byte</td><td><strong>固定</strong> patch</td><td>自回归生成</td><td>patch 边界与内容无关</td></tr><tr><td>BLT</td><td>byte</td><td><strong>entropy 动态</strong> patch</td><td>自回归生成</td><td>需额外 entropy 模型、生态新</td></tr><tr><td>CANINE（Clark et al., 2021, arXiv 2103.06874）</td><td>Unicode code point</td><td>哈希 embedding + 下采样</td><td><strong>理解任务</strong> encoder</td><td>非自回归 byte LM，不宜混为一谈</td></tr></tbody></table></div>
 <div class="callout callout-info"><div class="callout-title">Tip</div><p><strong>"tokenizer-free 已经解决规模化"仍是过强表述</strong> 层次化 byte 模型确实缓解了长序列成本、展示了有竞争力的 scaling 曲线，但训练效率、推理引擎支持、缓存粒度（prefix cache 按什么命中？）和成熟部署工具链仍是现实障碍。面试的稳妥立场：<strong>看好方向、承认工程差距</strong>，并能讲出 BLT 的 entropy patching 与 MegaByte 固定 patch 的本质差别。</p></div>
 <h2 id="7-从零实现纯-python-标准库">§7 从零实现（纯 Python 标准库）</h2>
-<p>完整可跑脚本见 <a href="code/tokenization.py"><code>code/tokenization.py</code></a>（纯标准库、无 torch、CPU 秒级跑完 8 个 demo [D01]–[D08]）。两个教学简化要心里有数：脚本里的 toy BPE 是 <strong>codepoint 级</strong>（初始符号 = Unicode 字符、无 pre-tokenization；真实 GPT-2 先 regex 切块、块内 byte 映射后再 BPE，见 §3.1，[D01] 单独演示那层 byte 代理）；Unigram 两条 DP 用线性概率便于对读 §2.3 手算表，生产实现应换 <strong>log 空间</strong>防下溢。另两处 toy 范围：脚本的 toy BPE 不冻结基础字母表（未见字符直接成为基础 token；真实实现要么 byte 兜底要么 <code>&lt;unk&gt;</code>）；[D05] 的 <code>byte_fallback()</code> 演示的是 byte 表示与还原本身（无条件拆 byte），真实 SentencePiece 只对普通 piece 覆盖不了的 span 兜底。正文只展示四个核心 demo 的关键代码段；WordPiece 整词 <code>[UNK]</code>（[D03]）、NFKC vs byte fallback（[D05]）、prefix instability（[D06]）、扩词表 regression test（[D08]）作为短测试函数并入同一脚本，不再贴出。</p>
+<p>完整可跑脚本见 <a href="../code/tokenization.py.html"><code>code/tokenization.py</code></a>（纯标准库、无 torch、CPU 秒级跑完 8 个 demo [D01]–[D08]）。两个教学简化要心里有数：脚本里的 toy BPE 是 <strong>codepoint 级</strong>（初始符号 = Unicode 字符、无 pre-tokenization；真实 GPT-2 先 regex 切块、块内 byte 映射后再 BPE，见 §3.1，[D01] 单独演示那层 byte 代理）；Unigram 两条 DP 用线性概率便于对读 §2.3 手算表，生产实现应换 <strong>log 空间</strong>防下溢。另两处 toy 范围：脚本的 toy BPE 不冻结基础字母表（未见字符直接成为基础 token；真实实现要么 byte 兜底要么 <code>&lt;unk&gt;</code>）；[D05] 的 <code>byte_fallback()</code> 演示的是 byte 表示与还原本身（无条件拆 byte），真实 SentencePiece 只对普通 piece 覆盖不了的 span 兜底。正文只展示四个核心 demo 的关键代码段；WordPiece 整词 <code>[UNK]</code>（[D03]）、NFKC vs byte fallback（[D05]）、prefix instability（[D06]）、扩词表 regression test（[D08]）作为短测试函数并入同一脚本，不再贴出。</p>
 <p><strong>[D01] GPT-2 式 256-byte 可逆映射</strong>（§3.1 的代理字母表，含 <code>0x20 → Ġ</code>）：</p>
 <pre><code class="language-python">def bytes_to_unicode():
     &quot;&quot;&quot;可打印 byte 保留原字符，其余 68 个 byte 平移到 chr(256+n)——256↔256 双射。&quot;&quot;&quot;
@@ -1038,7 +1038,7 @@ assert bpb_a == bpb_b == 4.0 / (8 * math.log(2))             # BPB 却完全相�
 <p>只答"过滤用户输入里的特殊字符串"——不知道行为由 tokenizer API 配置决定、且训练侧 mask 错误同样致命。</p>
 </details>
 <h2 id="a-附录sanity-check">§A 附录：sanity check</h2>
-<p>本 tutorial 的从零实现应满足以下关键不变量（纯 Python 标准库、无第三方依赖、CPU 秒级，脚本见 <a href="code/tokenization.py"><code>code/tokenization.py</code></a>）：</p>
+<p>本 tutorial 的从零实现应满足以下关键不变量（纯 Python 标准库、无第三方依赖、CPU 秒级，脚本见 <a href="../code/tokenization.py.html"><code>code/tokenization.py</code></a>）：</p>
 <ol><li><strong>[D01] 256-byte 双射</strong>：<code>bytes_to_unicode</code> 恰好 256 进 256 出（injective → 可逆），188 个可打印 byte 原样、68 个平移 byte 升序进 U+0100 区（<code>0x00→U+0100</code>、<code>0x0A→Ċ</code>、<code>0x20→Ġ</code>）；含空格/换行/CJK/emoji/控制符的字符串经 UTF-8 → 代理字母表 → 逆映射 → UTF-8 严格还原。</li><li><strong>[D02] BPE 训练 vs 编码语义</strong>：语料 <code>{&quot;abab&quot;×3, &quot;abac&quot;×1}</code> 上首条 merge 必为 <code>(a,b)</code>（频次 7）；<code>decode(encode(x))==x</code>、编码确定性、token 数 $\leq$ byte 数；rank 冲突用例 <code>encode(&quot;abc&quot;)==[&quot;ab&quot;,&quot;c&quot;]</code>、rank 反转后变 <code>[&quot;a&quot;,&quot;bc&quot;]</code>（编码只跟冻结 rank 走，不做运行时重选）；<code>&quot;aaa&quot;</code> 从左非重叠合并为 <code>[&quot;aa&quot;,&quot;a&quot;]</code>。</li><li><strong>[D03] WordPiece 整词失败</strong>：<code>{a, ##b, ##bc}</code> 下 <code>abc → [a, ##bc]</code>；去掉 <code>##bc</code> 后 <code>abc → [[UNK]]</code>（不是 <code>[a, ##b, [UNK]]</code>）；<code>{a, ab, ##bc}</code> 下贪心选 <code>ab</code> 后走入死路 → 整词 <code>[UNK]</code>（贪心不回溯，尽管 <code>a</code>+<code>##bc</code> 本可成功）。</li><li><strong>[D04] Unigram 两条 DP</strong>：Viterbi 给 <code>[&quot;ab&quot;,&quot;ab&quot;]</code>（0.16）；forward 全切分边际 $=0.22350625$（独立手算验证）且 $\geq$ 最优路径概率。</li><li><strong>[D05] 覆盖 ≠ 保真</strong>：NFKC 把 <code>Ａ①</code> 改写为 <code>A1</code>（有损、不可逆）；byte fallback 把 <code>龘</code> 拆成 <code>&lt;0xE9&gt;&lt;0xBE&gt;&lt;0x98&gt;</code> 且可严格还原。</li><li><strong>[D06] prefix instability</strong>：merge 表 <code>[a+b, ab+c]</code> 下 <code>encode(&quot;ab&quot;)=[&quot;ab&quot;]</code> 不是 <code>encode(&quot;abc&quot;)=[&quot;abc&quot;]</code> 的 token 前缀。</li><li><strong>[D07] 指标口径</strong>：byte 分词 fertility 恒为 1 token/byte；中英混合语料上 toy-BPE $\lt$ char $\lt$ byte（micro-average）；同一文本 NLL=4.0 nats、8 bytes 时 loss/token 2.0 vs 1.0 而 BPB 相同。</li><li><strong>[D08] 扩词表 regression</strong>：旧 ID / 旧测试集编码 / special 行为全部不变；新 embedding 行 = 语义代理文本旧切分行的逐维均值；tied 的输入 embedding 与 LM head 仍是同一参数对象。</li></ol>
 <p>运行 <code>python3 code/tokenization.py</code> 的<strong>真实输出</strong>：</p>
 <pre><code class="language-text">[D01] bytes_to_unicode: 256/256 bijective, 0x20 -&gt; &#x27;Ġ&#x27;, roundtrip &#x27; A\n中文🙂\x00&#x27; OK  PASS
@@ -1059,7 +1059,7 @@ all tokenization sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/tokenization_tutorial.md</code> ·
   SHA256 <code>8824f62111f0</code> ·
-  generated at 2026-09-14 05:02 UTC.
+  generated at 2026-09-16 06:00 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

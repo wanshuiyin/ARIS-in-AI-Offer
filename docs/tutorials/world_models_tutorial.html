@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/world_models_tutorial.md">
 <meta name="aris:source-sha256" content="6fb3b06bb5da560a369514436495b812a6f65307b73929b7d924e160611b686c">
-<meta name="aris:generated-at" content="2026-09-15 16:09 UTC">
+<meta name="aris:generated-at" content="2026-09-16 06:00 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -661,7 +661,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/world_models_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>6fb3b06bb5da</code></span>
-    <span><strong>Rendered:</strong> 2026-09-15 16:09 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-16 06:00 UTC</span>
     
   </div>
 </header>
@@ -840,7 +840,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="table-wrap"><table><thead><tr><th>维度</th><th>latent dynamics / MBRL</th><th>predict-in-representation-space</th><th>生成式 / 交互式</th></tr></thead><tbody><tr><td>预测的量</td><td>潜状态转移（多数带奖励与 continuation）</td><td>EMA/冻结 encoder 的表征</td><td>未来观测（像素或视频 token）</td></tr><tr><td>记忆</td><td>递推的 $h_t$（或 transformer 上下文）</td><td>上下文表征 + 动作条件 predictor</td><td>上下文窗口、显式记忆检索</td></tr><tr><td>动作接口</td><td>环境动作，天然有</td><td>预训练不带动作；<strong>V-JEPA 2-AC 这条流程</strong>把动作放在第二阶段（冻结 encoder，训动作条件 predictor），不是这条谱系的通则</td><td>要专门设计：LAM 码 / 相机位姿 / 执行器 / 文本</td></tr><tr><td>决策接口</td><td>潜空间规划、imagination actor-critic、MCTS</td><td>表征空间 MPC（与目标表征的距离）</td><td>人或策略在环交互；经动作推断落地</td></tr><tr><td>主要损失</td><td>重建 NLL + KL（或无重建的规划量回归）</td><td>表征距离（$L_1$ / 平方 $L_2$）</td><td>生成损失（扩散 / token 预测）</td></tr><tr><td>典型证据</td><td>任务回报、样本效率</td><td>probe 准确率 + 闭环成功率</td><td>视频质量、可控性、FPS、一致性时长</td></tr><tr><td>主要失败模式</td><td>模型误差被策略利用；posterior collapse</td><td>表征塌缩；表征距离与任务效用脱钩</td><td>长程漂移、记忆丢失、逼真但物理不对</td></tr><tr><td>重叠例子</td><td>Dreamer 4 是 transformer 生成式动态 + imagination RL</td><td>DINO-WM 用冻结表征学动态，属谱系一的做法</td><td>Cosmos 3 是带推理能力的生成式模型，跨语言/图像/视频/音频/动作</td></tr></tbody></table></div>
 <hr />
 <h2 id="9-code-patterns">§9 Code Patterns</h2>
-<p>三段核心 pattern，完整实验在 <a href="code/world_models_toy.py"><code>code/world_models_toy.py</code></a>。三段共用 <code>import torch, torch.nn as nn, torch.nn.functional as F</code>。</p>
+<p>三段核心 pattern，完整实验在 <a href="../code/world_models_toy.py.html"><code>code/world_models_toy.py</code></a>。三段共用 <code>import torch, torch.nn as nn, torch.nn.functional as F</code>。</p>
 <h3 id="91-rssm-一步--balanced-kl">9.1　RSSM 一步 + balanced KL</h3>
 <pre><code class="language-python">def cat_kl(probs_q, probs_p, eps=1e-8):
     &quot;&quot;&quot;KL(q||p)，分组分类分布，probs: [..., G, C]。
@@ -1090,7 +1090,7 @@ def latent_mpc_cost(pred_ac, s0, action_seq, z_goal):
 <h3 id="a2-排除清单与理由">A.2　排除清单与理由</h3>
 <div class="table-wrap"><table><thead><tr><th>被排除</th><th>理由</th></tr></thead><tbody><tr><td>Sora / Sora 2</td><td>只有高层级公开报告；与"动作后果与决策"这条主线不匹配——在 §5.4 作为对照保留</td></tr><tr><td>Oasis</td><td>机制已由 GameNGen 代表；可研究性与篇幅</td></tr><tr><td>Hunyuan-GameCraft</td><td>同一技术问题已有代表工作覆盖</td></tr><tr><td>Runway GWM / Odyssey</td><td>发布公告层面</td></tr><tr><td>HunyuanWorld</td><td><strong>有论文</strong>（HunyuanWorld 1.0，arXiv 2507.21809）；排除是因为其主题偏 3D 场景生成与可漫游世界构建，与"动作后果如何进入决策"这条主线不是同一问题，且篇幅有限</td></tr><tr><td>STORM / TransDreamer</td><td>机制与 Dreamer / IRIS 重叠</td></tr><tr><td>Meta CWM</td><td>术语碰撞：指代码执行意义上的 "world model"</td></tr><tr><td>Othello-GPT 一类 LLM 内部世界模型</td><td>问的是"表征里有没有"，不是"能否预测动作后果"</td></tr><tr><td>Tesla</td><td>无论文</td></tr></tbody></table></div>
 <h3 id="a3-runnable-toy">A.3　Runnable toy</h3>
-<p>脚本：<a href="code/world_models_toy.py"><code>code/world_models_toy.py</code></a>，纯 PyTorch，CPU 上几秒跑完。三个实验都有解析答案，可以逐项对照——<strong>结论只覆盖各自的显式设定，不是论文复现</strong>。</p>
+<p>脚本：<a href="../code/world_models_toy.py.html"><code>code/world_models_toy.py</code></a>，纯 PyTorch，CPU 上几秒跑完。三个实验都有解析答案，可以逐项对照——<strong>结论只覆盖各自的显式设定，不是论文复现</strong>。</p>
 <p><strong>实验 1｜RSSM 线性高斯：posterior collapse 与 balanced KL。</strong> 环境 $x_{t+1}=0.5x_t+a_t+\epsilon$，$\epsilon$ 等概率取 $\pm1$。确定性部分 $h=0.5x_t+a_t$ 可精确算出，残差 $\epsilon=o_{t+1}-h$ 是唯一的新信息。标量参数化 $q(z\mid h,o)=\mathcal N(w\epsilon,1)$、$p(z\mid h)=\mathcal N(v,1)$、$\hat o=h+dz$，于是 $\mathcal L_{rec}=\tfrac12[(1-dw)^2+d^2]$、$\mathbb E D_{KL}=\tfrac12(w^2+v^2)$。对比单一 KL 系数 9 与 balanced $\beta_{dyn}=9,\beta_{rep}=0.1$（<strong>toy 取值，不是论文取值</strong>）：从 $w=d=0.5$、$v=1$ 出发，SGD lr 0.05 跑 1,000 步，单系数版收敛到 $\lvert w\rvert,\lvert d\rvert&lt;10^{-6}$——posterior collapse，重建 MSE ≈ 1，等于完全没用上观测；balanced 版收敛到 $v\to0$、$w^2=1/\sqrt{0.1}-1$、$d=w/(1+w^2)$，MSE $=\sqrt{0.1}$。</p>
 <p><strong>实验 2｜JEPA 的捷径与停梯度。</strong> $x=s$、$y=s+\epsilon$，encoder 是 $E_w(u)=wu$，predictor 取恒等。共享 $w$ 且<strong>不</strong>停梯度时 $\mathcal L=\tfrac12w^2$，lr 0.1 的梯度下降给出 $w_n=0.9^n$：从 $w_0=1$ 跑 100 步，上下文表征方差降到 $0.9^{200}$——塌缩是吸引子。换成停梯度 + EMA 教师 $b\leftarrow0.9b+0.1w$：从 $w=b=1$ 出发梯度为零，$w$ 停在 1，损失 0.5 全部来自不可预测的噪声；但从 $w=b=0$ 出发它同样停住。<strong>这正是"机制不是定理"的可执行版本。</strong></p>
 <p><strong>实验 3｜网格世界上的坐标 LAM。</strong> 编码器取 $\Delta=s'-s$，4 个码的 VQ，解码器是加性的。farthest-first 初始化后做一轮最近邻分配与质心更新，就能精确恢复四个转移向量：验证集重建误差 0、purity 1、$I(K;A)=2$ bits（在码的置换意义下）。这说明在<strong>这个坐标化、无外生变化</strong>的设定里瓶颈确实抓到了动作——一旦加入与动作无关的高方差变化，§5.1 说的竞争就会开始。</p>
@@ -1100,7 +1100,7 @@ def latent_mpc_cost(pred_ac, s0, action_seq, z_goal):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/world_models_tutorial.md</code> ·
   SHA256 <code>6fb3b06bb5da</code> ·
-  generated at 2026-09-15 16:09 UTC.
+  generated at 2026-09-16 06:00 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

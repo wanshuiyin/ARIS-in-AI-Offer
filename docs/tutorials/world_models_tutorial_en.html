@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/world_models_tutorial_en.md">
 <meta name="aris:source-sha256" content="15ecc5c656201affef8ee72e0d446c3154149aec75623e67251a6f3b9b7e0bcf">
-<meta name="aris:generated-at" content="2026-09-15 16:09 UTC">
+<meta name="aris:generated-at" content="2026-09-16 06:00 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -661,7 +661,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/world_models_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>15ecc5c65620</code></span>
-    <span><strong>Rendered:</strong> 2026-09-15 16:09 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-16 06:00 UTC</span>
     
   </div>
 </header>
@@ -840,7 +840,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <div class="table-wrap"><table><thead><tr><th>Dimension</th><th>latent dynamics / MBRL</th><th>predict-in-representation-space</th><th>generative / interactive</th></tr></thead><tbody><tr><td>Quantity predicted</td><td>latent state transitions (mostly with reward and continuation)</td><td>representations of an EMA/frozen encoder</td><td>future observations (pixels or video tokens)</td></tr><tr><td>Memory</td><td>recurrent $h_t$ (or a transformer context)</td><td>context representation + action-conditioned predictor</td><td>context window, explicit memory retrieval</td></tr><tr><td>Action interface</td><td>environment actions, present by nature</td><td>pre-training carries no action; <strong>the V-JEPA 2-AC pipeline</strong> puts action in a second stage (freeze the encoder, train an action-conditioned predictor), which is not a rule of the lineage</td><td>must be designed on purpose: LAM code / camera pose / actuator / text</td></tr><tr><td>Decision interface</td><td>latent-space planning, imagination actor-critic, MCTS</td><td>MPC in representation space (distance to the goal representation)</td><td>a human or a policy interacting in the loop; landed through action inference</td></tr><tr><td>Main loss</td><td>reconstruction NLL + KL (or regression on planning quantities with no reconstruction)</td><td>representation distance ($L_1$ / squared $L_2$)</td><td>generative loss (diffusion / token prediction)</td></tr><tr><td>Typical evidence</td><td>task return, sample efficiency</td><td>probe accuracy + closed-loop success rate</td><td>video quality, controllability, FPS, consistency duration</td></tr><tr><td>Main failure mode</td><td>the policy exploits model error; posterior collapse</td><td>representation collapse; representation distance decoupled from task utility</td><td>long-horizon drift, memory loss, realistic but physically wrong</td></tr><tr><td>Overlap example</td><td>Dreamer 4 is transformer generative dynamics + imagination RL</td><td>DINO-WM learns dynamics on frozen representations, which is a lineage-one move</td><td>Cosmos 3 is a generative model with reasoning ability, spanning language/image/video/audio/action</td></tr></tbody></table></div>
 <hr />
 <h2 id="9-code-patterns">§9 Code Patterns</h2>
-<p>Three core patterns; the full experiments are in <a href="code/world_models_toy.py"><code>code/world_models_toy.py</code></a>. All three share <code>import torch, torch.nn as nn, torch.nn.functional as F</code>.</p>
+<p>Three core patterns; the full experiments are in <a href="../code/world_models_toy.py.html"><code>code/world_models_toy.py</code></a>. All three share <code>import torch, torch.nn as nn, torch.nn.functional as F</code>.</p>
 <h3 id="91-one-rssm-step--balanced-kl">9.1　One RSSM step + balanced KL</h3>
 <pre><code class="language-python">def cat_kl(probs_q, probs_p, eps=1e-8):
     &quot;&quot;&quot;KL(q||p) for grouped categorical distributions, probs: [..., G, C].
@@ -1090,7 +1090,7 @@ def latent_mpc_cost(pred_ac, s0, action_seq, z_goal):
 <h3 id="a2-exclusion-list-and-reasons">A.2　Exclusion list and reasons</h3>
 <div class="table-wrap"><table><thead><tr><th>Excluded</th><th>Reason</th></tr></thead><tbody><tr><td>Sora / Sora 2</td><td>high-level public reporting only; does not match the main thread of the consequences of actions and decisions — kept in §5.4 as a contrast</td></tr><tr><td>Oasis</td><td>the mechanism is already represented by GameNGen; researchability and length</td></tr><tr><td>Hunyuan-GameCraft</td><td>the same technical problem is already covered by a representative work</td></tr><tr><td>Runway GWM / Odyssey</td><td>at the level of a release announcement</td></tr><tr><td>HunyuanWorld</td><td><strong>has a paper</strong> (HunyuanWorld 1.0, arXiv 2507.21809); excluded because its topic leans toward 3D scene generation and roamable world construction, which is not the same question as the main thread of "how the consequences of actions enter a decision", plus limited length</td></tr><tr><td>STORM / TransDreamer</td><td>mechanisms overlap with Dreamer / IRIS</td></tr><tr><td>Meta CWM</td><td>terminology collision: it refers to "world model" in the code-execution sense</td></tr><tr><td>Othello-GPT-style world models inside LLMs</td><td>asks "is it in the representation", not "can it predict the consequence of an action"</td></tr><tr><td>Tesla</td><td>no paper</td></tr></tbody></table></div>
 <h3 id="a3-runnable-toy">A.3　Runnable toy</h3>
-<p>Script: <a href="code/world_models_toy.py"><code>code/world_models_toy.py</code></a>, pure PyTorch, seconds on CPU. All three experiments have analytic answers you can check item by item — <strong>the conclusions cover only their own explicit settings and are not paper reproductions</strong>.</p>
+<p>Script: <a href="../code/world_models_toy.py.html"><code>code/world_models_toy.py</code></a>, pure PyTorch, seconds on CPU. All three experiments have analytic answers you can check item by item — <strong>the conclusions cover only their own explicit settings and are not paper reproductions</strong>.</p>
 <p><strong>Experiment 1 | RSSM linear-Gaussian: posterior collapse and balanced KL.</strong> The environment is $x_{t+1}=0.5x_t+a_t+\epsilon$ with $\epsilon$ equally likely to be $\pm1$. The deterministic part $h=0.5x_t+a_t$ is computable exactly, and the residual $\epsilon=o_{t+1}-h$ is the only new information. With the scalar parameterisation $q(z\mid h,o)=\mathcal N(w\epsilon,1)$, $p(z\mid h)=\mathcal N(v,1)$, $\hat o=h+dz$, we get $\mathcal L_{rec}=\tfrac12[(1-dw)^2+d^2]$ and $\mathbb E D_{KL}=\tfrac12(w^2+v^2)$. Comparing a single KL coefficient of 9 with balanced $\beta_{dyn}=9,\beta_{rep}=0.1$ (<strong>toy values, not the paper's</strong>): starting from $w=d=0.5$, $v=1$ and running SGD at lr 0.05 for 1,000 steps, the single-coefficient version converges to $\lvert w\rvert,\lvert d\rvert&lt;10^{-6}$ — posterior collapse, with reconstruction MSE ≈ 1, i.e. the observation is not used at all; the balanced version converges to $v\to0$, $w^2=1/\sqrt{0.1}-1$, $d=w/(1+w^2)$, with MSE $=\sqrt{0.1}$.</p>
 <p><strong>Experiment 2 | JEPA's shortcut and stop-gradient.</strong> With $x=s$, $y=s+\epsilon$, an encoder $E_w(u)=wu$ and an identity predictor: sharing $w$ and <strong>not</strong> stopping the gradient gives $\mathcal L=\tfrac12w^2$, and gradient descent at lr 0.1 gives $w_n=0.9^n$ — starting from $w_0=1$ and running 100 steps, the context representation's variance falls to $0.9^{200}$; collapse is an attractor. Switching to stop-gradient + an EMA teacher $b\leftarrow0.9b+0.1w$: starting from $w=b=1$ the gradient is zero, $w$ stays at 1, and the loss of 0.5 comes entirely from unpredictable noise; but starting from $w=b=0$ it stays put just the same. <strong>This is the executable version of "a mechanism is not a theorem".</strong></p>
 <p><strong>Experiment 3 | A coordinate LAM on a grid world.</strong> The encoder takes $\Delta=s'-s$, the VQ has 4 codes, and the decoder is additive. After farthest-first initialisation plus one round of nearest-neighbour assignment and centroid update, the four transition vectors are recovered exactly: validation reconstruction error 0, purity 1, $I(K;A)=2$ bits (up to a permutation of the codes). This shows that in <strong>this coordinatised setting with no exogenous change</strong> the bottleneck does capture the action — once high-variance change unrelated to the action is added, the competition described in §5.1 begins.</p>
@@ -1100,7 +1100,7 @@ def latent_mpc_cost(pred_ac, s0, action_seq, z_goal):
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/world_models_tutorial_en.md</code> ·
   SHA256 <code>15ecc5c65620</code> ·
-  generated at 2026-09-15 16:09 UTC.
+  generated at 2026-09-16 06:00 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

@@ -86,6 +86,25 @@ def _safe_url(url: str) -> str:
     return "#blocked-unsafe-url"
 
 
+# Relative link targets rewritten at render time, filled by main() from what actually
+# exists next to the source (docs/tutorials/x.md): `code/x.py` -> the viewer page docs/code/x.py.html when
+# tools/build_code_pages.py has produced it; `code/` and `code/README.md` (a bare
+# directory and a Markdown file — both unreadable on GitHub Pages) -> the README on
+# GitHub. Links whose target has no viewer page are left as written.
+_LINK_MAP: dict[str, str] = {}
+
+
+def _code_link_map(input_path: Path) -> dict[str, str]:
+    site = input_path.parent.parent        # docs/tutorials/x.md -> docs/
+    viewers = site / "code"
+    if not viewers.is_dir():
+        return {}
+    m = {f"code/{h.name[:-5]}": f"../code/{h.name}" for h in viewers.glob("*.py.html")}
+    readme = "https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/README.md"
+    m["code/"] = m["code/README.md"] = readme
+    return m
+
+
 # Tags stripped wholesale from HTML passthrough (block and inline).
 # Even if the workflow LLM hallucinates these, they never reach output.
 _RE_STRIP_TAG = re.compile(
@@ -203,7 +222,8 @@ def render_inline(text: str) -> str:
 
     def _link_sub(m: re.Match[str]) -> str:
         label = m.group(1)  # inner label can still contain code placeholders; ok.
-        href = html_lib.escape(_safe_url(m.group(2)), quote=True)
+        target = _LINK_MAP.get(m.group(2), m.group(2))
+        href = html_lib.escape(_safe_url(target), quote=True)
         title = m.group(3)
         title_attr = f' title="{html_lib.escape(title, quote=True)}"' if title else ""
         return f'<a href="{href}"{title_attr}>{label}</a>'
@@ -901,6 +921,9 @@ def main(argv: list[str] | None = None) -> int:
         md_source = f"# {input_path.name}\n\n```json\n{pretty}\n```\n"
     else:
         md_source = strip_frontmatter(raw)
+
+    _LINK_MAP.clear()
+    _LINK_MAP.update(_code_link_map(input_path))
 
     blocks = parse_blocks(md_source.split("\n"))
     body_html, toc = _render_blocks(blocks, collect_toc=not args.no_toc)

@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/llm_pretraining_pipeline_tutorial.md">
 <meta name="aris:source-sha256" content="ab9c2f6bcb019a4bcea881e52406e41ab7ea3a0c2445b0db0f7b49d263f42e1b">
-<meta name="aris:generated-at" content="2026-09-14 05:02 UTC">
+<meta name="aris:generated-at" content="2026-09-16 06:00 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -640,7 +640,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/llm_pretraining_pipeline_tutorial.md</code></span>
     <span><strong>SHA256:</strong> <code>ab9c2f6bcb01</code></span>
-    <span><strong>Rendered:</strong> 2026-09-14 05:02 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-16 06:00 UTC</span>
     
   </div>
 </header>
@@ -799,7 +799,7 @@ tokenized shards → sampler → packing / labels / masks → 参数更新
 <h3 id="56-常见误答">5.6　常见误答</h3>
 <div class="table-wrap"><table><thead><tr><th>误答</th><th>正确判断</th></tr></thead><tbody><tr><td>$6ND$ 是精确公式，拿 $C$ 除以峰值 FLOPs 就是训练耗时</td><td>它是算法级近似，忽略了长上下文 attention 项、词表投影、激活重计算与 FLOP 计数约定；估墙钟还要引入 GPU 数量、峰值 FLOPs 与 MFU</td></tr><tr><td>Chinchilla 给出唯一一组精确指数，它和 Kaplan 的分歧就是"数据要更多"</td><td>不同估计方法给出约 0.50/0.50、0.49/0.51、0.46/0.54，代入舍入后的 $\alpha,\beta$ 得到的解析最优约为 0.452/0.548，分歧还涉及拟合方法、训练 horizon 与 LR schedule 是否匹配预算</td></tr><tr><td>"每参数 20 token"是普适常数</td><td>它是经验近似，$D_*/N_*$ 还依赖拟合常数 $A,B,k$，且当 $\alpha\ne\beta$ 时随 $C$ 缓慢漂移</td></tr><tr><td>训练 token 超过 Chinchilla 比例就是过拟合，说明配方错了</td><td>继续喂新的、非重复的相关数据通常仍在降 loss，over-trained 是相对 compute-optimal 前沿的经济学判断</td></tr><tr><td>MinHash 度量语义相似度，semantic dedup 是它的无条件升级版</td><td>MinHash 估的是 shingle 集合的 Jaccard 表层重复，semantic dedup 处理的是另一层级的重复，且会误删表达不同的合法文本</td></tr><tr><td>先切分、之后再去重也能挡住近重复跨 split</td><td>必须先形成去重簇再按整簇分配 split，并且按传递闭包合并从未直接比较过的文档</td></tr><tr><td>配置里的域权重就是模型实际看到的 token 占比，名义 $D$ 就是有效数据量</td><td>按文档配置却当 token 权重用时二者通常不相等（按 token 目标占比定义时期望相等），重复呈现的 token 抬高名义 $D$ 却带不来同等的新信息</td></tr><tr><td>packing 后能跨文档 attend 是 bug，加上 block-diagonal mask 就实现了文档独立</td><td>连续流是合法的序列语义选择；要文档独立还须单独屏蔽"上一文档 EOS → 下一文档首 token"这条跨文档标签</td></tr><tr><td>把 GPU 数或 TP/PP world size 乘进 global batch，$B_{input}$ 与 $B_{target}$ 通用</td><td>只有 DP world size 扩大独立样本数，位移标签下每条序列至多 $L_{seq}-1$ 个有效 target</td></tr><tr><td>数学等价即数值逐 bit 相同，resume 跑起来就说明轨迹复现了</td><td>浮点累加顺序与归约树形结构会改变最后几位；bitwise 同轨迹另需 scaler 状态、在途梯度、确定性 kernel 与相同拓扑，world-size 变化通常做不到</td></tr></tbody></table></div>
 <h2 id="6-从零实现语料--packing--关键不变量-sanity-check">§6 从零实现：语料 → packing → 关键不变量 sanity check</h2>
-<p>完整可跑脚本见 <a href="code/pretraining_pipeline.py"><code>code/pretraining_pipeline.py</code></a>，纯 Python 标准库、零第三方依赖、CPU 秒级跑完 [D01]–[D07] 全部 sanity check。四组 demo 串成一条迷你流水线：文本 → dedup → pack + loss mask → synthetic budget planner → spike monitor。脚本用可执行断言覆盖 dedup、packing、Chinchilla 拟合、spike 监测四个不变量，没有真正的前向/反向/optimizer step，也没有 checkpoint 写入与 resume。下面是三段核心代码，document packing 的完整功能测试、EOS 边界（§3.2）、padding（§3.3）作为短测试函数并入同一脚本。</p>
+<p>完整可跑脚本见 <a href="../code/pretraining_pipeline.py.html"><code>code/pretraining_pipeline.py</code></a>，纯 Python 标准库、零第三方依赖、CPU 秒级跑完 [D01]–[D07] 全部 sanity check。四组 demo 串成一条迷你流水线：文本 → dedup → pack + loss mask → synthetic budget planner → spike monitor。脚本用可执行断言覆盖 dedup、packing、Chinchilla 拟合、spike 监测四个不变量，没有真正的前向/反向/optimizer step，也没有 checkpoint 写入与 resume。下面是三段核心代码，document packing 的完整功能测试、EOS 边界（§3.2）、padding（§3.3）作为短测试函数并入同一脚本。</p>
 <p><strong>[D01] MinHash / LSH / cluster-split 传递闭包</strong>（§2.3、§2.5 的可执行版）：</p>
 <pre><code class="language-python">doc_a = set(range(1, 11))                 # {1,...,10}
 doc_b = set(range(1, 9)) | {11, 12}        # {1,...,8,11,12}
@@ -1021,7 +1021,7 @@ assert abs(d_star_100x / d_star - 100 ** (alpha / (alpha + beta))) &lt; 1e-6  # 
 <p>只存一个"来源 URL+版本号"就以为够了，说不出 content hash、tokenizer 哈希、mixture 种子、document→token 映射这些同样决定"这条样本现在长什么样"的中间状态，也说不出许可证/删除请求这条合规维度。</p>
 </details>
 <h2 id="a-附录sanity-check">§A 附录：sanity check</h2>
-<p>从零实现应满足以下关键不变量，脚本见 <a href="code/pretraining_pipeline.py"><code>code/pretraining_pipeline.py</code></a>：</p>
+<p>从零实现应满足以下关键不变量，脚本见 <a href="../code/pretraining_pipeline.py.html"><code>code/pretraining_pipeline.py</code></a>：</p>
 <ol><li><strong>[D01] dedup</strong>：精确 Jaccard $J(A,B)=8/12=2/3$（$A=\{1..10\}$，$B=\{1..8,11,12\}$）；固定种子 + 1024 permutation 的 MinHash 估计落在按采样理论设定的容差内（不断言精确相等）；LSH（$b=128,r=8$）候选概率对高相似 pair（$s=2/3$）远高于低相似 pair（$s=0.05$）；并查集验证 A~B、B~C 的传递闭包使 A、C 落入同一去重簇，必须分配同一 split。</li><li><strong>[D02] packing 位移标签</strong>：<code>tokens=[11,12,13,21,22]</code>，<code>doc_ids=[0,0,0,1,1]</code> 下，独立文档语义标签为 <code>[12,13,IGNORE,22,IGNORE]</code>；连续流语义标签为 <code>[12,13,21,22,IGNORE]</code>（同一份 token 流，两种合法配置给出不同标签）。</li><li><strong>[D03] block-diagonal mask + 功能测试</strong>：<code>M[3,2]=False</code>、<code>M[4,0]=False</code>、<code>M[4,3]=True</code>（block 模式）；同一坐标连续流模式 <code>M[3,2]=True</code>。$QK^\top=0$ 下，doc0 values 从 <code>[1,2,3]</code> 改为 <code>[1000,2000,3000]</code>、doc1 values 保持 <code>[10,20]</code> 时，block 模式下文档 1 的 q3、q4 输出分别保持 <code>10.0</code>、<code>15.0</code> 不变，连续流模式下 q3 输出从 <code>4.0</code> 变为 <code>1502.5</code>。</li><li><strong>[D04] EOS 边界</strong>：在 <code>[11,12,13,EOS,21,22,EOS]</code> / <code>doc_ids=[0,0,0,0,1,1,1]</code> 上，内容末 token（13）→EOS 的标签保留（=EOS），EOS→下一文档首 token（21）的标签被屏蔽（IGNORE）——两者由同一条 doc-id 边界规则自动产生。</li><li><strong>[D05] padding</strong>：<code>valid_len=3</code> 时 loss mask 为 <code>[1,1,0,0,0]</code>；真实 query 无法 attend 到 padding key；所有 attention 行都非空（不会产生全 <code>-inf</code> 行导致 softmax NaN）。</li><li><strong>[D06] Chinchilla 拟合</strong>：从 log-spaced 网格（$N\in[10^7,10^{12}]$, $D\in[10^8,10^{13}]$，各 6 点）无噪声恢复 $E,A,B$ 与合成真值的误差 $&lt;10^{-3}$；恢复的 $E$ 小于所有有限观测 loss；解析 $N_*,D_*$ 与细网格搜索最小点相差不超过一个网格步长；计算预算扩大 100 倍时 $N_*$ 约扩大 $100^{0.452}\approx 8.0$ 倍、$D_*$ 约扩大 $100^{0.548}\approx 12.5$ 倍。</li><li><strong>[D07] spike 监测</strong>：序列 <code>[2.00,2.02,1.98,2.01,1.99,2.00,2.03,1.97,3.00]</code> 只有最后一点被标记；平滑下降序列全程不误报；同样量级的单点跳变分别标记为 <code>spike</code>（后续回落）与 <code>sustained_shift</code>（后续维持高位）两种不同事件类型；NaN/Inf 无条件立即标记为 <code>non_finite</code>。</li></ol>
 <p>运行 <code>python3 code/pretraining_pipeline.py</code> 的<strong>真实输出</strong>：</p>
 <pre><code class="language-text">[D01] dedup: exact J(A,B)=0.6667, MinHash est=0.6250 (tol 0.0884), LSH P_high=0.9939 vs P_low=0.0000; real banding candidates=[(0, 1), (1, 2)], confirmed edges=[(0, 1), (1, 2)], cluster split={0: &#x27;test&#x27;, 1: &#x27;test&#x27;, 2: &#x27;test&#x27;, 3: &#x27;train&#x27;}  PASS
@@ -1041,7 +1041,7 @@ all pretraining pipeline sanity checks passed</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/llm_pretraining_pipeline_tutorial.md</code> ·
   SHA256 <code>ab9c2f6bcb01</code> ·
-  generated at 2026-09-14 05:02 UTC.
+  generated at 2026-09-16 06:00 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

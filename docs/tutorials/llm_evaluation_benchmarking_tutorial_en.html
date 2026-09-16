@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md">
 <meta name="aris:source-sha256" content="065e8d0ada793023e81a4b92faf891056130996d51892d272e8c57d1ba16fde9">
-<meta name="aris:generated-at" content="2026-09-15 16:05 UTC">
+<meta name="aris:generated-at" content="2026-09-16 06:00 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -640,7 +640,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>065e8d0ada79</code></span>
-    <span><strong>Rendered:</strong> 2026-09-15 16:05 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-16 06:00 UTC</span>
     
   </div>
 </header>
@@ -811,7 +811,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Cost is not a single number; break the report down by dimension:</p>
 <div class="table-wrap"><table><thead><tr><th>Cost dimension</th><th>Definition</th></tr></thead><tbody><tr><td>Latency</td><td>first-token latency, subsequent-token latency, end-to-end latency</td></tr><tr><td>Throughput</td><td>system throughput</td></tr><tr><td>Usage</td><td>average generated tokens, tool-call count, failed-retry count</td></tr></tbody></table></div>
 <h2 id="7-from-scratch-implementation-python--numpyscipy">§7 From-Scratch Implementation (Python + numpy/scipy)</h2>
-<p>The full runnable script is at <a href="code/llm_eval_metrics.py"><code>code/llm_eval_metrics.py</code></a> (numpy/scipy come preinstalled in most scientific-computing environments; the 4 demos [D01]–[D04] finish in seconds on CPU). The four demos target the four statistical traps this tutorial most often gets wrong — and interviewers most often probe.</p>
+<p>The full runnable script is at <a href="../code/llm_eval_metrics.py.html"><code>code/llm_eval_metrics.py</code></a> (numpy/scipy come preinstalled in most scientific-computing environments; the 4 demos [D01]–[D04] finish in seconds on CPU). The four demos target the four statistical traps this tutorial most often gets wrong — and interviewers most often probe.</p>
 <p><strong>[D01] pass@k: high-variance direct estimation vs the unbiased combinatorial estimator vs the biased plug-in estimator</strong> (executable verification of §2.6, computing exhaustive expectations over the binomial distribution for $p=0.2, k=2$):</p>
 <pre><code class="language-python">def pass_at_k_true(p, k):
     return 1 - (1 - p) ** k
@@ -1009,7 +1009,7 @@ assert swap_inconsistency_rate(always_pick_first, pairs) == 1.0</code></pre>
 <p>Answering "end-to-end evaluation" with a benchmark roster ("we ran MMLU, HumanEval, ..."), unable to articulate the decision chain itself; putting evaluator selection before the contract, or believing paired bootstrap/multiple-comparison correction are unconditional fixed moves rather than tools chosen as the experimental design requires.</p>
 </details>
 <h2 id="a-appendix-sanity-checks">§A Appendix: sanity checks</h2>
-<p>The from-scratch implementation in this tutorial should satisfy the following key invariants (numpy/scipy, seconds on CPU, script at <a href="code/llm_eval_metrics.py"><code>code/llm_eval_metrics.py</code></a>):</p>
+<p>The from-scratch implementation in this tutorial should satisfy the following key invariants (numpy/scipy, seconds on CPU, script at <a href="../code/llm_eval_metrics.py.html"><code>code/llm_eval_metrics.py</code></a>):</p>
 <ol><li><strong>[D01] The three pass@k estimators</strong>: at $p=0.2,k=2$ the true value is $0.36$; after enumerating the binomial distribution at $n=5$, the combinatorial estimator's expectation is exactly $0.36$ (unbiased) and the plug-in's is $0.328$ (bias $-0.032=-p(1-p)/n$); "run exactly 2 times" has per-problem variance $0.36\times0.64=0.2304$; by hand, $n{=}10,c{=}3,k{=}5\to 11/12$; $k{=}1$ reduces to $c/n$, $c{=}0$ reduces to $0$, $n{-}c{&lt;}k$ reduces to $1$, $k{&gt;}n$ raises; the per-problem average (0.7, correct) $\neq$ the pooled result from adding the two problems' counts and applying the combinatorial-estimator formula (0.7778, the number the code actually prints; pooling with the naive formula $1-(1-\hat p)^k$ instead gives 0.75 — two different wrong pooling schemes, not to be conflated).</li><li><strong>[D02] Four bootstrap traps</strong>: under the same resample index set, the paired-difference bootstrap and bootstrapping $d=A-B$ directly are algebraically identical; a constant array of 20 identical values (0.07) gives a CI degenerated to a single point; enumerating all $3^3{=}27$ bootstrap samples of $d=[0.2,-0.1,0.4]$, the mean of means exactly equals the original sample mean $1/6$; with 20 items all correct, the naive percentile bootstrap gives $[1,1]$ while the Wilson 95% CI lower bound is about $0.839$; with 4 prompts each carrying 5 repeated votes, the prompt-cluster-resampled CI is markedly wider than ($&gt;1.5\times$ in this example) the naive vote-level bootstrap.</li><li><strong>[D03] Five Bradley-Terry assertions</strong>: with A/B at 75/25 wins, the unregularized MLE gives $\theta_A-\theta_B=\log3$ ($\approx\pm0.549306$ under $\theta_A+\theta_B=0$) and predicted win rate $0.75$; multiplying both win counts by 10 (750/250) leaves the point estimate unchanged but shrinks the standard error to $1/\sqrt{10}$ of the original; cyclic data (A/B/C at 2:1 around the cycle) yields an MLE with three nearly equal strengths (span${}&lt;10^{-4}$) and every pairwise predicted win rate about $0.5$; A beating B without losses (10:0 — in a two-player comparison "wins without losses" equals a non-strongly-connected directed win graph) is flagged by the separation-detection logic, the unregularized MLE raises deliberately, and ridge regularization yields a finite solution; in the three-player setting with A:B=10:0 but A:C and B:C both 5:5 the overall directed win graph is still strongly connected and correctly <strong>not</strong> flagged (the pairwise "wins without losses" criterion false-positives in multi-player settings); two mutually unreachable components ($\{0,1\}$ and $\{2,3\}$) trigger disconnection detection and raise.</li><li><strong>[D04] Three position-bias assertions</strong>: at $b=\log(7/3)$, for equal-quality answers $P(A\text{ wins}\mid\text{first})=0.7$, $P(A\text{ wins}\mid\text{second})=0.3$, and the order-balanced marginal win rate returns exactly to $0.5$; the deterministic "always pick whoever goes first" judge has swap-inconsistency $=1.0$ after swapping presentation order, while a quality-only judge has swap-inconsistency $=0.0$.</li></ol>
 <p>The <strong>actual output</strong> of running <code>python3 code/llm_eval_metrics.py</code>:</p>
 <pre><code class="language-text">[D01] pass@k(p=0.2,k=2)=0.360 true; E[unbiased]=0.360 (exact) vs E[plugin]=0.328 (biased -0.032); Var[unbiased]=0.08448 &lt; Var[naive k-sample]=0.2304; n=10,c=3,k=5 -&gt; 0.9167=11/12; per-problem avg=0.700 != pooled=0.7778  PASS
@@ -1026,7 +1026,7 @@ all llm_eval sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/llm_evaluation_benchmarking_tutorial_en.md</code> ·
   SHA256 <code>065e8d0ada79</code> ·
-  generated at 2026-09-15 16:05 UTC.
+  generated at 2026-09-16 06:00 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

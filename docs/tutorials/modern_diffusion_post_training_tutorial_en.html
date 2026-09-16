@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/modern_diffusion_post_training_tutorial_en.md">
 <meta name="aris:source-sha256" content="5514728546a8f442923bbecbf450d4601396dd3ad4596b9012bb3bf6c8a975b8">
-<meta name="aris:generated-at" content="2026-09-15 16:05 UTC">
+<meta name="aris:generated-at" content="2026-09-16 06:00 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -653,7 +653,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/modern_diffusion_post_training_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>5514728546a8</code></span>
-    <span><strong>Rendered:</strong> 2026-09-15 16:05 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-16 06:00 UTC</span>
     
   </div>
 </header>
@@ -808,7 +808,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>Storage excludes weights, optimiser state and activations; "one more ref" is not "double the memory".</p>
 <hr />
 <h2 id="7-code-patterns">§7 Code Patterns</h2>
-<p>Three ~20-line core losses; the full experiments are in <a href="code/diffusion_online_rl.py"><code>code/diffusion_online_rl.py</code></a>. All three share <code>import math, torch; import torch.nn.functional as F</code>.</p>
+<p>Three ~20-line core losses; the full experiments are in <a href="../code/diffusion_online_rl.py.html"><code>code/diffusion_online_rl.py</code></a>. All three share <code>import math, torch; import torch.nn.functional as F</code>.</p>
 <h3 id="71-flow-grpo-one-sde-step--log-prob--ratio">7.1　Flow-GRPO: one SDE step + log-prob + ratio</h3>
 <pre><code class="language-python">def sde_step(v_theta, x, t, h, a=0.7, xi=None):
     &quot;&quot;&quot;One reverse-time Euler-Maruyama step, t -&gt; t - h, h &gt; 0.  Returns (x_next, mu, v).&quot;&quot;&quot;
@@ -1011,7 +1011,7 @@ loss = pg + beta_kl * kl.mean()</code></pre>
 <h3 id="a1-papers">A.1　Papers</h3>
 <div class="table-wrap"><table><thead><tr><th>Method</th><th>arXiv</th><th>Venue</th><th>Code</th></tr></thead><tbody><tr><td>Flow-GRPO</td><td><a href="https://arxiv.org/abs/2505.05470">2505.05470</a></td><td>—</td><td>github.com/yifan123/flow_grpo</td></tr><tr><td>DGPO</td><td><a href="https://arxiv.org/abs/2510.08425">2510.08425</a></td><td>ICLR 2026</td><td>github.com/Luo-Yihong/DGPO</td></tr><tr><td>DiffusionNFT</td><td><a href="https://arxiv.org/abs/2509.16117">2509.16117</a></td><td>ICLR 2026 Oral</td><td>github.com/NVlabs/DiffusionNFT</td></tr><tr><td>NFT (LLM)</td><td><a href="https://arxiv.org/abs/2505.18116">2505.18116</a></td><td>—</td><td>—</td></tr><tr><td>GRPO</td><td><a href="https://arxiv.org/abs/2402.03300">2402.03300</a></td><td>—</td><td>—</td></tr></tbody></table></div>
 <h3 id="a2-runnable-toy">A.2　Runnable toy</h3>
-<p>Script: <a href="code/diffusion_online_rl.py"><code>code/diffusion_online_rl.py</code></a>, pure PyTorch, seconds on CPU.</p>
+<p>Script: <a href="../code/diffusion_online_rl.py.html"><code>code/diffusion_online_rl.py</code></a>, pure PyTorch, seconds on CPU.</p>
 <ul><li><strong>A</strong> marginal preservation: 1-D $x_0\sim\mathcal N(1, 0.25)$ with analytic $v^*$, $s^*$; integrate from $t=0.9$ to $0.1$ and compare the means/variances of ODE / correct SDE / noise-without-score-correction.</li><li><strong>B</strong> NFT gradient: fixed pair $t=0.5, x_0=0, \epsilon=1$, $\beta=0.5$; assert initial gradients $-1,+1,0$ for $r=1,0,\tfrac12$ and optima $\pm2$ for positive/negative.</li><li><strong>C</strong> DGPO cancellation: 4-sample group $[0,1,2,7]$; assert equal positive/negative weight mass, invariance to a global reward shift, invariance to a global implicit-score shift; the unit-weight counterexample.</li></ul>
 <h3 id="a3-engineering-pitfalls">A.3　Engineering pitfalls</h3>
 <div class="table-wrap"><table><thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead><tbody><tr><td>Flow-GRPO NaN when starting at $t=1$</td><td>$g(t) = a\sqrt{t/(1-t)}$ has a zero denominator</td><td>handle the first step with neighbouring time points</td></tr><tr><td>Flow-GRPO clip stops working at some $t$</td><td>ratio distribution drifts with the timestep</td><td>RatioNorm / gradient re-weighting (GRPO-Guard)</td></tr><tr><td>DGPO images go blurry</td><td>low-noise $t$ learned the few-step artefacts</td><td>timestep clipping $[t_\min, 1]$</td></tr><tr><td>DGPO loss doesn't move</td><td>all rewards in the group equal, std zero, advantage set to zero</td><td>change prompts or enlarge $G$</td></tr><tr><td>NFT unstable</td><td>$\beta$ too small or old EMA tracking too closely</td><td>tune $\beta$, slow the EMA</td></tr><tr><td>All three “score up, quality flat”</td><td>reward and visual quality have decoupled (the raw reward gets hacked too); the group-normalised score has the separate problem of not tracking cross-round progress</td><td>raw reward + images + diversity</td></tr></tbody></table></div>
@@ -1021,7 +1021,7 @@ loss = pg + beta_kl * kl.mean()</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/modern_diffusion_post_training_tutorial_en.md</code> ·
   SHA256 <code>5514728546a8</code> ·
-  generated at 2026-09-15 16:05 UTC.
+  generated at 2026-09-16 06:00 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

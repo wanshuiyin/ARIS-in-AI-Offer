@@ -8,7 +8,7 @@
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/rag_embedding_retrieval_tutorial_en.md">
 <meta name="aris:source-sha256" content="0a2f735bd41483393909e65a77e36f9bf9e6e2c68b1bde854507950b0ca598ba">
-<meta name="aris:generated-at" content="2026-09-15 16:05 UTC">
+<meta name="aris:generated-at" content="2026-09-16 06:00 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -630,7 +630,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/rag_embedding_retrieval_tutorial_en.md</code></span>
     <span><strong>SHA256:</strong> <code>0a2f735bd414</code></span>
-    <span><strong>Rendered:</strong> 2026-09-15 16:05 UTC</span>
+    <span><strong>Rendered:</strong> 2026-09-16 06:00 UTC</span>
     
   </div>
 </header>
@@ -970,7 +970,7 @@ def mini_rag(query, corpus, encoder, top_recall=10, top_final=3):
 <h2 id="a-appendix-sanity-check">§A Appendix: sanity check</h2>
 <p>Key invariants of <code>info_nce_in_batch</code> and mini-RAG (verifiable with a script):</p>
 <ul><li><strong>Diagonal is the positive</strong>: the diagonal of the similarity matrix $qd^\top$ should be each row's max (after training); <code>cross_entropy(logits, arange(B))</code> converging means alignment.</li><li><strong>Normalization</strong>: encoder output $\lVert\mathbf{q}\rVert\approx1$, dot product in $[-1,1]$.</li><li><strong>Temperature direction</strong>: with fixed logits, lowering $\tau$ makes the softmax probabilities more concentrated (lower entropy).</li><li><strong>RRF monotone</strong>: if a document moves earlier in any retriever's rank, its RRF score should not drop.</li><li><strong>Hybrid recall tends to keep exact hits (engineering goal, not a strict invariant)</strong>: a precise-entity passage that BM25 hits <em>usually</em> survives into the hybrid result (pure dense may miss it) — but RRF only guarantees the candidate pool is the union of the two rankings; whether a hit stays inside the truncated top-k after fusion depends on how other documents rank across both retrievers and on the constant $k$, so it's not strictly guaranteed. In practice, exact/entity matches often need a lexical quota or explicit pinning as a backstop.</li></ul>
-<p>Below is the <strong>real run</strong> output of <a href="code/rag_embedding.py"><code>code/rag_embedding.py</code></a> on <strong>PyTorch 2.10 / CPU</strong> (each line has an <code>assert</code>; the summary prints only if all pass):</p>
+<p>Below is the <strong>real run</strong> output of <a href="../code/rag_embedding.py.html"><code>code/rag_embedding.py</code></a> on <strong>PyTorch 2.10 / CPU</strong> (each line has an <code>assert</code>; the summary prints only if all pass):</p>
 <pre><code>[a] in-batch InfoNCE: argmax==idx, loss aligned 0.0000 &lt; shuffled 22.9564  OK
 [b] DualEncoder ||v|| = 1.0000 (~1), max|dot| = 1.0000 (&lt;=1)  OK
 [c] entropy(tau=0.05) = 0.0000 &lt; entropy(tau=0.5) = 1.2945  OK
@@ -982,8 +982,8 @@ all RAG / embedding sanity checks passed ✓</code></pre>
 <p>Here [a] shows the InfoNCE loss is ≈0 when aligned and jumps to ~23 when the positives are shuffled, proving the loss really responds to "alignment" (not just that a diagonal matrix was constructed); [c] under the same logits the softmax entropy at $\tau=0.05$ (≈0) is far below that at $\tau=0.5$ (≈1.29), verifying a smaller temperature is sharper; [f] the passage with the rare entity <code>Zephyrnaut9000</code> is <strong>ranked #1 by BM25</strong> and kept in the hybrid (RRF) top-2, demonstrating hybrid recall's robustness to exact entities (§5.3; note: in this toy case dense happens to recall it too — in real scenarios dense more easily misses rare entities / serial numbers).</p>
 <hr />
 <h2 id="runnable-code">📜 Runnable Code</h2>
-<p>The embedding / retrieval core of this tutorial has a minimal runnable version at <a href="code/rag_embedding.py"><code>docs/tutorials/code/rag_embedding.py</code></a>:</p>
-<ul><li><a href="code/rag_embedding.py"><code>rag_embedding.py</code></a> — <code>DualEncoder</code> (L2-normalized bi-encoder) + <code>info_nce_in_batch</code> / <code>info_nce_with_hard</code> (in-batch + hard-negative contrastive loss) + <code>bm25_scores</code> / <code>rrf</code> / hybrid recall, with 6 <code>assert</code> sanity checks (diagonal-is-positive / normalization / temperature sharpness / with-hard shape / RRF monotone / hybrid keeps the entity chunk).</li></ul>
+<p>The embedding / retrieval core of this tutorial has a minimal runnable version at <a href="../code/rag_embedding.py.html"><code>docs/tutorials/code/rag_embedding.py</code></a>:</p>
+<ul><li><a href="../code/rag_embedding.py.html"><code>rag_embedding.py</code></a> — <code>DualEncoder</code> (L2-normalized bi-encoder) + <code>info_nce_in_batch</code> / <code>info_nce_with_hard</code> (in-batch + hard-negative contrastive loss) + <code>bm25_scores</code> / <code>rrf</code> / hybrid recall, with 6 <code>assert</code> sanity checks (diagonal-is-positive / normalization / temperature sharpness / with-hard shape / RRF monotone / hybrid keeps the entity chunk).</li></ul>
 <p>Pure PyTorch, runs on CPU in seconds with no GPU: <code>python docs/tutorials/code/rag_embedding.py</code>. The §A output above is this script's real run result.</p>
 <hr />
 <h2 id="references">📚 References</h2>
@@ -994,7 +994,7 @@ all RAG / embedding sanity checks passed ✓</code></pre>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/rag_embedding_retrieval_tutorial_en.md</code> ·
   SHA256 <code>0a2f735bd414</code> ·
-  generated at 2026-09-15 16:05 UTC.
+  generated at 2026-09-16 06:00 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>
