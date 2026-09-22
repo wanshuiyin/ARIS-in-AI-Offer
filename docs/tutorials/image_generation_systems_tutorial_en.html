@@ -7,8 +7,8 @@
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
 <meta name="aris:source-path" content="docs/tutorials/image_generation_systems_tutorial_en.md">
-<meta name="aris:source-sha256" content="2d3513827bb54ddd6a407d1985b5a58fcadfbf9cccecea990477a4ad3de7271b">
-<meta name="aris:generated-at" content="2026-09-16 06:00 UTC">
+<meta name="aris:source-sha256" content="91028f81d0926932dfa0a0c8f4802483120390267b454b350fe37de606f814cf">
+<meta name="aris:generated-at" content="2026-09-22 11:11 UTC">
 
 <!-- MathJax 3 -->
 <script>
@@ -673,8 +673,8 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
   
   <div class="meta">
     <span><strong>Source:</strong> <code>docs/tutorials/image_generation_systems_tutorial_en.md</code></span>
-    <span><strong>SHA256:</strong> <code>2d3513827bb5</code></span>
-    <span><strong>Rendered:</strong> 2026-09-16 06:00 UTC</span>
+    <span><strong>SHA256:</strong> <code>91028f81d092</code></span>
+    <span><strong>Rendered:</strong> 2026-09-22 11:11 UTC</span>
     
   </div>
 </header>
@@ -774,6 +774,7 @@ body.aris-blog .aris-focus-toggle { display: inline-block; }
 <p>at step 0, $\gamma = \beta = 0$, and $f((1+0)\cdot\text{LN}(x) + 0) = f(\text{LN}(x))$ is <strong>nonzero</strong> (LN(x) is generally nonzero, and attention/MLP do not map arbitrary inputs to 0); thus $\partial L/\partial \alpha \neq 0$, and chain-ruling back to $W^{\text{last}}_\text{MLP}$ yields nonzero gradient — $\alpha$ grows from 0 and the block gradually forks a non-trivial transformation from the identity map, keeping training stable.</p>
 <p>Note that $\gamma, \beta$ themselves have zero gradient at step 0 (their downstream is gated by $\alpha = 0$: $\partial L/\partial \gamma = (\partial L/\partial \alpha\cdot$ ...) — this path must pass through $\alpha$, and when $\alpha = 0$, $\partial \text{Block}/\partial \gamma$ contains an $\alpha\cdot f'(\cdot)$ factor equal to 0). But once $\alpha$ has grown, $\gamma, \beta$ immediately receive nonzero gradients — so "$\alpha$ grows first, then $\gamma, \beta$ follow" is the two-stage dynamics of AdaLN-Zero.</p>
 <p>Compare naive initialization (standard random $\alpha \neq 0$): early blocks already produce large-variance outputs; stacked over 24-32 layers, activations explode and training diverges. AdaLN-Zero is the key design enabling DiT to scale.</p>
+<p>All three claims (identity at step 0, $\partial L/\partial\alpha \neq 0$, zero gradient for $\gamma,\beta$) are each an <code>assert</code> in <a href="../code/dit.py.html"><code>code/dit.py</code></a>; the first two are checked in this section's single-block setting. The script also shows a consequence: DiT's final layer (adaLN + output linear) is zero-initialised too, so in the whole model only the output linear gets a nonzero gradient at step 0; step 1's backward pass is the first to reach the blocks' gates, and only after that update do the blocks leave the identity.</p>
 <h3 id="43-time-embedding">4.3　Time embedding</h3>
 <p>$$\text{TimeEmbed}(t) = \text{MLP}\!\left(\text{SinusoidalEmb}(t)\right),\quad \text{SinusoidalEmb}(t)_{2i} = \sin\!\left(t / 10000^{2i/D}\right)$$</p>
 <p>Even/odd positions use sin / cos, similar to Transformer positional encoding. $t$ is discrete timestep $\in \{0, 1, ..., T-1\}$ in SD; continuous $\in [0, 1]$ in RF / FM.</p>
@@ -1411,15 +1412,15 @@ text K/V (frozen)  ──┘──► attended_out → added to image latent res
 <hr />
 <h2 id="runnable-code">📜 Runnable Code</h2>
 <p>Minimal runnable PyTorch implementations of the MM-DiT / latent diffusion components in this tutorial live in <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/README.md"><code>docs/tutorials/code/</code></a>:</p>
-<ul><li><a href="../code/mmdit_block.py.html"><code>mmdit_block.py</code></a> — double-stream MMDiT block: text + image independent Q/K/V, concat along the seq dim and run one joint attention, per-stream FFN, AdaLN-Zero gated modulation</li><li><a href="../code/toy_mmdit_t2i_pipeline.py.html"><code>toy_mmdit_t2i_pipeline.py</code></a> — end-to-end toy T2I pipeline: toy text encoder + 8× 16-channel VAE + 4-layer MMDiT + FlowMatchEuler scheduler + norm-preserving true CFG</li></ul>
+<ul><li><a href="../code/dit.py.html"><code>dit.py</code></a> — the classic single-stream class-conditional DiT: patchify / unpatchify, 2D sin-cos position embedding, adaLN-Zero block (<code>1 + γ</code>, six-way modulation MLP zero-initialised), zero-initialised final layer, null class for CFG; asserts the three §4.2 properties</li><li><a href="../code/mmdit_block.py.html"><code>mmdit_block.py</code></a> — double-stream MMDiT block: text + image independent Q/K/V, concat along the seq dim and run one joint attention, per-stream FFN, AdaLN-Zero gated modulation</li><li><a href="../code/toy_mmdit_t2i_pipeline.py.html"><code>toy_mmdit_t2i_pipeline.py</code></a> — end-to-end toy T2I pipeline: toy text encoder + 8× 16-channel VAE + 4-layer MMDiT + FlowMatchEuler scheduler + norm-preserving true CFG</li></ul>
 <p>Each script runs on CPU in seconds with built-in <code>assert</code> sanity checks (shape parity, AdaLN-Zero identity verification, CFG scale=1 equivalence test). Full overview in <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer/blob/main/docs/tutorials/code/README.md"><code>code/README.md</code></a>.</p>
 
 <footer class="aris-footer">
   <a href="https://wanshuiyin.github.io/ARIS-in-AI-Offer/">ARIS in AI Offer</a> · <a href="https://github.com/wanshuiyin/ARIS-in-AI-Offer"><span class="l-cn">⭐ 点个 Star</span><span class="l-en">⭐ Star on GitHub</span></a><br>
   Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
   source path <code>docs/tutorials/image_generation_systems_tutorial_en.md</code> ·
-  SHA256 <code>2d3513827bb5</code> ·
-  generated at 2026-09-16 06:00 UTC.
+  SHA256 <code>91028f81d092</code> ·
+  generated at 2026-09-22 11:11 UTC.
   This is a generated view — edit the source Markdown, then re-render.
 </footer>
 </main>

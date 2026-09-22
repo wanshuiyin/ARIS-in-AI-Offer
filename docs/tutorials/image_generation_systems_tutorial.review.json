@@ -54,9 +54,9 @@
     ]
   },
   "summary": "Image Gen Systems tutorial: subagent did 3 rounds, main-session DIY did 1 more round catching 2 substantive errors (Q4 resolution arithmetic + SD3-Turbo citation). Final 13/13 render PASS. 1446 lines content-dense (WARN).",
-  "rendered_at": "2026-05-19",
+  "rendered_at": "2026-09-22",
   "notes": "Subagent was killed during continuation (codex MCP concurrency issue). Math/code review + fixes + render + render review all completed in main session DIY.",
-  "source_sha256": "b3d691580595f59b21b8745738f6b50d2b97ef8eee5a624af27b16c7e4e7264c",
+  "source_sha256": "6cdd3f8ecf15d6a13962f03f439a4590129f2105f8f0e084a9d28b55e0b58f3a",
   "thread_id": "019e7c8b-52d1-7e43-9a67-1e6e6e34d4cc",
   "post_ship_review": [
     {
@@ -77,6 +77,18 @@
         "§3.2/§13 Q11: SDXL size/crop conditioning corrected from 4 scalars to 6 — target_size (h_tgt, w_tgt) for multi-aspect-ratio training was missing alongside original_size and crop_top_left (CONFIRMED)"
       ],
       "note": "Verification and fixes applied to both image_generation_systems_tutorial.md and _en.md in parallel; both HTMLs re-rendered and source_sha256 refreshed (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ],
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-22-dit-code",
+      "verdict": "PASS after one round",
+      "reviewer": "codex gpt-6-astra xhigh, 1 fresh thread",
+      "thread_ids": [
+        "01a0c8c8-580f-7782-9cb4-a169fd65bcff"
+      ],
+      "scope": "Added docs/tutorials/code/dit.py (classic single-stream class-conditional DiT: patchify/unpatchify, 2D sin-cos pos embed, adaLN-Zero block with (1+scale) and zero-initialised six-way modulation MLP, zero-initialised final layer, null class for CFG; [D01]-[D05] assert the §4.2 claims). §4.2 gains one paragraph pointing at the script and stating a consequence of the zero-initialised final layer (step 0 updates only the output linear; blocks are reached from step 1). Runnable Code list + code/README.md + hub catalogue gain the entry. Codex checked the structure against facebookresearch/DiT models.py (six-way order, 1+scale, zero-init sites, patchify layout: PASS); asked that [D03] measure the gradient of the modulation output itself rather than the MLP weight (done via retain_grad) and that the new sentence say 'only the output linear' and 'step 1's backward reaches the gates' (done, CN+EN).",
+      "notes": "Script runs on CPU in ~2 s with torch 2.14; codex's static API check says torch >= 2.1 is fine, Python >= 3.10 for the `X | None` annotations."
     }
   ]
 }

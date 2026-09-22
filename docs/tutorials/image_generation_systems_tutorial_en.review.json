@@ -1,7 +1,7 @@
 {
   "skill": "interview-cheatsheet (EN translation-fidelity)",
   "source": "docs/tutorials/image_generation_systems_tutorial_en.md",
-  "source_sha256": "2d3513827bb54ddd6a407d1985b5a58fcadfbf9cccecea990477a4ad3de7271b",
+  "source_sha256": "91028f81d0926932dfa0a0c8f4802483120390267b454b350fe37de606f814cf",
   "output": "docs/tutorials/image_generation_systems_tutorial_en.html",
   "zh_source": "docs/tutorials/image_generation_systems_tutorial.md",
   "reviewer": "codex gpt-5.5 xhigh, fresh thread",
@@ -19,7 +19,7 @@
     ],
     "summary": "Fresh cross-model translation-fidelity audit (Codex GPT-5.5 xhigh, read-only, detect-only) of the English edition /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/image_generation_systems_tutorial_en.md against the Chinese source of truth /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/image_generation_systems_tutorial.md (both 1459 lines) plus the rendered HTML /Users/yangruofeng/Desktop/ARIS-in-秋招/docs/tutorials/image_generation_systems_tutorial_en.html. Verdict: WARN. The EN markdown is a FAITHFUL and COMPLETE translation of the ZH — all numbers, mathematical formulas/equations, co"
   },
-  "rendered_at": "2026-05-31",
+  "rendered_at": "2026-09-22",
   "post_ship_review": [
     {
       "scope": "2026-07-13 full-collection re-sweep (diffusion cluster): Codex GPT-5.6-sol candidate pass (run against the ZH source) + independent Claude Sonnet 5 adversarial verification, then applied in parallel to both editions",
@@ -39,6 +39,18 @@
         "§3.2/§13 Q11: SDXL size/crop conditioning corrected from 4 scalars to 6 (added missing target_size pair)"
       ],
       "note": "HTML re-rendered and source_sha256 refreshed (this run); gated via tools/verify_reviews.py --mode strict --reproduce."
+    }
+  ],
+  "delta_reviews": [
+    {
+      "run": "delta-2026-09-22-dit-code",
+      "verdict": "PASS after one round",
+      "reviewer": "codex gpt-6-astra xhigh, 1 fresh thread",
+      "thread_ids": [
+        "01a0c8c8-580f-7782-9cb4-a169fd65bcff"
+      ],
+      "scope": "Added docs/tutorials/code/dit.py (classic single-stream class-conditional DiT: patchify/unpatchify, 2D sin-cos pos embed, adaLN-Zero block with (1+scale) and zero-initialised six-way modulation MLP, zero-initialised final layer, null class for CFG; [D01]-[D05] assert the §4.2 claims). §4.2 gains one paragraph pointing at the script and stating a consequence of the zero-initialised final layer (step 0 updates only the output linear; blocks are reached from step 1). Runnable Code list + code/README.md + hub catalogue gain the entry. Codex checked the structure against facebookresearch/DiT models.py (six-way order, 1+scale, zero-init sites, patchify layout: PASS); asked that [D03] measure the gradient of the modulation output itself rather than the MLP weight (done via retain_grad) and that the new sentence say 'only the output linear' and 'step 1's backward reaches the gates' (done, CN+EN).",
+      "notes": "Script runs on CPU in ~2 s with torch 2.14; codex's static API check says torch >= 2.1 is fine, Python >= 3.10 for the `X | None` annotations."
     }
   ]
 }

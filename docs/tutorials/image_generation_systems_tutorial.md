@@ -216,6 +216,8 @@ step 0 时 $\gamma = \beta = 0$，$f((1+0)\cdot\text{LN}(x) + 0) = f(\text{LN}(x
 
 对比朴素初始化（标准随机 $\alpha \neq 0$）：早期 block 输出已经有大方差，叠 24-32 层后激活炸掉、训练发散。AdaLN-Zero 是 DiT scale 上去的关键设计。
 
+以上三条（step 0 恒等、$\partial L/\partial\alpha \neq 0$、$\gamma,\beta$ 梯度为 0）在 [`code/dit.py`](code/dit.py) 里各有一条 `assert`，前两条按本节的单 block 设定验证。该脚本还演示了一个连带后果：DiT 的最后一层（adaLN + 输出 linear）同样零初始化，所以整个模型在 step 0 只有输出 linear 拿到非零梯度；step 1 的反传才到达各 block 的 gate，完成这一步更新后 block 才离开恒等。
+
 ### 4.3　时间嵌入
 
 $$\text{TimeEmbed}(t) = \text{MLP}\!\left(\text{SinusoidalEmb}(t)\right),\quad \text{SinusoidalEmb}(t)_{2i} = \sin\!\left(t / 10000^{2i/D}\right)$$
@@ -1453,6 +1455,7 @@ text K/V (frozen)  ──┘──► attended_out → 加到 image latent resid
 
 本 tutorial 涉及的 MM-DiT / latent diffusion 组件在 [`docs/tutorials/code/`](code/) 里有最小可跑的 PyTorch 实现：
 
+- [`dit.py`](code/dit.py) — 经典单流 class-conditional DiT：patchify / unpatchify、2D sin-cos 位置编码、adaLN-Zero block（`1 + γ`、六路调制 MLP 零初始化）、零初始化 final layer、CFG 用的 null class；断言 §4.2 的三条性质
 - [`mmdit_block.py`](code/mmdit_block.py) — 双流 MMDiT block：text + image 独立 Q/K/V、沿 seq 维 concat 跑一次 joint attention、per-stream FFN、AdaLN-Zero gated modulation
 - [`toy_mmdit_t2i_pipeline.py`](code/toy_mmdit_t2i_pipeline.py) — 端到端 toy T2I pipeline：toy text encoder + 8× 16-channel VAE + 4-layer MMDiT + FlowMatchEuler scheduler + norm-preserving true CFG
 

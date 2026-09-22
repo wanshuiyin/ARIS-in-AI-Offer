@@ -11,6 +11,7 @@
 | `mha.py` | Multi-Head Self-Attention + causal mask + 与 `nn.MultiheadAttention` 对齐验证 | [attention_tutorial.md](../attention_tutorial.md) | <5s |
 | `axial_attention.py` | Axial attention（H/W 拆分）+ 复杂度对比表 + 感受野验证 | [attention_tutorial.md](../attention_tutorial.md) | <5s |
 | `flow_matching.py` | Rectified Flow on 2D toy data (two moons) + Euler sampling + 轨迹可视化 | [flow_matching_tutorial.md](../flow_matching_tutorial.md) | ~30s |
+| `dit.py` | 经典单流 DiT：patchify · adaLN-Zero block · 零初始化 final layer · null class；断言 step-0 恒等 / gate 梯度非零 / γβ 梯度为 0 | [image_generation_systems_tutorial.md](../image_generation_systems_tutorial.md) | <5s |
 | `mmdit_block.py` | 双流 MMDiT block（joint attention + AdaLN-Zero + per-stream FFN） | [image_generation_systems_tutorial.md](../image_generation_systems_tutorial.md) | <5s |
 | `toy_mmdit_t2i_pipeline.py` | End-to-end skeleton（toy text encoder + VAE + MMDiT + Euler scheduler + true CFG） | [image_generation_systems_tutorial.md](../image_generation_systems_tutorial.md) | <10s |
 | `lora.py` | `LoRALinear`（B=0 起点 · α/r 与 rsLoRA 缩放 · merge/unmerge）+ `DoRALinear`（幅度-方向分解）+ 6 个 assert | [lora_peft_tutorial.md](../lora_peft_tutorial.md) | <5s |
@@ -33,6 +34,7 @@ cd docs/tutorials/code
 python mha.py
 python axial_attention.py
 python flow_matching.py          # 需要 matplotlib（可选，没装会跳过画图）
+python dit.py
 python mmdit_block.py
 python toy_mmdit_t2i_pipeline.py # 依赖 mmdit_block.py 在同目录
 python lora.py

@@ -216,6 +216,8 @@ Note that $\gamma, \beta$ themselves have zero gradient at step 0 (their downstr
 
 Compare naive initialization (standard random $\alpha \neq 0$): early blocks already produce large-variance outputs; stacked over 24-32 layers, activations explode and training diverges. AdaLN-Zero is the key design enabling DiT to scale.
 
+All three claims (identity at step 0, $\partial L/\partial\alpha \neq 0$, zero gradient for $\gamma,\beta$) are each an `assert` in [`code/dit.py`](code/dit.py); the first two are checked in this section's single-block setting. The script also shows a consequence: DiT's final layer (adaLN + output linear) is zero-initialised too, so in the whole model only the output linear gets a nonzero gradient at step 0; step 1's backward pass is the first to reach the blocks' gates, and only after that update do the blocks leave the identity.
+
 ### 4.3　Time embedding
 
 $$\text{TimeEmbed}(t) = \text{MLP}\!\left(\text{SinusoidalEmb}(t)\right),\quad \text{SinusoidalEmb}(t)_{2i} = \sin\!\left(t / 10000^{2i/D}\right)$$
@@ -1453,6 +1455,7 @@ This cheat sheet covers latent diffusion mathematics (VAE + DDPM/RF + CFG) throu
 
 Minimal runnable PyTorch implementations of the MM-DiT / latent diffusion components in this tutorial live in [`docs/tutorials/code/`](code/):
 
+- [`dit.py`](code/dit.py) — the classic single-stream class-conditional DiT: patchify / unpatchify, 2D sin-cos position embedding, adaLN-Zero block (`1 + γ`, six-way modulation MLP zero-initialised), zero-initialised final layer, null class for CFG; asserts the three §4.2 properties
 - [`mmdit_block.py`](code/mmdit_block.py) — double-stream MMDiT block: text + image independent Q/K/V, concat along the seq dim and run one joint attention, per-stream FFN, AdaLN-Zero gated modulation
 - [`toy_mmdit_t2i_pipeline.py`](code/toy_mmdit_t2i_pipeline.py) — end-to-end toy T2I pipeline: toy text encoder + 8× 16-channel VAE + 4-layer MMDiT + FlowMatchEuler scheduler + norm-preserving true CFG
 
